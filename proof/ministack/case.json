@@ -20,7 +20,8 @@
       17451,
       17452,
       17453
-    ]
+    ],
+    "temporal_http_ingress": 17243
   },
   "temporal_instances": [
     {
