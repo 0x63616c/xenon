@@ -232,6 +232,8 @@ def main():
             omes,omes_inputs=prepare_omes()
             probe('fuzz-endpoint',timeout=60)
             event('fuzz-endpoint-created')
+            readiness=probe('fuzz-endpoint-ready',timeout=75)
+            event('fuzz-endpoint-functionally-ready',**readiness)
             config=json.loads((ROOT/'proof/omes-corpus/soak.json').read_text())
             signal.alarm(config['controller_timeout_seconds'])
             run([sys.executable,'scripts/fuzz-soak.py','--evidence-dir',str(evidence/'fuzz'),'--omes-binary',str(ROOT/'.local/bin/omes'),'--omes-source',str(omes)],config['controller_timeout_seconds']-60)
