@@ -20,11 +20,11 @@ def main():
   run(['docker','run','-d','--name',name,'--label','xenon.proof=visibility-text','--platform',pins['platform'],'--network','none','--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_INITDB_ARGS=--locale=C --encoding=UTF8',pins['image']])
   deadline=time.monotonic()+60
   while True:
-   ready=subprocess.run(['docker','exec',name,'pg_isready','-U','postgres'],capture_output=True,timeout=10)
+   ready=subprocess.run(['docker','exec',name,'pg_isready','-h','127.0.0.1','-U','postgres'],capture_output=True,timeout=10)
    if ready.returncode==0:break
    if time.monotonic()>deadline:raise RuntimeError('oracle startup deadline')
    time.sleep(.25)
-  version=run(['docker','exec',name,'psql','-U','postgres','-X','-qAt','-c',"SELECT current_setting('server_version'),datcollate,current_setting('server_encoding') FROM pg_database WHERE datname=current_database()"])
+  version=run(['docker','exec',name,'psql','-h','127.0.0.1','-U','postgres','-X','-qAt','-c',"SELECT current_setting('server_version'),datcollate,current_setting('server_encoding') FROM pg_database WHERE datname=current_database()"])
   if version!='16.15 (Debian 16.15-1.pgdg13+2)|C|UTF8':raise RuntimeError('PostgreSQL version/collation pin mismatch: '+version)
   result['postgres']=version;result['image_id']=run(['docker','inspect',name,'--format','{{.Image}}'])
   sql="CREATE OR REPLACE FUNCTION pg_temp.probe(v text,q text) RETURNS jsonb LANGUAGE plpgsql AS $$ DECLARE vv tsvector; qq tsquery; BEGIN vv:=v::tsvector; qq:=q::tsquery; RETURN jsonb_build_object('Match',vv@@qq,'Error',false); EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('Match',false,'Error',true); END $$;\n"
@@ -32,7 +32,7 @@ def main():
    query=' | '.join(x for x in c['Query'].split(' ') if x)
    sql+='SELECT pg_temp.probe('+literal(c['Vector'])+','+literal(query)+')::text;\n'
   result['sql_sha256']=hashlib.sha256(sql.encode()).hexdigest()
-  observed=run(['docker','exec','-i',name,'psql','-U','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],input=sql)
+  observed=run(['docker','exec','-i',name,'psql','-h','127.0.0.1','-U','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],input=sql)
   (output/'postgres.jsonl').write_text(observed+'\n');rows=[json.loads(line) for line in observed.splitlines()]
   if len(rows)!=len(cases):raise RuntimeError('oracle result count mismatch')
   for index,(case,row) in enumerate(zip(cases,rows)):
