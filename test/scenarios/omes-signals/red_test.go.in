@@ -1,0 +1,18 @@
+package kitchensink
+import (
+ "testing"
+ "time"
+ pb "github.com/temporalio/omes/loadgen/kitchensink"
+ common "go.temporal.io/api/common/v1"
+ "github.com/temporalio/omes/clioptions"
+ "go.temporal.io/sdk/testsuite"
+)
+func TestXenonOriginalGeneratedReturn(t *testing.T){
+ var suite testsuite.WorkflowTestSuite;env:=suite.NewTestWorkflowEnvironment();env.SetDataConverter(clioptions.OmesDataConverter());env.RegisterWorkflow(KitchenSinkWorkflow)
+ result:=&pb.ReturnResultAction{ReturnThis:&common.Payload{Metadata:map[string][]byte{"encoding":[]byte("binary/null")}}}
+ signal:=&pb.DoSignal_DoSignalActions{SignalId:2,Variant:&pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain:&pb.ActionSet{Actions:[]*pb.Action{{Variant:&pb.Action_ReturnResult{ReturnResult:result}}}}}}
+ env.RegisterDelayedCallback(func(){env.SignalWorkflow("do_actions_signal",signal)},time.Second)
+ env.RegisterDelayedCallback(func(){env.CancelWorkflow()},2*time.Second)
+ env.ExecuteWorkflow(KitchenSinkWorkflow,(*pb.WorkflowInput)(nil))
+ if env.GetWorkflowError()!=nil{t.Fatal("ORIGINAL_NUMBERED_RETURN_SKIPPED")}
+}

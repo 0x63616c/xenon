@@ -1,0 +1,41 @@
+diff --git a/workers/proto/kitchen_sink/kitchen_sink.proto b/workers/proto/kitchen_sink/kitchen_sink.proto
+index 39a2927..3a90555 100644
+--- a/workers/proto/kitchen_sink/kitchen_sink.proto
++++ b/workers/proto/kitchen_sink/kitchen_sink.proto
+@@ -176,6 +176,9 @@ message WorkflowInput {
+   // Signal de-duplication state (used when continuing as new). Signal IDs use 1-based indexing.
+   repeated int32 expected_signal_ids = 3;
+   repeated int32 received_signal_ids = 4;
++
++  // Xenon compatibility overlay: allowed once, without a completion dependency.
++  repeated int32 optional_signal_ids = 5;
+ }
+ 
+ // A set of actions to execute concurrently or sequentially. It is necessary to be able to represent
+diff --git a/workers/go/workerlib/kitchensink/kitchen_sink.go b/workers/go/workerlib/kitchensink/kitchen_sink.go
+index 873e0be..0e3d806 100644
+--- a/workers/go/workerlib/kitchensink/kitchen_sink.go
++++ b/workers/go/workerlib/kitchensink/kitchen_sink.go
+@@ -238,7 +238,7 @@ func isSignalAlreadyReceived(params *kitchensink.WorkflowInput, signalID int32)
+ 		return true
+ 	}
+ 	// If the signal ID is not in the expected list, it means we already processed it
+-	return !slices.Contains(params.ExpectedSignalIds, signalID)
++	return !slices.Contains(params.ExpectedSignalIds, signalID) && !slices.Contains(params.OptionalSignalIds, signalID)
+ }
+ 
+ // handleSignalDeduplication removes a received signal ID from the expected list.
+@@ -246,6 +246,13 @@ func handleSignalDeduplication(params *kitchensink.WorkflowInput, signalID int32
+ 	if params == nil {
+ 		return
+ 	}
++	// Optional IDs are a strict whitelist, consumed once without delaying return.
++	for i, id := range params.OptionalSignalIds {
++		if id == signalID {
++			params.OptionalSignalIds = append(params.OptionalSignalIds[:i], params.OptionalSignalIds[i+1:]...)
++			return
++		}
++	}
+ 	// Remove the signal ID from the expected slice
+ 	for i, id := range params.ExpectedSignalIds {
+ 		if id == signalID {
