@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "go-shard",
+  "name": "go-namespace",
   "backend": "memory",
   "timeout_seconds_per_command": 600,
   "required_tool_prefixes": {
@@ -34,7 +34,11 @@
     "gen/xenon/v1/metadata.pb.go",
     "gen/xenon/v1/metadata_grpc.pb.go",
     "internal/node/journal.go",
-    "internal/node/metadata.go"
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go"
   ],
   "fault_schedule": "case.json drop_first_completed_update_response; Rust stalled WAL flush and competing writer tests use committed deterministic transitions.",
   "assertions": [
@@ -43,7 +47,10 @@
     "Shard and outcomes reopen together; replay cannot bypass writer fencing.",
     "Missing Update and range mismatch preserve distinct typed errors.",
     "Stalled durability quarantines; caller timeout and admission are bounded.",
-    "All integration fixtures execute only the freshly built Go owner; no Rust server fallback."
+    "All integration fixtures execute only the freshly built Go owner; no Rust server fallback.",
+    "All namespace MetadataStore methods execute across real gRPC into the Go SlateDB owner.",
+    "Namespace rename/version/name indexes and durable outcomes update atomically; replay cannot cross operation families.",
+    "Near-limit namespace records paginate within the default gRPC receive limit and replay identically."
   ],
   "limitations": [
     "Single logical partition; no directory/routing/full Temporal boot.",
@@ -104,6 +111,30 @@
         "TestShardTransportBoundsAndTypes/ResourceExhausted",
         "TestShardTransportBoundsAndTypes/InvalidArgument",
         "TestShardTransportBoundsAndTypes/OK"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNamespaceRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestNamespaceRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNamespaceByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestNamespaceByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNamespaceRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNamespaceRecovery"
       ]
     }
   ]

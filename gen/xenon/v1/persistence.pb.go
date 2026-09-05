@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v7.36.0
-// source: proto/xenon/v1/persistence.proto
+// source: xenon/v1/persistence.proto
 
 package xenonv1
 
@@ -60,11 +60,11 @@ func (x ShardCommand_Kind) String() string {
 }
 
 func (ShardCommand_Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_xenon_v1_persistence_proto_enumTypes[0].Descriptor()
+	return file_xenon_v1_persistence_proto_enumTypes[0].Descriptor()
 }
 
 func (ShardCommand_Kind) Type() protoreflect.EnumType {
-	return &file_proto_xenon_v1_persistence_proto_enumTypes[0]
+	return &file_xenon_v1_persistence_proto_enumTypes[0]
 }
 
 func (x ShardCommand_Kind) Number() protoreflect.EnumNumber {
@@ -73,7 +73,7 @@ func (x ShardCommand_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ShardCommand_Kind.Descriptor instead.
 func (ShardCommand_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{0, 0}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{0, 0}
 }
 
 type ShardResult_Error int32
@@ -112,11 +112,11 @@ func (x ShardResult_Error) String() string {
 }
 
 func (ShardResult_Error) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_xenon_v1_persistence_proto_enumTypes[1].Descriptor()
+	return file_xenon_v1_persistence_proto_enumTypes[1].Descriptor()
 }
 
 func (ShardResult_Error) Type() protoreflect.EnumType {
-	return &file_proto_xenon_v1_persistence_proto_enumTypes[1]
+	return &file_xenon_v1_persistence_proto_enumTypes[1]
 }
 
 func (x ShardResult_Error) Number() protoreflect.EnumNumber {
@@ -125,7 +125,7 @@ func (x ShardResult_Error) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ShardResult_Error.Descriptor instead.
 func (ShardResult_Error) EnumDescriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{2, 0}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{2, 0}
 }
 
 type ShardCommand struct {
@@ -143,7 +143,7 @@ type ShardCommand struct {
 
 func (x *ShardCommand) Reset() {
 	*x = ShardCommand{}
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[0]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +155,7 @@ func (x *ShardCommand) String() string {
 func (*ShardCommand) ProtoMessage() {}
 
 func (x *ShardCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[0]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +168,7 @@ func (x *ShardCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShardCommand.ProtoReflect.Descriptor instead.
 func (*ShardCommand) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{0}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ShardCommand) GetKind() ShardCommand_Kind {
@@ -233,7 +233,7 @@ type ShardRequest struct {
 
 func (x *ShardRequest) Reset() {
 	*x = ShardRequest{}
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[1]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +245,7 @@ func (x *ShardRequest) String() string {
 func (*ShardRequest) ProtoMessage() {}
 
 func (x *ShardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[1]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +258,7 @@ func (x *ShardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShardRequest.ProtoReflect.Descriptor instead.
 func (*ShardRequest) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{1}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ShardRequest) GetProtocolVersion() uint32 {
@@ -310,7 +310,7 @@ type ShardResult struct {
 
 func (x *ShardResult) Reset() {
 	*x = ShardResult{}
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[2]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -322,7 +322,7 @@ func (x *ShardResult) String() string {
 func (*ShardResult) ProtoMessage() {}
 
 func (x *ShardResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[2]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -335,7 +335,7 @@ func (x *ShardResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShardResult.ProtoReflect.Descriptor instead.
 func (*ShardResult) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{2}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ShardResult) GetError() ShardResult_Error {
@@ -391,7 +391,7 @@ type StoredShard struct {
 
 func (x *StoredShard) Reset() {
 	*x = StoredShard{}
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[3]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -403,7 +403,7 @@ func (x *StoredShard) String() string {
 func (*StoredShard) ProtoMessage() {}
 
 func (x *StoredShard) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[3]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -416,7 +416,7 @@ func (x *StoredShard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoredShard.ProtoReflect.Descriptor instead.
 func (*StoredShard) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{3}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *StoredShard) GetRangeId() int64 {
@@ -443,14 +443,18 @@ func (x *StoredShard) GetEncoding() int32 {
 type StoredOutcome struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CommandSha256 []byte                 `protobuf:"bytes,1,opt,name=command_sha256,json=commandSha256,proto3" json:"command_sha256,omitempty"`
-	Result        *ShardResult           `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	// Types that are valid to be assigned to Result:
+	//
+	//	*StoredOutcome_ShardResult
+	//	*StoredOutcome_MetadataResult
+	Result        isStoredOutcome_Result `protobuf_oneof:"result"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StoredOutcome) Reset() {
 	*x = StoredOutcome{}
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[4]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +466,7 @@ func (x *StoredOutcome) String() string {
 func (*StoredOutcome) ProtoMessage() {}
 
 func (x *StoredOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_persistence_proto_msgTypes[4]
+	mi := &file_xenon_v1_persistence_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +479,7 @@ func (x *StoredOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoredOutcome.ProtoReflect.Descriptor instead.
 func (*StoredOutcome) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_persistence_proto_rawDescGZIP(), []int{4}
+	return file_xenon_v1_persistence_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *StoredOutcome) GetCommandSha256() []byte {
@@ -485,18 +489,52 @@ func (x *StoredOutcome) GetCommandSha256() []byte {
 	return nil
 }
 
-func (x *StoredOutcome) GetResult() *ShardResult {
+func (x *StoredOutcome) GetResult() isStoredOutcome_Result {
 	if x != nil {
 		return x.Result
 	}
 	return nil
 }
 
-var File_proto_xenon_v1_persistence_proto protoreflect.FileDescriptor
+func (x *StoredOutcome) GetShardResult() *ShardResult {
+	if x != nil {
+		if x, ok := x.Result.(*StoredOutcome_ShardResult); ok {
+			return x.ShardResult
+		}
+	}
+	return nil
+}
 
-const file_proto_xenon_v1_persistence_proto_rawDesc = "" +
+func (x *StoredOutcome) GetMetadataResult() *MetadataResult {
+	if x != nil {
+		if x, ok := x.Result.(*StoredOutcome_MetadataResult); ok {
+			return x.MetadataResult
+		}
+	}
+	return nil
+}
+
+type isStoredOutcome_Result interface {
+	isStoredOutcome_Result()
+}
+
+type StoredOutcome_ShardResult struct {
+	ShardResult *ShardResult `protobuf:"bytes,2,opt,name=shard_result,json=shardResult,proto3,oneof"`
+}
+
+type StoredOutcome_MetadataResult struct {
+	MetadataResult *MetadataResult `protobuf:"bytes,3,opt,name=metadata_result,json=metadataResult,proto3,oneof"`
+}
+
+func (*StoredOutcome_ShardResult) isStoredOutcome_Result() {}
+
+func (*StoredOutcome_MetadataResult) isStoredOutcome_Result() {}
+
+var File_xenon_v1_persistence_proto protoreflect.FileDescriptor
+
+const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\n" +
-	" proto/xenon/v1/persistence.proto\x12\bxenon.v1\"\xb9\x02\n" +
+	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\"\xb9\x02\n" +
 	"\fShardCommand\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.xenon.v1.ShardCommand.KindR\x04kind\x12\x19\n" +
 	"\bshard_id\x18\x02 \x01(\x05R\ashardId\x12*\n" +
@@ -534,28 +572,30 @@ const file_proto_xenon_v1_persistence_proto_rawDesc = "" +
 	"\vStoredShard\x12\x19\n" +
 	"\brange_id\x18\x01 \x01(\x03R\arangeId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x03 \x01(\x05R\bencoding\"e\n" +
+	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\xc1\x01\n" +
 	"\rStoredOutcome\x12%\n" +
-	"\x0ecommand_sha256\x18\x01 \x01(\fR\rcommandSha256\x12-\n" +
-	"\x06result\x18\x02 \x01(\v2\x15.xenon.v1.ShardResultR\x06result2L\n" +
+	"\x0ecommand_sha256\x18\x01 \x01(\fR\rcommandSha256\x12:\n" +
+	"\fshard_result\x18\x02 \x01(\v2\x15.xenon.v1.ShardResultH\x00R\vshardResult\x12C\n" +
+	"\x0fmetadata_result\x18\x03 \x01(\v2\x18.xenon.v1.MetadataResultH\x00R\x0emetadataResultB\b\n" +
+	"\x06result2L\n" +
 	"\x10ShardPersistence\x128\n" +
 	"\aExecute\x12\x16.xenon.v1.ShardRequest\x1a\x15.xenon.v1.ShardResultB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
 
 var (
-	file_proto_xenon_v1_persistence_proto_rawDescOnce sync.Once
-	file_proto_xenon_v1_persistence_proto_rawDescData []byte
+	file_xenon_v1_persistence_proto_rawDescOnce sync.Once
+	file_xenon_v1_persistence_proto_rawDescData []byte
 )
 
-func file_proto_xenon_v1_persistence_proto_rawDescGZIP() []byte {
-	file_proto_xenon_v1_persistence_proto_rawDescOnce.Do(func() {
-		file_proto_xenon_v1_persistence_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_persistence_proto_rawDesc), len(file_proto_xenon_v1_persistence_proto_rawDesc)))
+func file_xenon_v1_persistence_proto_rawDescGZIP() []byte {
+	file_xenon_v1_persistence_proto_rawDescOnce.Do(func() {
+		file_xenon_v1_persistence_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_xenon_v1_persistence_proto_rawDesc), len(file_xenon_v1_persistence_proto_rawDesc)))
 	})
-	return file_proto_xenon_v1_persistence_proto_rawDescData
+	return file_xenon_v1_persistence_proto_rawDescData
 }
 
-var file_proto_xenon_v1_persistence_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_xenon_v1_persistence_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_proto_xenon_v1_persistence_proto_goTypes = []any{
+var file_xenon_v1_persistence_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_xenon_v1_persistence_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_xenon_v1_persistence_proto_goTypes = []any{
 	(ShardCommand_Kind)(0), // 0: xenon.v1.ShardCommand.Kind
 	(ShardResult_Error)(0), // 1: xenon.v1.ShardResult.Error
 	(*ShardCommand)(nil),   // 2: xenon.v1.ShardCommand
@@ -563,42 +603,49 @@ var file_proto_xenon_v1_persistence_proto_goTypes = []any{
 	(*ShardResult)(nil),    // 4: xenon.v1.ShardResult
 	(*StoredShard)(nil),    // 5: xenon.v1.StoredShard
 	(*StoredOutcome)(nil),  // 6: xenon.v1.StoredOutcome
+	(*MetadataResult)(nil), // 7: xenon.v1.MetadataResult
 }
-var file_proto_xenon_v1_persistence_proto_depIdxs = []int32{
+var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	0, // 0: xenon.v1.ShardCommand.kind:type_name -> xenon.v1.ShardCommand.Kind
 	2, // 1: xenon.v1.ShardRequest.command:type_name -> xenon.v1.ShardCommand
 	1, // 2: xenon.v1.ShardResult.error:type_name -> xenon.v1.ShardResult.Error
-	4, // 3: xenon.v1.StoredOutcome.result:type_name -> xenon.v1.ShardResult
-	3, // 4: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
-	4, // 5: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 3: xenon.v1.StoredOutcome.shard_result:type_name -> xenon.v1.ShardResult
+	7, // 4: xenon.v1.StoredOutcome.metadata_result:type_name -> xenon.v1.MetadataResult
+	3, // 5: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
+	4, // 6: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
+	6, // [6:7] is the sub-list for method output_type
+	5, // [5:6] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
-func init() { file_proto_xenon_v1_persistence_proto_init() }
-func file_proto_xenon_v1_persistence_proto_init() {
-	if File_proto_xenon_v1_persistence_proto != nil {
+func init() { file_xenon_v1_persistence_proto_init() }
+func file_xenon_v1_persistence_proto_init() {
+	if File_xenon_v1_persistence_proto != nil {
 		return
+	}
+	file_xenon_v1_metadata_proto_init()
+	file_xenon_v1_persistence_proto_msgTypes[4].OneofWrappers = []any{
+		(*StoredOutcome_ShardResult)(nil),
+		(*StoredOutcome_MetadataResult)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_persistence_proto_rawDesc), len(file_proto_xenon_v1_persistence_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xenon_v1_persistence_proto_rawDesc), len(file_xenon_v1_persistence_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_xenon_v1_persistence_proto_goTypes,
-		DependencyIndexes: file_proto_xenon_v1_persistence_proto_depIdxs,
-		EnumInfos:         file_proto_xenon_v1_persistence_proto_enumTypes,
-		MessageInfos:      file_proto_xenon_v1_persistence_proto_msgTypes,
+		GoTypes:           file_xenon_v1_persistence_proto_goTypes,
+		DependencyIndexes: file_xenon_v1_persistence_proto_depIdxs,
+		EnumInfos:         file_xenon_v1_persistence_proto_enumTypes,
+		MessageInfos:      file_xenon_v1_persistence_proto_msgTypes,
 	}.Build()
-	File_proto_xenon_v1_persistence_proto = out.File
-	file_proto_xenon_v1_persistence_proto_goTypes = nil
-	file_proto_xenon_v1_persistence_proto_depIdxs = nil
+	File_xenon_v1_persistence_proto = out.File
+	file_xenon_v1_persistence_proto_goTypes = nil
+	file_xenon_v1_persistence_proto_depIdxs = nil
 }

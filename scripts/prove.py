@@ -57,7 +57,7 @@ def command(spec):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
-        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes"):
+        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination"):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
@@ -107,7 +107,7 @@ def run_process(argv, timeout, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "go-bindings", "go-shard"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "go-bindings", "go-shard", "go-namespace"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -122,7 +122,7 @@ def main():
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
         raise ValueError("shard proof must build the node before tests")
-    if args.name == "go-shard" and (not commands or commands[0][2] != "go-node-build"):
+    if args.name in ("go-shard", "go-namespace") and (not commands or commands[0][2] != "go-node-build"):
         raise ValueError("Go shard proof must build native Go node first")
     if not commands:
         raise ValueError("empty experiment")
@@ -130,7 +130,7 @@ def main():
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
     if args.name == "shard":
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
-    if args.name == "go-shard":
+    if args.name in ("go-shard", "go-namespace"):
         target = ROOT / ".local/slatedb-native-target/debug"
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
     def git(*argv):
@@ -199,7 +199,7 @@ def main():
                 report["node_binary_sha256"] = digest(binary)
             elif runner in ("go-test-shard", "go-test-node"):
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else "github.com/0x63616c/xenon/internal/adapter")
-                binary = ROOT / (".local/bin/xenon-go-node" if args.name == "go-shard" else "target/debug/xenon-node")
+                binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace") else "target/debug/xenon-node")
                 if digest(binary) != report.get("node_binary_sha256"):
                     raise ValueError("node binary changed during tests")
             else:
@@ -214,7 +214,7 @@ def main():
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name == "shard" and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
-        if args.name == "go-shard":
+        if args.name in ("go-shard", "go-namespace"):
             native_build = report["native_build"]
             if digest(ROOT / native_build["shared_library"]) != native_build["shared_library_sha256"]:
                 raise ValueError("native library changed during experiment")
