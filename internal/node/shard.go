@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/google/uuid"
 	"regexp"
 	"sync/atomic"
 	"time"
@@ -25,6 +26,9 @@ type Config struct {
 	OperationTimeout time.Duration
 	AdmissionTimeout time.Duration
 	MaxAdmitted      int
+	// Authority runs under the partition gate before every operation. When set,
+	// all returned results also require a nonempty durable native barrier.
+	Authority func(context.Context) error
 }
 
 func DefaultConfig(partition string) Config {
@@ -51,6 +55,7 @@ func NewOwner(db *native.Db, c Config) (*Owner, error) {
 	}
 	return &Owner{db: db, config: c, gate: make(chan struct{}, 1), admitted: make(chan struct{}, c.MaxAdmitted)}, nil
 }
+func (o *Owner) Retire()                       { o.quarantined.Store(true) }
 func (o *Owner) Quarantined() bool             { return o.quarantined.Load() }
 func (o *Owner) ActiveNativeOperations() int32 { return o.active.Load() }
 
@@ -170,7 +175,19 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	defer close(decision)
 	o.active.Add(1)
 	go func() {
-		result, err := operation(o.db)
+		var result []byte
+		var err error
+		if o.config.Authority != nil {
+			err = o.config.Authority(ctx)
+		}
+		if err != nil {
+			err = status.Errorf(codes.Unavailable, "ownership authority unavailable: %v", err)
+		} else {
+			result, err = operation(o.db)
+			if err == nil && o.config.Authority != nil {
+				err = o.authorityBarrier()
+			}
+		}
 		if status.Code(err) == codes.Unavailable {
 			o.quarantined.Store(true)
 		}
@@ -288,4 +305,18 @@ func copyShard(result *wire.ShardResult, shard *wire.StoredShard) {
 	result.RangeId = shard.RangeId
 	result.Data = shard.Data
 	result.Encoding = shard.Encoding
+}
+
+// authorityBarrier overwrites one reserved key. Even read/replay-only operations
+// must touch the WAL and await durability to detect a delayed opener's fence.
+func (o *Owner) authorityBarrier() error {
+	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
+	if err != nil {
+		return backend(err)
+	}
+	defer tx.Destroy()
+	if err = put(tx, "v1/ownership/read-barrier", []byte(uuid.NewString())); err != nil {
+		return err
+	}
+	return commit(tx)
 }

@@ -3,7 +3,9 @@ package adapter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"go.temporal.io/api/serviceerror"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
@@ -82,6 +84,14 @@ func TestExecutionTasksRPC(t *testing.T) {
 	defer store.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fixture.TestTimeoutSeconds)*time.Second)
 	defer cancel()
+	if err := store.AddHistoryTasks(ctx, &p.InternalAddHistoryTasksRequest{ShardID: 9999, RangeID: 31}); err == nil {
+		t.Fatal("missing shard accepted")
+	} else {
+		var unavailable *serviceerror.Unavailable
+		if !errors.As(err, &unavailable) {
+			t.Fatalf("missing shard type %T: %v", err, err)
+		}
+	}
 	ids := []int64{-3, 0, 9007199254740993, math.MaxInt64}
 	for _, id := range ids {
 		info := &persistencespb.ReplicationTaskInfo{TaskId: id, NamespaceId: "opaque-namespace", WorkflowId: "opaque-workflow"}

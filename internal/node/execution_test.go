@@ -71,6 +71,10 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 		}
 		return r
 	}
+	missing := &wire.ExecutionCommand{Kind: wire.ExecutionCommand_SET, ShardId: 9999, RangeId: fixture.Range, Snapshot: image(fixture.Runs[0], 1)}
+	if result, err := s.Execute(ctx, executionRequest("missing-shard", missing)); err != nil || result.Error != wire.ExecutionResult_UNAVAILABLE || o.Quarantined() {
+		t.Fatal(result, err, o.Quarantined())
+	}
 	first := image(fixture.Runs[0], 1)
 	task := &wire.ExecutionTask{CategoryId: 2, CategoryType: 2, TaskId: 1, FireSeconds: -1, FireNanos: 999999999, Blob: &wire.HistoryBlob{Data: []byte{255, 0}, Encoding: 2}}
 	task2 := proto.Clone(task).(*wire.ExecutionTask)

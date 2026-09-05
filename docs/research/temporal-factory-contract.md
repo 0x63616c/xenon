@@ -1,0 +1,9 @@
+# Temporal factory integration
+
+Temporal v1.31.2 exposes WithCustomDataStoreFactory. Xenon implements its AbstractDataStoreFactory and all nine DataStoreFactory constructors, including fair matching and the composed execution store. Options are strict strings: address, historyPartition, matchingPartition and globalPartition. Name must be xenon. Invalid configuration fails store creation; there is no SQL or in-memory fallback. Factory shutdown closes its connections and rejects new stores, without closing node engines or changing durable state.
+
+Delegated agent decision: the initial boot layout keeps all history shards and generated tasks in one history domain, every matching queue and namespace-wide user-data batch in a matching domain, and global catalogs/queues together. These domains can move independently through the S3 directory. This proves an integration stage only. Final scalability acceptance still requires deterministic history-shard routing and GetAllHistoryTreeBranches fanout; multiple domains alone do not prove history capacity scaling.
+
+The address is a stable service ingress. A single directly configured node address does not provide ingress failover. The ministack must expose a live load balancer or Kubernetes Service for node-crash tests. Node ownership remains independent of Temporal process membership.
+
+Run python3 scripts/prove.py go-runtime-stores from a clean checkout. This unions the preceding persistence proofs with execution, fair matching and actual factory-created gRPC adapters. The factory test uses three separate native memory object-store databases and verifies configured routing, fair/legacy isolation, factory closure, persistence after reconnection and invalid options. This is not full Temporal boot or real S3 evidence. Visibility uses Temporal's separate custom visibility factory and remains an integration dependency.
