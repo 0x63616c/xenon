@@ -17,6 +17,7 @@ import urllib.request
 import uuid
 from resource_samples import ProcessSampler
 import runtime_measurements
+from omes_workloads import effective_sdk
 
 ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -243,8 +244,8 @@ def main():
         run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
         worker_program=omes/'workers/go/prepared/program'
         report['omes_worker_build_info']=run(['go','version','-m',str(worker_program)])
-        dependencies=[line.split() for line in report['omes_worker_build_info'].splitlines()]
-        if not any(fields[:3]==['dep','go.temporal.io/sdk',pins['omes']['worker_go_sdk']] for fields in dependencies):raise RuntimeError('prepared Omes binary SDK pin mismatch')
+        report['effective_omes_worker_sdk']=effective_sdk(report['omes_worker_build_info'])
+        if report['effective_omes_worker_sdk']['version']!=pins['omes']['worker_go_sdk']:raise RuntimeError('prepared Omes binary SDK pin mismatch')
         report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
         def omes_inputs():return {str(path.relative_to(omes)):sha(path) for path in (omes/'workers/go/prepared').rglob('*') if path.is_file()}
         report['omes_generated_sha256']=omes_inputs()
