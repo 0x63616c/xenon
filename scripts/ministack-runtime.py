@@ -187,6 +187,10 @@ def main():
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
         run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
         run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
+        report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
+        def omes_inputs():return {str(path.relative_to(omes)):sha(path) for path in (omes/'workers/go/prepared').rglob('*') if path.is_file()}
+        report['omes_generated_sha256']=omes_inputs()
+        if not report['omes_generated_sha256']:raise RuntimeError('missing prepared Omes worker artifacts')
         omes_process=launch('omes',[str(ROOT/'.local/bin/omes'),*case['omes_command']])
         # Pinned getRepoDir uses runtime.Caller's build-source path. Build without
         # -trimpath above and retain the verified checkout for its worker builder.
@@ -204,9 +208,8 @@ def main():
         run(['npm','ci','--ignore-scripts'],120,cwd=ui)
         run(['npx','playwright','install','chromium'],300,cwd=ui)
         run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
-        report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
-        report['omes_generated_sha256']={str(path.relative_to(omes)):sha(path) for folder in [omes/'workers/go/prepared'] for path in folder.rglob('*') if path.is_file()}
-        if not report['omes_generated_sha256']:raise RuntimeError('missing retained Omes worker artifacts')
+        if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker inputs changed during workload')
+        if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256']:raise RuntimeError('Omes binary changed during workload')
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
         event('ui-assertions-passed');checkpoint('before-cold-restart')
         # Explicit final cold-local restart retains only the S3 service volume.
