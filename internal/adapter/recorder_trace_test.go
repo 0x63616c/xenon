@@ -19,7 +19,7 @@ import (
 )
 
 func TestRecorderAdapterTimingAndLoss(t *testing.T) {
-	for _, mode := range []string{"delayed-lost-ack", "recorder-death"} {
+	for _, mode := range []string{"delayed_lost_ack", "recorder_death"} {
 		t.Run(mode, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "journal")
 			journal, err := recorder.New(path, 100)
@@ -41,7 +41,7 @@ func TestRecorderAdapterTimingAndLoss(t *testing.T) {
 					http.Error(w, "rejected", 409)
 					return
 				}
-				if mode == "recorder-death" && e.Kind == "register" && e.Measurement == "rpc_invocation" {
+				if mode == "recorder_death" && e.Kind == "register" && e.Measurement == "rpc_invocation" {
 					w.Header().Set("Connection", "close")
 					_ = endpoint.Listener.Close()
 					w.WriteHeader(204)
@@ -50,7 +50,7 @@ func TestRecorderAdapterTimingAndLoss(t *testing.T) {
 				if e.Kind == "register" {
 					time.Sleep(20 * time.Millisecond)
 				}
-				if mode == "delayed-lost-ack" && e.Kind == "register" && !dropped.Swap(true) {
+				if mode == "delayed_lost_ack" && e.Kind == "register" && !dropped.Swap(true) {
 					conn, _, err := w.(http.Hijacker).Hijack()
 					if err != nil {
 						t.Error(err)
@@ -84,7 +84,7 @@ func TestRecorderAdapterTimingAndLoss(t *testing.T) {
 			defer cancel()
 			started := time.Now()
 			_, err = store.invoke(rpctrace.WithObserver(ctx, observer), &wire.ShardCommand{Kind: wire.ShardCommand_GET, ShardId: 1})
-			if mode == "recorder-death" {
+			if mode == "recorder_death" {
 				if err == nil || backend.calls != 0 || observer.Failure() == nil || time.Since(started) > 3*time.Second {
 					t.Fatal("observer loss admitted work or failed open", err, backend.calls)
 				}
