@@ -90,18 +90,18 @@ func applyNexus(tx *native.DbTransaction, c *wire.NexusCommand) (*wire.NexusResu
 	}
 	switch c.Kind {
 	case wire.NexusCommand_LIST:
-		if c.TableVersion != 0 && c.TableVersion != version {
-			return fail(wire.NexusResult_UNAVAILABLE, "nexus endpoints table version mismatch")
-		}
-		if c.PageSize <= 0 {
-			return r, nil
-		}
 		var after []byte
 		if len(c.NextPageToken) > 0 {
 			if len(c.NextPageToken) != 17 || c.NextPageToken[0] != 1 {
 				return fail(wire.NexusResult_INTERNAL, "invalid nexus page token")
 			}
 			after = c.NextPageToken[1:]
+		}
+		if c.TableVersion != 0 && c.TableVersion != version {
+			return fail(wire.NexusResult_UNAVAILABLE, "nexus endpoints table version mismatch")
+		}
+		if c.PageSize <= 0 {
+			return r, nil
 		}
 		var last []byte
 		truncated := false

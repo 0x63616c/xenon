@@ -39,6 +39,12 @@ func TestGoOwnerNexusRecovery(t *testing.T) {
 		}
 		return r
 	}
+	for _, pageSize := range []int64{0, 1} {
+		badToken := call(&wire.NexusCommand{Kind: wire.NexusCommand_LIST, PageSize: pageSize, TableVersion: 123, NextPageToken: []byte{1}})
+		if badToken.Error != wire.NexusResult_INTERNAL {
+			t.Fatal("token validation ordering", badToken)
+		}
+	}
 	id := bytes.Repeat([]byte{1}, 16)
 	q := nexusRequest("nexus-create", &wire.NexusCommand{Endpoint: &wire.NexusEndpoint{Id: id, Data: []byte{0, 255}, Encoding: 2}})
 	first, e := s.Execute(ctx, q)
