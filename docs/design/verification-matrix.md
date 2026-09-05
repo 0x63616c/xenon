@@ -28,3 +28,43 @@ The clean maintenance proof retained SlateDB's native900-second compaction check
 GitHub hosted CI is currently blocked before job execution: run33991201675/check101373635097 reports an account payment or spending-limit problem. No account settings were changed and CI is not waived. Local gates continue. Twenty immutable Omes fuzz inputs and strict integrity/replay-definition checks are committed under `proof/omes-corpus`; runtime replay is still unexecuted (#69).
 
 Combined `make test-go` passed at804898e after a failed disk-exhaustion build; the failure is not reclassified. All22 Python harness regression tests passed at that integration. Full smoke retries preserve their distinct failure reports: browser setup, alias-cache readiness, daemon interruption and an initial workflow deadline have each prevented a complete pass. Component and bounded-stage successes are not combined into an invented whole-run success.
+
+## Integration checkpoint after repository cleanup
+
+At `473df11`, the Rust reference workspace lives under
+`test/compatibility/rust/`; the original Cargo lockfile is unchanged. Its ten
+workspace tests passed on the cleanup branch, and the clean registered four-command
+`primitive` proof passed on the integrated source
+(`20260905T231011Z-primitive-779cce4b`). `scripts/check-layout.py` verifies all
+registered input paths and the moved workspace. This is the first layout slice;
+scenario consolidation is not yet complete.
+
+The combined execution-discovery process-cut proof passed nine commands at
+`cf8c4ae` (`20260905T230256Z-process-cut-35a240d2`), including real MinIO-backed
+execution UPDATE cuts, independent raw state/journal checks, replay and native
+candidate rollback. Binding those controls into full Temporal fault workloads
+remains open.
+
+The earlier `ae1f663` run passed the SDK crash-recovery sequence, Omes20, node-C
+matching work and UI list/filter/detail/history. Its cold SDK histories recovered,
+but cold Omes visibility20 timed out. The overall receipt remains FAILED:
+`20260905T222810Z-xenon-ministack-cd6027cd9cf8`. Concurrent initial visibility reads
+were independently tested and integrated at `20ed571`; a complete cold rerun is
+still required.
+
+The first real fuzz-soak controller attempt
+`20260905T230543Z-xenon-ministack-96ea9ccced55` failed during the functional Nexus
+readiness workflow. No saved corpus input executed. The endpoint was created;
+readiness hit its declared deadline while matching calls also failed. Missing
+Nexus HTTP configuration and matching admission behavior are under investigation.
+The saved twenty inputs and one-hour/two-round soak contract remain unchanged.
+
+Temporal upgrade impact tooling and a project-local skill are integrated. Fixture
+controls passed; path classification is a review inventory, not upgrade
+compatibility. No new Temporal version has been adopted or verified.
+
+Duplicate component PRs are being closed only after ancestry/patch accounting
+against #66. #55 then #66 retain the merge path; `main` is still `457fad9`, not the
+integration branch. CI billing and authorized real-AWS access remain external
+gates. The website/docs are now explicitly in user-authorized scope (#78); Xenon
+is currently private/proprietary with no open-source release commitment.
