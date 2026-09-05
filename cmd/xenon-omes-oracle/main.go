@@ -27,6 +27,7 @@ type runAudit struct {
 	RunID         string         `json:"run_id"`
 	Status        string         `json:"status"`
 	NextRun       string         `json:"next_run,omitempty"`
+	PreviousRun   string         `json:"previous_run,omitempty"`
 	Events        map[string]int `json:"events"`
 	HistoryFile   string         `json:"history_file"`
 	HistorySHA256 string         `json:"history_sha256"`
@@ -43,7 +44,7 @@ func inspect(h *historypb.History, status enums.WorkflowExecutionStatus) (map[st
 		}
 		counts[e.EventType.String()]++
 	}
-	if h.Events[0].EventType != enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
+	if h.Events[0].EventType != enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED || h.Events[0].GetWorkflowExecutionStartedEventAttributes() == nil {
 		return nil, "", fmt.Errorf("history does not start at workflow start")
 	}
 	last := h.Events[len(h.Events)-1]
@@ -77,9 +78,15 @@ func chains(runs []runAudit) error {
 		byID[r.RunID] = r
 	}
 	for _, r := range runs {
+		if r.PreviousRun != "" {
+			previous, ok := byID[r.PreviousRun]
+			if !ok || previous.WorkflowID != r.WorkflowID || previous.NextRun != r.RunID {
+				return fmt.Errorf("missing or inconsistent predecessor")
+			}
+		}
 		if r.NextRun != "" {
 			next, ok := byID[r.NextRun]
-			if !ok || next.WorkflowID != r.WorkflowID {
+			if !ok || next.WorkflowID != r.WorkflowID || next.PreviousRun != r.RunID {
 				return fmt.Errorf("missing or wrong-workflow successor")
 			}
 			predecessors[r.NextRun]++
@@ -217,6 +224,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
+		runs[i].PreviousRun = h.Events[0].GetWorkflowExecutionStartedEventAttributes().GetContinuedExecutionRunId()
 		if *activity && runs[i].Events[enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED.String()] == 0 {
 			return fmt.Errorf("run lacks required completed activity")
 		}

@@ -8,7 +8,7 @@ import (
 
 func completed() *historypb.History {
 	return &historypb.History{Events: []*historypb.HistoryEvent{
-		{EventId: 1, EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED},
+		{EventId: 1, EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED, Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{}}},
 		{EventId: 2, EventType: enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED},
 		{EventId: 3, EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED, Attributes: &historypb.HistoryEvent_WorkflowExecutionCompletedEventAttributes{WorkflowExecutionCompletedEventAttributes: &historypb.WorkflowExecutionCompletedEventAttributes{}}},
 	}}
@@ -43,15 +43,17 @@ func TestHistoryAuditRejectsIncompleteAndMismatchedEvidence(t *testing.T) {
 }
 
 func TestRunGraphRequiresEverySuccessorAndRejectsCycles(t *testing.T) {
-	runs := []runAudit{{WorkflowID: "w", RunID: "first", NextRun: "second"}, {WorkflowID: "w", RunID: "second"}}
+	runs := []runAudit{{WorkflowID: "w", RunID: "first", NextRun: "second"}, {WorkflowID: "w", RunID: "second", PreviousRun: "first"}}
 	if err := chains(runs); err != nil {
 		t.Fatal(err)
 	}
 	for _, bad := range [][]runAudit{
 		runs[:1],
+		runs[1:], // A final run still points at the omitted predecessor.
+		{runs[0], {WorkflowID: "w", RunID: "second"}},
 		{runs[0], runs[0], runs[1]},
 		{runs[0], {WorkflowID: "other", RunID: "second"}},
-		{runs[0], {WorkflowID: "w", RunID: "second", NextRun: "first"}},
+		{{WorkflowID: "w", RunID: "first", PreviousRun: "second", NextRun: "second"}, {WorkflowID: "w", RunID: "second", PreviousRun: "first", NextRun: "first"}},
 		{runs[0], runs[1], {WorkflowID: "w", RunID: "third", NextRun: "second"}},
 	} {
 		if err := chains(bad); err == nil {

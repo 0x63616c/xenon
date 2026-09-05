@@ -13,7 +13,9 @@ command. Omes's pinned TaskQueueForRun maps run ID to `omes-<run-id>`; the oracl
 that exact task queue to enumerate all visible runs. It compares list and count,
 rejects duplicate records/cursor cycles, retrieves every history page, verifies
 contiguous event IDs and completed/Continue-As-New terminal consistency, and checks
-that every successor belongs to the same workflow with no missing runs or cycles.
+that every successor and started-event predecessor link agree in both directions,
+belong to the same workflow, and contain no missing runs or cycles. An omitted
+Continue-As-New predecessor fails even if the final run is visible.
 The simple workload additionally requires a completed activity in each history.
 
 Raw histories, including terminal result payloads, are retained with hashes. This
