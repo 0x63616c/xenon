@@ -155,6 +155,9 @@ def main():
         for name,path,tags in [('xenon-topology','./cmd/xenon-topology',[]),('xenon-sdk-probe','./cmd/xenon-sdk-probe',[]),('xenon-temporal','./cmd/xenon-temporal',['-tags','ministack'])]:
             run(['go','build',*tags,'-o',str(ROOT/'.local/bin'/name),path],900)
         report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon-go-node','xenon-topology','xenon-sdk-probe','xenon-temporal']}
+        if args.omes_mixed:
+            run(['go','build','-o',str(ROOT/'.local/bin/xenon-omes-oracle'),'./cmd/xenon-omes-oracle'],900)
+            report['binaries']['xenon-omes-oracle']=sha(ROOT/'.local/bin/xenon-omes-oracle')
         if measurement_config:
             run(['go','build','-o',str(ROOT/'.local/bin/xenon-s3-meter'),'./cmd/xenon-s3-meter'],120)
             report['binaries']['xenon-s3-meter']=sha(ROOT/'.local/bin/xenon-s3-meter')
@@ -263,13 +266,19 @@ def main():
             report['mixed']=validate_mixed_result(ROOT,evidence/'mixed')
             inventory=wait(lambda:probe('mixed-inventory',timeout=15),60)
             report['mixed']['visibility_inventory']=inventory
+            # The audit's existing 15-minute bound is separate from the frozen
+            # 900-second workload deadline, which has already been enforced.
+            signal.alarm(930)
+            run([str(ROOT/'.local/bin/xenon-omes-oracle'),'--address',probe_flags[1],'--namespace',case['namespace'],'--omes-run-id','xenon-full-mixed','--mixed-profile','--exact-runs','240','--output',str(evidence/'mixed-histories')],910)
+            history_report=evidence/'mixed-histories/result.json'
+            report['mixed']['history_oracle']={'result':json.loads(history_report.read_text()),'sha256':sha(history_report)}
             checkpoint('mixed-finished')
             if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during mixed workload')
             if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during mixed workload')
             if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during mixed workload')
             if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native artifacts changed during mixed workload')
             if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker changed during mixed workload')
-            report.update(result='passed',proof_pass=True,scope='frozen Omes mixed40 component against real MinIO stack; no injected faults or full history action oracle')
+            report.update(result='passed',proof_pass=True,scope='frozen Omes mixed40 component and source-derived history checks against real MinIO stack; no injected faults or independent attempted-start census')
         elif args.fuzz_soak:
             omes,omes_inputs=prepare_omes()
             probe('fuzz-endpoint',timeout=60)
