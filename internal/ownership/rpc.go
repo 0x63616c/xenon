@@ -170,5 +170,25 @@ func (m *Manager) dispatch(ctx context.Context, method string, request proto.Mes
 	if e != nil {
 		return nil, e
 	}
-	return entry.execute(ctx, owner, request)
+
+	id := p.GetPartition()
+	m.mu.Lock()
+	counts := m.dispatchCounts[id]
+	counts.Attempts++
+	m.dispatchCounts[id] = counts
+	m.mu.Unlock()
+	result, err := entry.execute(ctx, owner, request)
+	if err == nil && result != nil {
+		m.mu.Lock()
+		counts = m.dispatchCounts[id]
+		counts.RPCResults++
+		ref := result.ProtoReflect()
+		field := ref.Descriptor().Fields().ByName("error")
+		if field != nil && ref.Get(field).Enum() == 0 {
+			counts.SuccessfulOperations++
+		}
+		m.dispatchCounts[id] = counts
+		m.mu.Unlock()
+	}
+	return result, err
 }

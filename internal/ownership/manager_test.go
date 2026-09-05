@@ -177,7 +177,7 @@ func TestS3OwnerManager(t *testing.T) {
 	// Native delayed contenders use the same S3 prefix and real Build, with exact
 	// local fault hooks. Automatic reconcilers are intentionally absent here.
 	makeManager := func(id string) *Manager {
-		m, e := NewManager(store, id, "127.0.0.1:1", "s3://"+store.bucket)
+		m, e := NewManager(store, id, "127.0.0.1:1", "s3://"+store.bucket, 200000)
 		if e != nil {
 			t.Fatal(e)
 		}

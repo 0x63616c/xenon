@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	native "slatedb.io/slatedb-go/uniffi"
 	"strconv"
@@ -67,13 +68,7 @@ func main() {
 		log.Fatal(result.err)
 	}
 	config := node.DefaultConfig(partition)
-	if value := os.Getenv("XENON_MAX_OUTCOMES"); value != "" {
-		limit, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			log.Fatal(err)
-		}
-		config.MaxOutcomes = limit
-	}
+	config.MaxOutcomes = outcomeLimit()
 	owner, err := node.NewOwner(result.db, config)
 	if err != nil {
 		log.Fatal(err)
@@ -119,9 +114,22 @@ func managedMain() {
 	if address == "" {
 		address = listener.Addr().String()
 	}
-	manager, err := ownership.NewManager(topology, os.Getenv("XENON_NODE"), address, "s3://"+os.Getenv("XENON_BUCKET"))
+	manager, err := ownership.NewManager(topology, os.Getenv("XENON_NODE"), address, "s3://"+os.Getenv("XENON_BUCKET"), outcomeLimit())
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if address := os.Getenv("XENON_METRICS_LISTEN"); address != "" {
+		l, e := net.Listen("tcp", address)
+		if e != nil {
+			log.Fatal(e)
+		}
+		metrics := &http.Server{Handler: manager.OutcomesHandler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
+		go func() {
+			if e := metrics.Serve(l); e != nil && e != http.ErrServerClosed {
+				log.Fatal(e)
+			}
+		}()
 	}
 	server, router := manager.Server()
 	defer router.Close()
@@ -131,4 +139,16 @@ func managedMain() {
 	if err = server.Serve(listener); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func outcomeLimit() uint64 {
+	limit := node.DefaultConfig("").MaxOutcomes
+	if text := os.Getenv("XENON_MAX_OUTCOMES"); text != "" {
+		value, e := strconv.ParseUint(text, 10, 64)
+		if e != nil || value == 0 {
+			log.Fatal("XENON_MAX_OUTCOMES must be a positive uint64")
+		}
+		limit = value
+	}
+	return limit
 }

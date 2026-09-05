@@ -116,6 +116,9 @@ func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply fu
 	if err != nil {
 		return nil, backend(err)
 	}
+	if err = accountOutcome(tx, outcome, len(data)); err != nil {
+		return nil, err
+	}
 	if err = put(tx, key, data); err != nil {
 		return nil, err
 	}

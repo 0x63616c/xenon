@@ -1,0 +1,13 @@
+# Bounded outcome capacity
+
+Run `python3 scripts/prove.py go-outcomes` from a clean checkout. The five-command manifest builds the pinned native node and executes committed cap/reopen/legacy/prewrite/manager-metrics assertions. Inputs and exact source/tool/config/binary hashes are recorded by the shared runner.
+
+`XENON_MAX_OUTCOMES` is a positive per-partition entry limit in both standalone and managed modes (default 10000). The acceptance harness declares 200000 prospectively and must record measured headroom. Every new journal result, including reads, logical failures and independent history prewrites, consumes an entry. Replays consume none. At saturation, existing IDs still replay; new IDs fail ResourceExhausted. Outcomes are never deleted. Raising the cap is not a claim of indefinite production operation.
+
+Managed `XENON_METRICS_LISTEN` enables GET `/outcomes`. Four concurrent scrapes are admitted; each has one ten-second deadline and uses normal owner admission plus durable fencing. Metrics itself creates no journal entries and grants no authority. The JSON includes process node/incarnation/address, directory owner identity, configured limit, total/remaining entries, encoded StoredOutcome byte totals, per-protobuf-result-family totals, and unaccounted legacy count. Bytes exclude keys/native indexes/WAL/SST/compaction overhead. Older journal rows lacking instrumentation remain explicitly unaccounted; fresh proof requires accounting_complete=true and zero unaccounted entries.
+
+Local dispatch attempts, returned RPC results and successful_operations are process-local counters by partition and incarnation. Only actual local persistence handler calls count; forwarded calls and metric scrapes do not. A successful operation is a returned result whose error enum is NONE; replays served by this owner count as actual local service. Compare checkpoint deltas to demonstrate a newly added node served work; do not infer local work from inherited durable entry totals.
+
+Counters update atomically with each new outcome and mutation. The family comes from its protobuf oneof descriptor, so future visibility field 13 is accounted without hardcoded enum-order assumptions. On old-binary writes, retained count grows without accounted family totals and completeness becomes false. No unbounded backfill runs inside owner admission.
+
+Epoch-based safe reclamation remains unimplemented issue #67: immutable epoch identities, durable admission floor before deletion, explicit expired/unknown outcomes and legacy cutover require a separate reviewed protocol. No TTL or automatic new identity for ambiguous requests is introduced here.
