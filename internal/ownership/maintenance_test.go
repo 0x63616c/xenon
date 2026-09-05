@@ -116,6 +116,21 @@ func TestS3Maintenance(t *testing.T) {
 		return db, o
 	}
 	db, o := open()
+	for _, remove := range []bool{false, true} {
+		var h *native.WriteHandle
+		if remove {
+			h, e = db.Delete([]byte("maintenance/deleted"))
+		} else {
+			h, e = db.Put([]byte("maintenance/deleted"), bytes.Repeat([]byte{42}, fixture.Payload))
+		}
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = h.AwaitDurable(); e != nil {
+			t.Fatal(e)
+		}
+		h.Destroy()
+	}
 	request := func(id string, kind wire.ShardCommand_Kind, previous, next int64, data []byte) *wire.ShardRequest {
 		c := &wire.ShardCommand{Kind: kind, ShardId: 17, PreviousRangeId: previous, RangeId: next, Data: data, Encoding: 1}
 		raw, _ := proto.MarshalOptions{Deterministic: true}.Marshal(c)
@@ -227,9 +242,17 @@ func TestS3Maintenance(t *testing.T) {
 		}
 	}
 	// This acknowledged update remains in WAL rather than an explicit memtable flush.
-	last = request("wal-only-final", wire.ShardCommand_UPDATE, int64(fixture.Updates+1), int64(fixture.Updates+2), bytes.Repeat([]byte{99}, fixture.Payload))
+	beforeWAL, e := admin.ReadManifest(nil)
+	if e != nil || beforeWAL == nil {
+		t.Fatal(e)
+	}
+	last = request("wal-only-final", wire.ShardCommand_UPDATE, int64(fixture.Updates+1), int64(fixture.Updates+2), []byte{99})
 	if r, e := o.Execute(ctx, last); e != nil || r.Error != wire.ShardResult_NONE {
 		t.Fatal(r, e)
+	}
+	afterWAL, e := admin.ReadManifest(nil)
+	if e != nil || afterWAL == nil || afterWAL.LastL0Seq != beforeWAL.LastL0Seq {
+		t.Fatal("final acknowledgement was not isolated to WAL", e)
 	}
 	t.Logf("observed S3 deletions: %v", deleted)
 	t.Logf("observed actual GC deletions and committed compaction: %v", observed)
@@ -267,7 +290,11 @@ func TestS3Maintenance(t *testing.T) {
 	if e = rival.Close(c); e != nil {
 		t.Fatal(e)
 	}
-	_, reopened := open()
+	recoveredDB, reopened := open()
+	deletedValue, e := recoveredDB.Get([]byte("maintenance/deleted"))
+	if e != nil || deletedValue != nil {
+		t.Fatal("deleted record resurrected after maintenance", e)
+	}
 	r, e := reopened.Execute(ctx, request("final-read", wire.ShardCommand_GET, 0, 0, nil))
 	if e != nil || r.RangeId != int64(fixture.Updates+2) || !bytes.Equal(r.Data, last.Command.Data) {
 		t.Fatal("acknowledged state lost after GC/reopen", r, e)
