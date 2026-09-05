@@ -27,7 +27,7 @@ def main():
     try:
         pins=json.loads((ROOT/"tools/ministack.json").read_text())
         case=json.loads((ROOT/"proof/ministack/case.json").read_text())
-        if case["status"]!="configuration-checkpoint-not-boot-proof" or "--embedded-server" in case["omes_command"]:
+        if case["status"] not in ("configuration-checkpoint-not-boot-proof","runtime-candidate") or "--embedded-server" in case["omes_command"]:
             raise ValueError("runtime claim or embedded server not allowed")
         compose=json.loads((ROOT/"deploy/ministack/compose.json").read_text())
         for service,pin in (("s3","s3_emulator"),("ingress","proxy"),("ui","ui")):

@@ -17,6 +17,7 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
+	"go.temporal.io/server/common"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -28,6 +29,8 @@ func main() {
 	}
 }
 func run() error {
+	query := flag.String("query", "", "visibility query")
+	expectedCount := flag.Int("expected-count", 1, "exact expected visible rows")
 	mode := flag.String("mode", "", "bootstrap, worker, start, phase, control or verify")
 	address := flag.String("address", "127.0.0.1:17233", "stable Temporal endpoint")
 	namespace := flag.String("namespace", "xenon-ministack", "namespace")
@@ -64,7 +67,46 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		return emit(map[string]string{"namespace": *namespace})
+		description, e := c.WorkflowService().DescribeNamespace(ctx, &workflowservice.DescribeNamespaceRequest{Namespace: *namespace})
+		if e != nil {
+			return e
+		}
+		shard := common.WorkflowIDToHistoryShard(description.NamespaceInfo.Id, *id, 4)
+		return emit(map[string]any{"namespace": *namespace, "namespace_id": description.NamespaceInfo.Id, "history_partition": fmt.Sprintf("history-%d", shard%4)})
+	case "visibility":
+		count, e := c.WorkflowService().CountWorkflowExecutions(ctx, &workflowservice.CountWorkflowExecutionsRequest{Namespace: *namespace, Query: *query})
+		if e != nil {
+			return e
+		}
+		if count.Count != int64(*expectedCount) {
+			return fmt.Errorf("visibility count %d != %d", count.Count, *expectedCount)
+		}
+		seen := map[string]bool{}
+		var token []byte
+		for page := 0; ; page++ {
+			if page >= 1000 {
+				return fmt.Errorf("visibility pagination did not terminate")
+			}
+			response, e := c.WorkflowService().ListWorkflowExecutions(ctx, &workflowservice.ListWorkflowExecutionsRequest{Namespace: *namespace, Query: *query, PageSize: 1, NextPageToken: token})
+			if e != nil {
+				return e
+			}
+			for _, execution := range response.Executions {
+				key := execution.Execution.WorkflowId + "/" + execution.Execution.RunId
+				if seen[key] {
+					return fmt.Errorf("duplicate visibility row")
+				}
+				seen[key] = true
+			}
+			token = response.NextPageToken
+			if len(token) == 0 {
+				break
+			}
+		}
+		if len(seen) != *expectedCount {
+			return fmt.Errorf("visibility page count %d != %d", len(seen), *expectedCount)
+		}
+		return emit(map[string]any{"count": count.Count, "executions": seen})
 	case "worker":
 		w := worker.New(c, *queue, worker.Options{})
 		w.RegisterWorkflow(ministack.DurableWorkflow)

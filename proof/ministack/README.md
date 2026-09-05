@@ -84,3 +84,19 @@ The current single rerun command is `python3 scripts/check-ministack.py`. It use
 the pinned Temporal configuration parser, Compose validation and the pinned HAProxy
 binary's configuration checker. Its evidence explicitly sets runtime_executed=false
 and proof_pass=false even when configuration is valid. It does not launch the stack.
+
+
+## Runtime candidate
+
+`python3 scripts/ministack-runtime.py` now builds the actual tagged launcher and
+SDK oracle, then supervises the declared real runtime stages. The launcher build
+requires the real VisibilityFactory and routed DataStoreFactory to be integrated;
+a missing implementation fails the run. `go test ./internal/ministack` checks only
+the SDK workload construction and cannot satisfy that runtime gate. The SDK oracle
+checks retry attempt2, a completed child, fired timers, signal/update acknowledgment,
+continue-as-new and exact result/history across both runs. Bootstrap seeds standard
+SQL-style search slots through the guarded metadata manager before using the public
+AddSearchAttributes API. The UI probe uses pinned Playwright and Chromium to inspect
+list/filter/detail pages; Omes uses its own pinned module and retains generated
+worker inputs for hashing. None of these candidate stages is claimed passed until
+the runtime report says so after all assertions and cleanup.

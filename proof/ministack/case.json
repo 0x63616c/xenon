@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "configuration-checkpoint-not-boot-proof",
+  "status": "runtime-candidate",
   "backend": "s3-emulator",
   "namespace": "xenon-ministack",
   "workflow_id": "xenon-durable-workflow-1",
@@ -84,7 +84,12 @@
     "--max-iteration-attempts",
     "1",
     "--timeout",
-    "5m"
+    "5m",
+    "--version",
+    "v1.48.0",
+    "--max-iterations-per-second",
+    "1",
+    "--retain-temp-dir"
   ],
   "partitions": [
     "history-0",

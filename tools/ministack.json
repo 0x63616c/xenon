@@ -18,12 +18,18 @@
   "ui": {
     "release": "v2.53.3",
     "commit": "835b349ffa14fbe71af3e26a7f8bc71fe6c29a53",
-    "image": "temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a"
+    "image": "temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a",
+    "playwright": "1.56.1"
   },
   "proxy": {
     "image": "haproxy:3.2.12-alpine@sha256:15ef8657ec12e7b19d5b6b6b6fcf6839a0e3cdae85d275be6c867e8a2690f33f"
   },
   "s3_emulator": {
     "image": "minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+  },
+  "runtime_tools": {
+    "node": "v26.8.1",
+    "npm": "11.19.0",
+    "aws_cli": "2.36.39"
   }
 }
