@@ -1,0 +1,39 @@
+//go:build ministack
+
+// xenon-temporal retains the pinned Temporal server and installs real Xenon stores.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/0x63616c/xenon/internal/temporalstore"
+	"go.temporal.io/server/temporal"
+)
+
+func main() {
+	path := flag.String("config", "", "exact Temporal config path")
+	flag.Parse()
+	if *path == "" {
+		log.Fatal("config required")
+	}
+	server, e := temporal.NewServer(temporal.WithServerConfigFilePath(*path), temporal.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporal.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporal.ForServices(temporal.DefaultServices))
+	if e != nil {
+		log.Fatal(e)
+	}
+	if e = server.Start(); e != nil {
+		log.Fatal(e)
+	}
+	fmt.Println("TEMPORAL_STARTED") // supervisor still requires successful API readiness
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	// External supervisor bounds shutdown and owns process-group termination.
+	if e = server.Stop(); e != nil {
+		log.Fatal(e)
+	}
+}
