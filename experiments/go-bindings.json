@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "name": "go-bindings",
+  "source_url": "https://github.com/slatedb/slatedb.git",
+  "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+  "rust_toolchain": "1.94.0",
+  "go_toolchain": "go1.27.1",
+  "runtime_threads": "2",
+  "build_timeout_seconds": 900,
+  "test_timeout_seconds": 120,
+  "expected_tests": [
+    "TestSerializableReadConflict",
+    "TestDurabilityVisibilityAndReopen",
+    "TestTypedFence",
+    "TestTimedOutNativeWaitRetainsHandleAndGate"
+  ],
+  "inputs": [
+    "experiments/go-bindings/probe_test.go",
+    "experiments/go-bindings/case.json",
+    "scripts/prove-go-bindings.py",
+    "scripts/prove.py",
+    "experiments/go-bindings/go.mod"
+  ],
+  "limitations": [
+    "Memory object store only; no real S3 validation.",
+    "Go timeout does not cancel the native future; owner remains quarantined until native completion or process recycling.",
+    "This is a feasibility experiment, not an architecture switch or node implementation."
+  ]
+}
