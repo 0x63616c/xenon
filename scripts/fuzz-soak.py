@@ -7,9 +7,21 @@ import time
 from omes_workloads import ROOT, run_workload, sha
 
 
+def validate_config(config):
+    expected = {'schema': 1, 'minimum_seconds': 3600, 'minimum_rounds': 2,
+                'maximum_rounds': 1000, 'controller_timeout_seconds': 36000,
+                'corpus': 'proof/omes-corpus/replay.json', 'faults': [],
+                'command_timeout_seconds': 900}
+    if set(config) != set(expected) | {'limitations'} or any(config.get(k) != v for k, v in expected.items()):
+        raise ValueError('unsupported soak contract; prospective reviewed update required')
+    if not isinstance(config['limitations'], list) or not all(isinstance(x, str) for x in config['limitations']):
+        raise ValueError('invalid limitations')
+    return config
+
+
 def soak(evidence, binary, source):
     config_path = ROOT / 'proof/omes-corpus/soak.json'
-    config = json.loads(config_path.read_text())
+    config = validate_config(json.loads(config_path.read_text()))
     evidence.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     report = {'schema': 1, 'soak_pass': False, 'full_acceptance': False,
