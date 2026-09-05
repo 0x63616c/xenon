@@ -18,10 +18,11 @@ import (
 
 type fanoutVisibility struct {
 	wire.UnimplementedVisibilityPersistenceServer
-	entered chan string
-	release chan struct{}
-	active  atomic.Int32
-	fail    bool
+	entered  chan string
+	release  chan struct{}
+	active   atomic.Int32
+	canceled atomic.Int32
+	fail     bool
 }
 
 func (s *fanoutVisibility) Execute(ctx context.Context, q *wire.VisibilityRequest) (*wire.VisibilityResult, error) {
@@ -37,6 +38,7 @@ func (s *fanoutVisibility) Execute(ctx context.Context, q *wire.VisibilityReques
 	select {
 	case <-s.release:
 	case <-ctx.Done():
+		s.canceled.Add(1)
 		return nil, ctx.Err()
 	}
 	return &wire.VisibilityResult{Count: 1}, nil
@@ -76,7 +78,7 @@ func TestVisibilityIndependentFanout(t *testing.T) {
 					result <- e
 				}
 			}()
-			if kind != "failure" {
+			{
 				seen := map[string]bool{}
 				for i := 0; i < 4; i++ {
 					select {
@@ -99,13 +101,16 @@ func TestVisibilityIndependentFanout(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("fanout did not settle")
 			}
-			// RPC cancellation may reach the server just after the client worker joins.
+			if backend.canceled.Load() != 0 {
+				t.Fatal("peer error canceled a healthy partition")
+			}
+			// Client workers and all handlers must settle before return.
 			end := time.Now().Add(time.Second)
 			for backend.active.Load() != 0 && time.Now().Before(end) {
 				time.Sleep(time.Millisecond)
 			}
 			if backend.active.Load() != 0 {
-				t.Fatal("canceled partition still running")
+				t.Fatal("partition still running")
 			}
 		})
 	}

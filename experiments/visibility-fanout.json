@@ -15,10 +15,10 @@
     "cmd/xenon-sdk-probe/main.go",
     "proof/visibility/fanout.md"
   ],
-  "fault_schedule": "Each actual loopback visibility partition handler holds until all4 independently entered; one separatecase returns InvalidArgument while siblings await cancellation.",
+  "fault_schedule": "Each actual loopback visibility partition handler holds until all4 independently entered; one separatecase returns InvalidArgument while siblings await controlled release.",
   "assertions": [
     "LIST initial partition reads and COUNT all4 execute concurrently before release.",
-    "A partition error cancels and joins outstanding client calls and never returns partial success."
+    "A partition error joins outstanding client calls without peer cancellation and never returns partial success."
   ],
   "limitations": [
     "Deterministic RPC control, not real SlateDB/S3 performance or a completed cold-runtime rerun.",
