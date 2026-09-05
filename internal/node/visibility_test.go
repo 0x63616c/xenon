@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
+	enumspb "go.temporal.io/api/enums/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -61,6 +62,17 @@ func TestGoOwnerVisibilityRecovery(t *testing.T) {
 	}
 	start, _ := time.Parse(time.RFC3339, fixture.Start)
 	d := &wire.VisibilityDocument{NamespaceId: fixture.Namespace, RunId: fixture.Run, WorkflowId: "workflow", StartTime: vmodel.Time(start), ExecutionTime: vmodel.Time(start), TaskId: 1, Status: 1}
+	d.Attributes = map[string]*wire.VisibilityAttribute{"Double01": {ValueType: int32(enumspb.INDEXED_VALUE_TYPE_DOUBLE), Values: []*wire.QueryValue{{Scalar: &wire.QueryValue_DoubleValue{DoubleValue: 1.234565}}}}}
+	equivalent := proto.Clone(d).(*wire.VisibilityDocument)
+	equivalent.Attributes["Double01"].Values[0].Scalar = &wire.QueryValue_DoubleValue{DoubleValue: 1.23457}
+	firstKeys, err := visibilityIndices(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondKeys, err := visibilityIndices(equivalent)
+	if err != nil || len(firstKeys) != 2 || len(secondKeys) != 2 || firstKeys[1] != secondKeys[1] {
+		t.Fatal("equivalent decimal equality indexes differ", firstKeys, secondKeys, err)
+	}
 	put := &wire.VisibilityCommand{Kind: wire.VisibilityCommand_START, Document: d}
 	saved := call("start", put)
 	if saved.Error != wire.VisibilityResult_NONE {

@@ -155,7 +155,17 @@ func (s *VisibilityStore) document(ctx context.Context, b *store.InternalVisibil
 	if e != nil {
 		return nil, e
 	}
+	var retained *commonpb.SearchAttributes
+	if b.SearchAttributes != nil {
+		retained = proto.Clone(b.SearchAttributes).(*commonpb.SearchAttributes)
+	}
 	for name, v := range attrs {
+		if v == nil {
+			if retained != nil {
+				delete(retained.IndexedFields, name)
+			}
+			continue
+		}
 		typ, e := types.GetType(name)
 		if e != nil {
 			typ = sadefs.GetMetadataType(b.SearchAttributes.GetIndexedFields()[name])
@@ -166,8 +176,8 @@ func (s *VisibilityStore) document(ctx context.Context, b *store.InternalVisibil
 		}
 		d.Attributes[name] = a
 	}
-	if b.SearchAttributes != nil {
-		d.SearchAttributes, e = proto.Marshal(b.SearchAttributes)
+	if retained != nil {
+		d.SearchAttributes, e = proto.Marshal(retained)
 		if e != nil {
 			return nil, e
 		}
@@ -260,26 +270,7 @@ func visibilityInfo(d *wire.VisibilityDocument) (*store.InternalExecutionInfo, e
 			return nil, e
 		}
 	}
-	// Generated PostgreSQL numeric/time columns normalize these returned values.
-	if r.SearchAttributes != nil {
-		for name, a := range d.Attributes {
-			if a == nil || a.Missing || (a.ValueType != int32(enumspb.INDEXED_VALUE_TYPE_DOUBLE) && a.ValueType != int32(enumspb.INDEXED_VALUE_TYPE_DATETIME)) {
-				continue
-			}
-			v, e := vmodel.NormalizedScalar(a)
-			if e != nil {
-				return nil, e
-			}
-			encoded, e := payload.Encode(v)
-			if e != nil {
-				return nil, e
-			}
-			if old := r.SearchAttributes.IndexedFields[name]; old != nil {
-				old.Data = encoded.Data
-				old.Metadata["encoding"] = encoded.Metadata["encoding"]
-			}
-		}
-	}
+
 	if r.ExecutionTime.UnixNano() == 0 {
 		r.ExecutionTime = r.StartTime
 	}

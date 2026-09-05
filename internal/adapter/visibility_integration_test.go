@@ -272,6 +272,44 @@ func TestVisibilityRPC(t *testing.T) {
 			t.Fatal(query, r, e)
 		}
 	}
+	// Generated scalar columns normalize query values; returned SA JSON stays raw.
+	got, e := s.GetWorkflowExecution(ctx, &manager.GetWorkflowExecutionRequest{NamespaceID: namespace.ID(ns), RunID: run})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !proto.Equal(got.Execution.SearchAttributes, attrs) {
+		t.Fatal("raw attributes were rewritten")
+	}
+	fractions := []struct{ input, match string }{{"2026-01-02T03:04:05.0000005Z", "2026-01-02T03:04:05Z"}, {"2026-01-02T03:04:05.0000015Z", "2026-01-02T03:04:05.000002Z"}, {"2026-01-02T03:04:05.0000025Z", "2026-01-02T03:04:05.000002Z"}, {"1969-12-31T23:59:59.9999995Z", "1970-01-01T00:00:00Z"}}
+	for i, f := range fractions {
+		value, err := time.Parse(time.RFC3339Nano, f.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.TaskID = int64(i + 2)
+		typed := searchattribute.TestEsNameTypeMap()
+		b.SearchAttributes, err = searchattribute.Encode(map[string]any{"CustomDatetimeField": value, "CustomDoubleField": 1.234565, "CustomKeywordField": nil}, &typed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.UpsertWorkflowExecution(ctx, &store.InternalUpsertWorkflowExecutionRequest{InternalVisibilityRequestBase: b}); err != nil {
+			t.Fatal(err)
+		}
+		result, err := s.CountWorkflowExecutions(ctx, &manager.CountWorkflowExecutionsRequest{NamespaceID: namespace.ID(ns), Query: "CustomDatetimeField = '" + f.match + "'"})
+		if err != nil || result.Count != 1 {
+			t.Fatal(f, result, err)
+		}
+		got, err := s.GetWorkflowExecution(ctx, &manager.GetWorkflowExecutionRequest{NamespaceID: namespace.ID(ns), RunID: run})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !proto.Equal(got.Execution.SearchAttributes.IndexedFields["CustomDatetimeField"], b.SearchAttributes.IndexedFields["CustomDatetimeField"]) || !proto.Equal(got.Execution.SearchAttributes.IndexedFields["CustomDoubleField"], b.SearchAttributes.IndexedFields["CustomDoubleField"]) {
+			t.Fatal("raw scalar response changed")
+		}
+		if _, exists := got.Execution.SearchAttributes.IndexedFields["CustomKeywordField"]; exists {
+			t.Fatal("null removal attribute retained")
+		}
+	}
 	// CHASM's own alias mapper and namespace-division predicate are retained.
 	ca, e := searchattribute.Encode(map[string]any{"TemporalNamespaceDivision": strconv.Itoa(int(archetype)), "TemporalInt01": int64(77)}, nil)
 	if e != nil {

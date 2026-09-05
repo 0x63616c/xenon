@@ -10,6 +10,7 @@ import (
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	qmodel "github.com/0x63616c/xenon/internal/query"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
+	enumspb "go.temporal.io/api/enums/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -154,18 +155,33 @@ func visibilityOrderPrefix(n string) string { return "v1/visibility/order/" + n 
 func visibilityOrder(d *wire.VisibilityDocument) string {
 	return visibilityOrderPrefix(d.NamespaceId) + vmodel.SortKey(d)
 }
-func visibilityIndices(d *wire.VisibilityDocument) []string {
+func visibilityIndices(d *wire.VisibilityDocument) ([]string, error) {
 	keys := []string{visibilityOrder(d)}
 	for name, a := range d.Attributes {
 		if a == nil || a.Missing {
 			continue
 		}
 		for _, v := range a.Values {
-			raw, _ := proto.MarshalOptions{Deterministic: true}.Marshal(v)
+			value := v
+			if a.ValueType == int32(enumspb.INDEXED_VALUE_TYPE_DOUBLE) {
+				normalized, e := vmodel.NormalizedScalar(&wire.VisibilityAttribute{ValueType: a.ValueType, Values: []*wire.QueryValue{v}})
+				if e != nil {
+					return nil, backend(e)
+				}
+				number, ok := normalized.(float64)
+				if !ok {
+					return nil, status.Error(codes.Unavailable, "invalid stored numeric index")
+				}
+				value = &wire.QueryValue{Scalar: &wire.QueryValue_DoubleValue{DoubleValue: number}}
+			}
+			raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(value)
+			if e != nil {
+				return nil, backend(e)
+			}
 			keys = append(keys, fmt.Sprintf("v1/visibility/type/%s/%s/%d/%s/%s", d.NamespaceId, hex.EncodeToString([]byte(name)), a.ValueType, fmt.Sprintf("%x", sha256.Sum256(raw)), d.RunId))
 		}
 	}
-	return keys
+	return keys, nil
 }
 func loadVisibility(tx *native.DbTransaction, n, r string) (*wire.VisibilityDocument, error) {
 	raw, e := get(tx, visibilityKey(n, r))
@@ -197,7 +213,11 @@ func applyVisibility(tx *native.DbTransaction, c *wire.VisibilityCommand) (*wire
 			return result, nil
 		}
 		if old != nil && !old.Tombstone {
-			for _, k := range visibilityIndices(old) {
+			indices, e := visibilityIndices(old)
+			if e != nil {
+				return nil, e
+			}
+			for _, k := range indices {
 				if e = tx.Delete([]byte(k)); e != nil {
 					return nil, backend(e)
 				}
@@ -211,7 +231,11 @@ func applyVisibility(tx *native.DbTransaction, c *wire.VisibilityCommand) (*wire
 			return nil, e
 		}
 		if !next.Tombstone {
-			for _, k := range visibilityIndices(next) {
+			indices, e := visibilityIndices(next)
+			if e != nil {
+				return nil, e
+			}
+			for _, k := range indices {
 				if e = put(tx, k, []byte(visibilityKey(n, r))); e != nil {
 					return nil, e
 				}
