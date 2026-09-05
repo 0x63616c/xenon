@@ -57,6 +57,14 @@ def read_trace(path, close_confirmed, max_events=2_000_000, max_line_bytes=4096,
                     continue
                 if kind not in ('rpc_invocation', 'rpc_attempt'):
                     raise ValueError('unknown or failed trace record')
+                allowed = {'kind', 'invocation_id', 'family', 'method', 'partition', 'operation_id', 'status', 'started', 'duration_ns'}
+                if set(event) - allowed:
+                    raise ValueError('unknown trace fields or schema')
+                for field in ('method', 'partition', 'operation_id'):
+                    if field in event and (not isinstance(event[field], str) or len(event[field]) > 256):
+                        raise ValueError('invalid optional trace field')
+                if event.get('status') not in ('OK', 'Canceled', 'Unknown', 'InvalidArgument', 'DeadlineExceeded', 'NotFound', 'AlreadyExists', 'PermissionDenied', 'ResourceExhausted', 'FailedPrecondition', 'Aborted', 'OutOfRange', 'Unimplemented', 'Internal', 'Unavailable', 'DataLoss', 'Unauthenticated'):
+                    raise ValueError('unknown RPC status')
                 count += 1
                 if count > max_events:
                     raise ValueError('trace event capacity exceeded')
@@ -117,11 +125,13 @@ def read_meter(path, exit_code):
         if len(raw) > 65536 or len(lines) != 2 or not all(line.endswith(b'\n') for line in lines):
             raise ValueError('meter must emit only ready and final report')
         ready, final = [json.loads(line) for line in lines]
-        if not isinstance(ready, dict) or not isinstance(final, dict) or ready.get('event') != 'ready' or final.get('schema') != 1:
+        if not isinstance(ready, dict) or not isinstance(final, dict) or ready.get('event') != 'ready' or type(final.get('schema')) is not int or final['schema'] != 1:
             raise ValueError('meter schema/ready mismatch')
         required = ('attempts', 'finished', 'completed', 'canceled', 'aborted', 'transport_errors',
                     'request_read_errors', 'response_read_errors', 'response_write_errors',
                     'request_body_bytes_read', 'response_body_bytes_written', 'inflight')
+        if set(final) != {'schema', 'methods', 'status', *required}:
+            raise ValueError('unknown meter fields or schema')
         if any(type(final.get(key)) is not int or final[key] < 0 for key in required):
             raise ValueError('invalid meter counters')
         if final['inflight'] != 0 or final['attempts'] != final['finished'] or final['completed'] > final['finished']:
