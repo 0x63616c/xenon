@@ -113,5 +113,6 @@
   "max_outcomes": 200000,
   "scope": "first-boot-smoke",
   "full_acceptance": false,
-  "recovery_seconds": 120
+  "recovery_seconds": 120,
+  "minimum_free_disk_bytes": 5368709120
 }

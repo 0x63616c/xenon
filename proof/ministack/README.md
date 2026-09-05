@@ -140,3 +140,5 @@ silently removing killed-process data.
 `python3 scripts/prove.py runtime-measurements` validates the committed parser,
 completeness failures, histogram separation, host resource controls and supervisor
 controls. It does not execute or claim the measured ministack/full acceptance.
+
+Build preflight requires at least5GiB available disk (a minimum guard, not a cold-cache sizing guarantee). Actual prepared Omes `program` build metadata must declare Go SDKv1.48.0, supplementing pre/post binary/input hashes and explicit `--dir-name prepared`. Scoped Compose logs are collected before cleanup so emulator/proxy failures remain diagnosable.

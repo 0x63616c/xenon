@@ -118,6 +118,8 @@ def main():
         report['git_sha']=run(['git','rev-parse','HEAD']).strip()
         if run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('runtime proof requires clean checkout')
         tracked=run(['git','ls-files']).splitlines();report['input_sha256']={p:sha(ROOT/p) for p in tracked}
+        report['preflight_free_disk_bytes']=shutil.disk_usage(ROOT).free
+        if report['preflight_free_disk_bytes']<case['minimum_free_disk_bytes']:raise RuntimeError('insufficient free disk for declared build preflight')
         node_bin=run([sys.executable,'scripts/ministack-node.py'],120).strip()
         env['PATH']=node_bin+os.pathsep+env['PATH']
         env['PLAYWRIGHT_BROWSERS_PATH']=str(ROOT/'.local/playwright-browsers')
@@ -239,6 +241,10 @@ def main():
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
         run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
         run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
+        worker_program=omes/'workers/go/prepared/program'
+        report['omes_worker_build_info']=run(['go','version','-m',str(worker_program)])
+        dependencies=[line.split() for line in report['omes_worker_build_info'].splitlines()]
+        if not any(fields[:3]==['dep','go.temporal.io/sdk',pins['omes']['worker_go_sdk']] for fields in dependencies):raise RuntimeError('prepared Omes binary SDK pin mismatch')
         report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
         def omes_inputs():return {str(path.relative_to(omes)):sha(path) for path in (omes/'workers/go/prepared').rglob('*') if path.is_file()}
         report['omes_generated_sha256']=omes_inputs()
@@ -287,6 +293,8 @@ def main():
         report.update(result='passed',proof_pass=True)
     except Exception as error:report['error']=str(error)
     finally:
+        try:run([*compose,'logs','--no-color'],30)
+        except Exception as error:report.setdefault('diagnostic_errors',[]).append(str(error))
         shutdown_order=runtime_measurements.producer_first(list(reversed(processes)),traces) if measurement_config else reversed(processes)
         for process in shutdown_order:
             try:process.stop()
