@@ -63,6 +63,12 @@ func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		switch status.Code(e) {
+		case codes.DeadlineExceeded:
+			return nil, context.DeadlineExceeded
+		case codes.Canceled:
+			return nil, context.Canceled
+		}
 		if status.Code(e) != codes.Unavailable || attempt == 2 {
 			return nil, serviceerror.FromStatus(status.Convert(e))
 		}
