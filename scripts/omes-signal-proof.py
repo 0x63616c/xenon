@@ -10,6 +10,7 @@ API='d96bd55e87799e9f6a33a1c40a56cfa932566bdf'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def main():
  p=argparse.ArgumentParser();p.add_argument('--source',required=True,type=Path);p.add_argument('--api-source',required=True,type=Path);p.add_argument('--protoc',required=True,type=Path);a=p.parse_args()
+ a.source=a.source.resolve();a.api_source=a.api_source.resolve();a.protoc=a.protoc.resolve()
  evidence=ROOT/'.local/evidence'/(time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())+'-omes-signals-'+uuid.uuid4().hex[:8]);evidence.mkdir(parents=True)
  report={'proof_pass':False,'result':'failed','runtime_executed':False,'overlay':True,'commands':[],'platform':platform.platform(),'python':sys.version}
  env={**os.environ,'GOENV':'off','GOWORK':'off','GOFLAGS':'-mod=readonly','GOTOOLCHAIN':'go1.27.1'}
