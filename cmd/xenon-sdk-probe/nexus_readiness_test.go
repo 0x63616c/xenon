@@ -37,3 +37,12 @@ func TestNexusReadinessWorkflowEcho(t *testing.T) {
 		t.Fatal(output, err)
 	}
 }
+
+func TestReadinessWorkerPollerScope(t *testing.T) {
+	for _, nexusOnly := range []bool{false, true} {
+		o := readinessWorkerOptions(nexusOnly)
+		if !o.LocalActivityWorkerOnly || o.DisableWorkflowWorker != nexusOnly {
+			t.Fatal(o)
+		}
+	}
+}

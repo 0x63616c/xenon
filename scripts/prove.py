@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-sdk-readiness", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -104,6 +104,10 @@ def command(spec):
         if not spec["exact"] or spec["filter"] != "TestVisibilityIndependentFanout":
             raise ValueError("unregistered visibility fanout proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^TestVisibilityIndependentFanout$"]
+    if runner == "go-test-sdk-readiness":
+        if not spec["exact"] or spec["filter"] not in ("TestNexusReadinessShardCoverage", "TestNexusReadinessWorkflowEcho", "TestReadinessWorkerPollerScope", "TestNexusHistoryDiagnostic"):
+            raise ValueError("unregistered SDK readiness proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-sdk-probe", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-recorder":
         if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage"):
             raise ValueError("unregistered recorder proof")
@@ -198,7 +202,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -278,7 +282,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "process-cut") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "process-cut") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -332,6 +336,8 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
             elif runner == "go-test-fanout":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+            elif runner == "go-test-sdk-readiness":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-sdk-probe")
             elif runner == "go-test-recorder":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/recorder")
             elif runner == "go-test-rpctrace":
