@@ -39,6 +39,19 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(report["result"], "failed")
             self.assertEqual(report["cleanup"]["exit_code"], -1)
 
+    def test_long_maintenance_cleanup_failure_retains_failed_report(self):
+        manifest = (prove.ROOT / "experiments/maintenance.json").read_text()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "experiments").mkdir()
+            (root / "experiments/maintenance.json").write_text(manifest)
+            with patch.object(prove, "ROOT", root), patch.object(sys, "argv", ["prove.py", "maintenance"]), patch.object(prove, "cargo_configs", return_value=[]), patch.object(prove.subprocess, "check_output", side_effect=["a" * 40, " M tracked"]), patch.object(prove, "run_process", side_effect=FileNotFoundError("docker unavailable")):
+                self.assertEqual(prove.main(), 1)
+            report = json.loads(next((root / ".local/evidence").glob("*/result.json")).read_text())
+            self.assertFalse(report["proof_pass"])
+            self.assertEqual(report["result"], "failed")
+            self.assertEqual(report["cleanup"]["exit_code"], -1)
+
     def test_dirty_development_can_never_be_proof_pass(self):
         self.assertEqual(prove.classify_success(True), ("development-passed", False))
         self.assertEqual(prove.classify_success(False), ("passed", True))

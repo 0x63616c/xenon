@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "endpoint": "http://127.0.0.1:19005",
+  "bucket": "xenon-maintenance",
+  "updates": 32,
+  "payload_bytes": 8192,
+  "timeout_seconds": 1200,
+  "settings": {
+    "flush_interval": "10ms",
+    "manifest_poll_interval": "50ms",
+    "l0_sst_size_bytes": 4096,
+    "compactor_options.poll_interval": "50ms",
+    "compactor_options.scheduler_options.min_compaction_sources": "2",
+    "garbage_collector_options.boundary_files_enabled": true,
+    "garbage_collector_options.wal_fence_options.dry_run": true,
+    "garbage_collector_options.manifest_options.interval": "100ms",
+    "garbage_collector_options.manifest_options.min_age": "1s",
+    "garbage_collector_options.wal_options.interval": "100ms",
+    "garbage_collector_options.wal_options.min_age": "1s",
+    "garbage_collector_options.compacted_options.interval": "100ms",
+    "garbage_collector_options.compacted_options.min_age": "1s",
+    "garbage_collector_options.compactions_options.interval": "100ms",
+    "garbage_collector_options.compactions_options.min_age": "1s",
+    "garbage_collector_options.wal_fence_options.interval": "100ms",
+    "garbage_collector_options.wal_fence_options.min_age": "1s"
+  }
+}
