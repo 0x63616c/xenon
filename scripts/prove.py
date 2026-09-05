@@ -39,7 +39,7 @@ def command(spec):
     if spec == {"runner": "go-node-build"}:
         return [sys.executable, "scripts/build-go-node.py"]
     if spec == {"runner": "cargo-build-node"}:
-        return ["cargo", "build", "--locked", "-p", "xenon-node"]
+        return ["cargo", "build", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", "xenon-node"]
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
@@ -137,7 +137,7 @@ def command(spec):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
-    return ["cargo", "test", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
+    return ["cargo", "test", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
 
 
 def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/adapter"):
@@ -256,7 +256,7 @@ def main():
               "commands": [], "config_sha256": {}, "tool_versions": {}, "assertions": manifest["assertions"],
               "limitations": manifest["limitations"]}
     try:
-        report["cargo_config_sha256"] = {p: digest(Path(p)) for p in cargo_configs(ROOT, env)}
+        report["cargo_config_sha256"] = {p: digest(Path(p)) for p in cargo_configs(ROOT / "test/compatibility/rust", env)}
         if report["cargo_config_sha256"]:
             raise ValueError("ambient Cargo config detected; use a checkout/environment without these configs (hashes recorded, contents omitted)")
         if dirty and not args.allow_dirty:
@@ -353,7 +353,7 @@ def main():
                 raise ValueError(f"input changed while experiment ran: {relative}")
         if git("rev-parse", "HEAD") != sha or git("status", "--porcelain=v1", "--untracked-files=all") != dirty:
             raise ValueError("checkout changed while experiment ran")
-        if cargo_configs(ROOT, env):
+        if cargo_configs(ROOT / "test/compatibility/rust", env):
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name in ("shard", "go-shard-compat") and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")

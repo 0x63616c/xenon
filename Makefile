@@ -1,9 +1,11 @@
-.PHONY: test test-rust test-go proof probe-local stop generate
+.PHONY: check build test test-rust test-go proof probe-local stop generate
 
-test: test-rust test-go
+test: test-go
+
+check: test-go test-rust
 
 test-rust:
-	cargo test --locked --workspace
+	cargo test --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked --workspace
 
 # Build the pinned native library before linking Go tests on either supported host.
 test-go:
@@ -28,3 +30,6 @@ stop:
 
 generate:
 	./scripts/generate-proto.sh
+
+build:
+	python3 scripts/build-go-node.py

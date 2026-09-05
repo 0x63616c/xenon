@@ -9,8 +9,8 @@
   },
   "inputs": [
     ".github/workflows/ci.yaml",
-    "Cargo.lock",
-    "Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
     "cmd/xenon-go-node/main.go",
     "cmd/xenon-topology/main.go",
     "deploy/owner-manager.compose.yaml",

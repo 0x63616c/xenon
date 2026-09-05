@@ -111,7 +111,7 @@ class RunnerTests(unittest.TestCase):
         prove.verify_tests('test wanted ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored;', ['wanted'])
 
     def test_shard_commands_and_go_results(self):
-        self.assertEqual(prove.command({"runner": "cargo-build-node"}), ["cargo", "build", "--locked", "-p", "xenon-node"])
+        self.assertEqual(prove.command({"runner": "cargo-build-node"}), ["cargo", "build", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", "xenon-node"])
         with self.assertRaises(ValueError):
             prove.command({"runner": "cargo-build-node", "shell": "echo unexpected"})
         with self.assertRaises(ValueError):

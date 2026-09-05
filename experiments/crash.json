@@ -15,12 +15,12 @@
   "compose": "deploy/crash.compose.yaml",
   "retention": "Delete only this run's Compose project and object volume after verification; retain logs/evidence.",
   "inputs": [
-    "Cargo.toml",
-    "Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
     "rust-toolchain.toml",
-    "crates/slatedb-probe/Cargo.toml",
-    "crates/slatedb-probe/src/lib.rs",
-    "crates/slatedb-probe/src/bin/crash-worker.rs",
+    "test/compatibility/rust/crates/slatedb-probe/Cargo.toml",
+    "test/compatibility/rust/crates/slatedb-probe/src/lib.rs",
+    "test/compatibility/rust/crates/slatedb-probe/src/bin/crash-worker.rs",
     "deploy/crash.compose.yaml",
     "scripts/crash-proof.py",
     "scripts/test_crash_proof.py"
