@@ -15,7 +15,8 @@
     "gen/xenon/v1/persistence.pb.go",
     "gen/xenon/v1/persistence_grpc.pb.go",
     "scripts/test_prove.py",
-    ".github/workflows/ci.yaml"
+    ".github/workflows/ci.yaml",
+    "proof/forwarding/README.md"
   ],
   "fault_schedule": "Fixed partition and operation IDs; initial unreachable route; drop first completed local response; cyclic two-node directory;20ms slow-call deadline. Loopback ports allocated by OS.",
   "assertions": [
