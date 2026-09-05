@@ -60,7 +60,8 @@
     "internal/node/matching_userdata.go",
     "internal/node/matching_userdata_test.go",
     "proof/go-matching/userdata.json",
-    "proof/go-matching/USERDATA.md"
+    "proof/go-matching/USERDATA.md",
+    "internal/node/matching_range_test.go"
   ],
   "fault_schedule": "proof/go-matching/case.json and userdata.json: batch version conflict, duplicate mapping rollback, apply/conflict pointer restoration, opaque pages, reopen replay; pinned upstream suite workloads.",
   "assertions": [
@@ -71,7 +72,8 @@
     "Full pinned legacy TaskStore satisfies upstream TaskQueue, TaskQueueTask and TaskQueueUserData suites over actual gRPC.",
     "Namespace batches atomically update user-data versions and build-ID mappings; pointer Applied/Conflicting outputs survive typed transport.",
     "Conflict and duplicate mapping rollback preserve both data and indexes; durable replay/reopen cannot repeat prior mutation.",
-    "User-data near-limit pages preserve three complete blobs across byte-budget continuation."
+    "User-data near-limit pages preserve three complete blobs across byte-budget continuation.",
+    "Native matching range seeks preserve signed bounds and exclusive cursor endpoints without rescanning prior rows."
   ],
   "limitations": [
     "Local memory object store only, no real S3/Temporal boot/FairTaskStore/distributed catalog proof.",
@@ -169,6 +171,14 @@
         "TestGoOwnerMatchingUpstreamTasks/TestCreateGet_One",
         "TestGoOwnerMatchingUpstreamTasks/TestCreateGet_Multiple",
         "TestGoOwnerMatchingUpstreamTasks/TestCreateDelete_Multiple"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRangeSeek",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRangeSeek"
       ]
     }
   ]

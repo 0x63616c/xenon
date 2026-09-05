@@ -24,24 +24,26 @@ type managed struct {
 // Manager owns disposable process state only. Topology activation is explicit;
 // callers must publish Identity().Incarnation before any partition can open.
 type Manager struct {
-	topology    *TopologyStore
-	identity    directory.Identity
-	objectURL   string
-	mu          sync.Mutex
-	owners      map[string]*managed
-	workers     map[string]bool
-	directories map[string]*directory.Directory
-	closed      bool
+	topology       *TopologyStore
+	identity       directory.Identity
+	objectURL      string
+	maxOutcomes    uint64
+	dispatchCounts map[string]LocalDispatch
+	mu             sync.Mutex
+	owners         map[string]*managed
+	workers        map[string]bool
+	directories    map[string]*directory.Directory
+	closed         bool
 	// Tests pause real opens at exact declared fault points; nil in the binary.
 	beforeOpen  func(directory.Record)
 	beforeReady func(directory.Record)
 }
 
-func NewManager(topology *TopologyStore, nodeID, address, objectURL string) (*Manager, error) {
-	if topology == nil || nodeID == "" || address == "" || objectURL != "s3://"+topology.bucket {
+func NewManager(topology *TopologyStore, nodeID, address, objectURL string, maxOutcomes uint64) (*Manager, error) {
+	if maxOutcomes == 0 || topology == nil || nodeID == "" || address == "" || objectURL != "s3://"+topology.bucket {
 		return nil, directory.ErrInvalid
 	}
-	return &Manager{topology: topology, identity: directory.Identity{Node: nodeID, Address: address, Incarnation: uuid.NewString()}, objectURL: objectURL, owners: map[string]*managed{}, workers: map[string]bool{}, directories: map[string]*directory.Directory{}}, nil
+	return &Manager{topology: topology, identity: directory.Identity{Node: nodeID, Address: address, Incarnation: uuid.NewString()}, objectURL: objectURL, maxOutcomes: maxOutcomes, dispatchCounts: map[string]LocalDispatch{}, owners: map[string]*managed{}, workers: map[string]bool{}, directories: map[string]*directory.Directory{}}, nil
 }
 func (m *Manager) Identity() directory.Identity { return m.identity }
 func (m *Manager) desired(t Topology, id string) bool {
@@ -204,7 +206,7 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 	if e != nil {
 		return e
 	}
-	config := node.DefaultConfig(id)
+	config := m.ownerConfig(id)
 	readyRecord := record
 	readyRecord.State = "ready"
 	config.Authority = func(c context.Context) error { return m.authority(c, d, readyRecord) }
@@ -284,4 +286,10 @@ func (m *Manager) Owner(id string) (*node.Owner, error) {
 		return nil, status.Error(codes.Unavailable, fmt.Sprintf("partition %s not locally ready", id))
 	}
 	return o.owner, nil
+}
+
+func (m *Manager) ownerConfig(id string) node.Config {
+	c := node.DefaultConfig(id)
+	c.MaxOutcomes = m.maxOutcomes
+	return c
 }
