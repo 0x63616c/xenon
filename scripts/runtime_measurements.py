@@ -93,8 +93,8 @@ def read_trace(path, close_confirmed, max_events=2_000_000, max_line_bytes=4096,
             if invocation is None:
                 raise ValueError('unmatched attempt')
             for event in records:
-                if event['family'] != invocation['family']:
-                    raise ValueError('attempt family mismatch')
+                if event['family'] != invocation['family'] or event['method'] != invocation.get('method'):
+                    raise ValueError('attempt family or method mismatch')
         for kind, events in [('invocation', invocations.values()), ('attempt', (e for rows in attempts.values() for e in rows))]:
             for event in events:
                 key = (event['family'], kind)

@@ -33,6 +33,7 @@ class MeasurementTests(unittest.TestCase):
                         [invocation,{'kind':'trace_end','status':'false'}],
                         [invocation,footer,invocation],[{'kind':'trace_error'},footer],
                         [dict(attempt,family='wrong'),invocation,footer],
+                        [dict(attempt,method='/wrong/Execute'),invocation,footer],
                         [dict(invocation,duration_ns=-1),footer],
                         [dict(invocation,duration_ns=True),footer],
                         [dict(invocation,duration_ns='10'),footer],
