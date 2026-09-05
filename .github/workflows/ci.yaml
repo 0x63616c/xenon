@@ -78,3 +78,11 @@ jobs:
           go-version: '1.27.1'
           cache: false
       - run: python3 scripts/prove.py go-bindings
+      - name: Retain Go binding proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: go-bindings-evidence
+          path: .local/evidence/
+          if-no-files-found: error
+          include-hidden-files: true
