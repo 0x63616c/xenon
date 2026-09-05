@@ -367,3 +367,29 @@ func (p *metadataDropProxy) Execute(ctx context.Context, r *wire.MetadataRequest
 	}
 	return result, nil
 }
+
+type metadataCancellationClient struct{ code codes.Code }
+
+func (c metadataCancellationClient) Execute(ctx context.Context, _ *wire.MetadataRequest, _ ...grpc.CallOption) (*wire.MetadataResult, error) {
+	if ctx.Err() != nil {
+		panic("test requires a live context")
+	}
+	return nil, status.Error(c.code, "remote cancellation")
+}
+func TestNamespaceRemoteCancellationTypes(t *testing.T) {
+	for _, tc := range []struct {
+		code codes.Code
+		want error
+	}{
+		{codes.DeadlineExceeded, context.DeadlineExceeded},
+		{codes.Canceled, context.Canceled},
+	} {
+		t.Run(tc.code.String(), func(t *testing.T) {
+			store := &MetadataStore{client: metadataCancellationClient{tc.code}, invocationTimeout: time.Minute}
+			_, err := store.invokeMetadata(context.Background(), &wire.MetadataCommand{})
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("got %T %v, want %v", err, err, tc.want)
+			}
+		})
+	}
+}

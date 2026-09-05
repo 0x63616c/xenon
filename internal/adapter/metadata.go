@@ -62,6 +62,13 @@ func (s *MetadataStore) invokeMetadata(ctx context.Context, command *wire.Metada
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		// Remote cancellation may precede the local context timer.
+		switch status.Code(callErr) {
+		case codes.DeadlineExceeded:
+			return nil, context.DeadlineExceeded
+		case codes.Canceled:
+			return nil, context.Canceled
+		}
 		if status.Code(callErr) != codes.Unavailable || attempt == 2 {
 			return nil, serviceerror.FromStatus(status.Convert(callErr))
 		}
