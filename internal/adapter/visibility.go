@@ -7,6 +7,7 @@ import (
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	qmodel "github.com/0x63616c/xenon/internal/query"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
@@ -44,7 +45,7 @@ func NewVisibilityStore(address, index, schemaPartition string, provider searcha
 	if address == "" || index == "" || schemaPartition == "" || provider == nil {
 		return nil, fmt.Errorf("visibility address, index, schema partition and type provider are required")
 	}
-	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -57,7 +58,9 @@ func (s *VisibilityStore) Close() {
 }
 func (s *VisibilityStore) GetName() string      { return "xenon" }
 func (s *VisibilityStore) GetIndexName() string { return s.index }
-func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string, c *wire.VisibilityCommand) (*wire.VisibilityResult, error) {
+func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string, c *wire.VisibilityCommand) (traceResult *wire.VisibilityResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "visibility")
+	defer func() { traceFinish(traceErr) }()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	if e != nil {
 		return nil, e

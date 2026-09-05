@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	"go.temporal.io/api/serviceerror"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
@@ -27,7 +28,7 @@ type WorkflowStore struct {
 }
 
 func NewWorkflowStore(address, partition string) (*WorkflowStore, error) {
-	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -39,7 +40,9 @@ func (s *WorkflowStore) Close() {
 	}
 }
 func (s *WorkflowStore) GetName() string { return "xenon" }
-func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCommand) (*wire.ExecutionResult, error) {
+func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCommand) (traceResult *wire.ExecutionResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "execution")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
