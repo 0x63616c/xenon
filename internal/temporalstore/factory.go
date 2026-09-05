@@ -22,11 +22,12 @@ type AbstractFactory struct{}
 var _ client.AbstractDataStoreFactory = AbstractFactory{}
 
 type Factory struct {
-	mu                                          sync.Mutex
-	closed                                      bool
-	err                                         error
-	address, cluster, history, matching, global string
-	stores                                      []p.Closeable
+	mu                                 sync.Mutex
+	closed                             bool
+	err                                error
+	address, cluster, matching, global string
+	history                            []string
+	stores                             []p.Closeable
 }
 
 var _ p.DataStoreFactory = (*Factory)(nil)
@@ -37,7 +38,7 @@ func (AbstractFactory) NewFactory(c config.CustomDatastoreConfig, _ resolver.Ser
 		f.err = fmt.Errorf("custom datastore name must be xenon")
 		return f
 	}
-	fields := map[string]*string{"address": &f.address, "historyPartition": &f.history, "matchingPartition": &f.matching, "globalPartition": &f.global}
+	fields := map[string]*string{"address": &f.address, "matchingPartition": &f.matching, "globalPartition": &f.global}
 	for key, target := range fields {
 		value, ok := c.Options[key].(string)
 		if !ok || value == "" {
@@ -46,8 +47,37 @@ func (AbstractFactory) NewFactory(c config.CustomDatastoreConfig, _ resolver.Ser
 		}
 		*target = value
 	}
+
+	switch names := c.Options["historyPartitions"].(type) {
+	case []string:
+		f.history = append([]string(nil), names...)
+	case []any:
+		for _, name := range names {
+			text, ok := name.(string)
+			if !ok {
+				f.err = fmt.Errorf("historyPartitions must be a string list")
+				return f
+			}
+			f.history = append(f.history, text)
+		}
+	default:
+		f.err = fmt.Errorf("xenon datastore requires historyPartitions string list")
+		return f
+	}
+	if len(f.history) == 0 || len(f.history) > 1024 {
+		f.err = fmt.Errorf("historyPartitions must contain 1..1024 names")
+		return f
+	}
+	seen := map[string]bool{}
+	for _, name := range f.history {
+		if name == "" || len(name) > 128 || seen[name] {
+			f.err = fmt.Errorf("historyPartitions names must be nonempty, unique and at most 128 bytes")
+			return f
+		}
+		seen[name] = true
+	}
 	for key := range c.Options {
-		if _, ok := fields[key]; !ok {
+		if _, ok := fields[key]; !ok && key != "historyPartitions" {
 			f.err = fmt.Errorf("unknown xenon datastore option %s", key)
 			return f
 		}
@@ -91,13 +121,17 @@ func (f *Factory) NewFairTaskStore() (p.TaskStore, error) {
 	return create(f, func() (*adapter.MatchingStore, error) { return adapter.NewFairMatchingStore(f.address, f.matching) })
 }
 func (f *Factory) NewShardStore() (p.ShardStore, error) {
-	return create(f, func() (*adapter.ShardStore, error) { return adapter.NewShardStore(f.address, f.history, f.cluster) })
+	return create(f, func() (*adapter.ShardStore, error) {
+		return adapter.NewPartitionedShardStore(f.address, f.history, f.cluster)
+	})
 }
 func (f *Factory) NewMetadataStore() (p.MetadataStore, error) {
 	return create(f, func() (*adapter.MetadataStore, error) { return adapter.NewMetadataStore(f.address, f.global) })
 }
 func (f *Factory) NewExecutionStore() (p.ExecutionStore, error) {
-	return create(f, func() (*adapter.ExecutionStore, error) { return adapter.NewExecutionStore(f.address, f.history) })
+	return create(f, func() (*adapter.ExecutionStore, error) {
+		return adapter.NewPartitionedExecutionStore(f.address, f.history)
+	})
 }
 func (f *Factory) NewQueue(t p.QueueType) (p.Queue, error) {
 	return create(f, func() (*adapter.Queue, error) { return adapter.NewQueue(f.address, f.global, t) })

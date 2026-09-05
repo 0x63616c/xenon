@@ -23,6 +23,7 @@ type WorkflowStore struct {
 	client            wire.ExecutionPersistenceClient
 	partition         string
 	invocationTimeout time.Duration
+	historyPartitions []string
 }
 
 func NewWorkflowStore(address, partition string) (*WorkflowStore, error) {
@@ -30,7 +31,7 @@ func NewWorkflowStore(address, partition string) (*WorkflowStore, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &WorkflowStore{c, wire.NewExecutionPersistenceClient(c), partition, 30 * time.Second}, nil
+	return &WorkflowStore{c, wire.NewExecutionPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *WorkflowStore) Close() {
 	if s.connection != nil {
@@ -46,7 +47,11 @@ func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCo
 		return nil, e
 	}
 	d := sha256.Sum256(raw)
-	q := &wire.ExecutionRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, c.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	q := &wire.ExecutionRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

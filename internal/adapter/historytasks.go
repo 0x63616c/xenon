@@ -22,6 +22,7 @@ type HistoryTasksStore struct {
 	client            wire.HistoryTasksPersistenceClient
 	partition         string
 	invocationTimeout time.Duration
+	historyPartitions []string
 }
 
 func NewHistoryTasksStore(address, partition string) (*HistoryTasksStore, error) {
@@ -29,7 +30,7 @@ func NewHistoryTasksStore(address, partition string) (*HistoryTasksStore, error)
 	if e != nil {
 		return nil, e
 	}
-	return &HistoryTasksStore{c, wire.NewHistoryTasksPersistenceClient(c), partition, 30 * time.Second}, nil
+	return &HistoryTasksStore{c, wire.NewHistoryTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *HistoryTasksStore) Close() {
 	if s.connection != nil {
@@ -45,7 +46,11 @@ func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.Hist
 		return nil, e
 	}
 	d := sha256.Sum256(raw)
-	q := &wire.HistoryTasksRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, c.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	q := &wire.HistoryTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

@@ -37,7 +37,7 @@ func TestGoOwnerTemporalFactory(t *testing.T) {
 	wire.RegisterMetadataPersistenceServer(server, &MetadataServer{Owner: global})
 	go server.Serve(listener)
 	t.Cleanup(server.Stop)
-	cfg := config.CustomDatastoreConfig{Name: "xenon", Options: map[string]any{"address": listener.Addr().String(), "historyPartition": "history", "matchingPartition": "matching", "globalPartition": "global"}}
+	cfg := config.CustomDatastoreConfig{Name: "xenon", Options: map[string]any{"address": listener.Addr().String(), "historyPartitions": []string{"history"}, "matchingPartition": "matching", "globalPartition": "global"}}
 	factory := func() p.DataStoreFactory {
 		return (temporalstore.AbstractFactory{}).NewFactory(cfg, nil, "cluster", nil, nil, nil)
 	}
