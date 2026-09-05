@@ -41,8 +41,11 @@ func (q *Queue) Close() {
 	}
 }
 func (q *Queue) invokeQueue(ctx context.Context, c *wire.QueueCommand) (traceResult *wire.QueueResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "queue")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "queue")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, q.invocationTimeout)
 	defer cancel()
 	c.QueueType = int32(q.queueType)

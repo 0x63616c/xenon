@@ -53,7 +53,7 @@ func main() {
 	if e = rpctrace.Close(ctx); e != nil {
 		log.Fatal(e)
 	}
-	if os.Getenv("XENON_RPC_TRACE_PATH") != "" {
+	if os.Getenv("XENON_RPC_TRACE_PATH") != "" || os.Getenv("XENON_RPC_RECORDER_URL") != "" {
 		fmt.Println("TEMPORAL_TRACE_CLOSED")
 	}
 }

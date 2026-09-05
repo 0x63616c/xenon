@@ -40,8 +40,11 @@ func (s *HistoryTasksStore) Close() {
 }
 func (s *HistoryTasksStore) GetName() string { return "xenon" }
 func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.HistoryTasksCommand) (traceResult *wire.HistoryTasksResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "historytasks")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "historytasks")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

@@ -47,8 +47,11 @@ func namespaceID(id string) ([]byte, error) {
 	return value[:], nil
 }
 func (s *MetadataStore) invokeMetadata(ctx context.Context, command *wire.MetadataCommand) (traceResult *wire.MetadataResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "metadata")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "metadata")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

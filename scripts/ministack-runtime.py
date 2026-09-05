@@ -17,6 +17,7 @@ import urllib.request
 import uuid
 from resource_samples import ProcessSampler
 import runtime_measurements
+import recorder_lifecycle
 from omes_workloads import effective_sdk
 from omes_mixed import validate_result as validate_mixed_result
 import temporal_cut
@@ -66,6 +67,7 @@ def event_record(name,elapsed,fields):
 def arguments(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
+    parser.add_argument('--external-recorder',action='store_true',help='opt-in static fault-phase census plus resources/S3; no steady gate')
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of smoke')
     modes.add_argument('--process-cut-stage',choices=temporal_cut.STAGES,help='bind a real SDK update to a native process cut within the smoke')
@@ -75,11 +77,12 @@ def arguments(argv=None):
 
 def main():
     args=arguments()
+    if args.measurements and args.external_recorder:raise ValueError("measurement modes are mutually exclusive")
     cut_config=temporal_cut.validate_config(json.loads((ROOT/'test/scenarios/ministack/process-cut.json').read_text())) if args.process_cut_stage else None
-    measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements else None
+    measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements or args.external_recorder else None
     if measurement_config and (measurement_config['schema']!=1 or measurement_config['incomplete_policy']!='preserve_functional_result_but_fail_measurement_and_overall_proof' or measurement_config['resources']!='proof/acceptance/resources.json' or measurement_config['s3_meter']!='proof/s3-meter/local.json'):
         raise ValueError('unsupported measurement configuration')
-    sampler=None;meter=None;traces={}
+    sampler=None;meter=None;traces={};recorder=None
     case=json.loads((ROOT/'test/scenarios/ministack/case.json').read_text());pins=json.loads((ROOT/'test/scenarios/ministack/pins.json').read_text())
     project='xenon-ministack-'+uuid.uuid4().hex[:12]
     evidence=ROOT/'.local/evidence'/(time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())+'-'+project)
@@ -121,7 +124,7 @@ def main():
         raise TimeoutError('progress deadline: '+str(last))
     def launch(name,argv,extra=None):
         directory=runtime/name;directory.mkdir()
-        process=Process(argv,directory,{**env,**(extra or {})},evidence/(name+'.log'),stop_timeout=measurement_config['producer_shutdown_seconds'] if measurement_config and 'XENON_RPC_TRACE_PATH' in (extra or {}) else 10);processes.append(process)
+        process=Process(argv,directory,{**env,**(extra or {})},evidence/(name+'.log'),stop_timeout=measurement_config['producer_shutdown_seconds'] if measurement_config and ('XENON_RPC_TRACE_PATH' in (extra or {}) or 'XENON_RPC_RECORDER_URL' in (extra or {})) else 10);processes.append(process)
         if sampler:sampler.register(name,process.process.pid)
         return process
     sdk=str(ROOT/'.local/bin/xenon-sdk-probe')
@@ -157,6 +160,10 @@ def main():
             report['binaries']['xenon-s3-meter']=sha(ROOT/'.local/bin/xenon-s3-meter')
             resource_config=json.loads((ROOT/measurement_config['resources']).read_text())
             sampler=ProcessSampler(evidence/'resources.jsonl',resource_config['interval_seconds'],resource_config['max_samples'],resource_config['max_processes'])
+        if args.external_recorder:
+            run(['go','build','-o',str(ROOT/'.local/bin/xenon-trace-recorder'),'./cmd/xenon-trace-recorder'],120)
+            report['binaries']['xenon-trace-recorder']=sha(ROOT/'.local/bin/xenon-trace-recorder')
+            recorder=recorder_lifecycle.RecorderLifecycle(evidence,ROOT/'.local/bin/xenon-trace-recorder',launch,recorder_lifecycle.config(ROOT/'test/scenarios/ministack/recorder.json'))
         ui=ROOT/'.local/ministack-ui';ui.mkdir(exist_ok=True)
         for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'test/scenarios/ministack/ui'/file,ui/file)
         run(['npm','ci','--ignore-scripts'],120,cwd=ui)
@@ -211,9 +218,10 @@ def main():
         publish()
         temporals=[]
         def temporal(name,config):
-            extra={'XENON_RPC_TRACE_PATH':str(evidence/(name+'.rpc.jsonl'))} if measurement_config else None
+            extra=recorder.environment(name) if recorder else ({'XENON_RPC_TRACE_PATH':str(evidence/(name+'.rpc.jsonl'))} if measurement_config else None)
             process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)],extra);temporals.append(process)
             if measurement_config:traces[name]=process
+            if recorder:recorder.bind(name,process)
             return process
         def healthy_temporal(name,config,address):
             process=temporal(name,config);process.line('TEMPORAL_STARTED',timeout=120)
@@ -333,6 +341,7 @@ def main():
                 remaining=recovery_deadline-time.monotonic()
                 if remaining<=0:raise TimeoutError('locked Temporal recovery deadline exceeded')
                 return remaining
+            if recorder:recorder.declare_kill(ta)
             ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid,recovery_seconds=case['recovery_seconds'])
             probe('control',timeout=recovery_remaining());verify.process.wait(timeout=recovery_remaining())
             if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
@@ -359,7 +368,8 @@ def main():
             event('ui-assertions-passed');checkpoint('before-cold-restart')
             # Explicit final cold-local restart retains only the S3 service volume.
             cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config else processes
-            for process in cold_order:process.stop()
+            for process in cold_order:
+                if not recorder or process is not recorder.process:process.stop()
             nodes.clear();members.clear()
             node('cold-a',17351);node('cold-b',17352)
             for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
@@ -391,12 +401,20 @@ def main():
         except Exception as error:report.setdefault('diagnostic_errors',[]).append(str(error))
         shutdown_order=runtime_measurements.producer_first(list(reversed(processes)),traces) if measurement_config else reversed(processes)
         for process in shutdown_order:
+            if recorder and process is recorder.process:continue
             try:process.stop()
             except Exception as error:report.setdefault('cleanup_errors',[]).append(str(error))
         if measurement_config:
             report['functional_result']=report['result'];report['functional_proof_pass']=report['proof_pass']
             try:
-                report['measurements']=runtime_measurements.finalize(evidence,traces,meter,sampler,measurement_config) if sampler else {'enabled':True,'measurement_complete':False,'error':'measurement setup never completed'}
+                if recorder:
+                    census=recorder.finalize()
+                    resources=sampler.stop() if sampler else {'complete':False}
+                    if sampler:resources['sha256']=sha(evidence/'resources.jsonl')
+                    s3=runtime_measurements.read_meter(evidence/'s3-meter.log',meter.process.returncode) if meter else {'complete':False}
+                    report['measurements']={'enabled':True,'measurement_complete':census['registration_census_complete'] and resources['complete'] and s3['complete'],'scope':'declared static fault-phase registration census, sampled resources and S3 HTTP aggregates','steady_gate_executed':False,'full_acceptance':False,'recorder':census,'resources':resources,'s3':s3}
+                else:
+                    report['measurements']=runtime_measurements.finalize(evidence,traces,meter,sampler,measurement_config) if sampler else {'enabled':True,'measurement_complete':False,'error':'measurement setup never completed'}
             except Exception as error:
                 if sampler:
                     try:sampler.stop()

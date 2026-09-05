@@ -45,7 +45,9 @@
     "proof/omes-corpus/soak.json",
     "test/scenarios/ministack/process-cut.json",
     "scripts/temporal_cut.py",
-    "scripts/omes_mixed.py"
+    "scripts/omes_mixed.py",
+    "test/scenarios/ministack/recorder.json",
+    "scripts/recorder_lifecycle.py"
   ],
   "component_manifests": [
     "runtime-measurements",

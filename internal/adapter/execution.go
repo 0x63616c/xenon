@@ -41,8 +41,11 @@ func (s *WorkflowStore) Close() {
 }
 func (s *WorkflowStore) GetName() string { return "xenon" }
 func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCommand) (traceResult *wire.ExecutionResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "execution")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "execution")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

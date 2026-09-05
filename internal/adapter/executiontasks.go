@@ -41,8 +41,11 @@ func (s *ExecutionTasksStore) Close() {
 }
 func (s *ExecutionTasksStore) GetName() string { return "xenon" }
 func (s *ExecutionTasksStore) invokeExecutionTasks(ctx context.Context, c *wire.ExecutionTasksCommand) (traceResult *wire.ExecutionTasksResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "executiontasks")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "executiontasks")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

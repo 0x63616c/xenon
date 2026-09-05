@@ -311,3 +311,27 @@ func TestRecorderMeasurementLinkage(t *testing.T) {
 		t.Fatal(summary)
 	}
 }
+
+func TestRecorderHTTPProtocolFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "journal")
+	r, err := New(path, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(r)
+	defer server.Close()
+	response, err := http.Post(server.URL+"/event", "application/json", strings.NewReader(`{"kind":"register","secret":"rejected"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != 400 {
+		t.Fatal(response.StatusCode)
+	}
+	if r.Close() == nil {
+		t.Fatal("protocol error finalized successfully")
+	}
+	if _, err = Validate(path); err == nil {
+		t.Fatal("protocol error journal passed")
+	}
+}

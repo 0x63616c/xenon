@@ -12,9 +12,11 @@ import (
 	"regexp"
 	"sort"
 	"sync"
+	"sync/atomic"
 )
 
 type Event struct {
+	HandshakeNS  int64  `json:"handshake_ns,omitempty"`
 	Measurement  string `json:"measurement,omitempty"`
 	ParentID     string `json:"parent_id,omitempty"`
 	ResultStatus string `json:"result_status,omitempty"`
@@ -116,6 +118,7 @@ func (s *State) Apply(e Event) (bool, error) {
 		clean.Status = ""
 		clean.DurationNS = 0
 		clean.ResultStatus = ""
+		clean.HandshakeNS = 0
 	}
 	clean.Kind = ""
 	if clean != (Event{}) {
@@ -153,6 +156,9 @@ func (s *State) Apply(e Event) (bool, error) {
 		}
 		if (e.Status != "completed" && e.Status != "admission_failed") || (e.Status == "completed" && e.DurationNS <= 0) || (e.Status == "admission_failed" && e.DurationNS != 0) {
 			return false, fmt.Errorf("invalid terminal observation")
+		}
+		if e.HandshakeNS < 0 || e.HandshakeNS > e.DurationNS {
+			return false, fmt.Errorf("invalid handshake duration")
 		}
 		if e.Status == "completed" && !validStatus(e.ResultStatus) {
 			return false, fmt.Errorf("invalid RPC result status")
@@ -233,7 +239,7 @@ type Recorder struct {
 	mu        sync.Mutex
 	state     *State
 	file      *os.File
-	failed    bool
+	failed    atomic.Bool
 	closed    bool
 }
 
@@ -259,7 +265,7 @@ func New(path string, limit int) (*Recorder, error) {
 func (r *Recorder) Accept(e Event) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.failed || r.closed {
+	if r.failed.Load() || r.closed {
 		return fmt.Errorf("recorder unavailable")
 	}
 	fresh, err := r.state.Apply(e)
@@ -273,7 +279,7 @@ func (r *Recorder) Accept(e Event) error {
 		err = r.file.Sync()
 	}
 	if err != nil {
-		r.failed = true
+		r.failed.Store(true)
 	}
 	return err
 }
@@ -289,7 +295,7 @@ func (r *Recorder) Close() (retErr error) {
 			retErr = err
 		}
 	}()
-	if r.failed {
+	if r.failed.Load() {
 		return fmt.Errorf("recorder failed")
 	}
 	if _, e := r.state.Summary(); e != nil {
@@ -300,16 +306,20 @@ func (r *Recorder) Close() (retErr error) {
 	}
 	return r.file.Sync()
 }
+func (r *Recorder) reject(w http.ResponseWriter, message string, code int) {
+	r.failed.Store(true)
+	http.Error(w, message, code)
+}
 func (r *Recorder) ServeHTTP(w http.ResponseWriter, q *http.Request) {
 	if q.Method != "POST" || q.URL.Path != "/event" {
-		http.NotFound(w, q)
+		r.reject(w, "unknown recorder route", 404)
 		return
 	}
 	select {
 	case r.admission <- struct{}{}:
 		defer func() { <-r.admission }()
 	default:
-		http.Error(w, "recorder busy", 503)
+		r.reject(w, "recorder busy", 503)
 		return
 	}
 	q.Body = http.MaxBytesReader(w, q.Body, 4096)
@@ -317,16 +327,16 @@ func (r *Recorder) ServeHTTP(w http.ResponseWriter, q *http.Request) {
 	decoder.DisallowUnknownFields()
 	var e Event
 	if err := decoder.Decode(&e); err != nil {
-		http.Error(w, "invalid event", 400)
+		r.reject(w, "invalid event", 400)
 		return
 	}
 	var extra any
 	if decoder.Decode(&extra) != io.EOF {
-		http.Error(w, "trailing event", 400)
+		r.reject(w, "trailing event", 400)
 		return
 	}
 	if err := r.Accept(e); err != nil {
-		http.Error(w, "event rejected", 409)
+		r.reject(w, "event rejected", 409)
 		return
 	}
 	w.WriteHeader(204)

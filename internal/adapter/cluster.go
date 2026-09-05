@@ -45,8 +45,11 @@ func (s *ClusterStore) Close() {
 }
 func (s *ClusterStore) GetName() string { return "xenon" }
 func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand) (traceResult *wire.ClusterResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "cluster")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "cluster")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)

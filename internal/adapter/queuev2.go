@@ -69,8 +69,11 @@ func qv2Error(r *wire.QueueV2Result) error {
 	}
 }
 func (q *QueueV2) invoke(ctx context.Context, c *wire.QueueV2Command) (traceResult *wire.QueueV2Result, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "queuev2")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "queuev2")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	b, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
