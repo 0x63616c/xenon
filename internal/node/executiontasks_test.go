@@ -48,6 +48,11 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 	}
 	task := &wire.ExecutionTask{CategoryId: 1, CategoryType: 1, TaskId: 1, Blob: &wire.HistoryBlob{Data: []byte{255, 0}, Encoding: 1}}
 	add := &wire.ExecutionTasksCommand{Kind: wire.ExecutionTasksCommand_ADD, ShardId: 7, RangeId: 31, Tasks: []*wire.ExecutionTask{task}}
+	missing := proto.Clone(add).(*wire.ExecutionTasksCommand)
+	missing.ShardId = 9999
+	if r := call("missing-shard", missing); r.Error != wire.ExecutionTasksResult_UNAVAILABLE || o.Quarantined() {
+		t.Fatal(r, o.Quarantined())
+	}
 	if r := call("add", add); r.Error != wire.ExecutionTasksResult_NONE {
 		t.Fatal(r)
 	}
