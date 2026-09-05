@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "crates/slatedb-probe/Cargo.toml",
+    "crates/slatedb-probe/src/lib.rs"
+  ],
+  "limitations": [
+    "Actual SlateDB over in-memory object_store; no real-S3 semantics claim.",
+    "GC and compactor defaults are retained; execution of maintenance is not established.",
+    "No Temporal end-to-end, controller, process-kill or scale-out proof."
+  ],
+  "name": "primitive",
+  "fault_schedule": "Deterministic test code supplies state transitions; no random workload seed. See each named Rust test.",
+  "assertions": [
+    "Atomic current/run writes and conflict rollback survive remote WAL reopen.",
+    "Disjoint writes with conflicting read dependencies reject write skew.",
+    "Memory reads expose pre-durable state; Remote reads and the local gate withhold publication.",
+    "Competing writer prevents old writer durable acknowledgement; new writer progresses."
+  ],
+  "commands": [
+    {
+      "runner": "cargo-test",
+      "filter": "tests::atomic_batch_conflict_and_recovery",
+      "exact": true,
+      "expected_tests": [
+        "tests::atomic_batch_conflict_and_recovery"
+      ]
+    },
+    {
+      "runner": "cargo-test",
+      "filter": "tests::await_durable_and_admission_gate",
+      "exact": true,
+      "expected_tests": [
+        "tests::await_durable_and_admission_gate"
+      ]
+    },
+    {
+      "runner": "cargo-test",
+      "filter": "tests::competing_writer_fences_old_writer",
+      "exact": true,
+      "expected_tests": [
+        "tests::competing_writer_fences_old_writer"
+      ]
+    },
+    {
+      "runner": "cargo-test",
+      "filter": "tests::serializable_read_dependency_rejects_write_skew",
+      "exact": true,
+      "expected_tests": [
+        "tests::serializable_read_dependency_rejects_write_skew"
+      ]
+    }
+  ]
+}
