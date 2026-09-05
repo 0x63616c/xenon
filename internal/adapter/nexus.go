@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -27,7 +28,7 @@ type NexusStore struct {
 var _ persistence.NexusEndpointStore = (*NexusStore)(nil)
 
 func NewNexusStore(address, partition string) (*NexusStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +122,9 @@ func (s *NexusStore) ListNexusEndpoints(ctx context.Context, q *persistence.List
 	}
 	return out, nil
 }
-func (s *NexusStore) invokeNexus(ctx context.Context, command *wire.NexusCommand) (*wire.NexusResult, error) {
+func (s *NexusStore) invokeNexus(ctx context.Context, command *wire.NexusCommand) (traceResult *wire.NexusResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "nexus")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

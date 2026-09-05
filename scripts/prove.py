@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -72,6 +72,14 @@ def command(spec):
         if not spec["exact"] or spec["filter"] != "TestOutcomeMetrics":
             raise ValueError("unregistered outcome metrics test")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/ownership", "-run", "^TestOutcomeMetrics$"]
+    if runner == "go-test-trace-adapter":
+        if not spec["exact"] or spec["filter"] != "TestRPCTraceInvocationAndAttempts":
+            raise ValueError("unregistered trace adapter proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-rpctrace":
+        if not spec["exact"] or spec["filter"] not in ("TestTraceOverflowAndDrain", "TestTraceWriteFailure"):
+            raise ValueError("unregistered trace proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-routing":
         if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline", "TestForwardingClosedAdmission"):
             raise ValueError("unregistered routing test")
@@ -93,7 +101,7 @@ def command(spec):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
-        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestQueueRPC", "TestQueueByteBoundedPagination", "TestQueueRemoteCancellation", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestNexusTransport", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC", "TestHistoryPartitionDeadline", "TestHistoryPartitionInvalidCursor", "TestVisibilityRPC", "TestVisibilityUpstream"):
+        if not spec["exact"] or spec["filter"] not in ("TestRPCTraceInvocationAndAttempts", "TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestQueueRPC", "TestQueueByteBoundedPagination", "TestQueueRemoteCancellation", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestNexusTransport", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC", "TestHistoryPartitionDeadline", "TestHistoryPartitionInvalidCursor", "TestVisibilityRPC", "TestVisibilityUpstream"):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
@@ -158,7 +166,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "directory", "owner-manager", "maintenance"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -234,7 +242,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "directory", "owner-manager", "maintenance") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -270,6 +278,10 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/directory")
             elif runner == "go-test-outcomes":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
+            elif runner == "go-test-trace-adapter":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+            elif runner == "go-test-rpctrace":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace")
             elif runner == "go-test-routing":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/routing")
             elif runner in ("go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "go-shard-compat"):

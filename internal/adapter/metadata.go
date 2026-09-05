@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
@@ -29,7 +30,7 @@ type MetadataStore struct {
 var _ persistence.MetadataStore = (*MetadataStore)(nil)
 
 func NewMetadataStore(address, partition string) (*MetadataStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,9 @@ func namespaceID(id string) ([]byte, error) {
 	}
 	return value[:], nil
 }
-func (s *MetadataStore) invokeMetadata(ctx context.Context, command *wire.MetadataCommand) (*wire.MetadataResult, error) {
+func (s *MetadataStore) invokeMetadata(ctx context.Context, command *wire.MetadataCommand) (traceResult *wire.MetadataResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "metadata")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

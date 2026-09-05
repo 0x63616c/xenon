@@ -2,6 +2,7 @@ package adapter
 
 import (
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
 	"google.golang.org/grpc"
@@ -22,7 +23,7 @@ type ExecutionStore struct {
 var _ p.ExecutionStore = (*ExecutionStore)(nil)
 
 func NewExecutionStore(address, partition string) (*ExecutionStore, error) {
-	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
