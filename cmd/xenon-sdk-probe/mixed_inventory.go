@@ -61,6 +61,10 @@ func mixedInventory(ctx context.Context, service mixedLister, namespace string) 
 			if !strings.HasPrefix(id, "w-xenon-full-mixed-") {
 				continue
 			}
+			// Pinned throughput_stress names children parentID/child-N.
+			if strings.Contains(id, "/child-") {
+				continue
+			}
 			suffix := strings.TrimPrefix(id, "w-xenon-full-mixed-")
 			if len(suffix) < 18 || suffix[16] != '-' {
 				return result, fmt.Errorf("invalid mixed root identity")

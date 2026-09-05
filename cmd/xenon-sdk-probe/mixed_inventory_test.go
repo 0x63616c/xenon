@@ -37,6 +37,7 @@ func mixedFixture() *mixedPages {
 			p.Executions = append(p.Executions, &workflowpb.WorkflowExecutionInfo{Execution: &commonpb.WorkflowExecution{WorkflowId: fmt.Sprintf("w-xenon-full-mixed-0123456789abcdef-%d", i), RunId: uuid.NewString()}, Status: status})
 		}
 	}
+	pages.pages[0].Executions = append(pages.pages[0].Executions, &workflowpb.WorkflowExecutionInfo{Execution: &commonpb.WorkflowExecution{WorkflowId: "w-xenon-full-mixed-0123456789abcdef-0/child-1", RunId: uuid.NewString()}, Status: enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED})
 	return pages
 }
 func TestMixedInventory(t *testing.T) {
