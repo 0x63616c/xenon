@@ -498,14 +498,18 @@ func applyExecution(tx *native.DbTransaction, c *wire.ExecutionCommand) (*wire.E
 		}
 	case wire.ExecutionCommand_UPDATE:
 		if c.NewSnapshot != nil {
-			if c.NewSnapshot.NamespaceId != image.NamespaceId {
-				return nil, execFail(wire.ExecutionResult_UNAVAILABLE, "new workflow namespace mismatch")
-			}
+
 			replacement = c.NewSnapshot
 		}
 		switch c.Mode {
 		case 0:
-			if cur == nil || cur.RunId != expected {
+			if c.NewSnapshot != nil && canonicalExecutionID(c.NewSnapshot.NamespaceId) != canonicalExecutionID(image.NamespaceId) {
+				return nil, execFail(wire.ExecutionResult_UNAVAILABLE, "new workflow namespace mismatch")
+			}
+			if cur == nil {
+				return nil, execFail(wire.ExecutionResult_UNAVAILABLE, "current workflow does not exist")
+			}
+			if cur.RunId != expected {
 				return nil, currentFailure(cur)
 			}
 			updateCurrent = true
@@ -523,7 +527,10 @@ func applyExecution(tx *native.DbTransaction, c *wire.ExecutionCommand) (*wire.E
 		}
 		switch c.Mode {
 		case 0:
-			if cur == nil || cur.RunId != expected {
+			if cur == nil {
+				return nil, execFail(wire.ExecutionResult_UNAVAILABLE, "current workflow does not exist")
+			}
+			if cur.RunId != expected {
 				return nil, currentFailure(cur)
 			}
 			updateCurrent = true

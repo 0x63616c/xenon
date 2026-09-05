@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -134,6 +135,7 @@ func TestExecutionRPC(t *testing.T) {
 		t.Fatal("image lost opaque fields", got)
 	}
 	second := snapshot(c.Runs[1], 1)
+	second.NamespaceID = strings.ToUpper(second.NamespaceID)
 	_, e = s.CreateWorkflowExecution(ctx, &p.InternalCreateWorkflowExecutionRequest{ShardID: c.ShardID, RangeID: c.RangeID, Mode: p.CreateWorkflowModeBrandNew, NewWorkflowSnapshot: second})
 	var currentErr *p.CurrentWorkflowConditionFailedError
 	if !errors.As(e, &currentErr) || currentErr.RunID != first.RunID || currentErr.LastWriteVersion != 9001 || currentErr.RequestIDs["request"] == nil {

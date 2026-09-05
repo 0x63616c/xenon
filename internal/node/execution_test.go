@@ -137,6 +137,29 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if r = call("bypass-current", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, Mode: 1, Mutation: m}); r.Error != wire.ExecutionResult_CURRENT_CONDITION_FAILED {
 		t.Fatal(r)
 	}
+	absent := image(first.RunId, 2)
+	absent.WorkflowId = "absent-current"
+	if r = call("missing-update-current", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, Mutation: &wire.ExecutionMutation{Upsert: absent}}); r.Error != wire.ExecutionResult_UNAVAILABLE {
+		t.Fatal(r)
+	}
+	if r = call("missing-conflict-current", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_CONFLICT_RESOLVE, Snapshot: absent}); r.Error != wire.ExecutionResult_UNAVAILABLE {
+		t.Fatal(r)
+	}
+	for index, name := range []string{"bypass-cross-namespace", "ignore-cross-namespace"} {
+		base := image(first.RunId, 1)
+		base.WorkflowId = name
+		if r = call(name+"-create", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_CREATE, Mode: 2, Snapshot: base}); r.Error != wire.ExecutionResult_NONE {
+			t.Fatal(r)
+		}
+		mutation := image(first.RunId, 2)
+		mutation.WorkflowId = name
+		next := image(second.RunId, 1)
+		next.WorkflowId = name
+		next.NamespaceId = third.RunId
+		if r = call(name, &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, Mode: int32(index + 1), Mutation: &wire.ExecutionMutation{Upsert: mutation}, NewSnapshot: next}); r.Error != wire.ExecutionResult_NONE {
+			t.Fatal(r)
+		}
+	}
 	// Legacy NextEventID guard when DBRecordVersion is zero.
 	legacy := image(second.RunId, 0)
 	legacy.Condition = 11
