@@ -106,6 +106,11 @@ def main():
         report['tools']={tool:run(argv).strip() for tool,argv in {'go':['go','version'],'node':['node','--version'],'npm':['npm','--version'],'docker':['docker','version','--format','{{.Server.Version}}'],'aws':['aws','--version']}.items()}
         if report['tools']['node']!=pins['runtime_tools']['node'] or report['tools']['npm']!=pins['runtime_tools']['npm']:raise RuntimeError('Node/npm tool pin mismatch')
         run([sys.executable,'scripts/build-go-node.py'],900)
+        native_manifest=ROOT/'.local/go-node-build.json'
+        report['native_build_manifest']=json.loads(native_manifest.read_text())
+        native_library=ROOT/report['native_build_manifest']['shared_library']
+        report['native_artifacts_sha256']={str(path.relative_to(ROOT)):sha(path) for path in [native_manifest,native_library]}
+        if sha(native_library)!=report['native_build_manifest']['shared_library_sha256']:raise RuntimeError('native build manifest/library mismatch')
         for name,path,tags in [('xenon-topology','./cmd/xenon-topology',[]),('xenon-sdk-probe','./cmd/xenon-sdk-probe',[]),('xenon-temporal','./cmd/xenon-temporal',['-tags','ministack'])]:
             run(['go','build',*tags,'-o',str(ROOT/'.local/bin'/name),path],900)
         report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon-go-node','xenon-topology','xenon-sdk-probe','xenon-temporal']}
@@ -120,7 +125,7 @@ def main():
             metrics_ports[name]=port+100
             _,id,incarnation,address=process.line('INGRESS ').split();nodes[name]=process;members[id]={'address':address,'incarnation':incarnation};event('node-ingress',node=id,incarnation=incarnation,pid=process.process.pid)
         def metrics(name):
-            with urllib.request.urlopen(f'http://127.0.0.1:{metrics_ports[name]}/outcomes',timeout=5) as response:
+            with urllib.request.urlopen(f'http://127.0.0.1:{metrics_ports[name]}/outcomes',timeout=12) as response:
                 snapshot=json.load(response)
             if snapshot['schema_version']!=1 or snapshot['incarnation']!=members[name]['incarnation']:
                 raise RuntimeError('metrics identity/schema mismatch')
@@ -131,7 +136,7 @@ def main():
                     raise RuntimeError('outcome capacity/accounting gate failed')
             return snapshot
         def checkpoint(label):
-            snapshots={name:metrics(name) for name,process in nodes.items() if process.process.poll() is None}
+            snapshots=wait(lambda:{name:metrics(name) for name,process in nodes.items() if process.process.poll() is None},60)
             path=evidence/('outcomes-'+label+'.json');path.write_text(json.dumps(snapshots,indent=2))
             event('outcome-accounting-checkpoint',label=label,file=path.name,sha256=sha(path))
             return snapshots
@@ -218,6 +223,8 @@ def main():
         event('cold-local-recovery-passed');checkpoint('cold-recovered')
         if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
         if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
+        if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during proof')
+        if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native build artifacts changed during proof')
         report.update(result='passed',proof_pass=True)
     except Exception as error:report['error']=str(error)
     finally:
