@@ -117,7 +117,11 @@ func run() error {
 	exact := flag.Int("exact-runs", 0, "exact visible run count, zero means minimum only")
 	minimum := flag.Int("minimum-runs", 1, "minimum visible run count")
 	activity := flag.Bool("require-activity-per-run", false, "require completed activity in each run")
+	mixed := flag.Bool("mixed-profile", false, "validate frozen mixed40 history semantics")
 	flag.Parse()
+	if *mixed && *runID != "xenon-full-mixed" {
+		return fmt.Errorf("mixed profile requires declared run ID")
+	}
 	if *output == "" || *runID == "" || strings.ContainsAny(*runID, "'\\\n\r") || *minimum < 1 || *minimum > 10000 || *exact < 0 || *exact > 10000 {
 		return fmt.Errorf("invalid oracle configuration")
 	}
@@ -185,6 +189,7 @@ func run() error {
 		return fmt.Errorf("list/count mismatch")
 	}
 	sort.Slice(runs, func(i, j int) bool { return runs[i].RunID < runs[j].RunID })
+	histories := map[string]*historypb.History{}
 	totalBytes := 0
 	for i := range runs {
 		h := &historypb.History{}
@@ -220,6 +225,9 @@ func run() error {
 			}
 			seenTokens[string(token)] = true
 		}
+		if *mixed {
+			histories[runs[i].RunID] = h
+		}
 		runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
 		if err != nil {
 			return err
@@ -245,7 +253,12 @@ func run() error {
 	if err = chains(runs); err != nil {
 		return err
 	}
-	report := map[string]any{"schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories and continue-as-new successor graph; terminal result payloads retained, semantic result values not checked"}
+	if *mixed {
+		if err := mixedSemantics(runs, histories); err != nil {
+			return err
+		}
+	}
+	report := map[string]any{"mixed_semantics_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories and continue-as-new successor graph; terminal result payloads retained, semantic result values not checked"}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err

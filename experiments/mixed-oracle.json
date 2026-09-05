@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "name": "mixed-oracle",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "cmd/xenon-omes-oracle/main.go",
+    "cmd/xenon-omes-oracle/mixed.go",
+    "cmd/xenon-omes-oracle/mixed_test.go",
+    "proof/acceptance/mixed-oracle.md"
+  ],
+  "fault_schedule": "Synthetic saved recipe240 histories; omit child, update, retry, signal, CAN predecessor and alter result/parent identity.",
+  "assertions": [
+    "All registered controls pass; each omission fails the semantic oracle."
+  ],
+  "limitations": [
+    "Synthetic semantic controls, no live Temporal execution or all-started census."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-mixed-oracle",
+      "filter": "TestMixedSemantics",
+      "exact": true,
+      "expected_tests": [
+        "TestMixedSemantics/valid",
+        "TestMixedSemantics/missing_child",
+        "TestMixedSemantics/wrong_parent",
+        "TestMixedSemantics/missing_update",
+        "TestMixedSemantics/missing_retry",
+        "TestMixedSemantics/wrong_result",
+        "TestMixedSemantics/missing_signal",
+        "TestMixedSemantics/missing_can",
+        "TestMixedSemantics"
+      ]
+    }
+  ]
+}
