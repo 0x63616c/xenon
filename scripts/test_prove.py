@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -20,6 +21,13 @@ class RunnerTests(unittest.TestCase):
             config.parent.mkdir()
             config.write_text("[build]\n")
             self.assertEqual(prove.cargo_configs(root, {"HOME": str(Path(folder) / "home")}), [str(config.resolve())])
+
+    def test_all_committed_experiments_keep_registered_commands(self):
+        for path in sorted((prove.ROOT / "experiments").glob("*.json")):
+            manifest = json.loads(path.read_text())
+            for spec in manifest["commands"]:
+                with self.subTest(experiment=manifest["name"], runner=spec["runner"]):
+                    self.assertTrue(prove.command(spec))
 
     def test_commands_are_allowlisted(self):
         with self.assertRaises(ValueError):

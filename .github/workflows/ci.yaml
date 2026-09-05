@@ -18,6 +18,10 @@ jobs:
           go-version: '1.27.1'
           cache: false
       - run: python3 scripts/install-protoc.py >> "$GITHUB_PATH"
+      - name: Verify generated protobuf bindings match pinned sources
+        run: |
+          scripts/generate-proto.sh
+          git diff --exit-code -- gen/
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -27,6 +31,14 @@ jobs:
       - run: python3 scripts/prove.py shard
       - run: go test -race ./...
       - run: go vet ./...
+      - name: Retain partition proof provenance and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: partition-proof-evidence
+          path: .local/evidence/
+          if-no-files-found: warn
+          include-hidden-files: true
 
   s3-crash:
     runs-on: ubuntu-24.04
