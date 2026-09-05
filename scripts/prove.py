@@ -53,13 +53,13 @@ def command(spec):
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
     if runner == "go-test-process-cut":
-        if spec["filter"] != "TestCutIdentityAndOneShot" or not spec["exact"]:
+        if spec["filter"] not in ("TestCutIdentityAndOneShot", "TestDiscoveryExactCandidate", "TestDiscoveryLateArmRejected") or not spec["exact"]:
             raise ValueError("unregistered process-cut controls")
-        return ["go", "test", "-race", "-json", "-count=1", "./internal/processcut", "-run", "^TestCutIdentityAndOneShot$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/processcut", "-run", "^" + spec["filter"] + "$"]
     if runner == "s3-process-cut":
-        if spec["filter"] != "TestS3ProcessCuts" or not spec["exact"]:
+        if spec["filter"] not in ("TestS3ProcessCuts", "TestS3ExecutionDiscoveryCuts") or not spec["exact"]:
             raise ValueError("unregistered process-cut S3 fixture")
-        return [sys.executable, "scripts/process-cut-proof.py"]
+        return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
     if runner == "python-measurements":
         if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples"):
             raise ValueError("unregistered runtime measurement controls")

@@ -19,6 +19,9 @@ def execute(argv, env, timeout=120):
     return result.stdout.strip()
 
 def main():
+    test_name = sys.argv[1] if len(sys.argv) == 2 else "TestS3ProcessCuts"
+    if test_name not in ("TestS3ProcessCuts", "TestS3ExecutionDiscoveryCuts"):
+        raise ValueError("unregistered process cut test")
     cfg = json.loads((ROOT / "proof/process-cut/case.json").read_text())
     if cfg["schema"] != 1 or cfg["backend"] != "s3-emulator" or cfg["endpoint"] != "http://127.0.0.1:19010":
         raise RuntimeError("unregistered process-cut fixture")
@@ -42,7 +45,7 @@ def main():
                 if time.monotonic()>=deadline: raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
         execute(["aws","--endpoint-url",cfg["endpoint"],"s3api","create-bucket","--bucket",cfg["bucket"]],env)
-        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/node","-run","^TestS3ProcessCuts$"],cwd=ROOT,env=env,timeout=200)
+        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/node","-run","^"+test_name+"$"],cwd=ROOT,env=env,timeout=200)
         if completed.returncode: raise RuntimeError("real process-cut assertion failed")
     finally:
         execute([*compose,"down","--volumes"],env)
