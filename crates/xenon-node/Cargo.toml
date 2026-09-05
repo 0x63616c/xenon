@@ -1,0 +1,14 @@
+[package]
+name = "xenon-node"
+version = "0.1.0"
+edition = "2021"
+publish = false
+[dependencies]
+slatedb = { version = "=0.16.0", default-features = false, features = ["aws"] }
+tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "sync", "net", "signal"] }
+tokio-stream = { version = "=0.1.17", features = ["net"] }
+tonic = { version = "=0.12.3", features = ["transport"] }
+prost = "=0.13.5"
+sha2 = "=0.10.9"
+[build-dependencies]
+tonic-build = "=0.12.3"
