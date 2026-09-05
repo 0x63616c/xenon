@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup", "go-test-routing") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup", "go-test-routing", "s3-directory") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -52,6 +52,10 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner == "s3-directory":
+        if spec["filter"] != "TestS3Directory" or not spec["exact"]:
+            raise ValueError("unregistered directory test")
+        return [sys.executable, "scripts/directory-proof.py"]
     if runner in ("s3-crash", "s3-crash-cleanup"):
         if spec["filter"] != "crash" or spec["exact"]:
             raise ValueError("invalid crash command")
@@ -130,14 +134,14 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "forwarding"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "forwarding", "directory"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
         return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
     manifest_path = ROOT / "experiments" / (args.name + ".json")
     manifest = json.loads(manifest_path.read_text())
-    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name == "crash" else "memory"):
+    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "directory") else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
     if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 900:
@@ -160,6 +164,8 @@ def main():
     if args.name in ("go-shard", "go-namespace", "go-cluster"):
         target = ROOT / ".local/slatedb-native-target/debug"
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
+    if args.name == "directory":
+        env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "XENON_DIRECTORY_PROJECT":"xenon-directory-" + uuid.uuid4().hex[:12]})
     def git(*argv):
         return subprocess.check_output(["git", *argv], cwd=ROOT, env=env, text=True).strip()
     sha = git("rev-parse", "HEAD")
@@ -196,7 +202,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "forwarding") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "forwarding", "directory") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -224,6 +230,8 @@ def main():
                 if not binary.is_file():
                     raise ValueError("node build produced no binary")
                 report["node_binary_sha256"] = digest(binary)
+            elif runner == "s3-directory":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/directory")
             elif runner == "go-test-routing":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/routing")
             elif runner in ("go-test-shard", "go-test-node"):
@@ -258,6 +266,14 @@ def main():
     except Exception as error:
         report["error"] = str(error)
     finally:
+        if args.name == "directory":
+            try:
+                code, output, expired = run_process(["docker", "compose", "--project-name", env["XENON_DIRECTORY_PROJECT"], "-f", "deploy/directory.compose.yaml", "down", "--volumes"], 60, env, ROOT)
+                report["cleanup"] = {"exit_code": code, "timed_out": expired}
+            except Exception as error:
+                report["cleanup"] = {"exit_code": -1, "timed_out": False, "error": str(error)}
+            if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
+                report.update(result="failed", proof_pass=False, error="directory cleanup failed")
         if args.name == "crash":
             # Out-of-process cleanup also handles a controller killed before finally.
             report["cleanup"] = cleanup_crash(env["XENON_PROOF_PROJECT"], env, ROOT)

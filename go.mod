@@ -5,12 +5,27 @@ go 1.26.4
 toolchain go1.27.1
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.41.5
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.13
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.98.0
+	github.com/aws/smithy-go v1.24.2
 	github.com/google/uuid v1.6.0
+	go.temporal.io/api v1.62.8
 	go.temporal.io/server v1.31.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.10
+	slatedb.io/slatedb-go v0.16.0
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cactus/go-statsd-client/v5 v5.1.0 // indirect
@@ -51,7 +66,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	go.temporal.io/api v1.62.8 // indirect
 	go.temporal.io/sdk v1.41.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect
@@ -67,7 +81,5 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
-	google.golang.org/grpc v1.79.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	slatedb.io/slatedb-go v0.16.0 // indirect
 )

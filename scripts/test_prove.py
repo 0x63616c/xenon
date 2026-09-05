@@ -5,11 +5,25 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import prove
 
 
 class RunnerTests(unittest.TestCase):
+    def test_directory_cleanup_failure_retains_failed_report(self):
+        manifest = (prove.ROOT / "experiments/directory.json").read_text()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "experiments").mkdir()
+            (root / "experiments/directory.json").write_text(manifest)
+            with patch.object(prove, "ROOT", root), patch.object(sys, "argv", ["prove.py", "directory"]), patch.object(prove, "cargo_configs", return_value=[]), patch.object(prove.subprocess, "check_output", side_effect=["a" * 40, " M tracked"]), patch.object(prove, "run_process", side_effect=FileNotFoundError("docker unavailable")):
+                self.assertEqual(prove.main(), 1)
+            report = json.loads(next((root / ".local/evidence").glob("*/result.json")).read_text())
+            self.assertFalse(report["proof_pass"])
+            self.assertEqual(report["result"], "failed")
+            self.assertEqual(report["cleanup"]["exit_code"], -1)
+
     def test_dirty_development_can_never_be_proof_pass(self):
         self.assertEqual(prove.classify_success(True), ("development-passed", False))
         self.assertEqual(prove.classify_success(False), ("passed", True))
