@@ -4,11 +4,11 @@ Status: implementation direction selected on bounded primitive evidence, 2026-09
 
 ## 1. Components and version boundary
 
-Retain Temporal Server v1.31.2, commit `19a774302c613da9adc4436ab14278ccdca8e0a5`. A Go adapter implements its execution and visibility persistence interfaces and routes complete operations over versioned protobuf/gRPC to Rust Xenon nodes. Nodes embed SlateDB v0.16.0, commit `3fb9e8abab0c9f5833f0c154140ceef009fea02a`, using S3 directly. Both data and Xenon placement metadata are durable only in object storage. Local caches are disposable.
+Retain Temporal Server v1.31.2, commit `19a774302c613da9adc4436ab14278ccdca8e0a5`. A Go adapter implements its execution and visibility persistence interfaces and routes complete operations over versioned protobuf/gRPC to Go Xenon nodes. Nodes embed SlateDB v0.16.0, commit `3fb9e8abab0c9f5833f0c154140ceef009fea02a`, using S3 directly. Both data and Xenon placement metadata are durable only in object storage. Local caches are disposable.
 
-Prefer one Rust node lifecycle containing operation handlers, partition admission, SlateDB handles, compaction and recovery. This avoids a second Go-handler/Rust-engine RPC transaction lifecycle. Such a split would still require translating Temporal's SQL semantics into KV operations and would add handler death, orphaned engine gates and partial transaction sessions. It is not the initial implementation seam. The Go adapter never orchestrates remote Get/Put transactions. Retain upstream protobuf payloads and semantic tests; do not reimplement Temporal's workflow engine.
+Use one Go node process containing operation handlers and partition admission, embedding SlateDB's Rust engine through the official pinned Go UniFFI bindings. Calum explicitly prefers Go, and the committed binding feasibility experiment supports this choice. Preserve one complete-operation boundary; the Go adapter never orchestrates remote Get/Put transactions. Retain upstream protobuf payloads and semantic tests; do not reimplement Temporal's workflow engine.
 
-This is a delegated advocate/reviewer recommendation, not a claim that Calum selected a language. Revisit the seam only with a concrete compiling experiment showing materially less engineering while preserving whole-operation admission and failure semantics. See [ADR 0001](../adr/0001-direct-s3-engine.md).
+Native calls lack Go context cancellation. Bound admission across all calls and durable acknowledgement; atomically quarantine on timeout, reject further operations and retain in-flight native handles until completion. Supervised process recovery must cover indefinitely stalled calls without pretending timeout cancels Rust work. Pin and package the native library with its matching generated wrapper. The Go port and production lifecycle tests remain pending. See the superseding decision in [ADR 0001](../adr/0001-direct-s3-engine.md).
 
 ## 2. Logical partitions and keys
 
