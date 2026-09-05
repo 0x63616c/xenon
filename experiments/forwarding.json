@@ -22,7 +22,8 @@
     "Complete operation envelope unchanged across actual gRPC forwarding.",
     "Stale route refresh reaches owner; in-memory recorded response prevents a second logical test execution.",
     "Forwarded deadline never extends original deadline.",
-    "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline."
+    "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline.",
+    "Closed router rejects new local admissions."
   ],
   "limitations": [
     "Transport component only; test resolver and recorded response are in-memory fixtures, not S3 authority or durable replay proof.",
@@ -43,6 +44,14 @@
       "exact": true,
       "expected_tests": [
         "TestForwardingLoopsAndDeadline"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingClosedAdmission",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingClosedAdmission"
       ]
     }
   ]

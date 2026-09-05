@@ -57,7 +57,7 @@ def command(spec):
             raise ValueError("invalid crash command")
         return [sys.executable, "scripts/crash-proof.py", *(["--check-cleanup"] if runner == "s3-crash-cleanup" else [])]
     if runner == "go-test-routing":
-        if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline"):
+        if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline", "TestForwardingClosedAdmission"):
             raise ValueError("unregistered routing test")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/routing", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":

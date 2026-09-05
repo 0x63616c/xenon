@@ -140,3 +140,19 @@ func TestForwardingLoopsAndDeadline(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestForwardingClosedAdmission(t *testing.T) {
+	r := &Router{Node: "a"}
+	address := serve(t, r)
+	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"a", address}, nil })
+	r.Local = func(context.Context, string, proto.Message) (proto.Message, error) {
+		t.Error("closed router executed")
+		return &wire.ShardResult{}, nil
+	}
+	r.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, e := client(t, address).Execute(ctx, &wire.ShardRequest{Partition: "p"}); status.Code(e) != codes.Unavailable {
+		t.Fatal(e)
+	}
+}

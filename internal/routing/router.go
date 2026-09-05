@@ -35,6 +35,8 @@ type Router struct {
 	closed      bool
 }
 
+// Close rejects new admissions and closes outbound connections. Already admitted
+// local work retains its caller deadline and ownership lifecycle.
 func (r *Router) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -77,6 +79,15 @@ func (r *Router) connection(address string) (*grpc.ClientConn, error) {
 // reply creates the concrete response for a registered full RPC method.
 func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, _ grpc.UnaryHandler) (any, error) {
+		r.mu.Lock()
+		closed := r.closed
+		r.mu.Unlock()
+		if closed {
+			return nil, status.Error(codes.Unavailable, "router closed")
+		}
+		if r.Node == "" || r.Directory == nil || r.Local == nil {
+			return nil, status.Error(codes.Unavailable, "router not configured")
+		}
 		req, ok := request.(interface {
 			proto.Message
 			GetPartition() string
