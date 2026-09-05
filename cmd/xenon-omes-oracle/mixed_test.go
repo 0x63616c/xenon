@@ -84,38 +84,38 @@ func mixedFixture(t *testing.T) ([]runAudit, map[string]*historypb.History) {
 	return runs, histories
 }
 func TestMixedSemantics(t *testing.T) {
-	for _, control := range []string{"valid", "missing-child", "wrong-parent", "missing-update", "missing-retry", "wrong-result", "missing-signal", "missing-can"} {
+	for _, control := range []string{"valid", "missing_child", "wrong_parent", "missing_update", "missing_retry", "wrong_result", "missing_signal", "missing_can"} {
 		t.Run(control, func(t *testing.T) {
 			runs, hs := mixedFixture(t)
 			h := hs["root-0-0"]
 			switch control {
-			case "missing-child":
+			case "missing_child":
 				delete(hs, "child-0-0-0")
-			case "wrong-parent":
+			case "wrong_parent":
 				hs["child-0-0-0"].Events[0].GetWorkflowExecutionStartedEventAttributes().ParentWorkflowExecution.RunId = "wrong"
-			case "missing-update":
+			case "missing_update":
 				for _, e := range h.Events {
 					if e.GetWorkflowExecutionUpdateCompletedEventAttributes() != nil {
 						e.Attributes = nil
 						break
 					}
 				}
-			case "missing-retry":
+			case "missing_retry":
 				for _, e := range h.Events {
 					if a := e.GetActivityTaskStartedEventAttributes(); a != nil {
 						a.Attempt = 1
 						break
 					}
 				}
-			case "wrong-result":
+			case "wrong_result":
 				hs["child-0-0-0"].Events[7].GetWorkflowExecutionCompletedEventAttributes().Result.Payloads[0].Data = []byte("wrong")
-			case "missing-signal":
+			case "missing_signal":
 				for _, e := range h.Events {
 					if e.GetWorkflowExecutionSignaledEventAttributes() != nil {
 						e.Attributes = nil
 					}
 				}
-			case "missing-can":
+			case "missing_can":
 				for i := range runs {
 					if runs[i].RunID == "root-0-0" {
 						runs[i].NextRun = ""
