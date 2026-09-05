@@ -19,6 +19,7 @@ const (
 	queueFamily
 	historyFamily
 	nexusFamily
+	matchingFamily
 )
 
 func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
@@ -29,6 +30,8 @@ func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
 		return outcome.GetMetadataResult() != nil
 	case clusterFamily:
 		return outcome.GetClusterResult() != nil
+	case matchingFamily:
+		return outcome.GetMatchingResult() != nil
 	case nexusFamily:
 		return outcome.GetNexusResult() != nil
 	case historyFamily:

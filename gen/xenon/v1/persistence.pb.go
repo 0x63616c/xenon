@@ -451,6 +451,7 @@ type StoredOutcome struct {
 	//	*StoredOutcome_QueueResult
 	//	*StoredOutcome_HistoryResult
 	//	*StoredOutcome_NexusResult
+	//	*StoredOutcome_MatchingResult
 	Result        isStoredOutcome_Result `protobuf_oneof:"result"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -554,6 +555,15 @@ func (x *StoredOutcome) GetNexusResult() *NexusResult {
 	return nil
 }
 
+func (x *StoredOutcome) GetMatchingResult() *MatchingResult {
+	if x != nil {
+		if x, ok := x.Result.(*StoredOutcome_MatchingResult); ok {
+			return x.MatchingResult
+		}
+	}
+	return nil
+}
+
 type isStoredOutcome_Result interface {
 	isStoredOutcome_Result()
 }
@@ -582,6 +592,10 @@ type StoredOutcome_NexusResult struct {
 	NexusResult *NexusResult `protobuf:"bytes,7,opt,name=nexus_result,json=nexusResult,proto3,oneof"`
 }
 
+type StoredOutcome_MatchingResult struct {
+	MatchingResult *MatchingResult `protobuf:"bytes,8,opt,name=matching_result,json=matchingResult,proto3,oneof"`
+}
+
 func (*StoredOutcome_ShardResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_MetadataResult) isStoredOutcome_Result() {}
@@ -594,11 +608,13 @@ func (*StoredOutcome_HistoryResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_NexusResult) isStoredOutcome_Result() {}
 
+func (*StoredOutcome_MatchingResult) isStoredOutcome_Result() {}
+
 var File_xenon_v1_persistence_proto protoreflect.FileDescriptor
 
 const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\n" +
-	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x16xenon/v1/cluster.proto\x1a\x14xenon/v1/queue.proto\x1a\x16xenon/v1/history.proto\x1a\x14xenon/v1/nexus.proto\"\xb9\x02\n" +
+	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x16xenon/v1/cluster.proto\x1a\x14xenon/v1/queue.proto\x1a\x16xenon/v1/history.proto\x1a\x14xenon/v1/nexus.proto\x1a\x17xenon/v1/matching.proto\"\xb9\x02\n" +
 	"\fShardCommand\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.xenon.v1.ShardCommand.KindR\x04kind\x12\x19\n" +
 	"\bshard_id\x18\x02 \x01(\x05R\ashardId\x12*\n" +
@@ -636,7 +652,7 @@ const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\vStoredShard\x12\x19\n" +
 	"\brange_id\x18\x01 \x01(\x03R\arangeId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\xbd\x03\n" +
+	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\x82\x04\n" +
 	"\rStoredOutcome\x12%\n" +
 	"\x0ecommand_sha256\x18\x01 \x01(\fR\rcommandSha256\x12:\n" +
 	"\fshard_result\x18\x02 \x01(\v2\x15.xenon.v1.ShardResultH\x00R\vshardResult\x12C\n" +
@@ -644,7 +660,8 @@ const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\x0ecluster_result\x18\x04 \x01(\v2\x17.xenon.v1.ClusterResultH\x00R\rclusterResult\x12:\n" +
 	"\fqueue_result\x18\x05 \x01(\v2\x15.xenon.v1.QueueResultH\x00R\vqueueResult\x12@\n" +
 	"\x0ehistory_result\x18\x06 \x01(\v2\x17.xenon.v1.HistoryResultH\x00R\rhistoryResult\x12:\n" +
-	"\fnexus_result\x18\a \x01(\v2\x15.xenon.v1.NexusResultH\x00R\vnexusResultB\b\n" +
+	"\fnexus_result\x18\a \x01(\v2\x15.xenon.v1.NexusResultH\x00R\vnexusResult\x12C\n" +
+	"\x0fmatching_result\x18\b \x01(\v2\x18.xenon.v1.MatchingResultH\x00R\x0ematchingResultB\b\n" +
 	"\x06result2L\n" +
 	"\x10ShardPersistence\x128\n" +
 	"\aExecute\x12\x16.xenon.v1.ShardRequest\x1a\x15.xenon.v1.ShardResultB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
@@ -676,6 +693,7 @@ var file_xenon_v1_persistence_proto_goTypes = []any{
 	(*QueueResult)(nil),    // 9: xenon.v1.QueueResult
 	(*HistoryResult)(nil),  // 10: xenon.v1.HistoryResult
 	(*NexusResult)(nil),    // 11: xenon.v1.NexusResult
+	(*MatchingResult)(nil), // 12: xenon.v1.MatchingResult
 }
 var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	0,  // 0: xenon.v1.ShardCommand.kind:type_name -> xenon.v1.ShardCommand.Kind
@@ -687,13 +705,14 @@ var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	9,  // 6: xenon.v1.StoredOutcome.queue_result:type_name -> xenon.v1.QueueResult
 	10, // 7: xenon.v1.StoredOutcome.history_result:type_name -> xenon.v1.HistoryResult
 	11, // 8: xenon.v1.StoredOutcome.nexus_result:type_name -> xenon.v1.NexusResult
-	3,  // 9: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
-	4,  // 10: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
-	10, // [10:11] is the sub-list for method output_type
-	9,  // [9:10] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	12, // 9: xenon.v1.StoredOutcome.matching_result:type_name -> xenon.v1.MatchingResult
+	3,  // 10: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
+	4,  // 11: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
+	11, // [11:12] is the sub-list for method output_type
+	10, // [10:11] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_xenon_v1_persistence_proto_init() }
@@ -706,6 +725,7 @@ func file_xenon_v1_persistence_proto_init() {
 	file_xenon_v1_queue_proto_init()
 	file_xenon_v1_history_proto_init()
 	file_xenon_v1_nexus_proto_init()
+	file_xenon_v1_matching_proto_init()
 	file_xenon_v1_persistence_proto_msgTypes[4].OneofWrappers = []any{
 		(*StoredOutcome_ShardResult)(nil),
 		(*StoredOutcome_MetadataResult)(nil),
@@ -713,6 +733,7 @@ func file_xenon_v1_persistence_proto_init() {
 		(*StoredOutcome_QueueResult)(nil),
 		(*StoredOutcome_HistoryResult)(nil),
 		(*StoredOutcome_NexusResult)(nil),
+		(*StoredOutcome_MatchingResult)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

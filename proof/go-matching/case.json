@@ -1,0 +1,1 @@
+{"schema":1,"namespace":"11111111-2222-3333-4444-555555555555","queue":"matching/queue","range":17,"tasks":[3,1,2],"subqueues":[0,1],"blob_bytes":1048576,"page_size":1,"schedule":["drop_first_create_response","stale_batch_rollback","duplicate_batch_rollback","multi_subqueue_commit","page_and_complete","reopen_replay"]}

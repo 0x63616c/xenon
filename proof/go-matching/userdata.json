@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "flush_interval": "1ms",
+  "queues": [
+    "a",
+    "b"
+  ],
+  "build_ids": [
+    "build",
+    "new"
+  ],
+  "schedule": [
+    "version0_create",
+    "version_conflict_rolls_back_namespace",
+    "conditional_update_moves_index",
+    "duplicate_mapping_rolls_back_version",
+    "reopen_replays_without_mutation"
+  ],
+  "upstream_suites": [
+    "TaskQueueSuite",
+    "TaskQueueTaskSuite",
+    "TaskQueueUserDataSuite"
+  ]
+}

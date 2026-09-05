@@ -85,6 +85,7 @@ func main() {
 	wire.RegisterQueuePersistenceServer(server, &node.QueueServer{Owner: owner})
 	wire.RegisterHistoryPersistenceServer(server, &node.HistoryServer{Owner: owner})
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
+	wire.RegisterMatchingPersistenceServer(server, &node.MatchingServer{Owner: owner})
 	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
 	wire.RegisterNexusPersistenceServer(server, &node.NexusServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())

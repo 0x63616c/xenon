@@ -1,0 +1,21 @@
+syntax = "proto3";
+package xenon.v1;
+option go_package = "github.com/0x63616c/xenon/gen/xenon/v1;xenonv1";
+service MatchingPersistence { rpc Execute(MatchingRequest) returns (MatchingResult); }
+message MatchingRecord { int64 range_id=1; bytes data=2; int32 encoding=3; }
+message MatchingTask { int64 id=1; int32 subqueue=2; bytes data=3; int32 encoding=4; }
+message MatchingCommand {
+ enum Kind { UNSPECIFIED=0; CREATE_QUEUE=1; GET_QUEUE=2; UPDATE_QUEUE=3; LIST_QUEUES=4; DELETE_QUEUE=5; CREATE_TASKS=6; GET_TASKS=7; COMPLETE_TASKS=8; GET_USER_DATA=9; UPDATE_USER_DATA=10; LIST_USER_DATA=11; GET_BY_BUILD=12; COUNT_BY_BUILD=13; }
+ Kind kind=1; bytes namespace_id=2; string queue=3; int32 task_type=4;
+ int64 range_id=5; int64 previous_range_id=6; bytes data=7; int32 encoding=8;
+ repeated MatchingTask tasks=9; int32 subqueue=10; int64 min_id=11; int64 max_id=12;
+ int32 page_size=13; bytes token=14; repeated MatchingUserUpdate updates=15; string build_id=16;
+}
+message MatchingRequest { uint32 protocol_version=1; string partition=2; string operation_id=3; bytes command_sha256=4; MatchingCommand command=5; }
+message MatchingResult {
+ enum Error { NONE=0; NOT_FOUND=1; CONDITION_FAILED=2; UNAVAILABLE=3; }
+ Error error=1; string message=2; repeated MatchingRecord queues=3; repeated MatchingTask tasks=4; bytes token=5; int32 completed=6; repeated MatchingUserRecord user_data=7; repeated string queue_names=8; repeated string conflicting=9; bool applied=10; int64 count=11;
+}
+
+message MatchingUserRecord {string queue=1; int64 version=2; bytes data=3; int32 encoding=4;}
+message MatchingUserUpdate {string queue=1; int64 version=2; bytes data=3; int32 encoding=4; repeated string build_ids_added=5; repeated string build_ids_removed=6;}
