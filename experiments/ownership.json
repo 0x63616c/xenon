@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "crates/slatedb-probe/Cargo.toml",
+    "crates/slatedb-probe/src/lib.rs",
+    "crates/slatedb-probe/src/ownership.rs"
+  ],
+  "limitations": [
+    "Actual SlateDB over in-memory object_store; no real-S3 semantics claim.",
+    "GC and compactor defaults are retained; execution of maintenance is not established.",
+    "No Temporal end-to-end, controller, process-kill or scale-out proof."
+  ],
+  "name": "ownership",
+  "fault_schedule": "A acknowledges; B and D reserve then pause before open; C supersedes and acknowledges; B then D resume separately, each fences C, fails readiness, retires; fresh C reservation recovers after each. Captured read pauses before barrier until successor opens.",
+  "assertions": [
+    "Reservation and Owner reject mismatched directory/data prefix/store bindings.",
+    "Owner admission blocks reads until held gate releases.",
+    "Stale captured read cannot pass unique nonempty durable authority barrier.",
+    "Two finite delayed openers retire after rejected READY CAS; fresh owner recovers acknowledged state and progress."
+  ],
+  "commands": [
+    {
+      "runner": "cargo-test",
+      "filter": "ownership::tests::",
+      "exact": false,
+      "expected_tests": [
+        "ownership::tests::reservation_is_bound_and_read_admission_is_held",
+        "ownership::tests::stale_captured_read_cannot_cross_durable_barrier",
+        "ownership::tests::delayed_stale_opener_retires_and_fresh_owner_recovers"
+      ]
+    }
+  ]
+}
