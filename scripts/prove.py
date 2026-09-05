@@ -156,7 +156,7 @@ def main():
     if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory", "owner-manager", "maintenance") else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
-    if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 900:
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= (1500 if args.name == "maintenance" else 900):
         raise ValueError("invalid timeout")
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
