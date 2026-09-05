@@ -105,6 +105,10 @@ def main():
         report['git_sha']=run(['git','rev-parse','HEAD']).strip()
         if run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('runtime proof requires clean checkout')
         tracked=run(['git','ls-files']).splitlines();report['input_sha256']={p:sha(ROOT/p) for p in tracked}
+        node_bin=run([sys.executable,'scripts/ministack-node.py'],120).strip()
+        env['PATH']=node_bin+os.pathsep+env['PATH']
+        env['PLAYWRIGHT_BROWSERS_PATH']=str(ROOT/'.local/playwright-browsers')
+        report['ui_node_sha256']=sha(Path(node_bin)/'node')
         report['tools']={tool:run(argv).strip() for tool,argv in {'go':['go','version'],'node':['node','--version'],'npm':['npm','--version'],'docker':['docker','version','--format','{{.Server.Version}}'],'aws':['aws','--version']}.items()}
         if report['tools']['node']!=pins['runtime_tools']['node'] or report['tools']['npm']!=pins['runtime_tools']['npm']:raise RuntimeError('Node/npm tool pin mismatch')
         if not report['tools']['aws'].startswith('aws-cli/'+pins['runtime_tools']['aws_cli']+' '):raise RuntimeError('AWS CLI tool pin mismatch')
@@ -117,6 +121,10 @@ def main():
         for name,path,tags in [('xenon-topology','./cmd/xenon-topology',[]),('xenon-sdk-probe','./cmd/xenon-sdk-probe',[]),('xenon-temporal','./cmd/xenon-temporal',['-tags','ministack'])]:
             run(['go','build',*tags,'-o',str(ROOT/'.local/bin'/name),path],900)
         report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon-go-node','xenon-topology','xenon-sdk-probe','xenon-temporal']}
+        ui=ROOT/'.local/ministack-ui';ui.mkdir(exist_ok=True)
+        for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'proof/ministack/ui'/file,ui/file)
+        run(['npm','ci','--ignore-scripts'],120,cwd=ui)
+        run(['npx','playwright','install','chromium'],300,cwd=ui)
         run([*compose,'up','-d'],120)
         def s3_ready():
             with urllib.request.urlopen(env['AWS_ENDPOINT']+'/minio/health/live',timeout=2) as response:return response.status==200
@@ -210,10 +218,6 @@ def main():
         omes_process.process.wait(timeout=360)
         if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
         wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
-        ui=ROOT/'.local/ministack-ui';ui.mkdir(exist_ok=True)
-        for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'proof/ministack/ui'/file,ui/file)
-        run(['npm','ci','--ignore-scripts'],120,cwd=ui)
-        run(['npx','playwright','install','chromium'],300,cwd=ui)
         run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
         if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker inputs changed during workload')
         if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256']:raise RuntimeError('Omes binary changed during workload')
@@ -239,6 +243,7 @@ def main():
         event('cold-local-recovery-passed');checkpoint('cold-recovered')
         if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
         if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
+        if sha(Path(node_bin)/'node')!=report['ui_node_sha256']:raise RuntimeError('UI Node binary changed during proof')
         if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during proof')
         if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native build artifacts changed during proof')
         report.update(result='passed',proof_pass=True)

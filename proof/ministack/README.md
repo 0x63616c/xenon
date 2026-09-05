@@ -102,3 +102,7 @@ worker inputs for hashing. None of these candidate stages is claimed passed unti
 the runtime report says so after all assertions and cleanup.
 
 This profile is the bounded first-boot smoke, not the full delivery acceptance profile in `docs/design/acceptance.md`. Even a runtime pass here does not cover the required 100 simple, 40 throughput and 20 frozen fuzz workloads, ten local operations per node, movement of both history and visibility partitions, or 2,000 frozen visibility rows paged at 1/7/100. Those remain a separate declarative follow-on after boot is proven.
+
+Initial cluster bootstrap starts Temporal A and requires its direct health check before starting B; both must serve before work begins. The pinned upstream cluster-metadata initializer uses a one-shot conditional create and concurrent initialization of an empty cluster can reject the losing process. Existing persistence conditions remain unchanged.
+
+The controller installs official Node v24.19.0/npm11.17.0 from SHA256-pinned platform archives into `.local`, and retains browser binaries there. The previous Node26.8.1 smoke reached SDK/Omes/visibility assertions but failed its300second browser installation deadline during extraction; it is retained as a failed run, not UI evidence.
