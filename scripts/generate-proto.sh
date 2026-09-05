@@ -15,3 +15,5 @@ GOBIN="$PWD/.local/tools" go install google.golang.org/grpc/cmd/protoc-gen-go-gr
 PATH="$PWD/.local/tools:$PATH" protoc --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon -I proto --go_opt=paths=import proto/xenon/v1/persistence.proto proto/xenon/v1/metadata.proto
 
 PATH="$PWD/.local/tools:$PATH" protoc -I proto --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/history.proto
+
+PATH="$PWD/.local/tools:$PATH" protoc -I proto --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/execution.proto

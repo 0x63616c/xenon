@@ -18,6 +18,7 @@ const (
 	clusterFamily
 	queueFamily
 	historyFamily
+	executionFamily
 )
 
 func belongs(o *wire.StoredOutcome, f outcomeFamily) bool {
@@ -26,6 +27,8 @@ func belongs(o *wire.StoredOutcome, f outcomeFamily) bool {
 		return o.GetShardResult() != nil
 	case metadataFamily:
 		return o.GetMetadataResult() != nil
+	case executionFamily:
+		return o.GetExecutionResult() != nil
 	case historyFamily:
 		return o.GetHistoryResult() != nil
 	default:
