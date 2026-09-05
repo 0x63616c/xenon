@@ -116,7 +116,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 		case wire.MatchingCommand_CREATE_QUEUE, wire.MatchingCommand_UPDATE_QUEUE:
 			return r, saveCluster(tx, key, &wire.MatchingRecord{RangeId: c.RangeId, Data: c.Data, Encoding: c.Encoding})
 		case wire.MatchingCommand_DELETE_QUEUE:
-			return r, tx.Delete([]byte(key))
+			return r, backend(tx.Delete([]byte(key)))
 		case wire.MatchingCommand_CREATE_TASKS:
 			// Check the whole batch before writes: a logical error is itself journaled.
 			seen := map[string]bool{}

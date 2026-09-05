@@ -233,6 +233,14 @@ func TestGoOwnerMatchingRecovery(t *testing.T) {
 	if _, e = s.Execute(ctx, matchingReq(req.OperationId, get)); status.Code(e) != codes.InvalidArgument {
 		t.Fatal("changed identity", e)
 	}
+
+	competitor := owner(t, engine(t, objects, path, false))
+	defer closeOwner(t, competitor)
+	deleteCommand := proto.Clone(req.Command).(*wire.MatchingCommand)
+	deleteCommand.Kind = wire.MatchingCommand_DELETE_QUEUE
+	if _, e = s.Execute(ctx, matchingReq("matching-fenced-delete", deleteCommand)); status.Code(e) != codes.Unavailable || !o.Quarantined() {
+		t.Fatal("fenced delete must quarantine", e)
+	}
 }
 
 func TestGoOwnerMatchingBytePages(t *testing.T) {
