@@ -9,6 +9,7 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/payload"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"testing"
 )
 
@@ -43,6 +44,11 @@ func (f fakeVisibility) CountWorkflowExecutions(_ context.Context, q *workflowse
 }
 func TestVisibilityOracleControls(t *testing.T) {
 	d := dataset{namespace: "11111111-1111-1111-1111-111111111111", queue: "frozen", count: 2000}
+	memo := d.record(1999, 1).Memo
+	decoded := new(common.Memo)
+	if memo.EncodingType != enumspb.ENCODING_TYPE_PROTO3 || proto.Unmarshal(memo.Data, decoded) != nil || len(decoded.Fields["frozen"].Data) != 1100000 {
+		t.Fatal("public memo format invalid")
+	}
 	if len(d.expected()) != 2000 {
 		t.Fatal("recipecollision")
 	}

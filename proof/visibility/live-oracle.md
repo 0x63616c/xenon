@@ -11,3 +11,5 @@ The mutation mode uses20separateUUIDs/taskqueue records. A writer changes Workfl
 All Temporal API calls have30-second contexts and adapter calls retain their existing30-second ceiling. The entire command is bounded at15minutes. Failure exits nonzero and produces no success report. Output paths must be new; source/binary/environment provenance and process cleanup are the enclosing controller's responsibility.
 
 `go test -race ./cmd/xenon-visibility-probe` runs lightweight recipe/set/group controls with a fake public API, including duplicate rejection. It is not real Temporal execution. Real checkpoint execution is pending a safely available ministack.
+
+The public API seed wraps each large x-byte payload in a valid protobuf Memo/DataBlob(PROTO3); the earlier internal component fixture used opaque bytes because it did not deserialize through Temporal. This source-grounded encoding adaptation is required by visibility_manager_impl.go deserializeMemo and is tested by protobuf round-trip; payload length and byte-limit purpose remain unchanged.

@@ -23,6 +23,7 @@ import (
 	"go.temporal.io/server/common/payload"
 	"go.temporal.io/server/common/persistence/visibility/store"
 	"go.temporal.io/server/common/searchattribute"
+	"google.golang.org/protobuf/proto"
 )
 
 type fixture struct {
@@ -42,7 +43,11 @@ func (d dataset) record(i int, version int64) *store.InternalVisibilityRequestBa
 	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	b := &store.InternalVisibilityRequestBase{NamespaceID: d.namespace, RunID: d.run(i), WorkflowID: fmt.Sprintf("%s-%04d", d.queue, i), WorkflowTypeName: fmt.Sprintf("type-%d", i%4), TaskQueue: d.queue, StartTime: start.Add(time.Duration(i) * time.Microsecond), ExecutionTime: start, Status: enumspb.WorkflowExecutionStatus(i%4 + 1), TaskID: version}
 	if d.offset == 0 && i >= d.count-3 {
-		b.Memo = &commonpb.DataBlob{EncodingType: enumspb.ENCODING_TYPE_JSON, Data: bytes.Repeat([]byte{'x'}, 1100000)}
+		memo, err := proto.Marshal(&commonpb.Memo{Fields: map[string]*commonpb.Payload{"frozen": {Metadata: map[string][]byte{"encoding": []byte("binary/plain")}, Data: bytes.Repeat([]byte{'x'}, 1100000)}}})
+		if err != nil {
+			panic(err)
+		}
+		b.Memo = &commonpb.DataBlob{EncodingType: enumspb.ENCODING_TYPE_PROTO3, Data: memo}
 	}
 	return b
 }
