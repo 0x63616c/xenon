@@ -61,7 +61,7 @@ def command(spec):
             raise ValueError("unregistered process-cut S3 fixture")
         return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
     if runner == "python-measurements":
-        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples"):
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_recorder_lifecycle"):
             raise ValueError("unregistered runtime measurement controls")
         return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
     if runner == "go-test-meter-cli":
@@ -122,7 +122,7 @@ def command(spec):
             raise ValueError("unregistered actual config check")
         return ["go", "run", "-tags", "ministack", "./cmd/xenon-temporal", "--config", "deploy/ministack/temporal-" + spec["filter"] + ".json", "--check-config"]
     if runner == "go-test-recorder":
-        if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage"):
+        if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage", "TestRecorderHTTPProtocolFailure"):
             raise ValueError("unregistered recorder proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/recorder", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-rpctrace":
@@ -146,7 +146,7 @@ def command(spec):
             raise ValueError("unregistered visibility value test")
         return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
-        if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
+        if not spec["exact"] or (not spec["filter"].startswith("TestGoOwner") and spec["filter"] not in ("TestCanceledAdmissionDoesNotRetireOwner", "TestJournalResultBarrier", "TestMatchingManagedBurst")):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
@@ -215,7 +215,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "recorder-adapter", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "recorder-adapter", "recorder-lifecycle", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -295,7 +295,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "recorder-adapter", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "process-cut") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "recorder-adapter", "recorder-lifecycle", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "process-cut") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:

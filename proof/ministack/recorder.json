@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "phase": "runtime-fault",
+  "phase_type": "fault",
+  "capacity": 1000000,
+  "http_timeout_seconds": 3,
+  "validator_timeout_seconds": 10,
+  "steady_gate_executed": false,
+  "full_acceptance": false
+}
