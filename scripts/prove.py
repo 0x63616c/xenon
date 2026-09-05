@@ -262,9 +262,12 @@ def main():
     finally:
         if args.name == "go-shard-compat":
             project = env["XENON_COMPAT_PROJECT"]
-            code, output, expired = run_process(["docker", "compose", "--project-name", project, "-f", "deploy/compat.compose.yaml", "down", "--volumes"], 60, env, ROOT)
-            report["cleanup"] = {"project": project, "exit_code": code, "timed_out": expired}
-            if code or expired:
+            try:
+                code, output, expired = run_process(["docker", "compose", "--project-name", project, "-f", "deploy/compat.compose.yaml", "down", "--volumes"], 60, env, ROOT)
+                report["cleanup"] = {"project": project, "exit_code": code, "timed_out": expired}
+            except Exception as error:
+                report["cleanup"] = {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
+            if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
                 report.update(result="failed", proof_pass=False, error="compatibility Compose cleanup failed")
         if args.name == "crash":
             # Out-of-process cleanup also handles a controller killed before finally.
