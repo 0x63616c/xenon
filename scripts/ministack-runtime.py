@@ -19,6 +19,7 @@ from resource_samples import ProcessSampler
 import runtime_measurements
 from omes_workloads import effective_sdk
 from omes_mixed import validate_result as validate_mixed_result
+import temporal_cut
 
 ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -67,12 +68,14 @@ def arguments(argv=None):
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of smoke')
+    modes.add_argument('--process-cut-stage',choices=temporal_cut.STAGES,help='bind a real SDK update to a native process cut within the smoke')
     modes.add_argument('--omes-mixed',action='store_true',help='run the frozen 40-iteration Omes mixed component instead of smoke')
     modes.add_argument('--smoke',action='store_true',help='run the default smoke explicitly')
     return parser.parse_args(argv)
 
 def main():
     args=arguments()
+    cut_config=temporal_cut.validate_config(json.loads((ROOT/'test/scenarios/ministack/process-cut.json').read_text())) if args.process_cut_stage else None
     measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements else None
     if measurement_config and (measurement_config['schema']!=1 or measurement_config['incomplete_policy']!='preserve_functional_result_but_fail_measurement_and_overall_proof' or measurement_config['resources']!='proof/acceptance/resources.json' or measurement_config['s3_meter']!='proof/s3-meter/local.json'):
         raise ValueError('unsupported measurement configuration')
@@ -85,6 +88,7 @@ def main():
     library=ROOT/'.local/slatedb-native-target/debug'
     env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(library),LD_LIBRARY_PATH=str(library),DYLD_LIBRARY_PATH=str(library),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19006',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false',XENON_BUCKET='xenon-ministack-proof',XENON_TOPOLOGY_PREFIX='metadata')
     report={'kind':'ministack-runtime','scope':case['scope'],'full_acceptance':False,'proof_pass':False,'result':'failed','project':project,'commands':[],'events':[]};processes=[];sequence=0
+    if args.process_cut_stage:report['process_cut_stage']=args.process_cut_stage
     compose=['docker','compose','--project-name',project,'-f','test/scenarios/ministack/config/compose.json']
     def run(argv,timeout=120,cwd=ROOT,command_env=None):
         nonlocal sequence
@@ -169,11 +173,17 @@ def main():
             if ready.get('event')!='ready' or ready.get('listen')!=meter_config['listen'] or ready.get('report_listen')!=meter_config['report_listen']:raise RuntimeError('meter readiness identity mismatch')
             env['AWS_ENDPOINT']='http://'+meter_config['listen']
         run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket',env['XENON_BUCKET']])
-        nodes={};members={};assignments={};metrics_ports={} 
-        def node(name,port):
-            process=launch(name,[str(ROOT/'.local/bin/xenon-go-node')],{'XENON_NODE':name,'XENON_LISTEN':f'0.0.0.0:{port}','XENON_ADVERTISE':f'127.0.0.1:{port}','XENON_MAX_OUTCOMES':str(case['max_outcomes']),'XENON_METRICS_LISTEN':f'127.0.0.1:{port+100}'})
+        nodes={};members={};assignments={};metrics_ports={};cut_controls={}
+        def node(name,port,ready_timeout=30):
+            cut_env={}
+            if args.process_cut_stage:
+                plan={'schema':1,'session':str(uuid.uuid4()),'listen':f'127.0.0.1:{port+200}','discovery':True,'selector':{},'stage':args.process_cut_stage,'timeout_ms':5000}
+                path=evidence/(name+'-cut-plan.json');path.write_text(json.dumps(plan))
+                cut_env={'XENON_PROCESS_CUT_PLAN':str(path)}
+                cut_controls[name]={'session':plan['session'],'stage':plan['stage'],'url':'http://'+plan['listen']}
+            process=launch(name,[str(ROOT/'.local/bin/xenon-go-node')],{'XENON_NODE':name,'XENON_LISTEN':f'0.0.0.0:{port}','XENON_ADVERTISE':f'127.0.0.1:{port}','XENON_MAX_OUTCOMES':str(case['max_outcomes']),'XENON_METRICS_LISTEN':f'127.0.0.1:{port+100}',**cut_env})
             metrics_ports[name]=port+100
-            _,id,incarnation,address=process.line('INGRESS ').split();nodes[name]=process;members[id]={'address':address,'incarnation':incarnation};event('node-ingress',node=id,incarnation=incarnation,pid=process.process.pid)
+            _,id,incarnation,address=process.line('INGRESS ',timeout=ready_timeout).split();nodes[name]=process;members[id]={'address':address,'incarnation':incarnation};event('node-ingress',node=id,incarnation=incarnation,pid=process.process.pid)
         def metrics(name):
             with urllib.request.urlopen(f'http://127.0.0.1:{metrics_ports[name]}/outcomes',timeout=12) as response:
                 snapshot=json.load(response)
@@ -192,9 +202,9 @@ def main():
             return snapshots
         def successful(snapshot,partition=None):
             return sum(value['local_dispatch']['successful_operations'] for name,value in snapshot['partitions'].items() if partition is None or name==partition)
-        def publish():
+        def publish(timeout=120):
             path=evidence/'desired-topology.json';path.write_text(json.dumps({'members':members,'partitions':assignments},indent=2))
-            run([str(ROOT/'.local/bin/xenon-topology'),str(path)])
+            run([str(ROOT/'.local/bin/xenon-topology'),str(path)],timeout)
             event('topology-published',members=dict(members),assignments=dict(assignments))
         node('a',17351);node('b',17352)
         for index,partition in enumerate(case['partitions']):assignments[partition]={'node':'a' if index%2==0 else 'b','data_prefix':'data/'+partition}
@@ -276,14 +286,44 @@ def main():
             wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')
             initial=checkpoint('before-owner-kill')
             if any(successful(initial[name])<=0 for name in ['a','b']):raise RuntimeError('both initial nodes must perform local persistence work')
-            owner=assignments[bootstrap['history_partition']]['node'];nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
+            owner=assignments[bootstrap['history_partition']]['node']
+            update_process=None;cut_deadline=None
+            if args.process_cut_stage:
+                control=cut_controls[owner];control['partition']=bootstrap['history_partition']
+                identity={'namespace_id':bootstrap['namespace_id'],'workflow_id':execution['workflow_id'],'run_id':execution['run_id']}
+                temporal_cut.watch(control,nodes[owner].process.pid,identity)
+                event('execution-cut-watching',node=owner,watch=identity,session=control['session'],incarnation=control['incarnation'])
+                update_process=launch('update-only',[sdk,'--mode','update-only',*probe_flags])
+                candidate=temporal_cut.await_stage(control,nodes[owner].process.pid,identity,'candidate')
+                event('execution-cut-candidate',candidate=candidate)
+                temporal_cut.arm(control,candidate)
+                hit=temporal_cut.await_stage(control,nodes[owner].process.pid,identity,'paused',candidate['selector'],timeout=5)
+                if nodes[owner].process.poll() is not None:raise RuntimeError('cut process exited before SIGKILL')
+                temporal_cut.validate_state(hit,control,nodes[owner].process.pid,'paused',identity,candidate['selector'])
+                cut_deadline=time.monotonic()+case['recovery_seconds']
+                nodes[owner].stop(kill=True)
+                temporal_cut.validate_signal(nodes[owner].process.returncode)
+                event('actual-execution-process-cut',node=owner,hit=hit,signal='SIGKILL',recovery_seconds=case['recovery_seconds'])
+            else:
+                nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
+            def owner_recovery_remaining(default):
+                if cut_deadline is None:return default
+                remaining=cut_deadline-time.monotonic()
+                if remaining<=0:raise TimeoutError('locked process-cut recovery deadline exceeded')
+                return min(default,remaining)
             port=17351 if owner=='a' else 17352
             # Name is intentionally new: empty local directory and a new process incarnation.
-            replacement=owner+'-replacement';node(replacement,port)
+            replacement=owner+'-replacement';node(replacement,port,owner_recovery_remaining(30))
             for assignment in assignments.values():
                 if assignment['node']==owner:assignment['node']=replacement
-            publish()
-            wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
+            publish(owner_recovery_remaining(120))
+            wait(lambda:probe('phase',timeout=owner_recovery_remaining(20)).get('phase')=='await-control',owner_recovery_remaining(90))
+            if update_process is not None:
+                update_process.process.wait(timeout=owner_recovery_remaining(case['recovery_seconds']))
+                if update_process.process.returncode!=0:raise RuntimeError('SDK update did not recover')
+                owner_recovery_remaining(1)
+                event('cut-update-acknowledged-after-recovery',update_id=case['workflow_id']+'-update')
+            event('workflow-recovered');checkpoint('owner-recovered')
             live_history=evidence/'history-before-cold';live_history.mkdir()
             verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(live_history)])
             verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)

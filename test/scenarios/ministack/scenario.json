@@ -3,9 +3,30 @@
   "name": "ministack",
   "scope": "real Temporal smoke and shared no-fault fuzz-soak topology",
   "commands": {
-    "smoke": ["python3", "scripts/ministack-runtime.py"],
-    "fuzz-soak": ["python3", "scripts/ministack-runtime.py", "--fuzz-soak"],
-    "configuration": ["python3", "scripts/check-ministack.py"]
+    "smoke": [
+      "python3",
+      "scripts/ministack-runtime.py"
+    ],
+    "fuzz-soak": [
+      "python3",
+      "scripts/ministack-runtime.py",
+      "--fuzz-soak"
+    ],
+    "configuration": [
+      "python3",
+      "scripts/check-ministack.py"
+    ],
+    "mixed": [
+      "python3",
+      "scripts/ministack-runtime.py",
+      "--omes-mixed"
+    ],
+    "process-cut": [
+      "python3",
+      "scripts/ministack-runtime.py",
+      "--process-cut-stage",
+      "after_await"
+    ]
   },
   "inputs": [
     "test/scenarios/ministack/case.json",
@@ -21,9 +42,24 @@
     "scripts/ministack-runtime.py",
     "scripts/ministack-node.py",
     "scripts/check-ministack.py",
-    "proof/omes-corpus/soak.json"
+    "proof/omes-corpus/soak.json",
+    "test/scenarios/ministack/process-cut.json",
+    "scripts/temporal_cut.py",
+    "scripts/omes_mixed.py"
   ],
-  "component_manifests": ["runtime-measurements", "nexus-http", "nexus-readiness"],
-  "frozen_shared_inputs": ["proof/acceptance/full-profile.json", "proof/omes-corpus/manifest.json", "proof/omes-corpus/replay.json"],
-  "limitations": ["Relocation does not establish a runtime pass.", "Full acceptance and corpus inputs retain their original locations and hashes.", "Common command-line runners remain in scripts to preserve existing entrypoints."]
+  "component_manifests": [
+    "runtime-measurements",
+    "nexus-http",
+    "nexus-readiness"
+  ],
+  "frozen_shared_inputs": [
+    "proof/acceptance/full-profile.json",
+    "proof/omes-corpus/manifest.json",
+    "proof/omes-corpus/replay.json"
+  ],
+  "limitations": [
+    "Relocation does not establish a runtime pass.",
+    "Full acceptance and corpus inputs retain their original locations and hashes.",
+    "Common command-line runners remain in scripts to preserve existing entrypoints."
+  ]
 }
