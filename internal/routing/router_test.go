@@ -49,7 +49,6 @@ func client(t *testing.T, address string) wire.ShardPersistenceClient {
 func TestForwardingReplayAndRefresh(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	deadline, _ := ctx.Deadline()
 	req := &wire.ShardRequest{ProtocolVersion: 1, Partition: "history-17", OperationId: "fixed-id", CommandSha256: []byte{0, 255}, Command: &wire.ShardCommand{}}
 	var mu sync.Mutex
 	calls, executions, refreshes := 0, 0, 0
@@ -64,9 +63,8 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 		if !proto.Equal(req, m) {
 			t.Error("forwarded operation changed")
 		}
-		d, ok := ctx.Deadline()
-		if !ok || d.After(deadline.Add(time.Millisecond)) {
-			t.Error("deadline extended")
+		if _, ok := ctx.Deadline(); !ok {
+			t.Error("forwarded deadline missing")
 		}
 		if saved == nil {
 			executions++
@@ -130,14 +128,26 @@ func TestForwardingLoopsAndDeadline(t *testing.T) {
 	c := &Router{Node: "c"}
 	cc := serve(t, c)
 	c.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"c", cc}, nil })
+	destinationCanceled := make(chan struct{}, 1)
 	c.Local = func(ctx context.Context, _ string, _ proto.Message) (proto.Message, error) {
 		<-ctx.Done()
+		destinationCanceled <- struct{}{}
 		return nil, status.FromContextError(ctx.Err()).Err()
 	}
+	forward := &Router{Node: "forward", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"c", cc}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) {
+		t.Error("nonowner executed")
+		return nil, nil
+	}}
+	fa := serve(t, forward)
 	short, stop := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer stop()
-	if _, e := client(t, cc).Execute(short, q); status.Code(e) != codes.DeadlineExceeded {
+	if _, e := client(t, fa).Execute(short, q); status.Code(e) != codes.DeadlineExceeded {
 		t.Fatal(e)
+	}
+	select {
+	case <-destinationCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("destination did not observe caller cancellation")
 	}
 }
 
@@ -149,9 +159,25 @@ func TestForwardingClosedAdmission(t *testing.T) {
 		t.Error("closed router executed")
 		return &wire.ShardResult{}, nil
 	}
-	r.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	want, _ := ctx.Deadline()
+	r.Local = func(got context.Context, _ string, _ proto.Message) (proto.Message, error) {
+		d, ok := got.Deadline()
+		if !ok || !d.Equal(want) {
+			t.Fatal("local admission reset caller deadline")
+		}
+		return &wire.ShardResult{}, nil
+	}
+	interceptor := r.Interceptor(func(string) proto.Message { return &wire.ShardResult{} })
+	if _, e := interceptor(ctx, &wire.ShardRequest{Partition: "p"}, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil); e != nil {
+		t.Fatal(e)
+	}
+	r.Close()
+	r.Local = func(context.Context, string, proto.Message) (proto.Message, error) {
+		t.Error("closed router executed")
+		return nil, nil
+	}
 	if _, e := client(t, address).Execute(ctx, &wire.ShardRequest{Partition: "p"}); status.Code(e) != codes.Unavailable {
 		t.Fatal(e)
 	}

@@ -22,7 +22,7 @@
   "assertions": [
     "Complete operation envelope unchanged across actual gRPC forwarding.",
     "Stale route refresh reaches owner; in-memory recorded response prevents a second logical test execution.",
-    "Forwarded deadline never extends original deadline.",
+    "Router retains the incoming context deadline without creating a fresh timeout; caller cancellation reaches the forwarded destination.",
     "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline.",
     "Closed router rejects new local admissions."
   ],
