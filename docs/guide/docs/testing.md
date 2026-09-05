@@ -11,6 +11,8 @@ Different tests answer different questions. A parser control, a native engine te
 | Go packages | `make test` | Package tests run with the race detector. |
 | Registered component | `make proof CASE=owner-manager` | That manifest's exact engine/emulator assertions execute. |
 | Real smoke | `make smoke` | The declared SDK, Omes20, UI, movement and cold-recovery scenario executes. |
+| Frozen mixed workload | `python3 scripts/ministack-runtime.py --omes-mixed` | Runs the declared throughput component against the real stack. |
+| Exact workflow cut | `python3 scripts/ministack-runtime.py --process-cut-stage after_await` | Attempts the declared native cut during an actual workflow UPDATE and verifies recovery. |
 | Saved fuzz soak | `make fuzz-soak` | The declared actual-stack corpus soak runs without injected faults. |
 | Combined local checks | `make check` | Layout, harness, Go race and Rust reference checks run in sequence. |
 
