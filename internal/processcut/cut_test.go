@@ -94,6 +94,19 @@ func TestDiscoveryExactCandidate(t *testing.T) {
 		t.Fatal("wrong run selected")
 	}
 	q.Command.Mutation.Upsert.RunId = w.Run
+	q.Command.Mutation.Upsert.NamespaceId = uuid.NewString()
+	selectRequest()
+	if invocation != nil {
+		t.Fatal("wrong namespace selected")
+	}
+	q.Command.Mutation.Upsert.NamespaceId = w.Namespace
+	q.Command.Mutation.Upsert.WorkflowId = "different"
+	selectRequest()
+	if invocation != nil {
+		t.Fatal("wrong workflow selected")
+	}
+	q.Command.Mutation.Upsert.WorkflowId = w.Workflow
+	q.Command.Mutation.Upsert.RunId = w.Run
 	q.Command.Kind = wire.ExecutionCommand_GET
 	selectRequest()
 	if invocation != nil {

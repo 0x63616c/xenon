@@ -141,6 +141,11 @@ func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
 	if r, e := server.Execute(ctx, initial); e != nil || r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r, e)
 	}
+	image.DbRecordVersion = 2
+	savedUpdate := executionRequest("saved-update", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, ShardId: 1, RangeId: 1, Mode: 2, Mutation: &wire.ExecutionMutation{Upsert: image}})
+	if r, e := server.Execute(ctx, savedUpdate); e != nil || r.Error != wire.ExecutionResult_NONE {
+		t.Fatal(r, e)
+	}
 	cut, e := processcut.New(processcut.Plan{Schema: 1, Session: uuid.NewString(), Listen: "127.0.0.1:0", Discovery: true, Stage: processcut.BeforeAwait, TimeoutMS: 5})
 	if e != nil {
 		t.Fatal(e)
@@ -160,11 +165,11 @@ func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
 	}
 	// A successfully journaled replay is never offered, and a failed range guard
 	// leaves discovery watching for the real successful root mutation.
-	if r, e := call(initial); e != nil || r.Error != wire.ExecutionResult_NONE || cut.Snapshot().State != "watching" {
+	if r, e := call(savedUpdate); e != nil || r.Error != wire.ExecutionResult_NONE || cut.Snapshot().State != "watching" {
 		t.Fatal(r, e)
 	}
 	next := proto.Clone(image).(*wire.ExecutionImage)
-	next.DbRecordVersion = 2
+	next.DbRecordVersion = 3
 	next.ExecutionInfoBlob.Data = []byte("after")
 	command := &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, ShardId: 1, RangeId: 999, Mode: 2, Mutation: &wire.ExecutionMutation{Upsert: next}}
 	if r, e := call(executionRequest("failed", command)); e != nil || r.Error != wire.ExecutionResult_OWNERSHIP_LOST || cut.Snapshot().State != "watching" {
@@ -189,7 +194,7 @@ func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
 		if e != nil {
 			return nil, e
 		}
-		if r.DbRecordVersion != 1 || string(r.ExecutionInfoBlob.Data) != "before" {
+		if r.DbRecordVersion != 2 || string(r.ExecutionInfoBlob.Data) != "before" {
 			t.Fatal("uncommitted candidate changed state", r)
 		}
 		b, e := get(tx, "v1/outcome/candidate")
