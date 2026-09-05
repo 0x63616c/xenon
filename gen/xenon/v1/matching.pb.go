@@ -221,6 +221,7 @@ type MatchingTask struct {
 	Subqueue      int32                  `protobuf:"varint,2,opt,name=subqueue,proto3" json:"subqueue,omitempty"`
 	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	Encoding      int32                  `protobuf:"varint,4,opt,name=encoding,proto3" json:"encoding,omitempty"`
+	Pass          int64                  `protobuf:"varint,5,opt,name=pass,proto3" json:"pass,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -283,6 +284,13 @@ func (x *MatchingTask) GetEncoding() int32 {
 	return 0
 }
 
+func (x *MatchingTask) GetPass() int64 {
+	if x != nil {
+		return x.Pass
+	}
+	return 0
+}
+
 type MatchingCommand struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Kind            MatchingCommand_Kind   `protobuf:"varint,1,opt,name=kind,proto3,enum=xenon.v1.MatchingCommand_Kind" json:"kind,omitempty"`
@@ -301,6 +309,9 @@ type MatchingCommand struct {
 	Token           []byte                 `protobuf:"bytes,14,opt,name=token,proto3" json:"token,omitempty"`
 	Updates         []*MatchingUserUpdate  `protobuf:"bytes,15,rep,name=updates,proto3" json:"updates,omitempty"`
 	BuildId         string                 `protobuf:"bytes,16,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
+	Fair            bool                   `protobuf:"varint,17,opt,name=fair,proto3" json:"fair,omitempty"`
+	MinPass         int64                  `protobuf:"varint,18,opt,name=min_pass,json=minPass,proto3" json:"min_pass,omitempty"`
+	MaxPass         int64                  `protobuf:"varint,19,opt,name=max_pass,json=maxPass,proto3" json:"max_pass,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -445,6 +456,27 @@ func (x *MatchingCommand) GetBuildId() string {
 		return x.BuildId
 	}
 	return ""
+}
+
+func (x *MatchingCommand) GetFair() bool {
+	if x != nil {
+		return x.Fair
+	}
+	return false
+}
+
+func (x *MatchingCommand) GetMinPass() int64 {
+	if x != nil {
+		return x.MinPass
+	}
+	return 0
+}
+
+func (x *MatchingCommand) GetMaxPass() int64 {
+	if x != nil {
+		return x.MaxPass
+	}
+	return 0
 }
 
 type MatchingRequest struct {
@@ -807,12 +839,13 @@ const file_xenon_v1_matching_proto_rawDesc = "" +
 	"\x0eMatchingRecord\x12\x19\n" +
 	"\brange_id\x18\x01 \x01(\x03R\arangeId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x03 \x01(\x05R\bencoding\"j\n" +
+	"\bencoding\x18\x03 \x01(\x05R\bencoding\"~\n" +
 	"\fMatchingTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\bsubqueue\x18\x02 \x01(\x05R\bsubqueue\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x04 \x01(\x05R\bencoding\"\x98\x06\n" +
+	"\bencoding\x18\x04 \x01(\x05R\bencoding\x12\x12\n" +
+	"\x04pass\x18\x05 \x01(\x03R\x04pass\"\xe2\x06\n" +
 	"\x0fMatchingCommand\x122\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1e.xenon.v1.MatchingCommand.KindR\x04kind\x12!\n" +
 	"\fnamespace_id\x18\x02 \x01(\fR\vnamespaceId\x12\x14\n" +
@@ -830,7 +863,10 @@ const file_xenon_v1_matching_proto_rawDesc = "" +
 	"\tpage_size\x18\r \x01(\x05R\bpageSize\x12\x14\n" +
 	"\x05token\x18\x0e \x01(\fR\x05token\x126\n" +
 	"\aupdates\x18\x0f \x03(\v2\x1c.xenon.v1.MatchingUserUpdateR\aupdates\x12\x19\n" +
-	"\bbuild_id\x18\x10 \x01(\tR\abuildId\"\x85\x02\n" +
+	"\bbuild_id\x18\x10 \x01(\tR\abuildId\x12\x12\n" +
+	"\x04fair\x18\x11 \x01(\bR\x04fair\x12\x19\n" +
+	"\bmin_pass\x18\x12 \x01(\x03R\aminPass\x12\x19\n" +
+	"\bmax_pass\x18\x13 \x01(\x03R\amaxPass\"\x85\x02\n" +
 	"\x04Kind\x12\x0f\n" +
 	"\vUNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fCREATE_QUEUE\x10\x01\x12\r\n" +

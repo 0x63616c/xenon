@@ -25,7 +25,8 @@ import (
 	"time"
 )
 
-func matchingStore(t *testing.T) *adapter.MatchingStore {
+func matchingStore(t *testing.T) *adapter.MatchingStore { return matchingStoreMode(t, false) }
+func matchingStoreMode(t *testing.T, fair bool) *adapter.MatchingStore {
 	b := native.NewDbBuilder(cfg(t).Prefix+"-userdata", objects(t))
 	defer b.Destroy()
 	settings := native.SettingsDefault()
@@ -64,7 +65,11 @@ func matchingStore(t *testing.T) *adapter.MatchingStore {
 	wire.RegisterMatchingPersistenceServer(server, &MatchingServer{Owner: o})
 	go server.Serve(listener)
 	t.Cleanup(server.Stop)
-	s, e := adapter.NewMatchingStore(listener.Addr().String(), "p")
+	constructor := adapter.NewMatchingStore
+	if fair {
+		constructor = adapter.NewFairMatchingStore
+	}
+	s, e := constructor(listener.Addr().String(), "p")
 	if e != nil {
 		t.Fatal(e)
 	}
