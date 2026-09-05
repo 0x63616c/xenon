@@ -122,7 +122,7 @@ const views = {
         "Verify recovered state",
         "History + visibility + evidence",
         "Recovery must be observed",
-        "The smoke restarts nodes with fresh local runtime directories and checks saved workflow histories, results and visibility. Its latest recorded run passed exact history recovery but failed the post-cold Omes visibility deadline. Full recovery acceptance remains open.",
+        "The smoke restarts nodes with fresh local runtime directories and checks saved workflow histories, results and visibility. Its recorded smoke passed exact history recovery but failed the post-cold Omes visibility deadline. Full recovery acceptance remains open.",
       ],
     ],
   },

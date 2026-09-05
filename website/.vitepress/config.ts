@@ -15,25 +15,27 @@ export default defineConfig({
     logo: "/xenon.svg",
     siteTitle: "Xenon",
     nav: [
-      { text: "Architecture", link: "/architecture" },
-      { text: "Documentation", link: "/overview" },
+      { text: "Architecture", link: "/docs/architecture" },
+      { text: "Documentation", link: "/docs/" },
       { text: "Cloud", link: "/cloud" },
     ],
     sidebar: [
       {
         text: "Understand Xenon",
         items: [
-          { text: "Overview", link: "/overview" },
-          { text: "Architecture", link: "/architecture" },
-          { text: "Verification status", link: "/status" },
+          { text: "Overview", link: "/docs/" },
+          { text: "Architecture", link: "/docs/architecture" },
+          { text: "Verification status", link: "/docs/status" },
         ],
       },
       {
         text: "Build with Xenon",
         items: [
-          { text: "Local development", link: "/development" },
-          { text: "Source code tour", link: "/code-tour" },
-          { text: "Operations & recovery", link: "/operations" },
+          { text: "Local development", link: "/docs/development" },
+          { text: "Source code tour", link: "/docs/code-tour" },
+          { text: "Testing & evidence", link: "/docs/testing" },
+          { text: "Temporal upgrades", link: "/docs/upgrades" },
+          { text: "Operations & recovery", link: "/docs/operations" },
         ],
       },
     ],

@@ -54,12 +54,14 @@ try {
     const checked = [];
     for (const path of [
       "",
-      "architecture.html",
-      "overview.html",
-      "status.html",
-      "development.html",
-      "code-tour.html",
-      "operations.html",
+      "docs/architecture.html",
+      "docs/",
+      "docs/status.html",
+      "docs/development.html",
+      "docs/code-tour.html",
+      "docs/testing.html",
+      "docs/upgrades.html",
+      "docs/operations.html",
       "cloud.html",
     ]) {
       await page.goto(new URL(path, base).href, { waitUntil: "networkidle" });
@@ -71,7 +73,7 @@ try {
         )
       )
         throw new Error(`horizontal overflow ${name}/${path}`);
-      if (path === "architecture.html") {
+      if (path === "docs/architecture.html") {
         const firstTab = page.getByRole("tab", { name: "Request path" });
         await firstTab.focus();
         await page.keyboard.press("ArrowRight");
@@ -98,9 +100,9 @@ try {
             throw new Error("selected node missing");
         }
       }
-      if (!path || path === "architecture.html")
+      if (!path || path === "docs/architecture.html")
         await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
-      if (!path || path === "architecture.html")
+      if (!path || path === "docs/architecture.html")
         await page.screenshot({
           path: `${output}/${name}-${path ? "architecture" : "home"}.png`,
           fullPage: true,
