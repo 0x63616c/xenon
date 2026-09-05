@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import platform
 import shutil
 import signal
 import subprocess
@@ -100,11 +101,13 @@ def main():
     def event(name,**fields):report['events'].append({'name':name,'elapsed_seconds':round(time.monotonic()-started,3),**fields})
     started=time.monotonic()
     try:
+        report['host']={'system':platform.system(),'release':platform.release(),'machine':platform.machine(),'python_version':sys.version,'python_executable':sys.executable}
         report['git_sha']=run(['git','rev-parse','HEAD']).strip()
         if run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('runtime proof requires clean checkout')
         tracked=run(['git','ls-files']).splitlines();report['input_sha256']={p:sha(ROOT/p) for p in tracked}
         report['tools']={tool:run(argv).strip() for tool,argv in {'go':['go','version'],'node':['node','--version'],'npm':['npm','--version'],'docker':['docker','version','--format','{{.Server.Version}}'],'aws':['aws','--version']}.items()}
         if report['tools']['node']!=pins['runtime_tools']['node'] or report['tools']['npm']!=pins['runtime_tools']['npm']:raise RuntimeError('Node/npm tool pin mismatch')
+        if not report['tools']['aws'].startswith('aws-cli/'+pins['runtime_tools']['aws_cli']+' '):raise RuntimeError('AWS CLI tool pin mismatch')
         run([sys.executable,'scripts/build-go-node.py'],900)
         native_manifest=ROOT/'.local/go-node-build.json'
         report['native_build_manifest']=json.loads(native_manifest.read_text())
