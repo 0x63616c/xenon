@@ -13,6 +13,7 @@
     "proof/visibility/oracle-pins.json",
     "proof/visibility/oracle-cases.json",
     "proof/visibility/oracle.md",
-    "scripts/visibility-oracle.py"
+    "scripts/visibility-oracle.py",
+    "proof/visibility/oracle-scalars.json"
   ]
 }
