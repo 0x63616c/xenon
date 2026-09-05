@@ -1,0 +1,49 @@
+import { defineConfig } from "vitepress";
+export default defineConfig({
+  title: "Xenon",
+  description: "Temporal persistence, built on object storage.",
+  srcDir: ".content",
+  outDir: "dist",
+  base: process.env.SITE_BASE || "/",
+  cleanUrls: false,
+  appearance: false,
+  head: [
+    ["meta", { name: "theme-color", content: "#f5f5f7" }],
+    ["meta", { name: "robots", content: "noindex,nofollow" }],
+  ],
+  themeConfig: {
+    logo: "/xenon.svg",
+    siteTitle: "Xenon",
+    nav: [
+      { text: "Architecture", link: "/docs/architecture" },
+      { text: "Documentation", link: "/docs/" },
+      { text: "Cloud", link: "/cloud" },
+    ],
+    sidebar: [
+      {
+        text: "Understand Xenon",
+        items: [
+          { text: "Overview", link: "/docs/" },
+          { text: "Architecture", link: "/docs/architecture" },
+          { text: "Verification status", link: "/docs/status" },
+        ],
+      },
+      {
+        text: "Build with Xenon",
+        items: [
+          { text: "Local development", link: "/docs/development" },
+          { text: "Source code tour", link: "/docs/code-tour" },
+          { text: "Testing & evidence", link: "/docs/testing" },
+          { text: "Temporal upgrades", link: "/docs/upgrades" },
+          { text: "Operations & recovery", link: "/docs/operations" },
+        ],
+      },
+    ],
+    search: { provider: "local" },
+    outline: [2, 3],
+    footer: {
+      message: "Private development preview · Proprietary software",
+      copyright: "Xenon · Cloud coming soon",
+    },
+  },
+});
