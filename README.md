@@ -37,6 +37,7 @@ The runner builds the pinned native library and node, checks exact test events, 
 ## Repository layout
 
 ```text
+test/compatibility/rust/  Rust reference harness and its Cargo workspace
 cmd/          Go storage node, topology administration and runtime entrypoints
 internal/     Temporal adapters, node operations, ownership, routing and queries
 proto/, gen/  Typed RPC contracts and generated bindings
@@ -51,6 +52,10 @@ Keep implementation packages under `internal/`; add a `cmd/` entrypoint only for
 
 See the [local operations guide](docs/operations.md) for reruns, recovery boundaries and evidence handling.
 
-The Rust harness remains a reference for native engine behavior and stored-data compatibility. Application node code is Go.
+The Rust harness under `test/compatibility/rust/` remains a reference for native engine behavior and stored-data compatibility. Application node code is Go. `make build` builds the Go server and its pinned SlateDB native dependency; `make test` runs Go race tests. `make check` includes the Rust reference suite. Rust remains a native build dependency, with its toolchain pinned at the root.
 
 Start with the [technical design](docs/design/technical.md), [history placement contract](docs/research/history-partition-contract.md), [ownership protocol](docs/research/owner-manager-protocol.md), and [autonomous handoff](docs/handoff-autonomous.md). The full Temporal quickstart will be published with its verified runtime proof, rather than presented as working before that gate passes.
+
+## License
+
+Xenon is currently private and proprietary. No public reuse license is granted; see [LICENSE](LICENSE). Third-party components retain their own licenses. A future licensing decision remains open.

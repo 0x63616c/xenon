@@ -9,8 +9,8 @@
   },
   "inputs": [
     ".github/workflows/ci.yaml",
-    "Cargo.lock",
-    "Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
     "cmd/xenon-go-node/main.go",
     "deploy/process-cut.compose.yaml",
     "docs/research/execution-contract.md",
@@ -150,7 +150,9 @@
     "scripts/test-shard.sh",
     "scripts/test_prove.py",
     "tools/protoc.json",
-    "tools/slatedb-native.json"
+    "tools/slatedb-native.json",
+    "internal/node/discovery_s3_test.go",
+    "proof/process-cut/temporal-binding-proposal.md"
   ],
   "fault_schedule": "exact configured shard UPDATE, explicitly arm fresh process incarnation/session, observe selected live Commit/Await/publication barrier, externally SIGKILL exact PID; fresh native raw state/journal/count oracle before exact-ID retry",
   "assertions": [
@@ -203,6 +205,41 @@
         "TestS3ProcessCuts/commit_before_await",
         "TestS3ProcessCuts/after_await",
         "TestS3ProcessCuts/before_result_publication"
+      ]
+    },
+    {
+      "runner": "go-test-process-cut",
+      "filter": "TestDiscoveryExactCandidate",
+      "exact": true,
+      "expected_tests": [
+        "TestDiscoveryExactCandidate"
+      ]
+    },
+    {
+      "runner": "go-test-process-cut",
+      "filter": "TestDiscoveryLateArmRejected",
+      "exact": true,
+      "expected_tests": [
+        "TestDiscoveryLateArmRejected"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerDiscoveryAbortsCandidate",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerDiscoveryAbortsCandidate"
+      ]
+    },
+    {
+      "runner": "s3-process-cut",
+      "filter": "TestS3ExecutionDiscoveryCuts",
+      "exact": true,
+      "expected_tests": [
+        "TestS3ExecutionDiscoveryCuts",
+        "TestS3ExecutionDiscoveryCuts/commit_before_await",
+        "TestS3ExecutionDiscoveryCuts/after_await",
+        "TestS3ExecutionDiscoveryCuts/before_result_publication"
       ]
     }
   ]

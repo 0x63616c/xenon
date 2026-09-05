@@ -9,6 +9,9 @@ import (
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/google/uuid"
+	enumspb "go.temporal.io/api/enums/v1"
+	enumsspb "go.temporal.io/server/api/enums/v1"
+	persistencespb "go.temporal.io/server/api/persistence/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -107,6 +110,103 @@ func TestGoOwnerProcessCutRetainsNativeWait(t *testing.T) {
 		t.Fatal("drain reopened or failed to complete")
 	}
 	if e = o.Close(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
+	ctx := context.Background()
+	store := objects(t)
+	prefix := "discovery-abort"
+	o := owner(t, engine(t, store, prefix, false))
+	server := &ExecutionServer{Owner: o}
+	ns, run := uuid.NewString(), uuid.NewString()
+	state, _ := proto.Marshal(&persistencespb.WorkflowExecutionState{RunId: run, State: enumsspb.WORKFLOW_EXECUTION_STATE_RUNNING, Status: enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING})
+	image := &wire.ExecutionImage{NamespaceId: ns, WorkflowId: "watched", RunId: run, ExecutionStateProto: state, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte("before"), Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: state, Encoding: int32(enumspb.ENCODING_TYPE_PROTO3)}, NextEventId: 2, DbRecordVersion: 1}
+	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
+		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+		if e != nil {
+			return nil, e
+		}
+		defer tx.Destroy()
+		if e = putHistory(tx, "v1/shard/0000000001", &wire.StoredShard{RangeId: 1}); e != nil {
+			return nil, e
+		}
+		return nil, commit(tx)
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	initial := executionRequest("initial", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_CREATE, ShardId: 1, RangeId: 1, Snapshot: image})
+	if r, e := server.Execute(ctx, initial); e != nil || r.Error != wire.ExecutionResult_NONE {
+		t.Fatal(r, e)
+	}
+	image.DbRecordVersion = 2
+	savedUpdate := executionRequest("saved-update", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, ShardId: 1, RangeId: 1, Mode: 2, Mutation: &wire.ExecutionMutation{Upsert: image}})
+	if r, e := server.Execute(ctx, savedUpdate); e != nil || r.Error != wire.ExecutionResult_NONE {
+		t.Fatal(r, e)
+	}
+	cut, e := processcut.New(processcut.Plan{Schema: 1, Session: uuid.NewString(), Listen: "127.0.0.1:0", Discovery: true, Stage: processcut.BeforeAwait, TimeoutMS: 5})
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, _ := json.Marshal(map[string]any{"session": cut.Snapshot().Session, "incarnation": cut.Snapshot().Incarnation, "watch": processcut.Workflow{Namespace: ns, Workflow: "watched", Run: run}})
+	w := httptest.NewRecorder()
+	cut.ServeHTTP(w, httptest.NewRequest("POST", "http://local/watch", bytes.NewReader(raw)))
+	if w.Code != 202 {
+		t.Fatal(w.Code)
+	}
+	call := func(q *wire.ExecutionRequest) (*wire.ExecutionResult, error) {
+		r, e := cut.Interceptor()(ctx, q, &grpc.UnaryServerInfo{FullMethod: wire.ExecutionPersistence_Execute_FullMethodName}, func(ctx context.Context, r any) (any, error) { return server.Execute(ctx, r.(*wire.ExecutionRequest)) })
+		if r == nil {
+			return nil, e
+		}
+		return r.(*wire.ExecutionResult), e
+	}
+	// A successfully journaled replay is never offered, and a failed range guard
+	// leaves discovery watching for the real successful root mutation.
+	if r, e := call(savedUpdate); e != nil || r.Error != wire.ExecutionResult_NONE || cut.Snapshot().State != "watching" {
+		t.Fatal(r, e)
+	}
+	next := proto.Clone(image).(*wire.ExecutionImage)
+	next.DbRecordVersion = 3
+	next.ExecutionInfoBlob.Data = []byte("after")
+	command := &wire.ExecutionCommand{Kind: wire.ExecutionCommand_UPDATE, ShardId: 1, RangeId: 999, Mode: 2, Mutation: &wire.ExecutionMutation{Upsert: next}}
+	if r, e := call(executionRequest("failed", command)); e != nil || r.Error != wire.ExecutionResult_OWNERSHIP_LOST || cut.Snapshot().State != "watching" {
+		t.Fatal(r, e)
+	}
+	command.RangeId = 1
+	if _, e := call(executionRequest("candidate", command)); status.Code(e) != codes.Unavailable || !o.Quarantined() || cut.Snapshot().State != "timed_out" {
+		t.Fatal(e, cut.Snapshot())
+	}
+	if e = o.Close(ctx); e != nil {
+		t.Fatal(e)
+	}
+	reopened := owner(t, engine(t, store, prefix, false))
+	defer reopened.Close(ctx)
+	_, e = reopened.Run(ctx, func(db *native.Db) ([]byte, error) {
+		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+		if e != nil {
+			return nil, e
+		}
+		defer tx.Destroy()
+		r, e := loadImage(tx, execKey(1, ns, "watched", run))
+		if e != nil {
+			return nil, e
+		}
+		if r.DbRecordVersion != 2 || string(r.ExecutionInfoBlob.Data) != "before" {
+			t.Fatal("uncommitted candidate changed state", r)
+		}
+		b, e := get(tx, "v1/outcome/candidate")
+		if e != nil {
+			return nil, e
+		}
+		if b != nil {
+			t.Fatal("aborted candidate outcome persisted")
+		}
+		return nil, nil
+	})
+	if e != nil {
 		t.Fatal(e)
 	}
 }

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "minimum_seconds": 3600,
+  "minimum_rounds": 2,
+  "maximum_rounds": 1000,
+  "controller_timeout_seconds": 36000,
+  "corpus": "proof/omes-corpus/replay.json",
+  "faults": [],
+  "command_timeout_seconds": 900,
+  "limitations": ["Repeated saved inputs explore timing, not new generated action coverage.", "Omes exit status is the workload oracle; independent complete start census and semantic history audit remain separate acceptance requirements.", "No full acceptance claim."]
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/0x63616c/xenon/internal/ministack"
 	enumspb "go.temporal.io/api/enums/v1"
+	nexuspb "go.temporal.io/api/nexus/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
@@ -53,6 +54,21 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "fuzz-endpoint-ready":
+		result, err := nexusReadiness(ctx, c, *namespace)
+		if err != nil {
+			return err
+		}
+		return emit(result)
+	case "fuzz-endpoint":
+		response, err := c.OperatorService().CreateNexusEndpoint(ctx, &operatorservice.CreateNexusEndpointRequest{Spec: &nexuspb.EndpointSpec{Name: "xenon-fuzz", Target: &nexuspb.EndpointTarget{Variant: &nexuspb.EndpointTarget_Worker_{Worker: &nexuspb.EndpointTarget_Worker{Namespace: *namespace, TaskQueue: "omes-xenon-ministack-fuzz"}}}}})
+		if err != nil {
+			return err
+		}
+		if response == nil || response.Endpoint == nil {
+			return fmt.Errorf("missing created Nexus endpoint")
+		}
+		return emit(map[string]any{"endpoint_id": response.Endpoint.Id, "endpoint": "xenon-fuzz"})
 	case "health":
 		_, e = c.CheckHealth(ctx, &client.CheckHealthRequest{})
 		if e != nil {
@@ -94,6 +110,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
+		fmt.Fprintf(os.Stderr, "VISIBILITY_COUNT count=%d expected=%d\n", count.Count, *expectedCount)
 		if count.Count != int64(*expectedCount) {
 			return fmt.Errorf("visibility count %d != %d", count.Count, *expectedCount)
 		}
@@ -114,6 +131,7 @@ func run() error {
 				}
 				seen[key] = true
 			}
+			fmt.Fprintf(os.Stderr, "VISIBILITY_PAGE page=%d rows=%d total=%d next=%t\n", page, len(response.Executions), len(seen), len(response.NextPageToken) > 0)
 			token = response.NextPageToken
 			if len(token) == 0 {
 				break

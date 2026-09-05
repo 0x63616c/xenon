@@ -1,0 +1,11 @@
+# Independent visibility partition fanout
+
+Run `python3 scripts/prove.py visibility-fanout` from a clean checkout. The actual loopback RPC control holds each partition until all four have entered. Serial partition reads cannot satisfy that barrier. A separate failure case returns InvalidArgument from one partition, cancels siblings and rejects partial success. No native or live-runtime performance result is claimed by this component fixture.
+
+Preserved runtime ae1f663 failed cold Omes20 visibility commands85–89 in `.local/evidence/20260905T222810Z-xenon-ministack-cd6027cd9cf8/result.json`; each hit its existing20s whole probe cap. Earlier command76 passed the same20-record query. The cold single-workflow query command84 and history verification83 passed. Existing logs contain only SDK startup, so they cannot identify which exact page consumed the budget.
+
+Source diagnosis: the probe issues Count then one-row List pages (including the terminal empty page). Every call compiles its schema with one global RPC and previously loaded four independent visibility partitions serially. Managed owners durably journal each result and write an additional authority barrier. Pinned SlateDB's default flush_interval is100ms (config.rs default), making a quiet cold query susceptible to cumulative serial durability waits; active pre-cold writes can supply flushes sooner. This is a source-grounded latency hypothesis, not a measured attribution of the preserved failure.
+
+Initial LIST fetches and COUNT now run at most four concurrent calls under the same existing30s context. Every worker is joined and the first error cancels siblings. Results are merged only after success, in the same deterministic partition/key order; byte-bounded refills retain the original logic. There is no cross-partition transaction or snapshot claim. Schema checks, request identity/retries, journal durability, ownership barriers, result budgets and all timeouts remain unchanged.
+
+The SDK probe now logs numeric Count and each completed page/row count/next-token presence (no raw token or payload), so a repeated live failure localizes progress. A clean actual ministack rerun remains required to demonstrate this removes the cold timeout. Do not reclassify the preserved failure as passed.

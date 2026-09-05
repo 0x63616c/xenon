@@ -33,7 +33,13 @@ type Selector struct {
 	Kind        string `json:"mutation_kind"`
 	Digest      string `json:"command_sha256"`
 }
+type Workflow struct {
+	Namespace string `json:"namespace_id"`
+	Workflow  string `json:"workflow_id"`
+	Run       string `json:"run_id"`
+}
 type Plan struct {
+	Discovery bool     `json:"discovery,omitempty"`
 	Schema    int      `json:"schema"`
 	Session   string   `json:"session"`
 	Listen    string   `json:"listen"`
@@ -42,19 +48,22 @@ type Plan struct {
 	TimeoutMS int      `json:"timeout_ms"`
 }
 type State struct {
-	Schema      int      `json:"schema"`
-	Session     string   `json:"session"`
-	Incarnation string   `json:"incarnation"`
-	PID         int      `json:"pid"`
-	State       string   `json:"state"`
-	Stage       string   `json:"stage"`
-	Selector    Selector `json:"selector"`
-	HitUTC      string   `json:"hit_utc,omitempty"`
+	Watch       *Workflow `json:"watch,omitempty"`
+	Schema      int       `json:"schema"`
+	Session     string    `json:"session"`
+	Incarnation string    `json:"incarnation"`
+	PID         int       `json:"pid"`
+	State       string    `json:"state"`
+	Stage       string    `json:"stage"`
+	Selector    Selector  `json:"selector"`
+	HitUTC      string    `json:"hit_utc,omitempty"`
 }
 type Controller struct {
-	plan  Plan
-	mu    sync.Mutex
-	state State
+	plan              Plan
+	mu                sync.Mutex
+	state             State
+	armed             chan struct{}
+	candidateDeadline time.Time
 }
 
 func New(plan Plan) (*Controller, error) {
@@ -68,10 +77,13 @@ func New(plan Plan) (*Controller, error) {
 		return nil, e
 	}
 	s := plan.Selector
-	if s.OperationID == "" || len(s.OperationID) > 128 || s.Partition == "" || len(s.Partition) > 128 || s.Kind != "UPDATE" || (s.Family != "shard" && s.Family != "execution") {
+	if plan.Discovery && s != (Selector{}) {
+		return nil, errors.New("discovery and fixed selector are mutually exclusive")
+	}
+	if !plan.Discovery && (s.OperationID == "" || len(s.OperationID) > 128 || s.Partition == "" || len(s.Partition) > 128 || s.Kind != "UPDATE" || (s.Family != "shard" && s.Family != "execution")) {
 		return nil, errors.New("unsupported exact mutation selector")
 	}
-	if b, e := hex.DecodeString(s.Digest); e != nil || len(b) != 32 {
+	if b, e := hex.DecodeString(s.Digest); !plan.Discovery && (e != nil || len(b) != 32) {
 		return nil, errors.New("invalid command digest")
 	}
 	if plan.Stage != BeforeAwait && plan.Stage != AfterAwait && plan.Stage != BeforeReply {
@@ -86,13 +98,18 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(c.Snapshot())
 		return
 	}
+	if r.Method == "POST" && r.URL.Path == "/watch" && c.plan.Discovery {
+		c.watch(w, r)
+		return
+	}
 	if r.Method != "POST" || r.URL.Path != "/arm" {
 		http.NotFound(w, r)
 		return
 	}
 	var arm struct {
-		Session     string `json:"session"`
-		Incarnation string `json:"incarnation"`
+		Selector    *Selector `json:"selector,omitempty"`
+		Session     string    `json:"session"`
+		Incarnation string    `json:"incarnation"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 	decoder.DisallowUnknownFields()
@@ -106,11 +123,18 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if arm.Session != c.state.Session || arm.Incarnation != c.state.Incarnation || c.state.State != "unarmed" {
+	expected := "unarmed"
+	if c.plan.Discovery {
+		expected = "candidate"
+	}
+	if arm.Session != c.state.Session || arm.Incarnation != c.state.Incarnation || c.state.State != expected || (c.plan.Discovery && (arm.Selector == nil || *arm.Selector != c.state.Selector || !time.Now().Before(c.candidateDeadline))) {
 		http.Error(w, "stale or consumed arm", 409)
 		return
 	}
 	c.state.State = "armed"
+	if c.plan.Discovery {
+		close(c.armed)
+	}
 	w.WriteHeader(202)
 }
 
@@ -167,9 +191,91 @@ func (c *Controller) Interceptor() grpc.UnaryServerInterceptor {
 		default:
 			return handler(ctx, req)
 		}
-		if selected == c.plan.Selector {
+		match := selected == c.plan.Selector && !c.plan.Discovery
+		if c.plan.Discovery {
+			if q, ok := req.(*wire.ExecutionRequest); ok {
+				im := q.GetCommand().GetMutation().GetUpsert()
+				c.mu.Lock()
+				match = c.state.State == "watching" && c.state.Watch != nil && workflowMatches(c.state.Watch, im)
+				c.mu.Unlock()
+			}
+		}
+		if match {
 			ctx = context.WithValue(ctx, contextKey{}, &Invocation{c, selected})
 		}
 		return handler(ctx, req)
 	}
+}
+
+func workflowMatches(w *Workflow, im *wire.ExecutionImage) bool {
+	if im == nil {
+		return false
+	}
+	ns, e := uuid.Parse(im.NamespaceId)
+	run, e2 := uuid.Parse(im.RunId)
+	return e == nil && e2 == nil && ns.String() == w.Namespace && run.String() == w.Run && im.WorkflowId == w.Workflow
+}
+func (c *Controller) watch(w http.ResponseWriter, r *http.Request) {
+	var q struct {
+		Session     string   `json:"session"`
+		Incarnation string   `json:"incarnation"`
+		Watch       Workflow `json:"watch"`
+	}
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2048))
+	d.DisallowUnknownFields()
+	if d.Decode(&q) != nil || d.Decode(new(any)) != io.EOF {
+		http.Error(w, "invalid watch", 400)
+		return
+	}
+	ns, e := uuid.Parse(q.Watch.Namespace)
+	run, e2 := uuid.Parse(q.Watch.Run)
+	if e != nil || e2 != nil || q.Watch.Workflow == "" || len(q.Watch.Workflow) > 1000 {
+		http.Error(w, "invalid workflow identity", 400)
+		return
+	}
+	q.Watch.Namespace = ns.String()
+	q.Watch.Run = run.String()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if q.Session != c.state.Session || q.Incarnation != c.state.Incarnation || c.state.State != "unarmed" {
+		http.Error(w, "stale or consumed watch", 409)
+		return
+	}
+	c.state.Watch = &q.Watch
+	c.state.State = "watching"
+	w.WriteHeader(202)
+}
+
+// Candidate runs after successful journal staging, before native Commit.
+func (i *Invocation) Candidate() error {
+	if i == nil || !i.controller.plan.Discovery {
+		return nil
+	}
+	c := i.controller
+	c.mu.Lock()
+	if c.state.State != "watching" {
+		c.mu.Unlock()
+		return errors.New("candidate no longer available")
+	}
+	c.state.State = "candidate"
+	c.state.Selector = i.selector
+	c.armed = make(chan struct{})
+	ready := c.armed
+	c.candidateDeadline = time.Now().Add(time.Duration(c.plan.TimeoutMS) * time.Millisecond)
+	deadline := c.candidateDeadline
+	c.mu.Unlock()
+	timer := time.NewTimer(time.Until(deadline))
+	defer timer.Stop()
+	select {
+	case <-ready:
+		return nil
+	case <-timer.C:
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.state.State == "armed" {
+		return nil
+	}
+	c.state.State = "timed_out"
+	return ErrTimeout
 }

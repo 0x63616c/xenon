@@ -19,5 +19,5 @@ fi
 export XENON_PROBE_BACKEND=s3
 export XENON_PROBE_BUCKET=xenon-probe
 export XENON_PROBE_PREFIX="probe-$(date -u +%Y%m%dT%H%M%SZ)-$RANDOM"
-cargo run --locked -p slatedb-probe
+cargo run --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked -p slatedb-probe
 printf '%s\n' 'Emulator primitive probe passed. Real S3 and Temporal end-to-end gates remain open.'

@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -411,7 +412,7 @@ func (s *VisibilityStore) listVisibility(ctx context.Context, n string, name nam
 		finished bool
 	}
 	streams := make([]stream, vmodel.PartitionCount)
-	load := func(i int, token []byte) error {
+	load := func(ctx context.Context, i int, token []byte) error {
 		r, err := s.invokeVisibility(ctx, fmt.Sprintf("vis-v1-%d", i), &wire.VisibilityCommand{Kind: wire.VisibilityCommand_LIST, Query: q, PageSize: int64(size), NextPageToken: token})
 		if err != nil {
 			return err
@@ -419,10 +420,8 @@ func (s *VisibilityStore) listVisibility(ctx context.Context, n string, name nam
 		streams[i] = stream{r.Documents, r.NextPageToken, len(r.Documents) == 0 || len(r.NextPageToken) == 0}
 		return nil
 	}
-	for i := range streams {
-		if e = load(i, token); e != nil {
-			return nil, e
-		}
+	if e = parallelVisibility(ctx, func(ctx context.Context, i int) error { return load(ctx, i, token) }); e != nil {
+		return nil, e
 	}
 	result := &store.InternalListExecutionsResponse{}
 	budget := new(wire.VisibilityResult)
@@ -432,7 +431,7 @@ func (s *VisibilityStore) listVisibility(ctx context.Context, n string, name nam
 		best := -1
 		for i := range streams {
 			if len(streams[i].rows) == 0 && !streams[i].finished {
-				if e = load(i, streams[i].next); e != nil {
+				if e = load(ctx, i, streams[i].next); e != nil {
 					return nil, e
 				}
 			}
@@ -473,11 +472,15 @@ func (s *VisibilityStore) countVisibility(ctx context.Context, n string, name na
 	}
 	result := new(store.InternalCountExecutionsResponse)
 	groups := map[string]*wire.VisibilityGroup{}
-	for i := 0; i < vmodel.PartitionCount; i++ {
-		r, e := s.invokeVisibility(ctx, fmt.Sprintf("vis-v1-%d", i), &wire.VisibilityCommand{Kind: wire.VisibilityCommand_COUNT, Query: q})
-		if e != nil {
-			return nil, e
-		}
+	parts := make([]*wire.VisibilityResult, vmodel.PartitionCount)
+	if e = parallelVisibility(ctx, func(ctx context.Context, i int) error {
+		r, err := s.invokeVisibility(ctx, fmt.Sprintf("vis-v1-%d", i), &wire.VisibilityCommand{Kind: wire.VisibilityCommand_COUNT, Query: q})
+		parts[i] = r
+		return err
+	}); e != nil {
+		return nil, e
+	}
+	for _, r := range parts {
 		result.Count += r.Count
 		for _, g := range r.Groups {
 			copy := proto.Clone(g).(*wire.VisibilityGroup)
@@ -556,4 +559,25 @@ func (s *VisibilityStore) AddSearchAttributes(ctx context.Context, r *manager.Ad
 	}
 	_, e = s.invokeVisibility(ctx, s.schemaPartition, c)
 	return e
+}
+
+// Initial partition reads are independent live reads, not a cross-partition
+// snapshot. Join every worker before return and preserve the first real failure.
+func parallelVisibility(ctx context.Context, call func(context.Context, int) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var wg sync.WaitGroup
+	var once sync.Once
+	var first error
+	for i := 0; i < vmodel.PartitionCount; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if err := call(ctx, i); err != nil {
+				once.Do(func() { first = err; cancel() })
+			}
+		}(i)
+	}
+	wg.Wait()
+	return first
 }

@@ -165,6 +165,10 @@ func (o *Owner) cutStage(stage string) error {
 	return nil
 }
 func (o *Owner) commitCut(tx *native.DbTransaction) error {
+	if e := o.cut.Candidate(); e != nil {
+		o.quarantined.Store(true)
+		return backend(e)
+	}
 	optional, e := tx.Commit()
 	if e != nil {
 		return backend(e)
