@@ -5,7 +5,7 @@ Native persistence component suites, S3-emulator crash/ownership proofs and fixe
 | ID | Required behavior / spec | Owner / prerequisite | Code/PR | Acceptance command / evidence | Result |
 |---|---|---|---|---|---|
 | S3-1 | S3-only durable execution, visibility, ownership | Coordinator / visibility/runtime | PR55/66; #61 | Component native and MinIO proofs; full runtime/real S3 pending | PARTIAL: execution and ownership components; visibility acceptance pending |
-| DUR-1 | Atomic durable acknowledgement | Persistence integration | PR55/66 | `go-runtime-stores` at74b13a6; 54 commands passed | PARTIAL: typed native components; end-to-end workload pending |
+| DUR-1 | Atomic durable acknowledgement | Persistence integration | PR55/66 | `go-runtime-stores` at2535ab1; clean55 commands passed (`20260905T205715Z-go-runtime-stores-2c8effd2`) | PARTIAL: typed native components; end-to-end workload pending |
 | DUR-2 | No volatile externally actionable reads | Owner admission | PR59/66 | `owner-manager` at74b13a6; read barrier/fenced replay | PARTIAL: MinIO owner lifecycle, not full workload |
 | OWN-1 | Fencing, competing owners, stale-opener convergence | Ownership manager | PR59/66 | Clean MinIO owner-manager proof independently passed, integrated74b13a6 also passed | PARTIAL: explicit activation/movement implemented; live Temporal composition pending |
 | RPC-1 | Typed operations, errors and retry identity | Store integration | PR55/66 | Eleven RPC families; full race/vet at74b13a6 passed | PARTIAL: visibility and final runtime remain |
@@ -16,11 +16,13 @@ Native persistence component suites, S3-emulator crash/ownership proofs and fixe
 | UI-1 | Unchanged Temporal UI list/filter/detail/history | Acceptance decision | Pending | Browser exercises with asserted results | UNIMPLEMENTED |
 | SCALE-1 | Add node under workload; partition movement and traffic | #57/#62/#63 | PR59/66 | MinIO movement plus four-owner history routing8856074 passed separately | PARTIAL: actual Temporal workload movement remains |
 | SCALE-2 | Multiple Temporal instances | Ministack #63 | Active work | Pinned configuration checks; actual two-instance workload pending | UNPROVEN |
-| FAULT-1 | Commit/ACK/lost response/cache loss/GC recovery | #18/#57/#64 | PR55/59/66 and maintenance branch | MinIO process kills/replay passed; actual compaction/GC test running | PARTIAL: combined workload/maintenance acceptance pending |
+| FAULT-1 | Commit/ACK/lost response/cache loss/GC recovery | #18/#57/#64 | PR55/59/66 and maintenance branch | MinIO process kills/replay passed; clean maintenance proofcf57d36 passed (`20260905T203747Z-maintenance-ac7ccb81`) | PARTIAL: combined workload/maintenance acceptance pending |
 | S3-2 | Repeatable real-S3 run in authorized resources | External environment | Pending | Authorized bucket/prefix and AWS profile/role requested; target not supplied | UNVERIFIED PREREQUISITE |
 | PERF-1 | Latency, lag, requests, CPU/memory, recovery | Acceptance decision | Pending | Targets committed in acceptance.md; measurement harness pending | UNIMPLEMENTED |
 | SHIP-1 | Clean-checkout setup, CI, operations, private release | Packaging/runtime | PR55/66, #63 | Declarative component proofs and CI; full quickstart/operations pending | PARTIAL: not shipped |
 
 Go application nodes now use the official pinned SlateDB bindings. Proof checkpoints above are exact historical evidence, not automatic passes for every later commit. CI found a matching pagination deadline regression; native bounded seeks fixed it at1b0e013, with the original upstream deadline unchanged. Current branch CI must still pass before merge.
 
-Long-running maintenance tests retain SlateDB's native900-second compaction checkpoints and wait for normal expiry. No GC pass is recorded here until actual deletion and recovery assertions complete. Real-S3 resources remain unavailable; emulator results do not satisfy that gate.
+The clean maintenance proof retained SlateDB's native900-second compaction checkpoints and observed actual WAL/manifest/obsolete-SST deletion, protected snapshot reads, fence retention and recovery of an acknowledged update below the L0 flush threshold. It uses declared accelerated GC settings on pinned MinIO; combined Temporal workload and real-S3 gates remain open.
+
+GitHub hosted CI is currently blocked before job execution: run33991201675/check101373635097 reports an account payment or spending-limit problem. No account settings were changed and CI is not waived. Local gates continue. Twenty immutable Omes fuzz inputs and strict integrity/replay-definition checks are committed under `proof/omes-corpus`; runtime replay is still unexecuted (#69).
