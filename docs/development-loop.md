@@ -54,3 +54,5 @@ Use [the Temporal upgrade runbook](temporal-upgrades.md) and the project-local
 `xenon-temporal-upgrade` skill. Compare explicitly selected source revisions, map
 changes to the adapter and scenario contracts, then separately prove fresh-install
 behavior and continuation of state written by the previous version.
+
+Failed ministack runs now capture bounded public workflow list, describe and first-page history snapshots before teardown. The committed `test/scenarios/ministack/diagnostics.json` declares limits. Raw responses, hashes, errors and truncation are retained under `failure-diagnostics/`; these best-effort snapshots never establish history completeness or turn a failed run into a pass.

@@ -47,7 +47,9 @@
     "scripts/temporal_cut.py",
     "scripts/omes_mixed.py",
     "test/scenarios/ministack/recorder.json",
-    "scripts/recorder_lifecycle.py"
+    "scripts/recorder_lifecycle.py",
+    "test/scenarios/ministack/diagnostics.json",
+    "scripts/temporal_diagnostics.py"
   ],
   "component_manifests": [
     "runtime-measurements",

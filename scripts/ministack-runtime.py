@@ -21,6 +21,7 @@ import recorder_lifecycle
 from omes_workloads import effective_sdk
 from omes_mixed import validate_result as validate_mixed_result
 import temporal_cut
+import temporal_diagnostics
 
 ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -404,7 +405,13 @@ def main():
             if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during proof')
             if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native build artifacts changed during proof')
             report.update(result='passed',proof_pass=True)
-    except Exception as error:report['error']=str(error)
+    except Exception as error:
+        report['error']=str(error)
+        if 'ta' in locals():
+            try:
+                limits=json.loads((ROOT/'test/scenarios/ministack/diagnostics.json').read_text())
+                report['failure_diagnostics']=temporal_diagnostics.capture('http://127.0.0.1:17243',case['namespace'],evidence/'failure-diagnostics',limits)
+            except Exception as diagnostic_error:report.setdefault('diagnostic_errors',[]).append(str(diagnostic_error))
     finally:
         try:run([*compose,'logs','--no-color'],30)
         except Exception as error:report.setdefault('diagnostic_errors',[]).append(str(error))
