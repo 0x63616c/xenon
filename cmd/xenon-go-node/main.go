@@ -83,6 +83,7 @@ func main() {
 	server := grpc.NewServer(grpc.MaxRecvMsgSize(2 * 1024 * 1024))
 	wire.RegisterShardPersistenceServer(server, owner)
 	wire.RegisterQueuePersistenceServer(server, &node.QueueServer{Owner: owner})
+	wire.RegisterQueueV2PersistenceServer(server, &node.QueueV2Server{Owner: owner})
 	wire.RegisterHistoryPersistenceServer(server, &node.HistoryServer{Owner: owner})
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
 	wire.RegisterMatchingPersistenceServer(server, &node.MatchingServer{Owner: owner})

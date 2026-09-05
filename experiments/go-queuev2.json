@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "name": "go-queuev2",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    "proto/xenon/v1/cluster.proto",
+    "gen/xenon/v1/cluster.pb.go",
+    "gen/xenon/v1/cluster_grpc.pb.go",
+    "internal/node/cluster.go",
+    "internal/node/cluster_test.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/cluster_test.go",
+    "proof/go-cluster/case.json",
+    "proof/go-cluster/README.md",
+    ".github/workflows/ci.yaml",
+    "proto/xenon/v1/queuev2.proto",
+    "gen/xenon/v1/queuev2.pb.go",
+    "gen/xenon/v1/queuev2_grpc.pb.go",
+    "internal/node/queuev2.go",
+    "internal/node/queuev2_test.go",
+    "internal/adapter/queuev2.go",
+    "proof/queuev2/case.json",
+    "proof/queuev2/README.md"
+  ],
+  "fault_schedule": "Real upstream QueueV2 suite over gRPC with first completed enqueue response dropped. Fixed recovery fixture reopens after logical deletion, replays enqueue/range delete, rejects stale cursor sentinel exposure and fenced replay. Terminal allocation seeded at MaxInt64-1.",
+  "assertions": [
+    "Pinned upstream QueueV2 and HistoryTaskQueueManager interface suites pass over real gRPC.",
+    "Range-delete metadata and messages commit atomically; replay preserves subsequent enqueue.",
+    "Pages obey full3MiB wire budget and exact protobuf continuation format.",
+    "Terminal and stale cursors cannot wrap or resurrect logically deleted sentinel."
+  ],
+  "limitations": [
+    "Single logical partition; no directory/routing/full Temporal boot.",
+    "Memory object store only; no real-S3 or process-crash recovery claim.",
+    "Native registered proof; pinned container orchestration remains a separate shipping gate."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Upstream",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Upstream",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/BestEffortDeleteTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest/DeleteDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest/ReadDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks/HappyPath",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks/QueueDoesNotExist",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteTasksErr",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/GetDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/HappyPath",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/InvalidNextPageToken",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/InvalidPageSize",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask/empty_blob",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask/nil_blob",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerCreateQueueErr",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerEnqueueTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerEnqueueTasksErr",
+        "TestGoOwnerQueueV2Upstream/InvalidEncodingForQueueMessage",
+        "TestGoOwnerQueueV2Upstream/InvalidEncodingForQueueMetadata",
+        "TestGoOwnerQueueV2Upstream/TestCreateQueueTwice",
+        "TestGoOwnerQueueV2Upstream/TestEnqueueMessageToNonExistentQueue",
+        "TestGoOwnerQueueV2Upstream/TestHappyPath",
+        "TestGoOwnerQueueV2Upstream/TestInvalidPageToken",
+        "TestGoOwnerQueueV2Upstream/TestListQueues",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/HappyPath",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/InvalidPageToken",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/NegativePageSize",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/QueueSize",
+        "TestGoOwnerQueueV2Upstream/TestNonPositivePageSize",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteAllAndReEnqueue",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteAndValidateMinId",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteBeforeCreate",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteSameRangeTwice",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/HappyPath",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/InvalidMaxMessageID"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Recovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Recovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Terminal",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Terminal"
+      ]
+    }
+  ]
+}
