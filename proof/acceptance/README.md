@@ -11,3 +11,9 @@ Replay each of the20immutable protobuf inputs using the existing saved command m
 Wire the same input profile into the real-S3 overlay with only the four listed storage settings changed. The final controller must capture the enclosing immutable image/tool/environment manifests and scoped cleanup evidence. Profile validation proves input integrity only; actual workflows, faults, UI, recovery, metrics and real S3 remain runtime gates. This work does not replace or reduce the existing smoke profile.
 
 Every replay/workload command explicitly selects `--language go --version v1.48.0` and `--max-iteration-attempts 1`. Worker selection is pinned in executable arguments, not only metadata; the latter flag fixes the upstream default of one scenario iteration attempt and does not disable internal SDK/activity retries required by the workload.
+
+## Host resource sampling
+
+`scripts/resource_samples.py` supplies an optional bounded `ProcessSampler` for the existing controller. Use `resources.json` for its interval/capacities, register each spawned process under its unique incarnation label, and retain its JSONL plus `stop()` summary. A false `complete` value fails resource evidence; capacities never silently truncate successful evidence. Start identities guard against changed root PIDs, but `ps` exposes second precision. CPU time is cumulative per process; compute rates from successive monotonic sample times. RSS is sampled, so short-lived processes and between-sample peaks may be missed. This helper does not measure container resources and has not yet been wired into runtime acceptance.
+
+`python3 -m unittest discover -s scripts -p 'test_resource_samples.py'` checks platform CPU formats, changed process identity exclusion, actual CPU work and a resident32MiB allocation, and explicit capacity exhaustion. Only PID/parent/start metadata and numeric usage are saved; process commands and environments are not collected.
