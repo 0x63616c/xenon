@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "temporal": {
+    "module": "go.temporal.io/server",
+    "version": "v1.31.2",
+    "commit": "19a774302c613da9adc4436ab14278ccdca8e0a5"
+  },
+  "sdk": {
+    "module": "go.temporal.io/sdk",
+    "version": "v1.41.1"
+  },
+  "omes": {
+    "repository": "https://github.com/temporalio/omes",
+    "commit": "c6978ba39aa03551ce28974117e8d7ecf983d2b3",
+    "worker_go_sdk": "v1.48.0",
+    "embedded_server": false
+  },
+  "ui": {
+    "release": "v2.53.3",
+    "commit": "835b349ffa14fbe71af3e26a7f8bc71fe6c29a53",
+    "image": "temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a"
+  },
+  "proxy": {
+    "image": "haproxy:3.2.12-alpine@sha256:15ef8657ec12e7b19d5b6b6b6fcf6839a0e3cdae85d275be6c867e8a2690f33f"
+  },
+  "s3_emulator": {
+    "image": "minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+  }
+}
