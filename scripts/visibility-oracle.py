@@ -40,6 +40,16 @@ def main():
   if len(rows)!=len(cases):raise RuntimeError('oracle result count mismatch')
   for index,(case,row) in enumerate(zip(cases,rows)):
    if row!={'Match':case['Match'],'Error':case['Error']}:raise RuntimeError('oracle expectation mismatch at '+str(index))
+  scalars=json.loads((ROOT/'proof/visibility/oracle-scalars.json').read_text())
+  scalar_sql="CREATE OR REPLACE FUNCTION pg_temp.scalar_probe(q text) RETURNS jsonb LANGUAGE plpgsql AS $$ DECLARE result jsonb; BEGIN EXECUTE 'SELECT ' || q INTO result; RETURN result; EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('error', SQLSTATE); END $$;\n"
+  for case in scalars:scalar_sql+='SELECT pg_temp.scalar_probe('+literal(case['sql'])+')::text;\n'
+  scalar_observed=run(['docker','exec','-i',name,'psql','-h','127.0.0.1','-U','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],input=scalar_sql)
+  (output/'scalars.jsonl').write_text(scalar_observed+'\n')
+  scalar_rows=[json.loads(line) for line in scalar_observed.splitlines()]
+  if len(scalar_rows)!=len(scalars):raise RuntimeError('scalar row count mismatch')
+  for case,row in zip(scalars,scalar_rows):
+   if row!=case['expected']:raise RuntimeError('scalar mismatch '+case['name']+': '+json.dumps(row))
+  result['scalar_cases']=len(scalars);result['scalar_sql_sha256']=hashlib.sha256(scalar_sql.encode()).hexdigest()
   go=run(['go','test','-json','-count=1','./internal/visibility','-run','^TestTextPostgreSQLOracle$']);(output/'go.jsonl').write_text(go+'\n')
   events=[json.loads(line) for line in go.splitlines()];passed=[e.get('Test') for e in events if e.get('Action')=='pass' and 'Test' in e]
   if passed!=['TestTextPostgreSQLOracle'] or any(e.get('Action') in ('skip','fail') for e in events):raise RuntimeError('Go assertions missing')
