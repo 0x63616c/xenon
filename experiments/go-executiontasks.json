@@ -144,6 +144,14 @@
       "expected_tests": [
         "TestGoOwnerExecutionTasksBytePages"
       ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerExecutionRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerExecutionRecovery"
+      ]
     }
   ]
 }

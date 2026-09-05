@@ -436,7 +436,10 @@ func applyExecution(tx *native.DbTransaction, c *wire.ExecutionCommand) (*wire.E
 			return nil, backend(e)
 		}
 	}
-	if shardRaw == nil || shard.RangeId != c.RangeId {
+	if shardRaw == nil {
+		return nil, execFail(wire.ExecutionResult_UNAVAILABLE, "shard does not exist")
+	}
+	if shard.RangeId != c.RangeId {
 		return nil, &executionFailure{&wire.ExecutionResult{Error: wire.ExecutionResult_OWNERSHIP_LOST, ShardId: c.ShardId, Message: "shard range mismatch"}}
 	}
 	if c.Kind == wire.ExecutionCommand_SET {

@@ -118,7 +118,10 @@ func applyExecutionTasks(tx *native.DbTransaction, c *wire.ExecutionTasksCommand
 				return nil, backend(e)
 			}
 		}
-		if b == nil || shard.RangeId != c.RangeId {
+		if b == nil {
+			return &wire.ExecutionTasksResult{Error: wire.ExecutionTasksResult_UNAVAILABLE, Message: "shard does not exist"}, nil
+		}
+		if shard.RangeId != c.RangeId {
 			return &wire.ExecutionTasksResult{Error: wire.ExecutionTasksResult_OWNERSHIP_LOST, ShardId: c.ShardId, Message: "shard range mismatch"}, nil
 		}
 		return r, stageExecutionTasks(tx, c.ShardId, c.Tasks)
