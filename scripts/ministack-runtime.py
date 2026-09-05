@@ -61,7 +61,7 @@ def main():
             code=p.process.wait(timeout=timeout)
             p.thread.join(timeout=5)
         except subprocess.TimeoutExpired:
-            expired=True;p.stop(kill=True);code=p.process.returncode
+            expired=True;p.stop();code=p.process.returncode
         finally:
             p.stop()
         report['commands'].append({'argv':list(map(str,argv)),'exit_code':code,'timed_out':expired,'log':path.name,'sha256':sha(path)})
@@ -85,7 +85,8 @@ def main():
         directory=runtime/name;directory.mkdir()
         process=Process(argv,directory,{**env,**(extra or {})},evidence/(name+'.log'));processes.append(process);return process
     sdk=str(ROOT/'.local/bin/xenon-sdk-probe')
-    def probe(mode,*args,timeout=20):return json_result(run([sdk,'--mode',mode,*args],timeout))
+    probe_flags=['--address',f"127.0.0.1:{case['ports']['temporal_ingress']}",'--namespace',case['namespace'],'--workflow-id',case['workflow_id'],'--task-queue',case['task_queue']]
+    def probe(mode,*args,timeout=20):return json_result(run([sdk,'--mode',mode,*probe_flags,*args],timeout))
     def event(name,**fields):report['events'].append({'name':name,'elapsed_seconds':round(time.monotonic()-started,3),**fields})
     started=time.monotonic()
     try:
@@ -119,7 +120,7 @@ def main():
             process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)]);temporals.append(process);return process
         ta=temporal('temporal-a','deploy/ministack/temporal-a.json');tb=temporal('temporal-b','deploy/ministack/temporal-b.json')
         bootstrap=wait(lambda:probe('bootstrap'),120);event('namespace-and-search-schema-ready',**bootstrap)
-        worker=launch('worker',[sdk,'--mode','worker']);worker.line('{')
+        worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
         execution=probe('start');event('workflow-started',**execution)
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')
         owner=assignments[bootstrap['history_partition']]['node'];nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
@@ -130,7 +131,7 @@ def main():
             if assignment['node']==owner:assignment['node']=replacement
         publish()
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered')
-        verify=launch('verify-live',[sdk,'--mode','verify','--run-id',execution['run_id'],'--output',str(evidence)])
+        verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(evidence)])
         ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid)
         probe('control');verify.process.wait(timeout=120)
         if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
@@ -142,11 +143,13 @@ def main():
         run(['git','checkout','--detach',pins['omes']['commit']],cwd=omes)
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
         run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
+        run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
         omes_process=launch('omes',[str(ROOT/'.local/bin/omes'),*case['omes_command']])
         # Pinned getRepoDir uses runtime.Caller's build-source path. Build without
         # -trimpath above and retain the verified checkout for its worker builder.
-        time.sleep(1)
+        wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-ministack-omes'").get('count',0)>0,60)
         if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
+        event('omes-work-observed-before-addition')
         node('c',17353);assignments['matching']['node']='c';publish();event('node-added-during-omes')
         omes_process.process.wait(timeout=360)
         if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
@@ -155,9 +158,9 @@ def main():
         for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'proof/ministack/ui'/file,ui/file)
         run(['npm','ci','--ignore-scripts'],120,cwd=ui)
         run(['npx','playwright','install','chromium'],300,cwd=ui)
-        run(['node','probe.mjs',str(evidence/'browser')],120,cwd=ui)
+        run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
         report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
-        report['omes_generated_sha256']={str(path.relative_to(omes)):sha(path) for folder in (omes/'workers/go').glob('omes-temp-*') for path in folder.rglob('*') if path.is_file()}
+        report['omes_generated_sha256']={str(path.relative_to(omes)):sha(path) for folder in [omes/'workers/go/prepared'] for path in folder.rglob('*') if path.is_file()}
         if not report['omes_generated_sha256']:raise RuntimeError('missing retained Omes worker artifacts')
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
         event('ui-assertions-passed')
@@ -168,6 +171,9 @@ def main():
         for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
         publish();temporal('cold-temporal-a','deploy/ministack/temporal-a.json');temporal('cold-temporal-b','deploy/ministack/temporal-b.json')
         wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(evidence)),120)
+        wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
+        wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
+        run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
         event('cold-local-recovery-passed')
         if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
         if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
@@ -177,7 +183,10 @@ def main():
         for process in reversed(processes):
             try:process.stop()
             except Exception as error:report.setdefault('cleanup_errors',[]).append(str(error))
-        try:run([*compose,'down','--volumes'],60)
+        try:
+            run([*compose,'down','--volumes'],60)
+            for argv in (['docker','ps','-aq','--filter','label=com.docker.compose.project='+project],['docker','volume','ls','-q','--filter','label=com.docker.compose.project='+project]):
+                if run(argv).strip():raise RuntimeError('scoped Compose resources survived cleanup')
         except Exception as error:report.setdefault('cleanup_errors',[]).append(str(error))
         if report.get('cleanup_errors'):report.update(result='failed',proof_pass=False)
         (evidence/'result.json').write_text(json.dumps(report,indent=2)+'\n');print(report['result'].upper()+': '+str(evidence/'result.json'))

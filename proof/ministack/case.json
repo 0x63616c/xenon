@@ -89,7 +89,9 @@
     "v1.48.0",
     "--max-iterations-per-second",
     "1",
-    "--retain-temp-dir"
+    "--retain-temp-dir",
+    "--dir-name",
+    "prepared"
   ],
   "partitions": [
     "history-0",

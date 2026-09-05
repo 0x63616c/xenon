@@ -73,6 +73,12 @@ func run() error {
 		}
 		shard := common.WorkflowIDToHistoryShard(description.NamespaceInfo.Id, *id, 4)
 		return emit(map[string]any{"namespace": *namespace, "namespace_id": description.NamespaceInfo.Id, "history_partition": fmt.Sprintf("history-%d", shard%4)})
+	case "visibility-count":
+		count, e := c.WorkflowService().CountWorkflowExecutions(ctx, &workflowservice.CountWorkflowExecutionsRequest{Namespace: *namespace, Query: *query})
+		if e != nil {
+			return e
+		}
+		return emit(map[string]int64{"count": count.Count})
 	case "visibility":
 		count, e := c.WorkflowService().CountWorkflowExecutions(ctx, &workflowservice.CountWorkflowExecutionsRequest{Namespace: *namespace, Query: *query})
 		if e != nil {
