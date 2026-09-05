@@ -534,5 +534,87 @@
       "--option",
       "input-file=proof/omes-corpus/inputs/2026090520.proto"
     ]
+  ],
+  "inputs": [
+    {
+      "file": "inputs/2026090501.proto",
+      "sha256": "fa897cf93da62ca913e51156b8c6059a1ddf7dfefe488da0862434ed8ba5b427"
+    },
+    {
+      "file": "inputs/2026090502.proto",
+      "sha256": "acf991f7c3e3dfd4e071a0a35670c0159c92f7c1f71e3060caab4d5d6c9db688"
+    },
+    {
+      "file": "inputs/2026090503.proto",
+      "sha256": "df75cdb14c8d5fa51984a5e0704715fba724b876f31d0060f835ff39103cb0cd"
+    },
+    {
+      "file": "inputs/2026090504.proto",
+      "sha256": "cb2b7ddf19b898b37aabaf08f7360be532c3c83acbd0eda930ca889ffc57abad"
+    },
+    {
+      "file": "inputs/2026090505.proto",
+      "sha256": "00a6a25b03ac12fb8c32595a17ffa447e53296013086017f5e1e3ad9d2ad96b2"
+    },
+    {
+      "file": "inputs/2026090506.proto",
+      "sha256": "bc26fb201f57ba6aed1402845ff7a4458e9689cd5a078e83cfca0020f994f325"
+    },
+    {
+      "file": "inputs/2026090507.proto",
+      "sha256": "919eda08197af5d66b3a9811f98af437a79cf5b284b2fa80d80fb48e182a71f3"
+    },
+    {
+      "file": "inputs/2026090508.proto",
+      "sha256": "cf13c6bdfcc2960e9d446eb554c6170f59ca7102139ecce46ace1d75ddf00857"
+    },
+    {
+      "file": "inputs/2026090509.proto",
+      "sha256": "dc10a8e2392c77596171e29419e38b576e0c188d49e584d4542a780d5efa9c44"
+    },
+    {
+      "file": "inputs/2026090510.proto",
+      "sha256": "9b79877cec7bc062eedf245a1d9201f95d578614bf099d5c0f322a225b18fd9e"
+    },
+    {
+      "file": "inputs/2026090511.proto",
+      "sha256": "0c99a3d5f0b674c975bc895b8814d48749bce18eebead3e3e0a5b3c7136a0722"
+    },
+    {
+      "file": "inputs/2026090512.proto",
+      "sha256": "294ad8757d29fa6dfe38650e8f76dcfc29a6da61f3f9c6b360b650a2f3545487"
+    },
+    {
+      "file": "inputs/2026090513.proto",
+      "sha256": "e35d8010bf36cb466a3221177abdede68ec72f7e35966762d48e53c7e88cc528"
+    },
+    {
+      "file": "inputs/2026090514.proto",
+      "sha256": "29e024815c6335d271bd8b08322ffe05c44ed874521634d7546259424af9334c"
+    },
+    {
+      "file": "inputs/2026090515.proto",
+      "sha256": "edc72e4c373a95f4cd20579e6c2c5d226d3e24607e06757beb03f4d708f19546"
+    },
+    {
+      "file": "inputs/2026090516.proto",
+      "sha256": "a7ee7e015715e968059ecd2981b1e6ad5f378c063fe083a153a57f6146c2b4a6"
+    },
+    {
+      "file": "inputs/2026090517.proto",
+      "sha256": "ec3f4533a651bf342f04e121f9e866e85e2d1a21cb4abfa40f38dd95e8c82256"
+    },
+    {
+      "file": "inputs/2026090518.proto",
+      "sha256": "62c2f405cd19f72d4325142a6f720c974d245766c4b6d1d05c38ffaaef9b9d78"
+    },
+    {
+      "file": "inputs/2026090519.proto",
+      "sha256": "ff13d0ab9789532fe56d0de7eba7160ad189f3008e66d9beaf248661c1e3b490"
+    },
+    {
+      "file": "inputs/2026090520.proto",
+      "sha256": "3426c6021024dfba4008f5ae694a783f45516cd7be2ff28b0aa0636b633fd580"
+    }
   ]
 }
