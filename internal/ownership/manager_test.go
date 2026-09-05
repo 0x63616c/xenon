@@ -225,7 +225,18 @@ func TestS3OwnerManager(t *testing.T) {
 	release := make(chan struct{})
 	result := make(chan error, 1)
 	go func() {
-		_, e := oldOwner.Run(ctx, func(_ *native.Db) ([]byte, error) { close(captured); <-release; return []byte("stale"), nil })
+		_, e := oldOwner.Run(ctx, func(db *native.Db) ([]byte, error) {
+			raw, err := db.Get([]byte("v1/shard/0000000009"))
+			close(captured)
+			<-release
+			if err != nil {
+				return nil, err
+			}
+			if raw == nil {
+				return nil, fmt.Errorf("missing captured acknowledged shard")
+			}
+			return *raw, nil
+		})
 		result <- e
 	}()
 	<-captured
