@@ -84,6 +84,7 @@ func main() {
 	wire.RegisterShardPersistenceServer(server, owner)
 	wire.RegisterHistoryPersistenceServer(server, &node.HistoryServer{Owner: owner})
 	wire.RegisterExecutionPersistenceServer(server, &node.ExecutionServer{Owner: owner})
+	wire.RegisterHistoryTasksPersistenceServer(server, &node.HistoryTasksServer{Owner: owner})
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.

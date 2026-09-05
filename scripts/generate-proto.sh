@@ -17,3 +17,5 @@ PATH="$PWD/.local/tools:$PATH" protoc --go_out=. --go_opt=module=github.com/0x63
 PATH="$PWD/.local/tools:$PATH" protoc -I proto --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/history.proto
 
 PATH="$PWD/.local/tools:$PATH" protoc -I proto --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/execution.proto
+
+PATH="$PWD/.local/tools:$PATH" protoc -I proto --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/historytasks.proto
