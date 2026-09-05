@@ -155,10 +155,14 @@ def main():
         temporals=[]
         def temporal(name,config):
             process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)]);temporals.append(process);return process
-        ta=temporal('temporal-a','deploy/ministack/temporal-a.json');tb=temporal('temporal-b','deploy/ministack/temporal-b.json')
-        for process,address in [(ta,'127.0.0.1:18233'),(tb,'127.0.0.1:19233')]:
-            process.line('TEMPORAL_STARTED',timeout=120)
+        def healthy_temporal(name,config,address):
+            process=temporal(name,config);process.line('TEMPORAL_STARTED',timeout=120)
             wait(lambda:probe('health','--address',address),60)
+            return process
+        # Temporal's pinned first-cluster metadata initializer is a one-shot CAS.
+        # Initialize it once before adding the second concurrently serving instance.
+        ta=healthy_temporal('temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
+        tb=healthy_temporal('temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
         event('both-temporal-instances-healthy')
         bootstrap=wait(lambda:probe('bootstrap'),120);event('namespace-and-search-schema-ready',**bootstrap)
         worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
@@ -221,10 +225,8 @@ def main():
         node('cold-a',17351);node('cold-b',17352)
         for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
         publish()
-        cold_a=temporal('cold-temporal-a','deploy/ministack/temporal-a.json');cold_b=temporal('cold-temporal-b','deploy/ministack/temporal-b.json')
-        for process,address in [(cold_a,'127.0.0.1:18233'),(cold_b,'127.0.0.1:19233')]:
-            process.line('TEMPORAL_STARTED',timeout=120)
-            wait(lambda:probe('health','--address',address),60)
+        healthy_temporal('cold-temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
+        healthy_temporal('cold-temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
         cold_history=evidence/'history-after-cold';cold_history.mkdir()
         wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(cold_history)),120)
         for original in sorted(live_history.glob('history-*.json')):
