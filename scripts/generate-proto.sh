@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+protoc_dir="$(python3 scripts/install-protoc.py)"
+export PATH="$protoc_dir:$PATH"
 if [[ "$(protoc --version)" != 'libprotoc 36.0' ]]; then
   printf '%s\n' 'Install protoc 36.0 before generating the pinned wire contract.' >&2
   exit 1

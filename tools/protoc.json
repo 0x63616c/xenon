@@ -1,0 +1,13 @@
+{
+  "version": "36.0",
+  "assets": {
+    "Linux-x86_64": {
+      "url": "https://github.com/protocolbuffers/protobuf/releases/download/v36.0/protoc-36.0-linux-x86_64.zip",
+      "sha256": "bc8211ce760bd43ee21ddc145d6d9dbaeeabae205267a79d9054a240e367d4b4"
+    },
+    "Darwin-arm64": {
+      "url": "https://github.com/protocolbuffers/protobuf/releases/download/v36.0/protoc-36.0-osx-aarch_64.zip",
+      "sha256": "b6bc4afdcb880124bf342851d05155b6e3d9b6e661236d87b9c614250d26ae00"
+    }
+  }
+}
