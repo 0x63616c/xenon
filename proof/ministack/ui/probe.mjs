@@ -21,5 +21,10 @@ try {
  await filtered.click();
  await page.getByText('Completed',{exact:true}).first().waitFor({state:'visible',timeout:30000});
  await page.screenshot({path:output+'/workflow-detail.png',fullPage:true});
- await writeFile(output+'/result.json',JSON.stringify({ui:'2.53.3',workflow:cfg.workflow_id,list_link:true,filtered_completed_run:true,detail_completed:true,url:page.url()}));
+ // Pinned UI835b349 workflow-header.svelte declares history-tab; event cards
+ // render spaceBetweenCapitalLetters(event.name). Runtime visibility is mandatory.
+ await page.locator('#history-tab').click();
+ await page.getByText('Workflow Execution Completed',{exact:true}).first().waitFor({state:'visible',timeout:30000});
+ await page.screenshot({path:output+'/workflow-event-history.png',fullPage:true});
+ await writeFile(output+'/result.json',JSON.stringify({ui:'2.53.3',workflow:cfg.workflow_id,list_link:true,filtered_completed_run:true,detail_completed:true,event_history_completed:true,url:page.url()}));
 } finally {await browser.close();}
