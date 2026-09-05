@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "status": "NOT_EXECUTED",
+  "controller": "existing ministack controller; full-profile wiring pending",
+  "pins": {
+    "omes": "c6978ba39aa03551ce28974117e8d7ecf983d2b3",
+    "temporal": "1.31.2",
+    "sdk": "1.48.0"
+  },
+  "workloads": {
+    "simple": [
+      "omes",
+      "run-scenario-with-worker",
+      "--language",
+      "go",
+      "--version",
+      "v1.48.0",
+      "--namespace",
+      "xenon-ministack",
+      "--server-address",
+      "127.0.0.1:17233",
+      "--scenario",
+      "workflow_with_single_noop_activity",
+      "--iterations",
+      "100",
+      "--run-id",
+      "xenon-full-simple",
+      "--max-iteration-attempts",
+      "1"
+    ],
+    "mixed": [
+      "omes",
+      "run-scenario-with-worker",
+      "--language",
+      "go",
+      "--version",
+      "v1.48.0",
+      "--namespace",
+      "xenon-ministack",
+      "--server-address",
+      "127.0.0.1:17233",
+      "--scenario",
+      "throughput_stress",
+      "--iterations",
+      "40",
+      "--max-concurrent",
+      "4",
+      "--timeout",
+      "900s",
+      "--run-id",
+      "xenon-full-mixed",
+      "--option",
+      "internal-iterations=4",
+      "--option",
+      "continue-as-new-after-iterations=2",
+      "--option",
+      "include-retry-scenarios=true",
+      "--option",
+      "include-describe=true",
+      "--option",
+      "sleep-time=100ms",
+      "--option",
+      "visibility-count-timeout=60s",
+      "--max-iteration-attempts",
+      "1"
+    ],
+    "fuzz": {
+      "manifest": "proof/omes-corpus/manifest.json",
+      "manifest_sha256": "c6c08a316c6f13ec768595787599a5b6fe645e4ab771a9f7dec40d0e491a373a",
+      "replay": "proof/omes-corpus/replay.json",
+      "replay_sha256": "a2d54bc8dff7618ff95cd5a2aa9520904041dcb2f0be1458d77e5c4a1e451a4b",
+      "inputs_per_profile": 20,
+      "profiles": [
+        "without-faults",
+        "with-declared-faults"
+      ],
+      "replay_saved_bytes": true
+    }
+  },
+  "topology": {
+    "temporal_instances": 2,
+    "initial_storage_nodes": 2,
+    "final_storage_nodes": 3,
+    "minimum_local_successful_operations_per_node": 10,
+    "scale_trigger": {
+      "completed_application_operations": 20,
+      "active_workflows_minimum": 1
+    },
+    "moves": [
+      {
+        "domain": "history",
+        "partition": "history-0",
+        "destination": "node-c"
+      },
+      {
+        "domain": "visibility",
+        "partition": "vis-v1-0",
+        "destination": "node-c"
+      }
+    ],
+    "require_each_temporal_serves": true,
+    "require_incarnation_bound_dispatch_counters": true
+  },
+  "visibility": {
+    "frozen_records": 2000,
+    "partitions": 4,
+    "page_sizes": [
+      1,
+      7,
+      100
+    ],
+    "assertions": [
+      "exact_list_set",
+      "exact_count",
+      "exact_group_sets",
+      "no_duplicates",
+      "no_omissions",
+      "unchanged_through_movement",
+      "separate_concurrent_mutation_cases",
+      "all_types_operators",
+      "missing_null",
+      "CHASM_division",
+      "schema_alias",
+      "API_and_UI"
+    ]
+  },
+  "budgets": {
+    "steady_rpc_p99_seconds": 5,
+    "steady_rpc_max_seconds": 30,
+    "minimum_observations_per_family_for_p99": 100,
+    "visibility_convergence_seconds": 60,
+    "mixed_completion_seconds": 900,
+    "resume_after_final_fault_seconds": 120,
+    "drain_after_final_fault_seconds": 300
+  },
+  "windows": {
+    "steady": "before first injected fault and after declared recovery drains",
+    "fault": "first observed injected fault through affected-work drain",
+    "invocation_latency_includes_retries": true,
+    "record_attempt_latency_separately": true
+  },
+  "faults": [
+    "commit_before_await_durable",
+    "await_durable_before_ack",
+    "lost_rpc_response",
+    "lost_directory_cas_response",
+    "stale_route",
+    "competing_owner",
+    "delayed_owner",
+    "serving_process_kill",
+    "empty_local_cache_recovery",
+    "normal_wal_manifest_sst_gc",
+    "normal_compaction"
+  ],
+  "assertions": [
+    "zero_acknowledged_operation_loss",
+    "zero_false_condition_success",
+    "independent_recoverable_state_oracle_per_ack",
+    "ambiguous_outcome_reconciliation",
+    "all_fault_triggers_observed",
+    "all_workflow_ids_and_run_chains_enumerated",
+    "final_results_verified",
+    "history_activities",
+    "history_timers",
+    "history_signals",
+    "history_retries",
+    "history_children",
+    "history_updates",
+    "history_continue_as_new",
+    "public_sdk_compatibility",
+    "capability_branches_recorded",
+    "no_capacity_exhaustion",
+    "complete_outcome_accounting",
+    "wal_fence_retention",
+    "metadata_boundary_protection",
+    "clean_source_and_config_hashes",
+    "images_and_tools_pinned",
+    "raw_latencies_histograms_samples",
+    "s3_requests_and_bytes",
+    "cpu_rss",
+    "visibility_lag",
+    "scoped_cleanup_on_failure"
+  ],
+  "real_s3": {
+    "changes_allowed": [
+      "storage_endpoint",
+      "bucket",
+      "prefix",
+      "secret_injection"
+    ],
+    "same_workloads_faults_oracles": true,
+    "missing_access_is_blocker": true
+  },
+  "limitations": [
+    "No runtime executions or scheduling/injection proofs are represented by profile validation.",
+    "Event hooks for each named fault must be bound to actual controller barriers before execution.",
+    "Current smoke is a separate gate and cannot satisfy these minimum counts."
+  ]
+}

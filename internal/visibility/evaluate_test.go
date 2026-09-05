@@ -62,3 +62,17 @@ func TestVisibilitySystemTimeSentinel(t *testing.T) {
 		t.Fatal("custom datetime incorrectly inherited system sentinel", custom, e)
 	}
 }
+
+func TestVisibilityCustomTimeRounding(t *testing.T) {
+	cases := []struct{ in, want string }{{"2026-01-02T03:04:05.0000005Z", "2026-01-02 03:04:05"}, {"2026-01-02T03:04:05.0000006Z", "2026-01-02 03:04:05.000001"}, {"2026-01-02T03:04:05.0000015Z", "2026-01-02 03:04:05.000002"}, {"2026-01-02T03:04:05.0000025Z", "2026-01-02 03:04:05.000002"}, {"1969-12-31T23:59:59.9999995Z", "1970-01-01 00:00:00"}, {"2026-01-02T03:04:05.0000006+03:00", "2026-01-02 00:04:05.000001"}}
+	for _, c := range cases {
+		v, e := time.Parse(time.RFC3339Nano, c.in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		a, e := Value(enumspb.INDEXED_VALUE_TYPE_DATETIME, v)
+		if e != nil || a.Values[0].GetStringValue() != c.want {
+			t.Fatal(c, a, e)
+		}
+	}
+}
