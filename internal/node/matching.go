@@ -89,7 +89,7 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 
 const matchingQueuePrefix = "v1/matching/queue/"
 
-func queuePrefix(c *wire.MatchingCommand) string {
+func matchingQueueDomainPrefix(c *wire.MatchingCommand) string {
 	if c.Fair {
 		return "v1/matching/fair/queue/"
 	}
@@ -125,7 +125,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 	if c.Fair && (c.Kind == wire.MatchingCommand_GET_TASKS || c.Kind == wire.MatchingCommand_COMPLETE_TASKS) {
 		return applyFairTasks(tx, c)
 	}
-	key := queuePrefix(c) + matchingKey(c)
+	key := matchingQueueDomainPrefix(c) + matchingKey(c)
 	switch c.Kind {
 	case wire.MatchingCommand_CREATE_QUEUE, wire.MatchingCommand_GET_QUEUE, wire.MatchingCommand_UPDATE_QUEUE, wire.MatchingCommand_DELETE_QUEUE, wire.MatchingCommand_CREATE_TASKS:
 		record := new(wire.MatchingRecord)
@@ -182,7 +182,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			return r, nil
 		}
 	case wire.MatchingCommand_LIST_QUEUES:
-		matchingQueuePrefix := queuePrefix(c)
+		matchingQueuePrefix := matchingQueueDomainPrefix(c)
 		if len(c.Token) > 2200 || (len(c.Token) > 0 && !strings.HasPrefix(string(c.Token), matchingQueuePrefix)) {
 			return nil, status.Error(codes.InvalidArgument, "invalid queue token")
 		}
