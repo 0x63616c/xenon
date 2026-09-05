@@ -38,7 +38,9 @@
     "internal/adapter/metadata.go",
     "internal/adapter/metadata_integration_test.go",
     "proof/namespace/case.json",
-    "internal/node/metadata_test.go"
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md"
   ],
   "fault_schedule": "case.json drop_first_completed_update_response; Rust stalled WAL flush and competing writer tests use committed deterministic transitions.",
   "assertions": [

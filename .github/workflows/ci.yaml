@@ -29,7 +29,7 @@ jobs:
       - run: python3 scripts/prove.py ownership
       - run: cargo run --locked -p slatedb-probe
       - run: python3 scripts/prove.py shard
-      - run: python3 scripts/prove.py go-shard
+      - run: python3 scripts/prove.py go-namespace
       - run: go test -race ./...
         env:
           CGO_ENABLED: '1'
