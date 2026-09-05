@@ -23,6 +23,7 @@ import (
 // HistoryStore is only the seven-operation history component of ExecutionStore.
 // It deliberately does not claim to implement unfinished workflow operations.
 type HistoryStore struct {
+	historyPartitions []string
 	connection        *grpc.ClientConn
 	client            wire.HistoryPersistenceClient
 	partition         string
@@ -52,7 +53,11 @@ func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand
 		return nil, e
 	}
 	d := sha256.Sum256(raw)
-	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, c.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {
@@ -236,6 +241,9 @@ func (s *HistoryStore) DeleteHistoryBranch(ctx context.Context, q *p.InternalDel
 	return e
 }
 func (s *HistoryStore) GetAllHistoryTreeBranches(ctx context.Context, q *p.GetAllHistoryTreeBranchesRequest) (*p.InternalGetAllHistoryTreeBranchesResponse, error) {
+	if s.historyPartitions != nil {
+		return s.listHistoryPartitions(ctx, q)
+	}
 	if q == nil {
 		return nil, serviceerror.NewInvalidArgument("nil history list")
 	}

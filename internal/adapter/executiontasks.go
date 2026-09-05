@@ -23,6 +23,7 @@ type ExecutionTasksStore struct {
 	client            wire.ExecutionTasksPersistenceClient
 	partition         string
 	invocationTimeout time.Duration
+	historyPartitions []string
 }
 
 func NewExecutionTasksStore(address, partition string) (*ExecutionTasksStore, error) {
@@ -30,7 +31,7 @@ func NewExecutionTasksStore(address, partition string) (*ExecutionTasksStore, er
 	if e != nil {
 		return nil, e
 	}
-	return &ExecutionTasksStore{c, wire.NewExecutionTasksPersistenceClient(c), partition, 30 * time.Second}, nil
+	return &ExecutionTasksStore{c, wire.NewExecutionTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *ExecutionTasksStore) Close() {
 	if s.connection != nil {
@@ -46,7 +47,11 @@ func (s *ExecutionTasksStore) invokeExecutionTasks(ctx context.Context, c *wire.
 		return nil, e
 	}
 	d := sha256.Sum256(raw)
-	q := &wire.ExecutionTasksRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, c.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	q := &wire.ExecutionTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

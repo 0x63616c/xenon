@@ -20,6 +20,7 @@ import (
 )
 
 type ShardStore struct {
+	historyPartitions  []string
 	connection         *grpc.ClientConn
 	client             wire.ShardPersistenceClient
 	partition, cluster string
@@ -49,7 +50,11 @@ func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (*w
 		return nil, err
 	}
 	digest := sha256.Sum256(payload)
-	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, command.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
 	// The identity is allocated once per invocation and retained across transport retries.
 	for attempt := 0; attempt < 3; attempt++ {
 		response, callErr := s.client.Execute(ctx, request)

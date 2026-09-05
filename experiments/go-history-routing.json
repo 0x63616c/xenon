@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "name": "go-history-routing",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md",
+    "proto/xenon/v1/execution.proto",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "proof/execution/case.json",
+    "proof/execution/README.md",
+    "docs/research/execution-contract.md",
+    "proto/xenon/v1/historytasks.proto",
+    "gen/xenon/v1/historytasks.pb.go",
+    "gen/xenon/v1/historytasks_grpc.pb.go",
+    "internal/node/historytasks.go",
+    "internal/node/historytasks_test.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/historytasks_integration_test.go",
+    "proof/historytasks/README.md",
+    "internal/adapter/history_partitions.go",
+    "internal/adapter/history_partitions_test.go",
+    "internal/adapter/execution_store.go",
+    "internal/adapter/executiontasks.go",
+    "internal/node/executiontasks.go",
+    "internal/node/history_partitions_test.go",
+    "internal/node/temporal_factory_test.go",
+    "internal/temporalstore/factory.go",
+    "docs/research/history-partition-contract.md"
+  ],
+  "fault_schedule": "Mutate caller configuration after construction; resume token against reordered list; exhaust an empty partition and cancel downstream fanout under one fixed invocation deadline.",
+  "assertions": [
+    "Four real native owners receive stable modulo shard placement through actual gRPC.",
+    "Task insertion/read/completion colocate with shard range ownership.",
+    "Global branch listing visits nonempty partitions and skips empty exhausted partitions with no static duplicates/omissions.",
+    "Whole page remains within one local 3MiB result and may underfill the requested count.",
+    "Changed partition configuration invalidates cursors; external list mutation cannot reinterpret existing stores.",
+    "Empty-partition fanout retains one exact invocation deadline and stops on error."
+  ],
+  "limitations": [
+    "Memory-object-store component proof; process ownership movement is a separate owner-manager proof.",
+    "Fixed partition count and ordered names are immutable; changing them requires explicit data migration.",
+    "Global listing is a live partition-ordered scan, not a distributed snapshot."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerHistoryPartitions",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerHistoryPartitions"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerTemporalFactory",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerTemporalFactory"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryPartitionDeadline",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryPartitionDeadline"
+      ]
+    }
+  ]
+}
