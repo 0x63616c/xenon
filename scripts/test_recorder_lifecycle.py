@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 import recorder_lifecycle
 
@@ -83,6 +84,31 @@ class RecorderLifecycleControls(unittest.TestCase):
     def test_recorder_loss_fails(self):self.scenario('recorder_loss')
     def test_graceful_producer(self):self.scenario('graceful')
     def test_missing_close_marker_fails(self):self.scenario('missing_marker')
+    def test_finalization_io_failures_preserve_receipt(self):
+        for failure in ('hash', 'write'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                lifecycle = object.__new__(recorder_lifecycle.RecorderLifecycle)
+                lifecycle.evidence = Path(directory)
+                lifecycle.journal = lifecycle.evidence / 'journal'
+                lifecycle.journal.write_text('saved bytes')
+                lifecycle.producers = {}
+                lifecycle.errors = []
+                lifecycle.process = Mock()
+                target = patch('recorder_lifecycle.hashlib.sha256', side_effect=OSError('control')) if failure == 'hash' else patch.object(Path, 'write_text', side_effect=OSError('control'))
+                with target:
+                    report = lifecycle.finalize()
+                self.assertFalse(report['registration_census_complete'])
+                self.assertIn('journal_hash_OSError' if failure == 'hash' else 'receipt_write_OSError', report['errors'])
+                lifecycle.process.stop.assert_called_once()
+                if failure == 'hash':
+                    self.assertEqual(report, json.loads((lifecycle.evidence / 'recorder-result.json').read_text()))
+    def test_startup_cleanup_preserves_original_error(self):
+        process = Mock()
+        process.line.side_effect = ValueError('original readiness error')
+        process.stop.side_effect = OSError('cleanup error')
+        with self.assertRaisesRegex(ValueError, 'original readiness error') as caught:
+            recorder_lifecycle.RecorderLifecycle('.', self.binary, lambda *args: process, dict(recorder_lifecycle.EXPECTED))
+        self.assertEqual(caught.exception.__notes__, ['recorder startup cleanup failed: OSError'])
     def test_contract_changes_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'config.json'

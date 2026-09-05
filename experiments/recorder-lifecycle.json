@@ -63,7 +63,9 @@
         "test_recorder_loss_fails",
         "test_graceful_producer",
         "test_missing_close_marker_fails",
-        "test_contract_changes_rejected"
+        "test_contract_changes_rejected",
+        "test_finalization_io_failures_preserve_receipt",
+        "test_startup_cleanup_preserves_original_error"
       ]
     },
     {

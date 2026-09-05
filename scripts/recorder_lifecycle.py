@@ -40,8 +40,11 @@ class RecorderLifecycle:
                 raise ValueError('invalid recorder readiness')
             self.url = 'http://' + ready['address']
             self.post({'kind': 'open', 'phase': settings['phase'], 'status': 'fault'})
-        except BaseException:
-            self.process.stop()
+        except BaseException as original:
+            try:
+                self.process.stop()
+            except Exception as cleanup:
+                original.add_note("recorder startup cleanup failed: " + type(cleanup).__name__)
             raise
 
     def post(self, event):
@@ -115,13 +118,24 @@ class RecorderLifecycle:
                 self.process.stop()
             except Exception as error:
                 self.errors.append(type(error).__name__)
-            if self.journal.is_file():
-                digest=hashlib.sha256()
-                with self.journal.open('rb') as stream:
-                    for block in iter(lambda:stream.read(1024*1024),b''):digest.update(block)
-                report['journal_sha256']=digest.hexdigest()
+            try:
+                if self.journal.is_file():
+                    digest = hashlib.sha256()
+                    with self.journal.open('rb') as stream:
+                        for block in iter(lambda: stream.read(1024 * 1024), b''):
+                            digest.update(block)
+                    report['journal_sha256'] = digest.hexdigest()
+            except Exception as error:
+                self.errors.append('journal_hash_' + type(error).__name__)
             report['errors'] = list(self.errors)
             if self.errors:
                 report['registration_census_complete'] = False
-            (self.evidence / 'recorder-result.json').write_text(json.dumps(report, indent=2) + '\n')
+            try:
+                (self.evidence / 'recorder-result.json').write_text(json.dumps(report, indent=2) + '\n')
+            except Exception as error:
+                self.errors.append('receipt_write_' + type(error).__name__)
+                report['errors'] = list(self.errors)
+                report['registration_census_complete'] = False
+                # The caller embeds this receipt in the independent runtime result.
+                # A broken evidence filesystem cannot be repaired by another write.
         return report
