@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "source_url": "https://github.com/slatedb/slatedb.git",
+  "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+  "go_module": "slatedb.io/slatedb-go",
+  "go_version": "v0.16.0",
+  "rust_toolchain": "1.94.0",
+  "go_toolchain": "go1.27.1",
+  "runtime_threads": "2"
+}

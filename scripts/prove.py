@@ -36,12 +36,14 @@ def cargo_configs(root, env):
 
 
 def command(spec):
+    if spec == {"runner": "go-node-build"}:
+        return [sys.executable, "scripts/build-go-node.py"]
     if spec == {"runner": "cargo-build-node"}:
         return ["cargo", "build", "--locked", "-p", "xenon-node"]
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -50,6 +52,10 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner == "go-test-node":
+        if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
+            raise ValueError("unregistered Go owner test")
+        return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
         if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes"):
             raise ValueError("unregistered Go test")
@@ -58,13 +64,13 @@ def command(spec):
     return ["cargo", "test", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
 
 
-def verify_go_tests(output, expected):
+def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/adapter"):
     events = [json.loads(line) for line in output.splitlines() if line.strip() and not line.startswith("go: downloading ")]
     if any(event.get("Action") in ("skip", "fail") for event in events):
         raise ValueError("Go test skipped or failed")
     actual = [event["Test"] for event in events if event.get("Action") == "pass" and "Test" in event]
     packages = [event for event in events if event.get("Action") == "pass" and "Test" not in event]
-    if sorted(actual) != sorted(expected) or len(packages) != 1 or packages[0].get("Package") != "github.com/0x63616c/xenon/internal/adapter":
+    if sorted(actual) != sorted(expected) or len(packages) != 1 or packages[0].get("Package") != package:
         raise ValueError(f"Go test assertions mismatch: expected {expected}, observed {actual}")
 
 
@@ -101,7 +107,7 @@ def run_process(argv, timeout, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "go-bindings"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "go-bindings", "go-shard"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -116,12 +122,17 @@ def main():
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
         raise ValueError("shard proof must build the node before tests")
+    if args.name == "go-shard" and (not commands or commands[0][2] != "go-node-build"):
+        raise ValueError("Go shard proof must build native Go node first")
     if not commands:
         raise ValueError("empty experiment")
     env = {k: os.environ[k] for k in ("PATH", "HOME", "USER", "TMPDIR", "RUSTUP_HOME", "CARGO_HOME") if k in os.environ}
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
     if args.name == "shard":
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
+    if args.name == "go-shard":
+        target = ROOT / ".local/slatedb-native-target/debug"
+        env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
     def git(*argv):
         return subprocess.check_output(["git", *argv], cwd=ROOT, env=env, text=True).strip()
     sha = git("rev-parse", "HEAD")
@@ -178,14 +189,18 @@ def main():
                 "output_sha256": digest(evidence / log), "expected_tests": expected})
             if code or expired:
                 raise ValueError(f"command {index} failed (exit={code}, timeout={expired}); see {log}")
-            if runner == "cargo-build-node":
+            if runner == "go-node-build":
+                report["native_build"] = json.loads((ROOT / ".local/go-node-build.json").read_text())
+                report["node_binary_sha256"] = report["native_build"]["node_binary_sha256"]
+            elif runner == "cargo-build-node":
                 binary = ROOT / "target/debug/xenon-node"
                 if not binary.is_file():
                     raise ValueError("node build produced no binary")
                 report["node_binary_sha256"] = digest(binary)
-            elif runner == "go-test-shard":
-                verify_go_tests(output, expected)
-                if digest(ROOT / "target/debug/xenon-node") != report.get("node_binary_sha256"):
+            elif runner in ("go-test-shard", "go-test-node"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else "github.com/0x63616c/xenon/internal/adapter")
+                binary = ROOT / (".local/bin/xenon-go-node" if args.name == "go-shard" else "target/debug/xenon-node")
+                if digest(binary) != report.get("node_binary_sha256"):
                     raise ValueError("node binary changed during tests")
             else:
                 verify_tests(output, expected)
@@ -199,6 +214,10 @@ def main():
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name == "shard" and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
+        if args.name == "go-shard":
+            native_build = report["native_build"]
+            if digest(ROOT / native_build["shared_library"]) != native_build["shared_library_sha256"]:
+                raise ValueError("native library changed during experiment")
         report["result"], report["proof_pass"] = classify_success(bool(dirty))
     except Exception as error:
         report["error"] = str(error)
