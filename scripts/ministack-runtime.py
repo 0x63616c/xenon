@@ -190,8 +190,13 @@ def main():
         verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(live_history)])
         verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)
         event('live-sdk-client-connected-before-temporal-kill')
-        ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid)
-        probe('control');verify.process.wait(timeout=120)
+        recovery_deadline=time.monotonic()+case['recovery_seconds']
+        def recovery_remaining():
+            remaining=recovery_deadline-time.monotonic()
+            if remaining<=0:raise TimeoutError('locked Temporal recovery deadline exceeded')
+            return remaining
+        ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid,recovery_seconds=case['recovery_seconds'])
+        probe('control',timeout=recovery_remaining());verify.process.wait(timeout=recovery_remaining())
         if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
         event('sdk-sequence-completed')
         wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
