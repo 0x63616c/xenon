@@ -173,6 +173,10 @@ def main():
         tb=healthy_temporal('temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
         event('both-temporal-instances-healthy')
         bootstrap=wait(lambda:probe('bootstrap'),120);event('namespace-and-search-schema-ready',**bootstrap)
+        alias_query="OmesExecutionID = '__bootstrap__' AND KS_Keyword = '__bootstrap__' AND KS_Int = 0 AND XenonProof = '__bootstrap__'"
+        for address in ['127.0.0.1:18233','127.0.0.1:19233']:
+            wait(lambda:probe('visibility-count','--address',address,'--query',alias_query),60)
+        event('both-frontends-search-aliases-ready')
         worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
         execution=probe('start');event('workflow-started',**execution)
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')

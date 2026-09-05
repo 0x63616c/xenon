@@ -66,7 +66,7 @@ func run() error {
 		if e = seedSearchAttributes(ctx, *storage); e != nil {
 			return e
 		}
-		_, e = c.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{Namespace: *namespace, SearchAttributes: map[string]enumspb.IndexedValueType{"XenonProof": enumspb.INDEXED_VALUE_TYPE_KEYWORD}})
+		_, e = c.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{Namespace: *namespace, SearchAttributes: map[string]enumspb.IndexedValueType{"XenonProof": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "OmesExecutionID": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Keyword": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Int": enumspb.INDEXED_VALUE_TYPE_INT}})
 		if _, exists := e.(*serviceerror.AlreadyExists); exists {
 			e = nil
 		}
