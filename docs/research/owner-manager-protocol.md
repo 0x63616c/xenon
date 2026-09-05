@@ -9,10 +9,15 @@ implementing the admission seam described below.
 
 An administrator publishes one bounded, versioned JSON S3 object using create-only
 or exact-ETag compare-and-swap. It contains a monotonically increasing revision,
-a random transition UUID, member IDs/addresses and an explicit partition-to-member
+a random transition UUID, member IDs/addresses/activated process incarnations and an explicit partition-to-member
 assignment with immutable data prefixes. The assignment is deterministic because
 it is explicit; no election, heartbeat expiry or inferred dead member changes it.
-A node gets a fresh random process incarnation on every launch. Membership and
+A node generates and announces a fresh random process incarnation on every launch.
+The administrator explicitly activates that exact incarnation in the topology; a
+replacement process cannot inherit activation by sharing a member ID. Both initial
+activation and replacement are conditional topology transitions. Old incarnations
+may finish an already reserved attempt but cannot reacquire after losing activation.
+Membership and
 assignment changes are durable only after conditional publication or exact-record
 readback reconciliation. Unknown outcomes fail closed. No directory or data object
 is deleted during a move. Metadata prefixes must be disjoint from all data prefixes,
@@ -20,16 +25,25 @@ and different partitions must have disjoint data prefixes.
 
 ## One local acquisition attempt
 
-For each assigned partition, the manager reads fresh topology and directory,
+For each partition assigned to this exact activated incarnation, the manager reads
+fresh topology and directory,
 reserves a fresh directory generation/transition for this incarnation, and invokes
 SlateDB Build exactly once for that reservation. An attempt record is private and
 one-shot; it is not reconstructed from an old opening record after restart.
 The data prefix comes from the bound directory, never an RPC argument. After Build,
-the manager rechecks fresh desired topology and conditionally publishes READY using
+the manager rechecks fresh desired topology (including activated incarnation) and
+conditionally publishes READY using
 the exact reservation. Only that successful handle/generation pair can be installed
 as the partition owner. Failed/superseded readiness retires the opened handle without
 serving application work. An opening timeout retains resources until completion;
 never Destroy a handle concurrently with native work.
+
+The topology check and directory CAS are different S3 objects, not an atomic
+transaction. An already paused attempt may publish transient READY after a topology
+change. Fresh topology is therefore checked inside admission as well as directory;
+a withdrawn incarnation cannot serve new work. The activated replacement eventually
+supersedes/fences any obsolete READY entry. Already admitted work still follows the
+engine-fence ordering below.
 
 A desired owner whose handle is fenced retires it and makes a fresh reservation
 only after reading the current topology again. Reconciliation has bounded backoff
@@ -43,7 +57,8 @@ acknowledgments. This is not a liveness claim under infinitely many stale conten
 
 Every persistence family already enters Owner.Run. The manager must install an
 immutable authority identity and callback there, not only at the router. Under that
-same per-partition gate, before invoking the operation, read fresh directory and
+same per-partition gate, before invoking the operation, read fresh topology and
+require this exact activated incarnation and assignment; then read fresh directory and
 require READY plus exact partition, prefix, node, incarnation, generation and
 transition. A failure quarantines the handle and returns Unavailable. No local cache
 or routing decision grants authority.
@@ -91,7 +106,11 @@ records pinned inputs/tool/binary hashes, and asserts:
    result is published. A fresh owner's read/barrier succeeds.
 5. Kill an owner process; explicit reassignment/restart uses a fresh incarnation and
    reservation and recovers durable outcomes. No reuse of an old opening attempt.
-6. Conditional topology races, lost response reconciliation, bounded cancellation,
+6. Two processes with the same member ID cannot both reacquire: only the exact
+   administratively activated incarnation owns assignments. Exercise a topology
+   change between the pre-READY topology read and READY CAS; obsolete work is
+   rejected at fresh admission and the replacement recovers.
+7. Conditional topology races, lost response reconciliation, bounded cancellation,
    cleanup and clean-checkout provenance are automated assertions.
 
 Real AWS behavior, automatic failure detection, global listing fanout, complete
