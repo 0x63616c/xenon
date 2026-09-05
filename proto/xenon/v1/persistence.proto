@@ -4,6 +4,7 @@ import "xenon/v1/metadata.proto";
 import "xenon/v1/cluster.proto";
 import "xenon/v1/queue.proto";
 import "xenon/v1/history.proto";
+import "xenon/v1/nexus.proto";
 option go_package = "github.com/0x63616c/xenon/gen/xenon/v1;xenonv1";
 
 // One request is a complete partition operation, never a remote transaction session.
@@ -35,4 +36,4 @@ message ShardResult {
   int64 range_id = 6;
 }
 message StoredShard { int64 range_id = 1; bytes data = 2; int32 encoding = 3; }
-message StoredOutcome { bytes command_sha256 = 1; oneof result { ShardResult shard_result = 2; MetadataResult metadata_result = 3; ClusterResult cluster_result = 4; QueueResult queue_result = 5; HistoryResult history_result = 6; } }
+message StoredOutcome { bytes command_sha256 = 1; oneof result { ShardResult shard_result = 2; MetadataResult metadata_result = 3; ClusterResult cluster_result = 4; QueueResult queue_result = 5; HistoryResult history_result = 6; NexusResult nexus_result = 7; } }

@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "name": "go-nexus",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    "proto/xenon/v1/cluster.proto",
+    "gen/xenon/v1/cluster.pb.go",
+    "gen/xenon/v1/cluster_grpc.pb.go",
+    "internal/node/cluster.go",
+    "internal/node/cluster_test.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/cluster_test.go",
+    "proof/go-cluster/case.json",
+    "proof/go-cluster/README.md",
+    ".github/workflows/ci.yaml",
+    "proto/xenon/v1/nexus.proto",
+    "gen/xenon/v1/nexus.pb.go",
+    "gen/xenon/v1/nexus_grpc.pb.go",
+    "internal/node/nexus.go",
+    "internal/node/nexus_test.go",
+    "internal/adapter/nexus.go",
+    "docs/research/nexus-contract.md",
+    "internal/adapter/nexus_test.go"
+  ],
+  "fault_schedule": "Committed test cases fix binary IDs, versions and 1MiB payloads; drop one completed RPC response, reopen the same object store, and introduce a competing writer before replay.",
+  "assertions": [
+    "Endpoint and catalog version CAS commit atomically, failed CAS and missing delete leave catalog unchanged.",
+    "Reopen preserves endpoint bytes, versions and historical outcomes; changed replay is rejected and a competing owner fences replay.",
+    "Five 1MiB endpoints page completely in binary UUID order within 3MiB responses.",
+    "Actual gRPC preserves blobs, retries a lost completed response once without a second mutation, and returns observed catalog version with stale-list errors."
+  ],
+  "limitations": [
+    "Single logical partition; no directory/routing/full Temporal boot.",
+    "Memory object store only; no real-S3 or process-crash recovery claim.",
+    "Native registered proof; pinned container orchestration remains a separate shipping gate."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusPages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusPages"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNexusTransport",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusTransport"
+      ]
+    }
+  ]
+}
