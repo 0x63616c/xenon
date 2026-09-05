@@ -19,7 +19,7 @@ Keep version-sensitive adaptation concentrated in these existing seams:
 | Persistence protobufs and opaque encodings | `internal/adapter/execution_codec.go`, `proto/xenon/v1`, `internal/node` | Oneofs, unknown fields, enums, UUID/time/byte round trips and stored outcome decoding |
 | SQL schema or persistence SQL behavior | `internal/node`, `docs/research` | Intended conditions, ordering, conflict/version semantics, documented SQL deviations; SQL is an oracle, never Xenon durable storage |
 | Visibility/search attributes/query conversion | `internal/query`, `internal/visibility`, visibility adapter | Raw values versus generated comparisons, nulls, aliases, pagination, CHASM, PostgreSQL oracle fixtures |
-| Server configuration, launch wiring and dependencies | `internal/temporalstore`, `cmd`, `tools`, `proof/ministack` | Both factories, native binding pin, multiple Temporal processes, actual SDK/UI/Omes runtime |
+| Server configuration, launch wiring and dependencies | `internal/temporalstore`, `cmd`, `tools`, `test/scenarios/ministack` | Both factories, native binding pin, multiple Temporal processes, actual SDK/UI/Omes runtime |
 
 Update the seam inventory alongside new boundaries instead of scattering version conditionals through handlers. A removed or added method needs an explicit behavior and complete transaction contract; do not satisfy compilation with placeholder success. Changing generated RPC schemas must preserve durable outcome decoding or supply a reviewed migration policy.
 

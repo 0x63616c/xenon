@@ -35,8 +35,9 @@ component package tests may still use their existing internal concurrency.
 ## Add a scenario
 
 Keep exact tools/topology, workload inputs, fault triggers and assertions committed.
-Register component proofs under `experiments/` and keep fixtures under `proof/`
-until the scenario-directory migration is complete. Update input manifests when
+The ministack is consolidated under `test/scenarios/ministack/`, including its
+configuration, pins, UI fixtures and related component manifests. Other component
+proofs still use `experiments/` and `proof/` until their own bounded migrations. Update input manifests when
 moving files and run `make check-layout`. The Rust compatibility harness already
 lives under `test/compatibility/rust/`. Historical evidence retains its original
 paths and commit identities.

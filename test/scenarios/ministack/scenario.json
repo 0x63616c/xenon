@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "name": "ministack",
+  "scope": "real Temporal smoke and shared no-fault fuzz-soak topology",
+  "commands": {
+    "smoke": ["python3", "scripts/ministack-runtime.py"],
+    "fuzz-soak": ["python3", "scripts/ministack-runtime.py", "--fuzz-soak"],
+    "configuration": ["python3", "scripts/check-ministack.py"]
+  },
+  "inputs": [
+    "test/scenarios/ministack/case.json",
+    "test/scenarios/ministack/pins.json",
+    "test/scenarios/ministack/measurements.json",
+    "test/scenarios/ministack/config/compose.json",
+    "test/scenarios/ministack/config/haproxy.cfg",
+    "test/scenarios/ministack/config/temporal-a.json",
+    "test/scenarios/ministack/config/temporal-b.json",
+    "test/scenarios/ministack/ui/probe.mjs",
+    "test/scenarios/ministack/ui/package.json",
+    "test/scenarios/ministack/ui/package-lock.json",
+    "scripts/ministack-runtime.py",
+    "scripts/ministack-node.py",
+    "scripts/check-ministack.py",
+    "proof/omes-corpus/soak.json"
+  ],
+  "component_manifests": ["runtime-measurements", "nexus-http", "nexus-readiness"],
+  "frozen_shared_inputs": ["proof/acceptance/full-profile.json", "proof/omes-corpus/manifest.json", "proof/omes-corpus/replay.json"],
+  "limitations": ["Relocation does not establish a runtime pass.", "Full acceptance and corpus inputs retain their original locations and hashes.", "Common command-line runners remain in scripts to preserve existing entrypoints."]
+}

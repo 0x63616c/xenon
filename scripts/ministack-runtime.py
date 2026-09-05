@@ -66,11 +66,11 @@ def main():
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
     parser.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of the smoke scenario')
     args=parser.parse_args()
-    measurement_config=json.loads((ROOT/'proof/ministack/measurements.json').read_text()) if args.measurements else None
+    measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements else None
     if measurement_config and (measurement_config['schema']!=1 or measurement_config['incomplete_policy']!='preserve_functional_result_but_fail_measurement_and_overall_proof' or measurement_config['resources']!='proof/acceptance/resources.json' or measurement_config['s3_meter']!='proof/s3-meter/local.json'):
         raise ValueError('unsupported measurement configuration')
     sampler=None;meter=None;traces={}
-    case=json.loads((ROOT/'proof/ministack/case.json').read_text());pins=json.loads((ROOT/'tools/ministack.json').read_text())
+    case=json.loads((ROOT/'test/scenarios/ministack/case.json').read_text());pins=json.loads((ROOT/'test/scenarios/ministack/pins.json').read_text())
     project='xenon-ministack-'+uuid.uuid4().hex[:12]
     evidence=ROOT/'.local/evidence'/(time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())+'-'+project)
     evidence.mkdir(parents=True);runtime=evidence/'runtime';runtime.mkdir()
@@ -78,7 +78,7 @@ def main():
     library=ROOT/'.local/slatedb-native-target/debug'
     env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(library),LD_LIBRARY_PATH=str(library),DYLD_LIBRARY_PATH=str(library),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19006',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false',XENON_BUCKET='xenon-ministack-proof',XENON_TOPOLOGY_PREFIX='metadata')
     report={'kind':'ministack-runtime','scope':case['scope'],'full_acceptance':False,'proof_pass':False,'result':'failed','project':project,'commands':[],'events':[]};processes=[];sequence=0
-    compose=['docker','compose','--project-name',project,'-f','deploy/ministack/compose.json']
+    compose=['docker','compose','--project-name',project,'-f','test/scenarios/ministack/config/compose.json']
     def run(argv,timeout=120,cwd=ROOT,command_env=None):
         nonlocal sequence
         sequence+=1;path=evidence/f'command-{sequence}.log'
@@ -147,7 +147,7 @@ def main():
             resource_config=json.loads((ROOT/measurement_config['resources']).read_text())
             sampler=ProcessSampler(evidence/'resources.jsonl',resource_config['interval_seconds'],resource_config['max_samples'],resource_config['max_processes'])
         ui=ROOT/'.local/ministack-ui';ui.mkdir(exist_ok=True)
-        for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'proof/ministack/ui'/file,ui/file)
+        for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'test/scenarios/ministack/ui'/file,ui/file)
         run(['npm','ci','--ignore-scripts'],120,cwd=ui)
         run(['npx','playwright','install','chromium'],300,cwd=ui)
         run([*compose,'up','-d'],120)
@@ -204,8 +204,8 @@ def main():
             return process
         # Temporal's pinned first-cluster metadata initializer is a one-shot CAS.
         # Initialize it once before adding the second concurrently serving instance.
-        ta=healthy_temporal('temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
-        tb=healthy_temporal('temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
+        ta=healthy_temporal('temporal-a','test/scenarios/ministack/config/temporal-a.json','127.0.0.1:18233')
+        tb=healthy_temporal('temporal-b','test/scenarios/ministack/config/temporal-b.json','127.0.0.1:19233')
         event('both-temporal-instances-healthy')
         bootstrap=wait(lambda:probe('bootstrap'),120);event('namespace-and-search-schema-ready',**bootstrap)
         alias_query="OmesExecutionID = '__bootstrap__' AND KS_Keyword = '__bootstrap__' AND KS_Int = 0 AND XenonProof = '__bootstrap__'"
@@ -288,7 +288,7 @@ def main():
             omes_process.process.wait(timeout=360)
             if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
             wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
-            run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
+            run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'test/scenarios/ministack/case.json')],120,cwd=ui)
             if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker inputs changed during workload')
             if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256']:raise RuntimeError('Omes binary changed during workload')
             if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
@@ -303,8 +303,8 @@ def main():
             readiness=case['cold_storage_readiness_seconds']
             probe('storage-ready','--storage-address',f"127.0.0.1:{case['ports']['storage_ingress']}",'--readiness-timeout',str(readiness)+'s',timeout=readiness+5)
             event('cold-storage-ingress-ready')
-            healthy_temporal('cold-temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
-            healthy_temporal('cold-temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
+            healthy_temporal('cold-temporal-a','test/scenarios/ministack/config/temporal-a.json','127.0.0.1:18233')
+            healthy_temporal('cold-temporal-b','test/scenarios/ministack/config/temporal-b.json','127.0.0.1:19233')
             cold_history=evidence/'history-after-cold';cold_history.mkdir()
             wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(cold_history)),120)
             for original in sorted(live_history.glob('history-*.json')):
@@ -313,7 +313,7 @@ def main():
             report['history_sha256']={str(path.relative_to(evidence)):sha(path) for folder in [live_history,cold_history] for path in folder.glob('history-*.json')}
             wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
             wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
-            run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
+            run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'test/scenarios/ministack/case.json')],120,cwd=ui)
             event('cold-local-recovery-passed');checkpoint('cold-recovered')
             if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
             if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')

@@ -18,7 +18,7 @@ These commands are implemented entrypoints. They are not a statement that smoke,
 
 ## Preserve the complete contract
 
-Component manifests in `experiments/` bind exact inputs, command arrays, expected test events and timeouts. Workloads and fixtures live in `proof/`. The native reference workspace lives under `test/compatibility/rust/`; old receipts keep their original paths and revisions.
+Component manifests in `experiments/` and `test/scenarios/*/manifests/` bind exact inputs, command arrays, expected test events and timeouts. The ministack owns its case, configuration, pins and UI fixtures under `test/scenarios/ministack/`; other workloads and the frozen corpus remain in `proof/`. The native reference workspace lives under `test/compatibility/rust/`; old receipts keep their original paths and revisions.
 
 A new behavior needs a repeatable test that would fail if that behavior regressed. For transaction conditions, use the pinned persistence contract and real handler. For durability or fencing, exercise the native engine and object store. For cross-service Temporal behavior, use the real stack.
 

@@ -17,7 +17,7 @@ never produces a runtime proof pass. `python3 scripts/ministack-runtime.py` runs
 candidate stack: two Temporal processes, two initial Xenon nodes, a third added
 node, and pinned MinIO, HAProxy and Temporal UI containers. Its smoke result is
 separate from `proof/acceptance/full-profile.json`; passing smoke cannot satisfy
-the larger workload, fault and measurement gates. See `proof/ministack/README.md`
+the larger workload, fault and measurement gates. See `test/scenarios/ministack/README.md`
 for pins, ports and assertions. Run one ministack at a time because its published
 ports are fixed. Avoid competing heavy builds during latency-sensitive runs.
 

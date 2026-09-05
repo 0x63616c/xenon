@@ -15,6 +15,20 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 
+SCENARIO_MANIFESTS = {
+    name: "test/scenarios/ministack/manifests/" + name + ".json"
+    for name in ("runtime-measurements", "nexus-http", "nexus-readiness")
+}
+
+def manifest_path(name, root=None):
+    root = ROOT if root is None else root
+    return root / SCENARIO_MANIFESTS.get(name, "experiments/" + name + ".json")
+
+def manifest_paths(root=None):
+    root = ROOT if root is None else root
+    return sorted([*(root / "experiments").glob("*.json"), *(root / "test/scenarios").glob("*/manifests/*.json")])
+
+
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -61,7 +75,7 @@ def command(spec):
             raise ValueError("unregistered process-cut S3 fixture")
         return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
     if runner == "python-measurements":
-        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples"):
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout"):
             raise ValueError("unregistered runtime measurement controls")
         return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
     if runner == "go-test-meter-cli":
@@ -115,7 +129,7 @@ def command(spec):
     if runner == "go-check-nexus-config":
         if not spec["exact"] or spec["filter"] not in ("a", "b") or spec["expected_tests"] != ["TEMPORAL_CONFIG_VALID"]:
             raise ValueError("unregistered actual config check")
-        return ["go", "run", "-tags", "ministack", "./cmd/xenon-temporal", "--config", "deploy/ministack/temporal-" + spec["filter"] + ".json", "--check-config"]
+        return ["go", "run", "-tags", "ministack", "./cmd/xenon-temporal", "--config", "test/scenarios/ministack/config/temporal-" + spec["filter"] + ".json", "--check-config"]
     if runner == "go-test-recorder":
         if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage"):
             raise ValueError("unregistered recorder proof")
@@ -141,7 +155,7 @@ def command(spec):
             raise ValueError("unregistered visibility value test")
         return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
-        if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
+        if not spec["exact"] or not (spec["filter"].startswith("TestGoOwner") or spec["filter"] in ("TestCanceledAdmissionDoesNotRetireOwner", "TestJournalResultBarrier", "TestMatchingManagedBurst")):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
@@ -215,8 +229,8 @@ def main():
     args = parser.parse_args()
     if args.name == "go-bindings":
         return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
-    manifest_path = ROOT / "experiments" / (args.name + ".json")
-    manifest = json.loads(manifest_path.read_text())
+    selected_manifest = manifest_path(args.name)
+    manifest = json.loads(selected_manifest.read_text())
     if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory", "owner-manager", "maintenance", "s3-meter", "process-cut") else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
@@ -275,7 +289,7 @@ def main():
             raise ValueError("checkout is dirty; commit inputs or explicitly use --allow-dirty for development")
         if dirty:
             report["tracked_diff_sha256"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD", "--binary"], cwd=ROOT, env=env)).hexdigest()
-        for relative in [str(manifest_path.relative_to(ROOT)), "scripts/prove.py", *manifest["inputs"]]:
+        for relative in [str(selected_manifest.relative_to(ROOT)), "scripts/prove.py", *manifest["inputs"]]:
             path = (ROOT / relative).resolve()
             if not path.is_relative_to(ROOT) or not path.is_file():
                 raise ValueError(f"missing or invalid declared input: {relative}")

@@ -75,7 +75,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(prove.cargo_configs(root, {"HOME": str(Path(folder) / "home")}), [str(config.resolve())])
 
     def test_all_committed_experiments_keep_registered_commands(self):
-        for path in sorted((prove.ROOT / "experiments").glob("*.json")):
+        for path in prove.manifest_paths():
             manifest = json.loads(path.read_text())
             help_text = subprocess.check_output([sys.executable, str(prove.ROOT / "scripts/prove.py"), "--help"], text=True)
             self.assertIn(manifest["name"], help_text)
