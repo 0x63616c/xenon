@@ -97,3 +97,34 @@ jobs:
           path: .local/evidence/
           if-no-files-found: error
           include-hidden-files: true
+
+  go-shard-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.94.0'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Verify hosted-runner emulator and native build dependencies
+        run: |
+          python3 --version
+          cc --version
+          aws --version
+          docker version
+          docker compose version
+      - name: Run declared Rust and Go stored compatibility proof
+        # The runner installs and hashes the pinned protoc before both node builds.
+        run: python3 scripts/prove.py go-shard-compat
+      - name: Retain exact compatibility provenance and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: go-shard-compat-evidence
+          path: .local/evidence/
+          if-no-files-found: error
+          include-hidden-files: true
