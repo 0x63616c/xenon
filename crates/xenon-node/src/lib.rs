@@ -124,9 +124,14 @@ impl ShardService {
                     "operation ID reused with different command",
                 ));
             }
-            let result = outcome
-                .result
-                .ok_or_else(|| Status::unavailable("corrupt stored outcome"))?;
+            let result = match outcome.result {
+                Some(stored_outcome::Result::ShardResult(result)) => result,
+                _ => {
+                    return Err(Status::invalid_argument(
+                        "operation ID belongs to another family",
+                    ))
+                }
+            };
             // Nonempty durable write fences replay responses too. Toggle an existing
             // marker rather than retaining one new marker per read.
             let old = tx.get(b"v1/barrier").await.map_err(backend)?;
@@ -223,7 +228,7 @@ impl ShardService {
         }
         let outcome = StoredOutcome {
             command_sha256: digest.to_vec(),
-            result: Some(result.clone()),
+            result: Some(stored_outcome::Result::ShardResult(result.clone())),
         };
         tx.put(outcome_key.as_bytes(), outcome.encode_to_vec())
             .map_err(backend)?;

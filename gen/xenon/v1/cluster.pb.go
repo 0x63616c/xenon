@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v7.36.0
-// source: proto/xenon/v1/cluster.proto
+// source: xenon/v1/cluster.proto
 
 package xenonv1
 
@@ -69,11 +69,11 @@ func (x ClusterCommand_Kind) String() string {
 }
 
 func (ClusterCommand_Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_xenon_v1_cluster_proto_enumTypes[0].Descriptor()
+	return file_xenon_v1_cluster_proto_enumTypes[0].Descriptor()
 }
 
 func (ClusterCommand_Kind) Type() protoreflect.EnumType {
-	return &file_proto_xenon_v1_cluster_proto_enumTypes[0]
+	return &file_xenon_v1_cluster_proto_enumTypes[0]
 }
 
 func (x ClusterCommand_Kind) Number() protoreflect.EnumNumber {
@@ -82,7 +82,7 @@ func (x ClusterCommand_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ClusterCommand_Kind.Descriptor instead.
 func (ClusterCommand_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{5, 0}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{5, 0}
 }
 
 type ClusterResult_Error int32
@@ -127,11 +127,11 @@ func (x ClusterResult_Error) String() string {
 }
 
 func (ClusterResult_Error) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_xenon_v1_cluster_proto_enumTypes[1].Descriptor()
+	return file_xenon_v1_cluster_proto_enumTypes[1].Descriptor()
 }
 
 func (ClusterResult_Error) Type() protoreflect.EnumType {
-	return &file_proto_xenon_v1_cluster_proto_enumTypes[1]
+	return &file_xenon_v1_cluster_proto_enumTypes[1]
 }
 
 func (x ClusterResult_Error) Number() protoreflect.EnumNumber {
@@ -140,7 +140,7 @@ func (x ClusterResult_Error) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ClusterResult_Error.Descriptor instead.
 func (ClusterResult_Error) EnumDescriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{6, 0}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{6, 0}
 }
 
 type ClusterRequest struct {
@@ -156,7 +156,7 @@ type ClusterRequest struct {
 
 func (x *ClusterRequest) Reset() {
 	*x = ClusterRequest{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[0]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -168,7 +168,7 @@ func (x *ClusterRequest) String() string {
 func (*ClusterRequest) ProtoMessage() {}
 
 func (x *ClusterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[0]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -181,7 +181,7 @@ func (x *ClusterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterRequest.ProtoReflect.Descriptor instead.
 func (*ClusterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{0}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ClusterRequest) GetProtocolVersion() uint32 {
@@ -230,7 +230,7 @@ type ClusterTime struct {
 
 func (x *ClusterTime) Reset() {
 	*x = ClusterTime{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[1]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +242,7 @@ func (x *ClusterTime) String() string {
 func (*ClusterTime) ProtoMessage() {}
 
 func (x *ClusterTime) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[1]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +255,7 @@ func (x *ClusterTime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterTime.ProtoReflect.Descriptor instead.
 func (*ClusterTime) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{1}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ClusterTime) GetSeconds() int64 {
@@ -282,7 +282,7 @@ type ClusterBlob struct {
 
 func (x *ClusterBlob) Reset() {
 	*x = ClusterBlob{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[2]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -294,7 +294,7 @@ func (x *ClusterBlob) String() string {
 func (*ClusterBlob) ProtoMessage() {}
 
 func (x *ClusterBlob) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[2]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +307,7 @@ func (x *ClusterBlob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterBlob.ProtoReflect.Descriptor instead.
 func (*ClusterBlob) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{2}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ClusterBlob) GetData() []byte {
@@ -334,7 +334,7 @@ type ClusterRecord struct {
 
 func (x *ClusterRecord) Reset() {
 	*x = ClusterRecord{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[3]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -346,7 +346,7 @@ func (x *ClusterRecord) String() string {
 func (*ClusterRecord) ProtoMessage() {}
 
 func (x *ClusterRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[3]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +359,7 @@ func (x *ClusterRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterRecord.ProtoReflect.Descriptor instead.
 func (*ClusterRecord) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{3}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ClusterRecord) GetBlob() *ClusterBlob {
@@ -391,7 +391,7 @@ type ClusterMemberRecord struct {
 
 func (x *ClusterMemberRecord) Reset() {
 	*x = ClusterMemberRecord{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[4]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -403,7 +403,7 @@ func (x *ClusterMemberRecord) String() string {
 func (*ClusterMemberRecord) ProtoMessage() {}
 
 func (x *ClusterMemberRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[4]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -416,7 +416,7 @@ func (x *ClusterMemberRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterMemberRecord.ProtoReflect.Descriptor instead.
 func (*ClusterMemberRecord) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{4}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ClusterMemberRecord) GetHostId() []byte {
@@ -490,7 +490,7 @@ type ClusterCommand struct {
 
 func (x *ClusterCommand) Reset() {
 	*x = ClusterCommand{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[5]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +502,7 @@ func (x *ClusterCommand) String() string {
 func (*ClusterCommand) ProtoMessage() {}
 
 func (x *ClusterCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[5]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +515,7 @@ func (x *ClusterCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterCommand.ProtoReflect.Descriptor instead.
 func (*ClusterCommand) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{5}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ClusterCommand) GetKind() ClusterCommand_Kind {
@@ -631,7 +631,7 @@ type ClusterResult struct {
 
 func (x *ClusterResult) Reset() {
 	*x = ClusterResult{}
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[6]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -643,7 +643,7 @@ func (x *ClusterResult) String() string {
 func (*ClusterResult) ProtoMessage() {}
 
 func (x *ClusterResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_cluster_proto_msgTypes[6]
+	mi := &file_xenon_v1_cluster_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -656,7 +656,7 @@ func (x *ClusterResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterResult.ProtoReflect.Descriptor instead.
 func (*ClusterResult) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_cluster_proto_rawDescGZIP(), []int{6}
+	return file_xenon_v1_cluster_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ClusterResult) GetError() ClusterResult_Error {
@@ -708,11 +708,11 @@ func (x *ClusterResult) GetMembers() []*ClusterMemberRecord {
 	return nil
 }
 
-var File_proto_xenon_v1_cluster_proto protoreflect.FileDescriptor
+var File_xenon_v1_cluster_proto protoreflect.FileDescriptor
 
-const file_proto_xenon_v1_cluster_proto_rawDesc = "" +
+const file_xenon_v1_cluster_proto_rawDesc = "" +
 	"\n" +
-	"\x1cproto/xenon/v1/cluster.proto\x12\bxenon.v1\"\xd7\x01\n" +
+	"\x16xenon/v1/cluster.proto\x12\bxenon.v1\"\xd7\x01\n" +
 	"\x0eClusterRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x1c\n" +
 	"\tpartition\x18\x02 \x01(\tR\tpartition\x12!\n" +
@@ -786,20 +786,20 @@ const file_proto_xenon_v1_cluster_proto_rawDesc = "" +
 	"\aExecute\x12\x18.xenon.v1.ClusterRequest\x1a\x17.xenon.v1.ClusterResultB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
 
 var (
-	file_proto_xenon_v1_cluster_proto_rawDescOnce sync.Once
-	file_proto_xenon_v1_cluster_proto_rawDescData []byte
+	file_xenon_v1_cluster_proto_rawDescOnce sync.Once
+	file_xenon_v1_cluster_proto_rawDescData []byte
 )
 
-func file_proto_xenon_v1_cluster_proto_rawDescGZIP() []byte {
-	file_proto_xenon_v1_cluster_proto_rawDescOnce.Do(func() {
-		file_proto_xenon_v1_cluster_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_cluster_proto_rawDesc), len(file_proto_xenon_v1_cluster_proto_rawDesc)))
+func file_xenon_v1_cluster_proto_rawDescGZIP() []byte {
+	file_xenon_v1_cluster_proto_rawDescOnce.Do(func() {
+		file_xenon_v1_cluster_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_xenon_v1_cluster_proto_rawDesc), len(file_xenon_v1_cluster_proto_rawDesc)))
 	})
-	return file_proto_xenon_v1_cluster_proto_rawDescData
+	return file_xenon_v1_cluster_proto_rawDescData
 }
 
-var file_proto_xenon_v1_cluster_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_xenon_v1_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_proto_xenon_v1_cluster_proto_goTypes = []any{
+var file_xenon_v1_cluster_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_xenon_v1_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_xenon_v1_cluster_proto_goTypes = []any{
 	(ClusterCommand_Kind)(0),    // 0: xenon.v1.ClusterCommand.Kind
 	(ClusterResult_Error)(0),    // 1: xenon.v1.ClusterResult.Error
 	(*ClusterRequest)(nil),      // 2: xenon.v1.ClusterRequest
@@ -810,7 +810,7 @@ var file_proto_xenon_v1_cluster_proto_goTypes = []any{
 	(*ClusterCommand)(nil),      // 7: xenon.v1.ClusterCommand
 	(*ClusterResult)(nil),       // 8: xenon.v1.ClusterResult
 }
-var file_proto_xenon_v1_cluster_proto_depIdxs = []int32{
+var file_xenon_v1_cluster_proto_depIdxs = []int32{
 	7,  // 0: xenon.v1.ClusterRequest.command:type_name -> xenon.v1.ClusterCommand
 	4,  // 1: xenon.v1.ClusterRecord.blob:type_name -> xenon.v1.ClusterBlob
 	3,  // 2: xenon.v1.ClusterMemberRecord.session_start:type_name -> xenon.v1.ClusterTime
@@ -833,28 +833,28 @@ var file_proto_xenon_v1_cluster_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_proto_xenon_v1_cluster_proto_init() }
-func file_proto_xenon_v1_cluster_proto_init() {
-	if File_proto_xenon_v1_cluster_proto != nil {
+func init() { file_xenon_v1_cluster_proto_init() }
+func file_xenon_v1_cluster_proto_init() {
+	if File_xenon_v1_cluster_proto != nil {
 		return
 	}
-	file_proto_xenon_v1_cluster_proto_msgTypes[5].OneofWrappers = []any{}
+	file_xenon_v1_cluster_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_cluster_proto_rawDesc), len(file_proto_xenon_v1_cluster_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xenon_v1_cluster_proto_rawDesc), len(file_xenon_v1_cluster_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_xenon_v1_cluster_proto_goTypes,
-		DependencyIndexes: file_proto_xenon_v1_cluster_proto_depIdxs,
-		EnumInfos:         file_proto_xenon_v1_cluster_proto_enumTypes,
-		MessageInfos:      file_proto_xenon_v1_cluster_proto_msgTypes,
+		GoTypes:           file_xenon_v1_cluster_proto_goTypes,
+		DependencyIndexes: file_xenon_v1_cluster_proto_depIdxs,
+		EnumInfos:         file_xenon_v1_cluster_proto_enumTypes,
+		MessageInfos:      file_xenon_v1_cluster_proto_msgTypes,
 	}.Build()
-	File_proto_xenon_v1_cluster_proto = out.File
-	file_proto_xenon_v1_cluster_proto_goTypes = nil
-	file_proto_xenon_v1_cluster_proto_depIdxs = nil
+	File_xenon_v1_cluster_proto = out.File
+	file_xenon_v1_cluster_proto_goTypes = nil
+	file_xenon_v1_cluster_proto_depIdxs = nil
 }

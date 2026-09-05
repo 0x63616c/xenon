@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "backend": "memory",
+  "partition": "control",
+  "prefix": "namespace-rpc-proof",
+  "ids": [
+    "00000000-0000-4000-8000-000000000001",
+    "00000000-0000-4000-8000-000000000002",
+    "00000000-0000-4000-8000-000000000003"
+  ],
+  "names": [
+    "alpha",
+    "beta",
+    "gamma"
+  ],
+  "initial_data": "AP8BAg==",
+  "updated_data": "AgD+Aw==",
+  "encoding": 2,
+  "page_size": 1,
+  "startup_timeout_seconds": 20,
+  "test_timeout_seconds": 60,
+  "fault": "drop_first_completed_rename_response",
+  "near_limit_data_bytes": 1048576,
+  "response_budget_bytes": 3145728
+}

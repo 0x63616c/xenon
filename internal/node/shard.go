@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"regexp"
 	"sync/atomic"
@@ -226,122 +225,65 @@ func commit(tx *native.DbTransaction) error {
 	return backend(handle.AwaitDurable())
 }
 func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
-	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
-	if err != nil {
-		return nil, backend(err)
-	}
-	defer tx.Destroy()
-	key := "v1/outcome/" + request.OperationId
-	saved, err := get(tx, key)
-	if err != nil {
-		return nil, err
-	}
-	if saved != nil {
-		outcome := &wire.StoredOutcome{}
-		if err = proto.Unmarshal(saved, outcome); err != nil {
-			return nil, backend(err)
-		}
-		if !bytes.Equal(outcome.CommandSha256, request.CommandSha256) {
-			return nil, status.Error(codes.InvalidArgument, "operation ID reused with different command")
-		}
-		if outcome.Result == nil {
-			return nil, status.Error(codes.Unavailable, "corrupt stored outcome")
-		}
-		old, err := get(tx, "v1/barrier")
+	outcome, err := o.journal(request.OperationId, request.CommandSha256, false, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		command := request.Command
+		shardKey := fmt.Sprintf("v1/shard/%010d", command.ShardId)
+		raw, err := get(tx, shardKey)
 		if err != nil {
 			return nil, err
 		}
-		marker := byte(1)
-		if bytes.Equal(old, []byte{1}) {
-			marker = 0
+		var shard *wire.StoredShard
+		if raw != nil {
+			shard = &wire.StoredShard{}
+			if err = proto.Unmarshal(raw, shard); err != nil {
+				return nil, backend(err)
+			}
 		}
-		if err = put(tx, "v1/barrier", []byte{marker}); err != nil {
-			return nil, err
+		result := &wire.ShardResult{ShardId: command.ShardId}
+		save := false
+		switch command.Kind {
+		case wire.ShardCommand_GET, wire.ShardCommand_CREATE_OR_GET:
+			if shard == nil && command.Kind == wire.ShardCommand_CREATE_OR_GET {
+				shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
+				save = true
+			}
+			if shard == nil {
+				result.Error = wire.ShardResult_NOT_FOUND
+				result.Message = fmt.Sprintf("shard %d not found", command.ShardId)
+			} else {
+				copyShard(result, shard)
+			}
+		case wire.ShardCommand_UPDATE, wire.ShardCommand_ASSERT:
+			expected := command.RangeId
+			if command.Kind == wire.ShardCommand_UPDATE {
+				expected = command.PreviousRangeId
+			}
+			if shard == nil && command.Kind == wire.ShardCommand_UPDATE {
+				result.Error = wire.ShardResult_UNAVAILABLE
+				result.Message = fmt.Sprintf("Failed to lock shard %d: shard does not exist", command.ShardId)
+			} else if shard == nil || shard.RangeId != expected {
+				result.Error = wire.ShardResult_OWNERSHIP_LOST
+				result.Message = fmt.Sprintf("shard %d range mismatch: expected %d", command.ShardId, expected)
+			} else if command.Kind == wire.ShardCommand_UPDATE {
+				shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
+				save = true
+				copyShard(result, shard)
+			}
 		}
-		if err = commit(tx); err != nil {
-			return nil, err
+		if save {
+			data, _ := proto.Marshal(shard)
+			if err = put(tx, shardKey, data); err != nil {
+				return nil, err
+			}
 		}
-		return outcome.Result, nil
-	}
-	rawCount, err := get(tx, "v1/outcome_count")
+		return &wire.StoredOutcome{Result: &wire.StoredOutcome_ShardResult{ShardResult: result}}, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	var count uint64
-	if rawCount != nil {
-		if len(rawCount) != 8 {
-			return nil, status.Error(codes.Unavailable, "corrupt outcome count")
-		}
-		count = binary.BigEndian.Uint64(rawCount)
-	}
-	if count >= o.config.MaxOutcomes {
-		return nil, status.Error(codes.ResourceExhausted, "durable outcome capacity reached; no unsafe expiry")
-	}
-	command := request.Command
-	shardKey := fmt.Sprintf("v1/shard/%010d", command.ShardId)
-	raw, err := get(tx, shardKey)
-	if err != nil {
-		return nil, err
-	}
-	var shard *wire.StoredShard
-	if raw != nil {
-		shard = &wire.StoredShard{}
-		if err = proto.Unmarshal(raw, shard); err != nil {
-			return nil, backend(err)
-		}
-	}
-	result := &wire.ShardResult{ShardId: command.ShardId}
-	save := false
-	switch command.Kind {
-	case wire.ShardCommand_GET, wire.ShardCommand_CREATE_OR_GET:
-		if shard == nil && command.Kind == wire.ShardCommand_CREATE_OR_GET {
-			shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
-			save = true
-		}
-		if shard == nil {
-			result.Error = wire.ShardResult_NOT_FOUND
-			result.Message = fmt.Sprintf("shard %d not found", command.ShardId)
-		} else {
-			copyShard(result, shard)
-		}
-	case wire.ShardCommand_UPDATE, wire.ShardCommand_ASSERT:
-		expected := command.RangeId
-		if command.Kind == wire.ShardCommand_UPDATE {
-			expected = command.PreviousRangeId
-		}
-		if shard == nil && command.Kind == wire.ShardCommand_UPDATE {
-			result.Error = wire.ShardResult_UNAVAILABLE
-			result.Message = fmt.Sprintf("Failed to lock shard %d: shard does not exist", command.ShardId)
-		} else if shard == nil || shard.RangeId != expected {
-			result.Error = wire.ShardResult_OWNERSHIP_LOST
-			result.Message = fmt.Sprintf("shard %d range mismatch: expected %d", command.ShardId, expected)
-		} else if command.Kind == wire.ShardCommand_UPDATE {
-			shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
-			save = true
-			copyShard(result, shard)
-		}
-	}
-	if save {
-		data, _ := proto.Marshal(shard)
-		if err = put(tx, shardKey, data); err != nil {
-			return nil, err
-		}
-	}
-	outcome := &wire.StoredOutcome{CommandSha256: request.CommandSha256, Result: result}
-	data, _ := proto.Marshal(outcome)
-	if err = put(tx, key, data); err != nil {
-		return nil, err
-	}
-	counter := make([]byte, 8)
-	binary.BigEndian.PutUint64(counter, count+1)
-	if err = put(tx, "v1/outcome_count", counter); err != nil {
-		return nil, err
-	}
-	if err = commit(tx); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return outcome.GetShardResult(), nil
 }
+
 func copyShard(result *wire.ShardResult, shard *wire.StoredShard) {
 	result.RangeId = shard.RangeId
 	result.Data = shard.Data
