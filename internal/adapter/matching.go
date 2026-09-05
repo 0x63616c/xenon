@@ -51,8 +51,11 @@ func (s *MatchingStore) Close() {
 }
 func (s *MatchingStore) GetName() string { return "xenon" }
 func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingCommand) (traceResult *wire.MatchingResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "matching")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "matching")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	c.Fair = s.fair
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()

@@ -47,8 +47,11 @@ func (s *HistoryStore) Close() {
 func (s *HistoryStore) GetName() string                           { return "xenon" }
 func (s *HistoryStore) GetHistoryBranchUtil() p.HistoryBranchUtil { return s.HistoryBranchUtilImpl }
 func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand) (traceResult *wire.HistoryResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "history")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "history")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

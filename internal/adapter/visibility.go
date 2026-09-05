@@ -59,8 +59,11 @@ func (s *VisibilityStore) Close() {
 func (s *VisibilityStore) GetName() string      { return "xenon" }
 func (s *VisibilityStore) GetIndexName() string { return s.index }
 func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string, c *wire.VisibilityCommand) (traceResult *wire.VisibilityResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "visibility")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "visibility")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	if e != nil {
 		return nil, e

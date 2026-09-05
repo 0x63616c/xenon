@@ -123,8 +123,11 @@ func (s *NexusStore) ListNexusEndpoints(ctx context.Context, q *persistence.List
 	return out, nil
 }
 func (s *NexusStore) invokeNexus(ctx context.Context, command *wire.NexusCommand) (traceResult *wire.NexusResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "nexus")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "nexus")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

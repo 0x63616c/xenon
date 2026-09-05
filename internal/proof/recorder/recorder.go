@@ -15,6 +15,7 @@ import (
 )
 
 type Event struct {
+	HandshakeNS  int64  `json:"handshake_ns,omitempty"`
 	Measurement  string `json:"measurement,omitempty"`
 	ParentID     string `json:"parent_id,omitempty"`
 	ResultStatus string `json:"result_status,omitempty"`
@@ -116,6 +117,7 @@ func (s *State) Apply(e Event) (bool, error) {
 		clean.Status = ""
 		clean.DurationNS = 0
 		clean.ResultStatus = ""
+		clean.HandshakeNS = 0
 	}
 	clean.Kind = ""
 	if clean != (Event{}) {
@@ -153,6 +155,9 @@ func (s *State) Apply(e Event) (bool, error) {
 		}
 		if (e.Status != "completed" && e.Status != "admission_failed") || (e.Status == "completed" && e.DurationNS <= 0) || (e.Status == "admission_failed" && e.DurationNS != 0) {
 			return false, fmt.Errorf("invalid terminal observation")
+		}
+		if e.HandshakeNS < 0 || e.HandshakeNS > e.DurationNS {
+			return false, fmt.Errorf("invalid handshake duration")
 		}
 		if e.Status == "completed" && !validStatus(e.ResultStatus) {
 			return false, fmt.Errorf("invalid RPC result status")

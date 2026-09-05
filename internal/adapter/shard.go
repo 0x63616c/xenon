@@ -44,8 +44,11 @@ func (s *ShardStore) GetName() string        { return "xenon" }
 func (s *ShardStore) GetClusterName() string { return s.cluster }
 
 func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (traceResult *wire.ShardResult, traceErr error) {
-	ctx, traceFinish := rpctrace.Begin(ctx, "shard")
-	defer func() { traceFinish(traceErr) }()
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "shard")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

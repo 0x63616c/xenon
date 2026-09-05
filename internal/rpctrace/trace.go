@@ -120,6 +120,13 @@ func configured() *Sink {
 
 // Close drains the trace. A missing successful trace_end means incomplete evidence.
 func Close(ctx context.Context) error {
+	o, err := configuredObserver()
+	if err != nil {
+		return err
+	}
+	if o != nil {
+		return o.Failure()
+	}
 	s := configured()
 	if s == nil {
 		return nil
@@ -169,6 +176,9 @@ func begin(ctx context.Context, family string, s *Sink) (context.Context, func(e
 // Unary is installed on adapter-owned client connections. Forwarded server hops
 // are not adapter attempts and are deliberately outside this observer.
 func Unary(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoke grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	if observed, ok := ctx.Value(observedKey{}).(*observedInvocation); ok {
+		return observedUnary(ctx, observed, method, req, reply, cc, invoke, opts...)
+	}
 	v, _ := ctx.Value(key{}).(*invocation)
 	if v == nil {
 		return invoke(ctx, method, req, reply, cc, opts...)
