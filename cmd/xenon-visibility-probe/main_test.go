@@ -1,0 +1,61 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/server/common/payload"
+	"google.golang.org/grpc"
+	"testing"
+)
+
+type fakeVisibility struct {
+	workflowservice.WorkflowServiceClient
+	d         dataset
+	duplicate bool
+}
+
+func (f fakeVisibility) ListWorkflowExecutions(_ context.Context, q *workflowservice.ListWorkflowExecutionsRequest, _ ...grpc.CallOption) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	r := &workflowservice.ListWorkflowExecutionsResponse{}
+	for i := 0; i < f.d.count; i++ {
+		id := f.d.run(i)
+		if f.duplicate {
+			id = f.d.run(0)
+		}
+		name := fmt.Sprintf("%s-%04d", f.d.queue, i)
+		if i < f.d.updated {
+			name += "-updated"
+		}
+		r.Executions = append(r.Executions, &workflow.WorkflowExecutionInfo{Execution: &common.WorkflowExecution{RunId: id, WorkflowId: name}, Status: enumspb.WorkflowExecutionStatus(i%4 + 1)})
+	}
+	return r, nil
+}
+func (f fakeVisibility) CountWorkflowExecutions(_ context.Context, q *workflowservice.CountWorkflowExecutionsRequest, _ ...grpc.CallOption) (*workflowservice.CountWorkflowExecutionsResponse, error) {
+	r := &workflowservice.CountWorkflowExecutionsResponse{Count: int64(f.d.count)}
+	for i := 1; i <= 4; i++ {
+		p, _ := payload.Encode(enumspb.WorkflowExecutionStatus(i).String())
+		r.Groups = append(r.Groups, &workflowservice.CountWorkflowExecutionsResponse_AggregationGroup{GroupValues: []*common.Payload{p}, Count: int64(f.d.count / 4)})
+	}
+	return r, nil
+}
+func TestVisibilityOracleControls(t *testing.T) {
+	d := dataset{namespace: "11111111-1111-1111-1111-111111111111", queue: "frozen", count: 2000}
+	if len(d.expected()) != 2000 {
+		t.Fatal("recipecollision")
+	}
+	if _, e := check(context.Background(), fakeVisibility{d: d}, "ns", d, []int{1, 7, 100}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := check(context.Background(), fakeVisibility{d: d, duplicate: true}, "ns", d, []int{7}); e == nil {
+		t.Fatal("duplicatespassed")
+	}
+	d.count = 20
+	d.offset = 1000000
+	d.updated = 20
+	if _, e := check(context.Background(), fakeVisibility{d: d}, "ns", d, []int{7}); e != nil {
+		t.Fatal(e)
+	}
+}
