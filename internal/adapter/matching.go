@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"sort"
 	"time"
 )
 
@@ -24,7 +25,7 @@ type MatchingStore struct {
 	invocationTimeout time.Duration
 }
 
-// The remaining namespace user-data family is tracked separately in issue40.
+// Implements the pinned legacy TaskStore, including namespace-wide user data.
 
 func NewMatchingStore(address, partition string) (*MatchingStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -218,7 +219,7 @@ func (s *MatchingStore) CompleteTasksLessThan(ctx context.Context, q *p.Complete
 	if q.ExclusiveMaxPass != 0 {
 		return 0, serviceerror.NewInternal("ExclusiveMaxPass is not supported")
 	}
-	if q.Limit < 1 || q.Limit > 1000 || q.Subqueue < 0 || q.Subqueue > 2147483647 {
+	if q.Limit < 1 || q.Limit > 2147483647 || q.Subqueue < 0 || q.Subqueue > 2147483647 {
 		return 0, serviceerror.NewInvalidArgument("invalid completion limit")
 	}
 	c, e := matchingCommand(wire.MatchingCommand_COMPLETE_TASKS, q.NamespaceID, q.TaskQueueName, q.TaskType)
@@ -233,4 +234,98 @@ func (s *MatchingStore) CompleteTasksLessThan(ctx context.Context, q *p.Complete
 		return 0, e
 	}
 	return int(r.Completed), nil
+}
+
+var _ p.TaskStore = (*MatchingStore)(nil)
+
+func (s *MatchingStore) GetTaskQueueUserData(ctx context.Context, q *p.GetTaskQueueUserDataRequest) (*p.InternalGetTaskQueueUserDataResponse, error) {
+	c, e := matchingCommand(wire.MatchingCommand_GET_USER_DATA, q.NamespaceID, q.TaskQueue, 0)
+	if e != nil {
+		return nil, e
+	}
+	r, e := s.invokeMatching(ctx, c)
+	if e != nil {
+		return nil, e
+	}
+	if len(r.UserData) != 1 {
+		return nil, serviceerror.NewInternal("invalid user-data result")
+	}
+	v := r.UserData[0]
+	return &p.InternalGetTaskQueueUserDataResponse{Version: v.Version, UserData: matchingBlob(v.Data, v.Encoding)}, nil
+}
+func (s *MatchingStore) UpdateTaskQueueUserData(ctx context.Context, q *p.InternalUpdateTaskQueueUserDataRequest) error {
+	c, e := matchingCommand(wire.MatchingCommand_UPDATE_USER_DATA, q.NamespaceID, "", 0)
+	if e != nil {
+		return e
+	}
+	names := make([]string, 0, len(q.Updates))
+	for name := range q.Updates {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		u := q.Updates[name]
+		if u == nil || u.UserData == nil {
+			return serviceerror.NewInvalidArgument("missing user-data update")
+		}
+		c.Updates = append(c.Updates, &wire.MatchingUserUpdate{Queue: name, Version: u.Version, Data: u.UserData.Data, Encoding: int32(u.UserData.EncodingType), BuildIdsAdded: u.BuildIdsAdded, BuildIdsRemoved: u.BuildIdsRemoved})
+	}
+	r, e := s.invokeMatching(ctx, c)
+	for _, u := range q.Updates {
+		if u.Applied != nil {
+			*u.Applied = e == nil && r != nil && r.Applied
+		}
+	}
+	if r != nil {
+		for _, name := range r.Conflicting {
+			if u := q.Updates[name]; u != nil && u.Conflicting != nil {
+				*u.Conflicting = true
+			}
+		}
+	}
+	return e
+}
+func (s *MatchingStore) ListTaskQueueUserDataEntries(ctx context.Context, q *p.ListTaskQueueUserDataEntriesRequest) (*p.InternalListTaskQueueUserDataEntriesResponse, error) {
+	if q.PageSize < 1 || q.PageSize > 1000 {
+		return nil, serviceerror.NewInvalidArgument("invalid user-data page size")
+	}
+	c, e := matchingCommand(wire.MatchingCommand_LIST_USER_DATA, q.NamespaceID, "", 0)
+	if e != nil {
+		return nil, e
+	}
+	c.PageSize = int32(q.PageSize)
+	c.Token = q.NextPageToken
+	r, e := s.invokeMatching(ctx, c)
+	if e != nil {
+		return nil, e
+	}
+	out := &p.InternalListTaskQueueUserDataEntriesResponse{NextPageToken: r.Token}
+	for _, v := range r.UserData {
+		out.Entries = append(out.Entries, p.InternalTaskQueueUserDataEntry{TaskQueue: v.Queue, Version: v.Version, Data: matchingBlob(v.Data, v.Encoding)})
+	}
+	return out, nil
+}
+func (s *MatchingStore) GetTaskQueuesByBuildId(ctx context.Context, q *p.GetTaskQueuesByBuildIdRequest) ([]string, error) {
+	c, e := matchingCommand(wire.MatchingCommand_GET_BY_BUILD, q.NamespaceID, "", 0)
+	if e != nil {
+		return nil, e
+	}
+	c.BuildId = q.BuildID
+	r, e := s.invokeMatching(ctx, c)
+	if e != nil {
+		return nil, e
+	}
+	return r.QueueNames, nil
+}
+func (s *MatchingStore) CountTaskQueuesByBuildId(ctx context.Context, q *p.CountTaskQueuesByBuildIdRequest) (int, error) {
+	c, e := matchingCommand(wire.MatchingCommand_COUNT_BY_BUILD, q.NamespaceID, "", 0)
+	if e != nil {
+		return 0, e
+	}
+	c.BuildId = q.BuildID
+	r, e := s.invokeMatching(ctx, c)
+	if e != nil {
+		return 0, e
+	}
+	return int(r.Count), nil
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strings"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
@@ -28,15 +29,34 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 	}
 	req = proto.Clone(req).(*wire.MatchingRequest)
 	c := req.Command
-	if c.Kind < 1 || c.Kind > 8 || (c.Kind != wire.MatchingCommand_LIST_QUEUES && (len(c.NamespaceId) != 16 || c.Queue == "" || len(c.Queue) > 1024)) || len(c.Data) > 1024*1024 || proto.Size(c) > 1800*1024 || c.Subqueue < 0 {
+	if c.Kind < 1 || c.Kind > 13 || (c.Kind != wire.MatchingCommand_LIST_QUEUES && len(c.NamespaceId) != 16) || ((c.Kind <= wire.MatchingCommand_COMPLETE_TASKS || c.Kind == wire.MatchingCommand_GET_USER_DATA) && c.Kind != wire.MatchingCommand_LIST_QUEUES && (c.Queue == "" || len(c.Queue) > 1024)) || len(c.Data) > 1024*1024 || proto.Size(c) > 1800*1024 || c.Subqueue < 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid matching command")
 	}
-	if (c.Kind == wire.MatchingCommand_GET_TASKS || c.Kind == wire.MatchingCommand_LIST_QUEUES || c.Kind == wire.MatchingCommand_COMPLETE_TASKS) && (c.PageSize < 1 || c.PageSize > 1000) {
+	if (c.Kind == wire.MatchingCommand_GET_TASKS || c.Kind == wire.MatchingCommand_LIST_QUEUES || c.Kind == wire.MatchingCommand_LIST_USER_DATA) && (c.PageSize < 1 || c.PageSize > 1000) {
 		return nil, status.Error(codes.InvalidArgument, "invalid matching limit")
+	}
+	if c.Kind == wire.MatchingCommand_COMPLETE_TASKS && c.PageSize < 1 {
+		return nil, status.Error(codes.InvalidArgument, "invalid completion limit")
 	}
 	for _, task := range c.Tasks {
 		if task == nil || task.Subqueue < 0 || len(task.Data) > 1024*1024 {
 			return nil, status.Error(codes.InvalidArgument, "invalid matching task")
+		}
+	}
+
+	if len(c.BuildId) > 1024 || len(c.Updates) > 1000 {
+		return nil, status.Error(codes.InvalidArgument, "invalid user-data batch")
+	}
+	seen := map[string]bool{}
+	for _, u := range c.Updates {
+		if u == nil || u.Queue == "" || len(u.Queue) > 1024 || seen[u.Queue] || u.Version < 0 || u.Version == math.MaxInt64 || len(u.Data) > 1024*1024 {
+			return nil, status.Error(codes.InvalidArgument, "invalid user-data update")
+		}
+		seen[u.Queue] = true
+		for _, id := range append(append([]string(nil), u.BuildIdsAdded...), u.BuildIdsRemoved...) {
+			if len(id) > 1024 {
+				return nil, status.Error(codes.InvalidArgument, "invalid build ID")
+			}
 		}
 	}
 	encoded, _ := proto.MarshalOptions{Deterministic: true}.Marshal(c)
@@ -84,6 +104,9 @@ func matchingLogical(code wire.MatchingResult_Error, msg string) *wire.MatchingR
 	return &wire.MatchingResult{Error: code, Message: msg}
 }
 func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+	if c.Kind >= wire.MatchingCommand_GET_USER_DATA {
+		return applyMatchingUserData(tx, c)
+	}
 	r := new(wire.MatchingResult)
 	key := matchingQueuePrefix + matchingKey(c)
 	switch c.Kind {
@@ -145,6 +168,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 		if len(c.Token) > 2200 || (len(c.Token) > 0 && !strings.HasPrefix(string(c.Token), matchingQueuePrefix)) {
 			return nil, status.Error(codes.InvalidArgument, "invalid queue token")
 		}
+		truncated := false
 		err := scanCluster(tx, matchingQueuePrefix, func(suffix, value []byte) (bool, error) {
 			key := matchingQueuePrefix + string(suffix)
 			if bytes.Compare([]byte(key), c.Token) <= 0 {
@@ -155,6 +179,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 				return false, backend(e)
 			}
 			if len(r.Queues) >= int(c.PageSize) {
+				truncated = true
 				return true, nil
 			}
 			previous := r.Token
@@ -162,11 +187,15 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			r.Token = []byte(key)
 			if proto.Size(r) > 3*1024*1024 {
 				r.Queues = r.Queues[:len(r.Queues)-1]
+				truncated = true
 				r.Token = previous
 				return true, nil
 			}
 			return false, nil
 		})
+		if !truncated {
+			r.Token = nil
+		}
 		return r, err
 	case wire.MatchingCommand_GET_TASKS, wire.MatchingCommand_COMPLETE_TASKS:
 		prefix := matchingTaskPrefix(c, c.Subqueue)
@@ -177,6 +206,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			}
 			after = c.Token
 		}
+		truncated := false
 		var remove [][]byte
 		err := scanCluster(tx, prefix, func(suffix, value []byte) (bool, error) {
 			if len(suffix) != 8 {
@@ -197,6 +227,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 				return false, nil
 			}
 			if len(r.Tasks) >= int(c.PageSize) {
+				truncated = true
 				return true, nil
 			}
 			task := new(wire.MatchingTask)
@@ -208,6 +239,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			r.Token = append([]byte(nil), suffix...)
 			if proto.Size(r) > 3*1024*1024 {
 				r.Tasks = r.Tasks[:len(r.Tasks)-1]
+				truncated = true
 				r.Token = previous
 				return true, nil
 			}
@@ -220,6 +252,9 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			if err = tx.Delete(key); err != nil {
 				return nil, backend(err)
 			}
+		}
+		if !truncated {
+			r.Token = nil
 		}
 		r.Completed = int32(len(remove))
 		return r, nil

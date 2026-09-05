@@ -24,40 +24,55 @@ const (
 type MatchingCommand_Kind int32
 
 const (
-	MatchingCommand_UNSPECIFIED    MatchingCommand_Kind = 0
-	MatchingCommand_CREATE_QUEUE   MatchingCommand_Kind = 1
-	MatchingCommand_GET_QUEUE      MatchingCommand_Kind = 2
-	MatchingCommand_UPDATE_QUEUE   MatchingCommand_Kind = 3
-	MatchingCommand_LIST_QUEUES    MatchingCommand_Kind = 4
-	MatchingCommand_DELETE_QUEUE   MatchingCommand_Kind = 5
-	MatchingCommand_CREATE_TASKS   MatchingCommand_Kind = 6
-	MatchingCommand_GET_TASKS      MatchingCommand_Kind = 7
-	MatchingCommand_COMPLETE_TASKS MatchingCommand_Kind = 8
+	MatchingCommand_UNSPECIFIED      MatchingCommand_Kind = 0
+	MatchingCommand_CREATE_QUEUE     MatchingCommand_Kind = 1
+	MatchingCommand_GET_QUEUE        MatchingCommand_Kind = 2
+	MatchingCommand_UPDATE_QUEUE     MatchingCommand_Kind = 3
+	MatchingCommand_LIST_QUEUES      MatchingCommand_Kind = 4
+	MatchingCommand_DELETE_QUEUE     MatchingCommand_Kind = 5
+	MatchingCommand_CREATE_TASKS     MatchingCommand_Kind = 6
+	MatchingCommand_GET_TASKS        MatchingCommand_Kind = 7
+	MatchingCommand_COMPLETE_TASKS   MatchingCommand_Kind = 8
+	MatchingCommand_GET_USER_DATA    MatchingCommand_Kind = 9
+	MatchingCommand_UPDATE_USER_DATA MatchingCommand_Kind = 10
+	MatchingCommand_LIST_USER_DATA   MatchingCommand_Kind = 11
+	MatchingCommand_GET_BY_BUILD     MatchingCommand_Kind = 12
+	MatchingCommand_COUNT_BY_BUILD   MatchingCommand_Kind = 13
 )
 
 // Enum value maps for MatchingCommand_Kind.
 var (
 	MatchingCommand_Kind_name = map[int32]string{
-		0: "UNSPECIFIED",
-		1: "CREATE_QUEUE",
-		2: "GET_QUEUE",
-		3: "UPDATE_QUEUE",
-		4: "LIST_QUEUES",
-		5: "DELETE_QUEUE",
-		6: "CREATE_TASKS",
-		7: "GET_TASKS",
-		8: "COMPLETE_TASKS",
+		0:  "UNSPECIFIED",
+		1:  "CREATE_QUEUE",
+		2:  "GET_QUEUE",
+		3:  "UPDATE_QUEUE",
+		4:  "LIST_QUEUES",
+		5:  "DELETE_QUEUE",
+		6:  "CREATE_TASKS",
+		7:  "GET_TASKS",
+		8:  "COMPLETE_TASKS",
+		9:  "GET_USER_DATA",
+		10: "UPDATE_USER_DATA",
+		11: "LIST_USER_DATA",
+		12: "GET_BY_BUILD",
+		13: "COUNT_BY_BUILD",
 	}
 	MatchingCommand_Kind_value = map[string]int32{
-		"UNSPECIFIED":    0,
-		"CREATE_QUEUE":   1,
-		"GET_QUEUE":      2,
-		"UPDATE_QUEUE":   3,
-		"LIST_QUEUES":    4,
-		"DELETE_QUEUE":   5,
-		"CREATE_TASKS":   6,
-		"GET_TASKS":      7,
-		"COMPLETE_TASKS": 8,
+		"UNSPECIFIED":      0,
+		"CREATE_QUEUE":     1,
+		"GET_QUEUE":        2,
+		"UPDATE_QUEUE":     3,
+		"LIST_QUEUES":      4,
+		"DELETE_QUEUE":     5,
+		"CREATE_TASKS":     6,
+		"GET_TASKS":        7,
+		"COMPLETE_TASKS":   8,
+		"GET_USER_DATA":    9,
+		"UPDATE_USER_DATA": 10,
+		"LIST_USER_DATA":   11,
+		"GET_BY_BUILD":     12,
+		"COUNT_BY_BUILD":   13,
 	}
 )
 
@@ -284,6 +299,8 @@ type MatchingCommand struct {
 	MaxId           int64                  `protobuf:"varint,12,opt,name=max_id,json=maxId,proto3" json:"max_id,omitempty"`
 	PageSize        int32                  `protobuf:"varint,13,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	Token           []byte                 `protobuf:"bytes,14,opt,name=token,proto3" json:"token,omitempty"`
+	Updates         []*MatchingUserUpdate  `protobuf:"bytes,15,rep,name=updates,proto3" json:"updates,omitempty"`
+	BuildId         string                 `protobuf:"bytes,16,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -416,6 +433,20 @@ func (x *MatchingCommand) GetToken() []byte {
 	return nil
 }
 
+func (x *MatchingCommand) GetUpdates() []*MatchingUserUpdate {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+func (x *MatchingCommand) GetBuildId() string {
+	if x != nil {
+		return x.BuildId
+	}
+	return ""
+}
+
 type MatchingRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ProtocolVersion uint32                 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
@@ -500,6 +531,11 @@ type MatchingResult struct {
 	Tasks         []*MatchingTask        `protobuf:"bytes,4,rep,name=tasks,proto3" json:"tasks,omitempty"`
 	Token         []byte                 `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	Completed     int32                  `protobuf:"varint,6,opt,name=completed,proto3" json:"completed,omitempty"`
+	UserData      []*MatchingUserRecord  `protobuf:"bytes,7,rep,name=user_data,json=userData,proto3" json:"user_data,omitempty"`
+	QueueNames    []string               `protobuf:"bytes,8,rep,name=queue_names,json=queueNames,proto3" json:"queue_names,omitempty"`
+	Conflicting   []string               `protobuf:"bytes,9,rep,name=conflicting,proto3" json:"conflicting,omitempty"`
+	Applied       bool                   `protobuf:"varint,10,opt,name=applied,proto3" json:"applied,omitempty"`
+	Count         int64                  `protobuf:"varint,11,opt,name=count,proto3" json:"count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -576,6 +612,193 @@ func (x *MatchingResult) GetCompleted() int32 {
 	return 0
 }
 
+func (x *MatchingResult) GetUserData() []*MatchingUserRecord {
+	if x != nil {
+		return x.UserData
+	}
+	return nil
+}
+
+func (x *MatchingResult) GetQueueNames() []string {
+	if x != nil {
+		return x.QueueNames
+	}
+	return nil
+}
+
+func (x *MatchingResult) GetConflicting() []string {
+	if x != nil {
+		return x.Conflicting
+	}
+	return nil
+}
+
+func (x *MatchingResult) GetApplied() bool {
+	if x != nil {
+		return x.Applied
+	}
+	return false
+}
+
+func (x *MatchingResult) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type MatchingUserRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Queue         string                 `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Encoding      int32                  `protobuf:"varint,4,opt,name=encoding,proto3" json:"encoding,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MatchingUserRecord) Reset() {
+	*x = MatchingUserRecord{}
+	mi := &file_xenon_v1_matching_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MatchingUserRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatchingUserRecord) ProtoMessage() {}
+
+func (x *MatchingUserRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_xenon_v1_matching_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatchingUserRecord.ProtoReflect.Descriptor instead.
+func (*MatchingUserRecord) Descriptor() ([]byte, []int) {
+	return file_xenon_v1_matching_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *MatchingUserRecord) GetQueue() string {
+	if x != nil {
+		return x.Queue
+	}
+	return ""
+}
+
+func (x *MatchingUserRecord) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *MatchingUserRecord) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *MatchingUserRecord) GetEncoding() int32 {
+	if x != nil {
+		return x.Encoding
+	}
+	return 0
+}
+
+type MatchingUserUpdate struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Queue           string                 `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	Version         int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	Data            []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Encoding        int32                  `protobuf:"varint,4,opt,name=encoding,proto3" json:"encoding,omitempty"`
+	BuildIdsAdded   []string               `protobuf:"bytes,5,rep,name=build_ids_added,json=buildIdsAdded,proto3" json:"build_ids_added,omitempty"`
+	BuildIdsRemoved []string               `protobuf:"bytes,6,rep,name=build_ids_removed,json=buildIdsRemoved,proto3" json:"build_ids_removed,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MatchingUserUpdate) Reset() {
+	*x = MatchingUserUpdate{}
+	mi := &file_xenon_v1_matching_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MatchingUserUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatchingUserUpdate) ProtoMessage() {}
+
+func (x *MatchingUserUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_xenon_v1_matching_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatchingUserUpdate.ProtoReflect.Descriptor instead.
+func (*MatchingUserUpdate) Descriptor() ([]byte, []int) {
+	return file_xenon_v1_matching_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *MatchingUserUpdate) GetQueue() string {
+	if x != nil {
+		return x.Queue
+	}
+	return ""
+}
+
+func (x *MatchingUserUpdate) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *MatchingUserUpdate) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *MatchingUserUpdate) GetEncoding() int32 {
+	if x != nil {
+		return x.Encoding
+	}
+	return 0
+}
+
+func (x *MatchingUserUpdate) GetBuildIdsAdded() []string {
+	if x != nil {
+		return x.BuildIdsAdded
+	}
+	return nil
+}
+
+func (x *MatchingUserUpdate) GetBuildIdsRemoved() []string {
+	if x != nil {
+		return x.BuildIdsRemoved
+	}
+	return nil
+}
+
 var File_xenon_v1_matching_proto protoreflect.FileDescriptor
 
 const file_xenon_v1_matching_proto_rawDesc = "" +
@@ -589,7 +812,7 @@ const file_xenon_v1_matching_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\bsubqueue\x18\x02 \x01(\x05R\bsubqueue\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x04 \x01(\x05R\bencoding\"\xe2\x04\n" +
+	"\bencoding\x18\x04 \x01(\x05R\bencoding\"\x98\x06\n" +
 	"\x0fMatchingCommand\x122\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1e.xenon.v1.MatchingCommand.KindR\x04kind\x12!\n" +
 	"\fnamespace_id\x18\x02 \x01(\fR\vnamespaceId\x12\x14\n" +
@@ -605,7 +828,9 @@ const file_xenon_v1_matching_proto_rawDesc = "" +
 	"\x06min_id\x18\v \x01(\x03R\x05minId\x12\x15\n" +
 	"\x06max_id\x18\f \x01(\x03R\x05maxId\x12\x1b\n" +
 	"\tpage_size\x18\r \x01(\x05R\bpageSize\x12\x14\n" +
-	"\x05token\x18\x0e \x01(\fR\x05token\"\xa2\x01\n" +
+	"\x05token\x18\x0e \x01(\fR\x05token\x126\n" +
+	"\aupdates\x18\x0f \x03(\v2\x1c.xenon.v1.MatchingUserUpdateR\aupdates\x12\x19\n" +
+	"\bbuild_id\x18\x10 \x01(\tR\abuildId\"\x85\x02\n" +
 	"\x04Kind\x12\x0f\n" +
 	"\vUNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fCREATE_QUEUE\x10\x01\x12\r\n" +
@@ -615,25 +840,50 @@ const file_xenon_v1_matching_proto_rawDesc = "" +
 	"\fDELETE_QUEUE\x10\x05\x12\x10\n" +
 	"\fCREATE_TASKS\x10\x06\x12\r\n" +
 	"\tGET_TASKS\x10\a\x12\x12\n" +
-	"\x0eCOMPLETE_TASKS\x10\b\"\xd9\x01\n" +
+	"\x0eCOMPLETE_TASKS\x10\b\x12\x11\n" +
+	"\rGET_USER_DATA\x10\t\x12\x14\n" +
+	"\x10UPDATE_USER_DATA\x10\n" +
+	"\x12\x12\n" +
+	"\x0eLIST_USER_DATA\x10\v\x12\x10\n" +
+	"\fGET_BY_BUILD\x10\f\x12\x12\n" +
+	"\x0eCOUNT_BY_BUILD\x10\r\"\xd9\x01\n" +
 	"\x0fMatchingRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x1c\n" +
 	"\tpartition\x18\x02 \x01(\tR\tpartition\x12!\n" +
 	"\foperation_id\x18\x03 \x01(\tR\voperationId\x12%\n" +
 	"\x0ecommand_sha256\x18\x04 \x01(\fR\rcommandSha256\x123\n" +
-	"\acommand\x18\x05 \x01(\v2\x19.xenon.v1.MatchingCommandR\acommand\"\xbd\x02\n" +
+	"\acommand\x18\x05 \x01(\v2\x19.xenon.v1.MatchingCommandR\acommand\"\xeb\x03\n" +
 	"\x0eMatchingResult\x124\n" +
 	"\x05error\x18\x01 \x01(\x0e2\x1e.xenon.v1.MatchingResult.ErrorR\x05error\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x120\n" +
 	"\x06queues\x18\x03 \x03(\v2\x18.xenon.v1.MatchingRecordR\x06queues\x12,\n" +
 	"\x05tasks\x18\x04 \x03(\v2\x16.xenon.v1.MatchingTaskR\x05tasks\x12\x14\n" +
 	"\x05token\x18\x05 \x01(\fR\x05token\x12\x1c\n" +
-	"\tcompleted\x18\x06 \x01(\x05R\tcompleted\"G\n" +
+	"\tcompleted\x18\x06 \x01(\x05R\tcompleted\x129\n" +
+	"\tuser_data\x18\a \x03(\v2\x1c.xenon.v1.MatchingUserRecordR\buserData\x12\x1f\n" +
+	"\vqueue_names\x18\b \x03(\tR\n" +
+	"queueNames\x12 \n" +
+	"\vconflicting\x18\t \x03(\tR\vconflicting\x12\x18\n" +
+	"\aapplied\x18\n" +
+	" \x01(\bR\aapplied\x12\x14\n" +
+	"\x05count\x18\v \x01(\x03R\x05count\"G\n" +
 	"\x05Error\x12\b\n" +
 	"\x04NONE\x10\x00\x12\r\n" +
 	"\tNOT_FOUND\x10\x01\x12\x14\n" +
 	"\x10CONDITION_FAILED\x10\x02\x12\x0f\n" +
-	"\vUNAVAILABLE\x10\x032U\n" +
+	"\vUNAVAILABLE\x10\x03\"t\n" +
+	"\x12MatchingUserRecord\x12\x14\n" +
+	"\x05queue\x18\x01 \x01(\tR\x05queue\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion\x12\x12\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1a\n" +
+	"\bencoding\x18\x04 \x01(\x05R\bencoding\"\xc8\x01\n" +
+	"\x12MatchingUserUpdate\x12\x14\n" +
+	"\x05queue\x18\x01 \x01(\tR\x05queue\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion\x12\x12\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1a\n" +
+	"\bencoding\x18\x04 \x01(\x05R\bencoding\x12&\n" +
+	"\x0fbuild_ids_added\x18\x05 \x03(\tR\rbuildIdsAdded\x12*\n" +
+	"\x11build_ids_removed\x18\x06 \x03(\tR\x0fbuildIdsRemoved2U\n" +
 	"\x13MatchingPersistence\x12>\n" +
 	"\aExecute\x12\x19.xenon.v1.MatchingRequest\x1a\x18.xenon.v1.MatchingResultB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
 
@@ -650,30 +900,34 @@ func file_xenon_v1_matching_proto_rawDescGZIP() []byte {
 }
 
 var file_xenon_v1_matching_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_xenon_v1_matching_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_xenon_v1_matching_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_xenon_v1_matching_proto_goTypes = []any{
-	(MatchingCommand_Kind)(0), // 0: xenon.v1.MatchingCommand.Kind
-	(MatchingResult_Error)(0), // 1: xenon.v1.MatchingResult.Error
-	(*MatchingRecord)(nil),    // 2: xenon.v1.MatchingRecord
-	(*MatchingTask)(nil),      // 3: xenon.v1.MatchingTask
-	(*MatchingCommand)(nil),   // 4: xenon.v1.MatchingCommand
-	(*MatchingRequest)(nil),   // 5: xenon.v1.MatchingRequest
-	(*MatchingResult)(nil),    // 6: xenon.v1.MatchingResult
+	(MatchingCommand_Kind)(0),  // 0: xenon.v1.MatchingCommand.Kind
+	(MatchingResult_Error)(0),  // 1: xenon.v1.MatchingResult.Error
+	(*MatchingRecord)(nil),     // 2: xenon.v1.MatchingRecord
+	(*MatchingTask)(nil),       // 3: xenon.v1.MatchingTask
+	(*MatchingCommand)(nil),    // 4: xenon.v1.MatchingCommand
+	(*MatchingRequest)(nil),    // 5: xenon.v1.MatchingRequest
+	(*MatchingResult)(nil),     // 6: xenon.v1.MatchingResult
+	(*MatchingUserRecord)(nil), // 7: xenon.v1.MatchingUserRecord
+	(*MatchingUserUpdate)(nil), // 8: xenon.v1.MatchingUserUpdate
 }
 var file_xenon_v1_matching_proto_depIdxs = []int32{
 	0, // 0: xenon.v1.MatchingCommand.kind:type_name -> xenon.v1.MatchingCommand.Kind
 	3, // 1: xenon.v1.MatchingCommand.tasks:type_name -> xenon.v1.MatchingTask
-	4, // 2: xenon.v1.MatchingRequest.command:type_name -> xenon.v1.MatchingCommand
-	1, // 3: xenon.v1.MatchingResult.error:type_name -> xenon.v1.MatchingResult.Error
-	2, // 4: xenon.v1.MatchingResult.queues:type_name -> xenon.v1.MatchingRecord
-	3, // 5: xenon.v1.MatchingResult.tasks:type_name -> xenon.v1.MatchingTask
-	5, // 6: xenon.v1.MatchingPersistence.Execute:input_type -> xenon.v1.MatchingRequest
-	6, // 7: xenon.v1.MatchingPersistence.Execute:output_type -> xenon.v1.MatchingResult
-	7, // [7:8] is the sub-list for method output_type
-	6, // [6:7] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	8, // 2: xenon.v1.MatchingCommand.updates:type_name -> xenon.v1.MatchingUserUpdate
+	4, // 3: xenon.v1.MatchingRequest.command:type_name -> xenon.v1.MatchingCommand
+	1, // 4: xenon.v1.MatchingResult.error:type_name -> xenon.v1.MatchingResult.Error
+	2, // 5: xenon.v1.MatchingResult.queues:type_name -> xenon.v1.MatchingRecord
+	3, // 6: xenon.v1.MatchingResult.tasks:type_name -> xenon.v1.MatchingTask
+	7, // 7: xenon.v1.MatchingResult.user_data:type_name -> xenon.v1.MatchingUserRecord
+	5, // 8: xenon.v1.MatchingPersistence.Execute:input_type -> xenon.v1.MatchingRequest
+	6, // 9: xenon.v1.MatchingPersistence.Execute:output_type -> xenon.v1.MatchingResult
+	9, // [9:10] is the sub-list for method output_type
+	8, // [8:9] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_xenon_v1_matching_proto_init() }
@@ -687,7 +941,7 @@ func file_xenon_v1_matching_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xenon_v1_matching_proto_rawDesc), len(file_xenon_v1_matching_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
