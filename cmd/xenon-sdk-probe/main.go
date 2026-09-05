@@ -174,17 +174,12 @@ func run() error {
 			return e
 		}
 		return emit(map[string]string{"phase": phase})
-	case "control":
-		handle, e := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{WorkflowID: *id, UpdateID: *id + "-update", UpdateName: "set-proof-value", Args: []interface{}{"update-ack"}, WaitForStage: client.WorkflowUpdateStageCompleted})
-		if e != nil {
+	case "control", "update-only":
+		if e = proofUpdate(ctx, c, *id); e != nil {
 			return e
 		}
-		var value string
-		if e = handle.Get(ctx, &value); e != nil {
-			return e
-		}
-		if value != "update-ack" {
-			return fmt.Errorf("wrong update result %q", value)
+		if *mode == "update-only" {
+			return emit(map[string]string{"update": "acknowledged"})
 		}
 		if e = c.SignalWorkflow(ctx, *id, "", "proof-signal", "signal-ack"); e != nil {
 			return e

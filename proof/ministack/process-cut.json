@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "stages": ["commit_before_await", "after_await", "before_result_publication"],
+  "pause_timeout_ms": 5000,
+  "candidate_timeout_seconds": 20,
+  "control_port_offset": 200,
+  "update_mode": "update-only",
+  "fault": "SIGKILL",
+  "recovery_budget": "proof/ministack/case.json:recovery_seconds",
+  "full_acceptance": false
+}

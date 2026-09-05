@@ -158,3 +158,13 @@ report remains failed. That report also has a known evidence limitation: earlier
 in-memory topology event maps were aliased and display final cold assignments.
 The source now snapshots nested event values; it does not rewrite old reports or
 claim they recorded the earlier assignment values correctly.
+
+## Real workflow process-cut mode
+
+`python3 scripts/ministack-runtime.py --process-cut-stage after_await` selects a declared native cut within the smoke. Other choices are `commit_before_await` and `before_result_publication`. The mode is exclusive with fuzz soak and explicit unchanged smoke. `proof/ministack/process-cut.json` pins the5000ms pauses and loopback control-port offset200 (17551–17553 for the declared nodes). Without this flag, node cut plans remain disabled.
+
+After the actual DurableWorkflow reaches `await-control`, the controller watches its exact namespace/workflow/run identity on the assigned history owner. It starts the real SDK `update-only` command using the existing `workflowID-update` identity and `update-ack` argument, without signaling. A successful actual execution UPDATE becomes the native precommit candidate. The controller records and echoes its exact operationID/digest/partition plus boot/session, observes the selected paused stage and SIGKILLs that exact process. Wrong PID/session/incarnation/selector, missed/expired hit, natural process exit and non-SIGKILL status fail the gate.
+
+The replacement uses a fresh local directory and activation. The existing recovery budget bounds owner readiness and completion of the original SDK update. The workflow still waits for its signal. Later normal `control` repeats the same update identity, then sends the signal, preserving the original result/history verification. The subsequent original Temporal-process kill remains a separate recorded event; the two faults are not described as one injection.
+
+This wiring is a candidate until an exact clean runtime receipt executes it. The separately passed native execution cut component is not that receipt. Every report retains `full_acceptance=false`; this mode alone does not cover the complete frozen fault/workload/measurement matrix.
