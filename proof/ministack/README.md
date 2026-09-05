@@ -1,9 +1,9 @@
-# Temporal ministack configuration checkpoint
+# Temporal ministack runtime candidate
 
-This is committed runtime input preparation, **not a boot or shipping proof**.
-The factory, routed history and visibility implementations must be integrated
-before the launcher/controller can run the acceptance scenario in case.json.
-Do not turn a configuration validation result into a Temporal pass.
+The launcher, factories, routed history, visibility and local runtime controller
+are integrated. **A complete smoke pass and the full shipping gate remain open.**
+Earlier runs passed individual SDK/Omes stages but failed later or were interrupted.
+Configuration validation and successful individual stages are not a whole-run pass.
 
 ## Exact launcher seam
 
@@ -31,12 +31,12 @@ matchingPartition and globalPartition. The four history partitions are fixed bef
 first boot; adding a Xenon node moves a partition rather than changing modulo/count.
 Visibility factory options are address, index and schema_partition; its four locked
 visibility partitions are vis-v1-0 through vis-v1-3. The schema uses global. Factories
-are being implemented in internal/temporalstore; their compile/runtime gates are
-prerequisites, not waived by these files.
+are implemented in internal/temporalstore; their component proofs do not waive
+the runtime assertions.
 
 ## Local topology
 
-The planned controller runs native binaries and disposable runtime directories on
+The controller runs native binaries and disposable runtime directories on
 the host. Compose runs pinned MinIO, HAProxy and the unchanged Temporal UI. Native
 service listeners accept traffic from the local Docker bridge; Compose's published
 ports bind loopback. This harness is for a trusted local development host.
@@ -80,7 +80,7 @@ Upstream source references:
 - https://github.com/temporalio/omes/blob/c6978ba39aa03551ce28974117e8d7ecf983d2b3/docs/running.md
 - https://github.com/temporalio/ui/tree/835b349ffa14fbe71af3e26a7f8bc71fe6c29a53
 
-The current single rerun command is `python3 scripts/check-ministack.py`. It uses
+The configuration-only command is `python3 scripts/check-ministack.py`. It uses
 the pinned Temporal configuration parser, Compose validation and the pinned HAProxy
 binary's configuration checker. Its evidence explicitly sets runtime_executed=false
 and proof_pass=false even when configuration is valid. It does not launch the stack.
