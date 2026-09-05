@@ -1,0 +1,1 @@
+{"schema_version":1,"backend":"memory","partition":"control","prefix":"queue-proof-v1","startup_timeout_seconds":20,"test_timeout_seconds":60,"fault":"drop_first_completed_dlq_enqueue_response","encoding":2,"initial_data":"AP8BAg==","updated_data":"AgD+Aw==","near_limit_data_bytes":1048576,"response_budget_bytes":3145728}
