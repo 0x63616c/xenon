@@ -64,12 +64,13 @@ func (s Snapshot) Record() Record { return s.record }
 
 // Reservation is bound to one exact directory and is locally one-shot. A fresh
 // process must reserve a fresh incarnation; this is not a persistent attempt log.
-type Reservation struct {
+type Reservation struct{ attempt *attempt }
+type attempt struct {
 	snapshot Snapshot
 	consumed atomic.Bool
 }
 
-func (r *Reservation) Record() Record { return r.snapshot.record }
+func (r *Reservation) Record() Record { return r.attempt.snapshot.record }
 func New(client S3, bucket, prefix, partition, dataPrefix string) (*Directory, error) {
 	if client == nil || bucket == "" || prefix == "" || partition == "" || dataPrefix == "" || len(partition) > 256 || len(dataPrefix) > 1024 {
 		return nil, ErrInvalid
@@ -135,21 +136,21 @@ func (d *Directory) Reserve(ctx context.Context, prior *Snapshot, identity Ident
 	if e != nil {
 		return nil, e
 	}
-	return &Reservation{snapshot: snapshot}, nil
+	return &Reservation{attempt: &attempt{snapshot: snapshot}}, nil
 }
 
 // Ready consumes an opening reservation locally even on failure. An unknown
 // result must be read back, never reissued as a fresh unconditional write.
 func (d *Directory) Ready(ctx context.Context, reservation *Reservation) (Snapshot, error) {
-	if reservation == nil || reservation.snapshot.directory != d || reservation.snapshot.record.State != "opening" {
+	if reservation == nil || reservation.attempt == nil || reservation.attempt.snapshot.directory != d || reservation.attempt.snapshot.record.State != "opening" {
 		return Snapshot{}, ErrInvalid
 	}
-	if !reservation.consumed.CompareAndSwap(false, true) {
+	if !reservation.attempt.consumed.CompareAndSwap(false, true) {
 		return Snapshot{}, ErrConsumed
 	}
-	record := reservation.snapshot.record
+	record := reservation.attempt.snapshot.record
 	record.State = "ready"
-	return d.publish(ctx, record, reservation.snapshot.etag)
+	return d.publish(ctx, record, reservation.attempt.snapshot.etag)
 }
 func (d *Directory) publish(ctx context.Context, record Record, etag string) (Snapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, OperationTimeout)

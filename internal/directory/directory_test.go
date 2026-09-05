@@ -118,10 +118,11 @@ func TestS3Directory(t *testing.T) {
 			b = r
 		}
 	}
+	copyA := *a
 	if _, e = d.Ready(ctx, a); !errors.Is(e, ErrConflict) {
 		t.Fatal("stale ready", e)
 	}
-	if _, e = d.Ready(ctx, a); !errors.Is(e, ErrConsumed) {
+	if _, e = d.Ready(ctx, &copyA); !errors.Is(e, ErrConsumed) {
 		t.Fatal("one-shot", e)
 	}
 	transport.mode.Store(1)
