@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "name": "go-queue",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    "proto/xenon/v1/queue.proto",
+    "gen/xenon/v1/queue.pb.go",
+    "gen/xenon/v1/queue_grpc.pb.go",
+    "internal/adapter/queue.go",
+    "internal/adapter/queue_integration_test.go",
+    "internal/node/queue.go",
+    "internal/node/queue_test.go",
+    "proof/queue/case.json",
+    "proof/queue/README.md",
+    "docs/research/queue-contract.md"
+  ],
+  "fault_schedule": "Committed queue RPC proxy drops first completed DLQ enqueue response; native test stages delete then aborts journal, reopens after delete-all and fences prior owner.",
+  "assertions": [
+    "All legacy Queue methods cross actual RPC to Go SlateDB owner.",
+    "Normal and DLQ versions guard writes and Init preserves existing metadata.",
+    "Lost completed response retries exact operation identity without duplicate enqueue.",
+    "Message allocation survives delete-all and reopen; replay does not recreate deleted messages.",
+    "Aborted transaction publishes neither staged delete nor outcome journal.",
+    "Queue replay rejects fenced owners.",
+    "Near-limit page fits default gRPC response bound and continuation omits no record."
+  ],
+  "limitations": [
+    "Memory object store; no process-crash or real S3 claim.",
+    "Legacy Queue only; QueueV2 and full Temporal boot remain pending.",
+    "Three pinned SQL deviations explicitly adjudicated in issue30 and contract evidence."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueRemoteCancellation",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueRemoteCancellation"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueRecovery"
+      ]
+    }
+  ]
+}
