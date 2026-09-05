@@ -257,3 +257,5 @@ gopkg.in/validator.v2 v2.0.1 h1:xF0KWyGWXm/LM2G1TrEjqOu4pa6coO9AlWSf3msVfDY=
 gopkg.in/validator.v2 v2.0.1/go.mod h1:lIUZBlB3Im4s/eYp39Ry/wkR02yOPhZ9IwIRBjuPuG8=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+slatedb.io/slatedb-go v0.16.0 h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=
+slatedb.io/slatedb-go v0.16.0/go.mod h1:RNLs5UDKEDVO3Dve82yVg7FZvcbzzw4Q2jIlXDdak5o=
