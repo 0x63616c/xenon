@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/processcut"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -130,8 +131,57 @@ func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply fu
 	if err = put(tx, "v1/outcome_count", counter); err != nil {
 		return nil, err
 	}
-	if err = commit(tx); err != nil {
+	if o.cut != nil {
+		familyName := ""
+		success := false
+		if family == shardFamily {
+			familyName = "shard"
+			success = outcome.GetShardResult() != nil && outcome.GetShardResult().Error == wire.ShardResult_NONE
+		}
+		if family == executionFamily {
+			familyName = "execution"
+			success = outcome.GetExecutionResult() != nil && outcome.GetExecutionResult().Error == wire.ExecutionResult_NONE
+		}
+		o.cutReady = success && o.cut.Matches(id, familyName, o.config.Partition)
+	}
+	if o.cutReady {
+		err = o.commitCut(tx)
+	} else {
+		err = commit(tx)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return outcome, nil
+}
+
+// cutStage is called only under the existing owner gate. A timed-out barrier
+// marks the owner terminal before any native drain or gate release.
+func (o *Owner) cutStage(stage string) error {
+	if e := o.cut.Stage(stage); e != nil {
+		o.quarantined.Store(true)
+		return backend(e)
+	}
+	return nil
+}
+func (o *Owner) commitCut(tx *native.DbTransaction) error {
+	optional, e := tx.Commit()
+	if e != nil {
+		return backend(e)
+	}
+	if optional == nil || *optional == nil {
+		return status.Error(codes.Unavailable, "missing durability handle")
+	}
+	handle := *optional
+	defer handle.Destroy()
+	pauseErr := o.cutStage(processcut.BeforeAwait)
+	// Even after timeout, retain the handle and drain the native durability call.
+	// Outer Owner.Run may time out meanwhile, retaining this worker and its gate.
+	if e = handle.AwaitDurable(); e != nil {
+		return backend(e)
+	}
+	if pauseErr != nil {
+		return pauseErr
+	}
+	return o.cutStage(processcut.AfterAwait)
 }

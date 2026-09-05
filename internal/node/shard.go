@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/google/uuid"
 	"regexp"
 	"sync/atomic"
@@ -47,6 +48,9 @@ type Owner struct {
 	quarantined atomic.Bool
 	active      atomic.Int32
 	destroyed   atomic.Bool
+	// Only the gate-owning native worker accesses cut/cutReady.
+	cut      *processcut.Invocation
+	cutReady bool
 }
 
 func NewOwner(db *native.Db, c Config) (*Owner, error) {
@@ -175,6 +179,9 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	defer close(decision)
 	o.active.Add(1)
 	go func() {
+		o.cut = processcut.FromContext(ctx)
+		o.cutReady = false
+
 		var result []byte
 		var err error
 		if o.config.Authority != nil {
@@ -188,9 +195,14 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 				err = o.authorityBarrier()
 			}
 		}
+		if err == nil && o.cutReady {
+			err = o.cutStage(processcut.BeforeReply)
+		}
 		if status.Code(err) == codes.Unavailable {
 			o.quarantined.Store(true)
 		}
+		o.cut = nil
+		o.cutReady = false
 		o.active.Add(-1)
 		// Publish completion before releasing gate, preventing timeout/admission races.
 		done <- outcome{result, err}
