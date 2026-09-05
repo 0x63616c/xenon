@@ -31,6 +31,7 @@ jobs:
       - run: python3 scripts/prove.py shard
       - run: python3 scripts/prove.py go-cluster
       - run: python3 scripts/prove.py go-matching-userdata
+      - run: python3 scripts/prove.py go-fair
       - run: go test -race ./...
         env:
           CGO_ENABLED: '1'

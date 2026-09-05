@@ -24,7 +24,7 @@ type MatchingServer struct {
 }
 
 func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest) (*wire.MatchingResult, error) {
-	if req == nil || req.ProtocolVersion != 1 || req.Partition != s.Owner.config.Partition || !operationID.MatchString(req.OperationId) || req.Command == nil {
+	if req == nil || req.ProtocolVersion != matchingProtocol(req.Command) || req.Partition != s.Owner.config.Partition || !operationID.MatchString(req.OperationId) || req.Command == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid matching request")
 	}
 	req = proto.Clone(req).(*wire.MatchingRequest)
@@ -89,15 +89,29 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 
 const matchingQueuePrefix = "v1/matching/queue/"
 
+func queuePrefix(c *wire.MatchingCommand) string {
+	if c.Fair {
+		return "v1/matching/fair/queue/"
+	}
+	return matchingQueuePrefix
+}
+
 func matchingKey(c *wire.MatchingCommand) string {
 	return hex.EncodeToString(c.NamespaceId) + fmt.Sprintf("/%08x/", uint32(c.TaskType)) + hex.EncodeToString([]byte(c.Queue))
 }
 func matchingTaskPrefix(c *wire.MatchingCommand, sub int32) string {
-	return "v1/matching/task/" + matchingKey(c) + fmt.Sprintf("/%08x/", uint32(sub))
+	prefix := "v1/matching/task/"
+	if c.Fair {
+		prefix = "v1/matching/fair/task/"
+	}
+	return prefix + matchingKey(c) + fmt.Sprintf("/%08x/", uint32(sub))
 }
 func matchingTaskKey(c *wire.MatchingCommand, t *wire.MatchingTask) string {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], uint64(t.Id)^(1<<63))
+	if c.Fair {
+		return matchingTaskPrefix(c, t.Subqueue) + string(fairLevel(t.Pass, t.Id))
+	}
 	return matchingTaskPrefix(c, t.Subqueue) + string(b[:])
 }
 func matchingLogical(code wire.MatchingResult_Error, msg string) *wire.MatchingResult {
@@ -108,7 +122,10 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 		return applyMatchingUserData(tx, c)
 	}
 	r := new(wire.MatchingResult)
-	key := matchingQueuePrefix + matchingKey(c)
+	if c.Fair && (c.Kind == wire.MatchingCommand_GET_TASKS || c.Kind == wire.MatchingCommand_COMPLETE_TASKS) {
+		return applyFairTasks(tx, c)
+	}
+	key := queuePrefix(c) + matchingKey(c)
 	switch c.Kind {
 	case wire.MatchingCommand_CREATE_QUEUE, wire.MatchingCommand_GET_QUEUE, wire.MatchingCommand_UPDATE_QUEUE, wire.MatchingCommand_DELETE_QUEUE, wire.MatchingCommand_CREATE_TASKS:
 		record := new(wire.MatchingRecord)
@@ -165,6 +182,7 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			return r, nil
 		}
 	case wire.MatchingCommand_LIST_QUEUES:
+		matchingQueuePrefix := queuePrefix(c)
 		if len(c.Token) > 2200 || (len(c.Token) > 0 && !strings.HasPrefix(string(c.Token), matchingQueuePrefix)) {
 			return nil, status.Error(codes.InvalidArgument, "invalid queue token")
 		}
@@ -260,4 +278,12 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 		return r, nil
 	}
 	return nil, status.Error(codes.InvalidArgument, "unknown matching operation")
+}
+
+// Fair commands require version 2 so older nodes cannot silently use legacy keys.
+func matchingProtocol(c *wire.MatchingCommand) uint32 {
+	if c != nil && c.Fair {
+		return 2
+	}
+	return 1
 }
