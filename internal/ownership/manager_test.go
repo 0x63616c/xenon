@@ -205,6 +205,21 @@ func TestS3OwnerManager(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	persist := func(m *Manager) {
+		t.Helper()
+		owner, e := m.Owner("r")
+		if e != nil {
+			t.Fatal(e)
+		}
+		command := &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: 9, RangeId: 3, Data: payload, Encoding: 1}
+		raw, _ := proto.MarshalOptions{Deterministic: true}.Marshal(command)
+		digest := sha256.Sum256(raw)
+		r, e := owner.Execute(ctx, &wire.ShardRequest{ProtocolVersion: 1, Partition: "r", OperationId: "delayed-ack", CommandSha256: digest[:], Command: command})
+		if e != nil || string(r.Data) != string(payload) {
+			t.Fatal("acknowledged state/replay lost", e, r)
+		}
+	}
+	persist(old)
 	// Old result is captured after authority check but before durable barrier.
 	captured := make(chan struct{})
 	release := make(chan struct{})
@@ -222,22 +237,10 @@ func TestS3OwnerManager(t *testing.T) {
 	if e = <-result; e == nil {
 		t.Fatal("stale read barrier succeeded")
 	}
-	persist := func(m *Manager) {
-		t.Helper()
-		owner, e := m.Owner("r")
-		if e != nil {
-			t.Fatal(e)
-		}
-		command := &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: 9, RangeId: 3, Data: payload, Encoding: 1}
-		raw, _ := proto.MarshalOptions{Deterministic: true}.Marshal(command)
-		digest := sha256.Sum256(raw)
-		r, e := owner.Execute(ctx, &wire.ShardRequest{ProtocolVersion: 1, Partition: "r", OperationId: "delayed-ack", CommandSha256: digest[:], Command: command})
-		if e != nil || string(r.Data) != string(payload) {
-			t.Fatal("acknowledged state/replay lost", e, r)
-		}
-	}
+
 	persist(d)
 	for i := 0; i < 2; i++ {
+		late = makeManager(fmt.Sprintf("late-%d", i))
 		activate(late)
 		paused, resume := make(chan struct{}), make(chan struct{})
 		late.beforeOpen = func(directory.Record) { close(paused); <-resume }
