@@ -54,6 +54,21 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "movement-identity":
+		description, err := c.WorkflowService().DescribeNamespace(ctx, &workflowservice.DescribeNamespaceRequest{Namespace: *namespace})
+		if err != nil {
+			return err
+		}
+		if description == nil || description.NamespaceInfo == nil {
+			return fmt.Errorf("missing namespace")
+		}
+		for i := 0; i < 10000; i++ {
+			candidate := fmt.Sprintf("xenon-visibility-movement-%d", i)
+			if common.WorkflowIDToHistoryShard(description.NamespaceInfo.Id, candidate, 4) == 4 {
+				return emit(map[string]any{"workflow_id": candidate, "history_shard": 4, "history_partition": "history-0"})
+			}
+		}
+		return fmt.Errorf("no movement identity found")
 	case "mixed-inventory":
 		result, err := mixedInventory(ctx, c.WorkflowService(), *namespace)
 		if err != nil {

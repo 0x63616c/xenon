@@ -189,7 +189,17 @@ func run() error {
 	casePath := flag.String("fixture", "proof/visibility/frozen.json", "committed fixture")
 	output := flag.String("output", "", "new evidence file")
 	checkpoint := flag.String("checkpoint", "", "caller movement checkpoint label")
+	releaseFile := flag.String("release-file", "", "optional first-page movement barrier file")
+	releaseToken := flag.String("release-token", "", "exact movement release token")
 	flag.Parse()
+	if (*releaseFile == "") != (*releaseToken == "") || (*releaseFile != "" && *mode != "check") {
+		return fmt.Errorf("invalid movement barrier options")
+	}
+	if *releaseFile != "" {
+		if _, err := os.Stat(*releaseFile); !os.IsNotExist(err) {
+			return fmt.Errorf("movement release file must not exist")
+		}
+	}
 	if *mode != "seed" && *mode != "check" && *mode != "mutate" {
 		return fmt.Errorf("invalid mode")
 	}
@@ -275,7 +285,21 @@ func run() error {
 		report["mutation_acknowledged_rounds"] = 20
 		report["mutation_scope"] = "exactly one durable write between first and remaining public pages; no simultaneous-commit or snapshot claim"
 	}
-	verified, e := check(ctx, c.WorkflowService(), *ns, d, f.PageSizes)
+	var barrier func() error
+	if *releaseFile != "" {
+		used := false
+		barrier = func() error {
+			if used {
+				return nil
+			}
+			used = true
+			if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "VISIBILITY_FIRST_PAGE", "checkpoint": *checkpoint, "token": *releaseToken}); err != nil {
+				return err
+			}
+			return pageBarrier(ctx, *releaseFile, *releaseToken)
+		}
+	}
+	verified, e := checkPages(ctx, c.WorkflowService(), *ns, d, f.PageSizes, barrier)
 	if e != nil {
 		return e
 	}

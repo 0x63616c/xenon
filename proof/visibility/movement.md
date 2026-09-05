@@ -1,0 +1,9 @@
+# Actual visibility movement scenario
+
+`python3 scripts/ministack-runtime.py --visibility-movement` uses the existing pinned stack, bootstrap, ownership publisher and native metrics. It seeds the unchanged2000-record recipe and validates page sizes1/7/100, including the large-memo byte budget. Both real Temporal frontends execute public frozen-count calls before and after movement.
+
+A real SDK workflow selected for shard4/history-0 reaches its durable control pause. After at least20 completed application dispatches, a second public traversal receives page one and emits a token-bound barrier. The controller adds nodeC and publishes history-0 and vis-v1-0 ownership to its exact incarnation, preserving data prefixes. It waits for actual storage readiness, releases the cursor, and verifies every remaining frozen page/count/group. The cursor pause and movement recovery each remain bounded by120s; API calls retain30s, ordinary controller probes20s. Missing release, readiness or any exact-set assertion fails. The workflow receives real update/signal control and its histories are verified while traversal proceeds. A separate20-record interpage mutation case runs afterward.
+
+Final metrics require at least10 locally served operations for each node and positive nodeC dispatch increases for both moved partitions, tied to its boot incarnation. Historical retained journal counts are insufficient. Topology publications, barrier/release events, frontend responses, cursor proof and raw metrics are retained under the source/config/binary hashes of the run.
+
+`python3 scripts/prove.py visibility-movement` runs only the lightweight barrier controls. It does not execute this live scenario; the scenario manifest remains NOT_EXECUTED until a separate clean runtime receipt exists. The runtime scenario is not the full workload/fault/performance gate, UI coverage, or real AWS profile. Full-profile budgets and contents are unchanged.
