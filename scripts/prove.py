@@ -120,9 +120,11 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
+    if args.name == "go-bindings":
+        return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
     manifest_path = ROOT / "experiments" / (args.name + ".json")
     manifest = json.loads(manifest_path.read_text())
     if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name == "crash" else "memory"):

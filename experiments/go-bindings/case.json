@@ -1,0 +1,1 @@
+{"schema":1,"backend":"memory:///","prefix":"go-ffi-proof","flush_interval":null,"caller_timeout_ms":40,"drain_timeout_seconds":5,"rejected_callers":16}

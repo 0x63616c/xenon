@@ -59,6 +59,14 @@ func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (*w
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		// A remote deadline can arrive before the local context timer fires.
+		// Normalize both paths to the same cancellation contract.
+		switch status.Code(callErr) {
+		case codes.DeadlineExceeded:
+			return nil, context.DeadlineExceeded
+		case codes.Canceled:
+			return nil, context.Canceled
+		}
 		if status.Code(callErr) != codes.Unavailable || attempt == 2 {
 			return nil, serviceerror.FromStatus(status.Convert(callErr))
 		}

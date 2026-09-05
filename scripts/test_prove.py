@@ -1,4 +1,5 @@
 import os
+import subprocess
 import json
 from pathlib import Path
 import sys
@@ -25,6 +26,12 @@ class RunnerTests(unittest.TestCase):
     def test_all_committed_experiments_keep_registered_commands(self):
         for path in sorted((prove.ROOT / "experiments").glob("*.json")):
             manifest = json.loads(path.read_text())
+            if manifest["name"] == "go-bindings":
+                self.assertEqual(manifest["source_commit"], "3fb9e8abab0c9f5833f0c154140ceef009fea02a")
+                self.assertEqual(len(manifest["expected_tests"]), 4)
+                help_text = subprocess.check_output([sys.executable, str(prove.ROOT / "scripts/prove.py"), "--help"], text=True)
+                self.assertIn("go-bindings", help_text)
+                continue
             for spec in manifest["commands"]:
                 with self.subTest(experiment=manifest["name"], runner=spec["runner"]):
                     self.assertTrue(prove.command(spec))
