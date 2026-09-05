@@ -144,7 +144,7 @@ func TestS3ExecutionDiscoveryCuts(t *testing.T) {
 			if r, e := wire.NewShardPersistenceClient(conn).Execute(ctx, &wire.ShardRequest{ProtocolVersion: 1, Partition: f.Partition, OperationId: "shard", CommandSha256: digest[:], Command: shard}); e != nil || r.Error != wire.ShardResult_NONE {
 				t.Fatal(r, e)
 			}
-			baseline, e := client.Execute(ctx, request("baseline", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_SET, ShardId: f.ShardID, RangeId: 1, Snapshot: image}))
+			baseline, e := client.Execute(ctx, request("baseline", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_CREATE, ShardId: f.ShardID, RangeId: 1, Snapshot: image}))
 			if e != nil || baseline.Error != wire.ExecutionResult_NONE {
 				t.Fatal("baseline not acknowledged", e)
 			}

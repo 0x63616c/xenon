@@ -137,7 +137,7 @@ func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	initial := executionRequest("initial", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_SET, ShardId: 1, RangeId: 1, Snapshot: image})
+	initial := executionRequest("initial", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_CREATE, ShardId: 1, RangeId: 1, Snapshot: image})
 	if r, e := server.Execute(ctx, initial); e != nil || r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r, e)
 	}
