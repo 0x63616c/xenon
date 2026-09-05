@@ -142,3 +142,19 @@ completeness failures, histogram separation, host resource controls and supervis
 controls. It does not execute or claim the measured ministack/full acceptance.
 
 Build preflight requires at least5GiB available disk (a minimum guard, not a cold-cache sizing guarantee). Actual prepared Omes `program` build metadata must declare Go SDKv1.48.0, supplementing pre/post binary/input hashes and explicit `--dir-name prepared`. Scoped Compose logs are collected before cleanup so emulator/proxy failures remain diagnosable.
+
+Cold startup first reads the existing `active` cluster metadata through the stable
+Xenon ingress with the real adapter. The declared 60-second readiness window uses
+at most five seconds per read and retries only Unavailable/deadline errors. Missing
+metadata, decoding/internal failures and other logical errors stop immediately.
+Only after that durable read succeeds are the two Temporal processes bootstrapped
+in sequence. A listening proxy socket alone is not sufficient readiness after all
+storage backends have stopped.
+
+The failed integrated run `20260905T221339Z-xenon-ministack-cea77524491b` at
+`f46940c` passed SDK recovery, Omes20, C-local operations and live UI history, then
+failed cold Temporal startup with `error reading server preface: EOF`. Its raw
+report remains failed. That report also has a known evidence limitation: earlier
+in-memory topology event maps were aliased and display final cold assignments.
+The source now snapshots nested event values; it does not rewrite old reports or
+claim they recorded the earlier assignment values correctly.

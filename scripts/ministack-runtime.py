@@ -58,6 +58,9 @@ class Process:
         if self.thread.is_alive():raise RuntimeError("process output did not drain after shutdown")
         self.process.stdout.close();self.log.close()
 
+def event_record(name,elapsed,fields):
+    return {'name':name,'elapsed_seconds':round(elapsed,3),**json.loads(json.dumps(fields))}
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
@@ -112,7 +115,7 @@ def main():
     sdk=str(ROOT/'.local/bin/xenon-sdk-probe')
     probe_flags=['--address',f"127.0.0.1:{case['ports']['temporal_ingress']}",'--namespace',case['namespace'],'--workflow-id',case['workflow_id'],'--task-queue',case['task_queue']]
     def probe(mode,*args,timeout=20):return json_result(run([sdk,'--mode',mode,*probe_flags,*args],timeout))
-    def event(name,**fields):report['events'].append({'name':name,'elapsed_seconds':round(time.monotonic()-started,3),**fields})
+    def event(name,**fields):report['events'].append(event_record(name,time.monotonic()-started,fields))
     started=time.monotonic()
     try:
         report['host']={'system':platform.system(),'release':platform.release(),'machine':platform.machine(),'python_version':sys.version,'python_executable':sys.executable}
@@ -274,6 +277,9 @@ def main():
         node('cold-a',17351);node('cold-b',17352)
         for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
         publish()
+        readiness=case['cold_storage_readiness_seconds']
+        probe('storage-ready','--storage-address',f"127.0.0.1:{case['ports']['storage_ingress']}",'--readiness-timeout',str(readiness)+'s',timeout=readiness+5)
+        event('cold-storage-ingress-ready')
         healthy_temporal('cold-temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
         healthy_temporal('cold-temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
         cold_history=evidence/'history-after-cold';cold_history.mkdir()
