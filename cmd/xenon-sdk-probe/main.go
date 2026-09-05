@@ -54,10 +54,19 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "fuzz-endpoint-ready":
+		result, err := nexusReadiness(ctx, c, *namespace)
+		if err != nil {
+			return err
+		}
+		return emit(result)
 	case "fuzz-endpoint":
 		response, err := c.OperatorService().CreateNexusEndpoint(ctx, &operatorservice.CreateNexusEndpointRequest{Spec: &nexuspb.EndpointSpec{Name: "xenon-fuzz", Target: &nexuspb.EndpointTarget{Variant: &nexuspb.EndpointTarget_Worker_{Worker: &nexuspb.EndpointTarget_Worker{Namespace: *namespace, TaskQueue: "omes-xenon-ministack-fuzz"}}}}})
 		if err != nil {
 			return err
+		}
+		if response == nil || response.Endpoint == nil {
+			return fmt.Errorf("missing created Nexus endpoint")
 		}
 		return emit(map[string]any{"endpoint_id": response.Endpoint.Id, "endpoint": "xenon-fuzz"})
 	case "health":
