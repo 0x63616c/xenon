@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "name": "s3-meter",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 300,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    ".github/workflows/ci.yaml",
+    "cmd/xenon-s3-meter/main.go",
+    "cmd/xenon-s3-meter/main_test.go",
+    "deploy/s3-meter.compose.yaml",
+    "go.mod",
+    "go.sum",
+    "internal/proof/s3meter/proxy.go",
+    "internal/proof/s3meter/proxy_test.go",
+    "internal/proof/s3meter/s3_test.go",
+    "proof/s3-meter/README.md",
+    "proof/s3-meter/case.json",
+    "proof/s3-meter/local.json",
+    "scripts/prove.py",
+    "scripts/s3-meter-proof.py"
+  ],
+  "fault_schedule": "known-size request/response, HTTP403, truncated response, partial downstream write, canceled before transport and while upstream waits; signed PUT/GET/404 against scoped pinned MinIO",
+  "assertions": [
+    "Signed Host/method/escaped path/query/body survive proxy; known request and response bytes match.",
+    "Partial transfers, aborted responses, cancellations and transport errors cannot count as completed operations.",
+    "Actual signed SDK operations through proxy succeed on local MinIO; fixed bounded counters report attempts and body bytes only."
+  ],
+  "limitations": [
+    "Local HTTP emulator proof only; no direct AWS validation, billing estimate, headers/TLS/socket byte accounting or persistent proxy storage.",
+    "Body byte totals include only finalized attempts; in-flight count marks incomplete observation windows.",
+    "HTTP client/transport retries that re-enter the proxy count as separate attempts; automatic upstream transport retries within one attempt are not separate inbound attempts."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-meter",
+      "filter": "TestMeter",
+      "exact": false,
+      "expected_tests": [
+        "TestMeterControls",
+        "TestMeterPartialAndCancel",
+        "TestMeterCancellationDrains",
+        "TestMeterRequestFailure"
+      ]
+    },
+    {
+      "runner": "go-test-meter-cli",
+      "filter": "TestMeterCLI",
+      "exact": true,
+      "expected_tests": [
+        "TestMeterCLI"
+      ]
+    },
+    {
+      "runner": "s3-meter",
+      "filter": "TestMeterSignedS3",
+      "exact": true,
+      "expected_tests": [
+        "TestMeterSignedS3"
+      ]
+    }
+  ]
+}

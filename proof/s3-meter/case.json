@@ -1,0 +1,1 @@
+{"schema":1,"backend":"s3-emulator","endpoint":"http://127.0.0.1:19009","bucket":"xenon-meter-proof","key":"signed/space + percent%.bin","payload_bytes":4097,"deadline_seconds":30}
