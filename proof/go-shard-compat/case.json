@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "backend": "s3-emulator",
+  "partition": "compat-control",
+  "prefix": "compat-shard",
+  "bucket": "xenon-go-compat",
+  "endpoint": "http://127.0.0.1:19002",
+  "compose": "deploy/compat.compose.yaml",
+  "shard_id": 71,
+  "initial_range": 11,
+  "rust_updated_range": 12,
+  "go_updated_range": 13,
+  "initial_data": "AP8BAg==",
+  "rust_updated_data": "AQD+Aw==",
+  "go_updated_data": "AgD9BA==",
+  "encoding": 2,
+  "startup_timeout_seconds": 40,
+  "test_timeout_seconds": 120,
+  "schedule": ["rust_durable_write", "kill_rust", "go_recover_replay_update", "kill_go", "rust_recover_replay"]
+}
