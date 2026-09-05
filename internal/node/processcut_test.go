@@ -122,7 +122,7 @@ func TestGoOwnerDiscoveryAbortsCandidate(t *testing.T) {
 	server := &ExecutionServer{Owner: o}
 	ns, run := uuid.NewString(), uuid.NewString()
 	state, _ := proto.Marshal(&persistencespb.WorkflowExecutionState{RunId: run, State: enumsspb.WORKFLOW_EXECUTION_STATE_RUNNING, Status: enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING})
-	image := &wire.ExecutionImage{NamespaceId: ns, WorkflowId: "watched", RunId: run, ExecutionStateProto: state, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte("before"), Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: state, Encoding: 3}, NextEventId: 2, DbRecordVersion: 1}
+	image := &wire.ExecutionImage{NamespaceId: ns, WorkflowId: "watched", RunId: run, ExecutionStateProto: state, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte("before"), Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: state, Encoding: int32(enumspb.ENCODING_TYPE_PROTO3)}, NextEventId: 2, DbRecordVersion: 1}
 	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
 		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
 		if e != nil {

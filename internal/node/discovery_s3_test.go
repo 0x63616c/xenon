@@ -53,7 +53,7 @@ func TestS3ExecutionDiscoveryCuts(t *testing.T) {
 			ns := "12345678-1234-1234-1234-123456789abc"
 			run := "12345678-1234-1234-1234-123456789def"
 			stateBytes, _ := proto.Marshal(&persistencespb.WorkflowExecutionState{RunId: run, State: enumsspb.WORKFLOW_EXECUTION_STATE_RUNNING, Status: enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING})
-			image := &wire.ExecutionImage{NamespaceId: ns, WorkflowId: "controlled-real-execution", RunId: run, ExecutionStateProto: stateBytes, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte("before"), Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: stateBytes, Encoding: 3}, NextEventId: 2, DbRecordVersion: 1}
+			image := &wire.ExecutionImage{NamespaceId: ns, WorkflowId: "controlled-real-execution", RunId: run, ExecutionStateProto: stateBytes, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte("before"), Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: stateBytes, Encoding: int32(enumspb.ENCODING_TYPE_PROTO3)}, NextEventId: 2, DbRecordVersion: 1}
 			request := func(id string, c *wire.ExecutionCommand) *wire.ExecutionRequest {
 				q := executionRequest(id, c)
 				q.Partition = f.Partition
