@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "name": "go-historytasks",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md",
+    "proto/xenon/v1/execution.proto",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "proof/execution/case.json",
+    "proof/execution/README.md",
+    "docs/research/execution-contract.md",
+    "proto/xenon/v1/historytasks.proto",
+    "gen/xenon/v1/historytasks.pb.go",
+    "gen/xenon/v1/historytasks_grpc.pb.go",
+    "internal/node/historytasks.go",
+    "internal/node/historytasks_test.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/historytasks_integration_test.go",
+    "proof/historytasks/README.md"
+  ],
+  "fault_schedule": "Seed execution task keys through the production writer, read pages, complete and reopen; open a successor writer then replay the stale acknowledged read.",
+  "assertions": [
+    "Three operations cross actual gRPC to the Go native owner.",
+    "Scheduled MaxInt64 continuation uses exact strict-after cursor, including microsecond preepoch values.",
+    "Completion and range completion are durable, replayable and category-isolated.",
+    "Whole encoded responses fit 3MiB and continue without omission.",
+    "Successor engine fences acknowledged read replay."
+  ],
+  "limitations": [
+    "Component memory object-store proof; not process crash or real S3 acceptance.",
+    "Full ExecutionStore composition, ownership routing and Temporal boot remain separate gates."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryTasksRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryTasksRPC"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerHistoryTasksRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerHistoryTasksRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerHistoryTasksBytePages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerHistoryTasksBytePages"
+      ]
+    }
+  ]
+}

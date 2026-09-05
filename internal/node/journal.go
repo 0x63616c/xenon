@@ -21,10 +21,19 @@ const (
 	nexusFamily
 	matchingFamily
 	queuev2Family
+	executionFamily
+	historyTasksFamily
+	executionTasksFamily
 )
 
 func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
 	switch family {
+	case executionFamily:
+		return outcome.GetExecutionResult() != nil
+	case historyTasksFamily:
+		return outcome.GetHistoryTasksResult() != nil
+	case executionTasksFamily:
+		return outcome.GetExecutionTasksResult() != nil
 	case shardFamily:
 		return outcome.GetShardResult() != nil
 	case metadataFamily:

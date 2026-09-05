@@ -1,0 +1,12 @@
+syntax="proto3";
+package xenon.v1;
+import "xenon/v1/execution.proto";
+option go_package="github.com/0x63616c/xenon/gen/xenon/v1;xenonv1";
+service HistoryTasksPersistence {rpc Execute(HistoryTasksRequest) returns(HistoryTasksResult);}
+message HistoryTasksRequest {uint32 protocol_version=1;string partition=2;string operation_id=3;bytes command_sha256=4;HistoryTasksCommand command=5;}
+message HistoryTasksCommand {
+ enum Kind {UNSPECIFIED=0;READ=1;COMPLETE=2;RANGE_COMPLETE=3;}
+ Kind kind=1;int32 shard_id=2;int32 category_id=3;int32 category_type=4;
+ ExecutionTask minimum=5;ExecutionTask maximum=6;int64 page_size=7;bytes next_page_token=8;bool best_effort=9;
+}
+message HistoryTasksResult {enum Error {NONE=0;INTERNAL=1;} Error error=1;string message=2;repeated ExecutionTask tasks=3;bytes next_page_token=4;}
