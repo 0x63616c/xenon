@@ -64,26 +64,18 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 	if !bytes.Equal(req.CommandSha256, digest[:]) {
 		return nil, status.Error(codes.InvalidArgument, "matching digest mismatch")
 	}
-	result, err := s.Owner.Run(ctx, func(_ *native.Db) ([]byte, error) {
-		outcome, err := s.Owner.journal(req.OperationId, req.CommandSha256, matchingFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
-			r, e := applyMatching(tx, c)
-			if e != nil {
-				return nil, e
-			}
-			return &wire.StoredOutcome{Result: &wire.StoredOutcome_MatchingResult{MatchingResult: r}}, nil
-		})
-		if err != nil {
-			return nil, err
+	outcome, err := s.Owner.runJournalResult(ctx, req.OperationId, req.CommandSha256, matchingFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		r, e := applyMatching(tx, c)
+		if e != nil {
+			return nil, e
 		}
-		return proto.Marshal(outcome.GetMatchingResult())
+		return &wire.StoredOutcome{Result: &wire.StoredOutcome_MatchingResult{MatchingResult: r}}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	r := new(wire.MatchingResult)
-	if err = proto.Unmarshal(result, r); err != nil {
-		return nil, backend(err)
-	}
+	r := outcome.GetMatchingResult()
+
 	return r, nil
 }
 

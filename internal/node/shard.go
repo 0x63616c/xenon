@@ -143,6 +143,12 @@ func (o *Owner) Execute(ctx context.Context, request *wire.ShardRequest) (*wire.
 // may outlive ctx; it must never export native handles. Logical persisted errors
 // belong in the encoded result, while Unavailable means uncertain native state.
 func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, error)) ([]byte, error) {
+	return o.run(ctx, operation, false)
+}
+
+// committedJournalResult is true only through runJournalResult, which constructs
+// the entire callback and cannot run caller code after its durable commit.
+func (o *Owner) run(ctx context.Context, operation func(*native.Db) ([]byte, error), committedJournalResult bool) ([]byte, error) {
 	if operation == nil {
 		return nil, status.Error(codes.InvalidArgument, "nil operation")
 	}
@@ -200,7 +206,7 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 			err = status.Errorf(codes.Unavailable, "ownership authority unavailable: %v", err)
 		} else {
 			result, err = operation(o.db)
-			if err == nil && o.config.Authority != nil {
+			if err == nil && o.config.Authority != nil && !committedJournalResult {
 				err = o.authorityBarrier()
 			}
 		}
