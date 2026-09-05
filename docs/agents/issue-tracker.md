@@ -6,9 +6,9 @@ Canonical map: [Prove S3-backed Temporal with dynamically scalable Xenon storage
 
 Use GitHub issues, `wayfinder:map` and `wayfinder:<type>` labels, native sub-issues and native blocking relationships. Claim a ticket by assigning 0x63616c before research. Decision tickets use delegated advocate/reviewer debate under [the autonomous delivery handoff](../handoff-autonomous.md); the coordinator records the outcome without waiting for Calum. Record research resolutions as comments, close the research issue, and add a linked context pointer to the map. Research assets live on `research/<name>` branches under `docs/research/`.
 
-## Current capability gap
+## Verified native graph
 
-The available GitHub connector created all issues and applied labels, but does not expose native sub-issue or dependency mutations. Links in issue bodies are temporary navigation only, not native blocking edges. Native wiring is pending; do not claim the graph is complete or rely on native frontier queries until repaired. GitHub itself supports these relationships. The manifest below records exactly what needs wiring.
+The authenticated GitHub REST API repaired the parent and blocking relationships on 2026-09-05. Readback verified all eight children and nine dependency edges against the manifest below. Use `issues/{number}/sub_issues` and `issues/{number}/dependencies/blocked_by`; inspect existing links before writing to avoid duplicates. Historical capability-gap comments remain preserved.
 
 ## Intended graph
 

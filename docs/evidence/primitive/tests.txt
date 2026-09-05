@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/debug/deps/slatedb_probe-27187b407cafdf35)
+
+running 4 tests
+test tests::competing_writer_fences_old_writer ... ok
+test tests::await_durable_and_admission_gate ... ok
+test tests::serializable_read_dependency_rejects_write_skew ... ok
+test tests::atomic_batch_conflict_and_recovery ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/main.rs (target/debug/deps/slatedb_probe-9aedda36b8a3fdb1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slatedb_probe
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
