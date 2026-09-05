@@ -174,7 +174,8 @@ def main():
             if assignment['node']==owner:assignment['node']=replacement
         publish()
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
-        verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(evidence)])
+        live_history=evidence/'history-before-cold';live_history.mkdir()
+        verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(live_history)])
         verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)
         event('live-sdk-client-connected-before-temporal-kill')
         ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid)
@@ -224,7 +225,12 @@ def main():
         for process,address in [(cold_a,'127.0.0.1:18233'),(cold_b,'127.0.0.1:19233')]:
             process.line('TEMPORAL_STARTED',timeout=120)
             wait(lambda:probe('health','--address',address),60)
-        wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(evidence)),120)
+        cold_history=evidence/'history-after-cold';cold_history.mkdir()
+        wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(cold_history)),120)
+        for original in sorted(live_history.glob('history-*.json')):
+            recovered=cold_history/original.name
+            if json.loads(original.read_text())!=json.loads(recovered.read_text()):raise RuntimeError('acknowledged history changed after cold recovery')
+        report['history_sha256']={str(path.relative_to(evidence)):sha(path) for folder in [live_history,cold_history] for path in folder.glob('history-*.json')}
         wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
         wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
         run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
