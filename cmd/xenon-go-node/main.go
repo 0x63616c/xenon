@@ -83,6 +83,7 @@ func main() {
 	server := grpc.NewServer(grpc.MaxRecvMsgSize(2 * 1024 * 1024))
 	wire.RegisterShardPersistenceServer(server, owner)
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
+	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.
