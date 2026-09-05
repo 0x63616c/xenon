@@ -1,7 +1,11 @@
 name: persistence-gates
 on:
   push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: persistence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
