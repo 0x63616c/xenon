@@ -50,3 +50,26 @@ func TestTraceWriteFailure(t *testing.T) {
 		t.Fatal("write failure passed")
 	}
 }
+
+type closeErrorWriter struct{ bytes.Buffer }
+
+func (*closeErrorWriter) Close() error { return errors.New("close failure") }
+func TestTraceFinalizationFailures(t *testing.T) {
+	for _, w := range []interface{ Write([]byte) (int, error) }{errorWriter{}, &closeErrorWriter{}} {
+		s := NewSink(w, 1)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		if s.Close(ctx) == nil {
+			t.Fatal("zero-event finalization failure passed")
+		}
+		cancel()
+	}
+	var buffer bytes.Buffer
+	s := NewSink(&buffer, 1)
+	_, finish := begin(context.Background(), "active", s)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if s.Close(ctx) == nil {
+		t.Fatal("active invocation closed successfully")
+	}
+	finish(nil)
+}

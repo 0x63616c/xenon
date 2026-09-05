@@ -34,6 +34,7 @@ type Sink struct {
 	failed atomic.Bool
 	mu     sync.RWMutex
 	closed bool
+	active atomic.Int64
 }
 
 func NewSink(w io.Writer, capacity int) *Sink {
@@ -41,7 +42,11 @@ func NewSink(w io.Writer, capacity int) *Sink {
 	go func() {
 		defer close(s.done)
 		if closer, ok := w.(io.Closer); ok {
-			defer closer.Close()
+			defer func() {
+				if closer.Close() != nil {
+					s.failed.Store(true)
+				}
+			}()
 		}
 		enc := json.NewEncoder(w)
 		for e := range s.queue {
@@ -52,7 +57,9 @@ func NewSink(w io.Writer, capacity int) *Sink {
 		if s.failed.Load() {
 			_ = enc.Encode(Event{Kind: "trace_error", Status: "overflow_or_write_failure"})
 		}
-		_ = enc.Encode(Event{Kind: "trace_end", Status: fmt.Sprint(!s.failed.Load())})
+		if enc.Encode(Event{Kind: "trace_end", Status: fmt.Sprint(!s.failed.Load())}) != nil {
+			s.failed.Store(true)
+		}
 	}()
 	return s
 }
@@ -76,6 +83,9 @@ func (s *Sink) Close(ctx context.Context) error {
 	s.mu.Lock()
 	if !s.closed {
 		s.closed = true
+		if s.active.Load() != 0 {
+			s.failed.Store(true)
+		}
 		close(s.queue)
 	}
 	s.mu.Unlock()
@@ -140,9 +150,16 @@ func begin(ctx context.Context, family string, s *Sink) (context.Context, func(e
 	if s == nil {
 		return ctx, func(error) {}
 	}
+	s.mu.RLock()
+	if s.closed {
+		s.failed.Store(true)
+	}
+	s.active.Add(1)
+	s.mu.RUnlock()
 	start := time.Now()
 	v := &invocation{sink: s, start: start, event: Event{Kind: "rpc_invocation", ID: uuid.NewString(), Family: family, Started: start.UTC().Format(time.RFC3339Nano)}}
 	return context.WithValue(ctx, key{}, v), func(e error) {
+		defer s.active.Add(-1)
 		v.event.Duration = time.Since(start).Nanoseconds()
 		v.event.Status = status.Code(e).String()
 		s.emit(v.event)

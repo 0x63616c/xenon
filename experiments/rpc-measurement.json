@@ -64,6 +64,14 @@
       "expected_tests": [
         "TestTraceWriteFailure"
       ]
+    },
+    {
+      "runner": "go-test-rpctrace",
+      "filter": "TestTraceFinalizationFailures",
+      "exact": true,
+      "expected_tests": [
+        "TestTraceFinalizationFailures"
+      ]
     }
   ]
 }

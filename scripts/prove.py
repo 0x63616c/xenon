@@ -77,7 +77,7 @@ def command(spec):
             raise ValueError("unregistered trace adapter proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-rpctrace":
-        if not spec["exact"] or spec["filter"] not in ("TestTraceOverflowAndDrain", "TestTraceWriteFailure"):
+        if not spec["exact"] or spec["filter"] not in ("TestTraceOverflowAndDrain", "TestTraceWriteFailure", "TestTraceFinalizationFailures"):
             raise ValueError("unregistered trace proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-routing":
