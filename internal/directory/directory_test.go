@@ -70,6 +70,14 @@ func TestS3Directory(t *testing.T) {
 	if _, e = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(f.Bucket)}); e != nil {
 		t.Fatal(e)
 	}
+	for _, pair := range [][2]string{{"/same/", "same"}, {"data/meta", "/data/"}, {"data", "data/db"}, {"///", "data"}, {"meta//nested", "data"}, {"meta", "data/../meta"}} {
+		if _, e = New(client, f.Bucket, pair[0], f.Partition, pair[1]); !errors.Is(e, ErrInvalid) {
+			t.Fatal("overlapping/ambiguous prefixes", pair, e)
+		}
+	}
+	if _, e = New(client, f.Bucket, "/data-meta/", f.Partition, "/data/"); e != nil {
+		t.Fatal("prefix sibling rejected", e)
+	}
 	d, e := New(client, f.Bucket, "directory", f.Partition, f.DataPrefix)
 	if e != nil {
 		t.Fatal(e)

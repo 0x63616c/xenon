@@ -72,6 +72,19 @@ type attempt struct {
 
 func (r *Reservation) Record() Record { return r.attempt.snapshot.record }
 func New(client S3, bucket, prefix, partition, dataPrefix string) (*Directory, error) {
+	prefix = strings.Trim(prefix, "/")
+	dataPrefix = strings.Trim(dataPrefix, "/")
+	canonical := func(value string) bool {
+		for _, part := range strings.Split(value, "/") {
+			if part == "" || part == "." || part == ".." {
+				return false
+			}
+		}
+		return true
+	}
+	if !canonical(prefix) || !canonical(dataPrefix) || prefix == dataPrefix || strings.HasPrefix(prefix, dataPrefix+"/") || strings.HasPrefix(dataPrefix, prefix+"/") {
+		return nil, ErrInvalid
+	}
 	if client == nil || bucket == "" || prefix == "" || partition == "" || dataPrefix == "" || len(partition) > 256 || len(dataPrefix) > 1024 {
 		return nil, ErrInvalid
 	}
