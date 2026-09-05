@@ -32,7 +32,12 @@ class MeasurementTests(unittest.TestCase):
         for records in ([attempt,footer],[invocation,invocation,footer],[invocation],
                         [invocation,{'kind':'trace_end','status':'false'}],
                         [invocation,footer,invocation],[{'kind':'trace_error'},footer],
-                        [dict(attempt,family='wrong'),invocation,footer]):
+                        [dict(attempt,family='wrong'),invocation,footer],
+                        [dict(invocation,duration_ns=-1),footer],
+                        [dict(invocation,duration_ns=True),footer],
+                        [dict(invocation,duration_ns='10'),footer],
+                        [dict(invocation,schema=99),footer],
+                        [dict(invocation,status='invented'),footer]):
             with self.subTest(records=records):self.assertFalse(self.trace(records)['complete'])
         self.assertFalse(self.trace([invocation,footer],False)['complete'])
         self.assertFalse(self.trace([attempt,invocation,footer],max_events=1)['complete'])
@@ -53,7 +58,7 @@ class MeasurementTests(unittest.TestCase):
             valid=self.meter_report();write(valid)
             self.assertTrue(m.read_meter(path,0)['complete'])
             self.assertFalse(m.read_meter(path,-9)['complete'])
-            for fields in ({'inflight':1},{'attempts':1},{'completed':1},{'status':{'200':-1}},{'methods':{'SECRET':0}}):
+            for fields in ({'inflight':1},{'attempts':1},{'completed':1},{'status':{'200':-1}},{'methods':{'SECRET':0}},{'schema':True},{'schema':99}):
                 write(dict(valid,**fields));self.assertFalse(m.read_meter(path,0)['complete'])
             path.write_text('{}\n');self.assertFalse(m.read_meter(path,0)['complete'])
 
