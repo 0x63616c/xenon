@@ -22,6 +22,23 @@ def corpus(root):
   p=root/'proof/omes-corpus'/item['file']
   if p.resolve().parent!=(root/'proof/omes-corpus/inputs').resolve() or sha(p)!=item['sha256'] or p.stat().st_size!=item['bytes']:raise ValueError('saved corpus bytes changed')
  return {item['file']:item['sha256'] for item in manifest['inputs']}
+SDK_SUM='h1:WDctKDVuh0Z8Nf7euAyqs/EwcPg1JTIIq1Fut8Tq118='
+def effective_sdk(info):
+ dependencies=[];current=None
+ for line in info.splitlines():
+  fields=line.split()
+  if not fields:continue
+  if fields[0]=='dep':
+   if len(fields)<3:raise ValueError('malformed dependency metadata')
+   current={'module':fields[1],'effective':fields[1:]};dependencies.append(current)
+  elif fields[0]=='=>':
+   if current is None or current.get('replacement'):raise ValueError('orphan/duplicate replacement metadata')
+   current['effective']=fields[1:];current['replacement']=True
+  elif fields[0] in ('mod','build','path'):current=None
+ sdk=[d for d in dependencies if d['module']=='go.temporal.io/sdk']
+ expected=['go.temporal.io/sdk','v1.48.0',SDK_SUM]
+ if len(sdk)!=1 or sdk[0]['effective']!=expected:raise ValueError('effective prepared SDK pin/checksum mismatch')
+ return {'module':expected[0],'version':expected[1],'checksum':expected[2],'replacement':sdk[0].get('replacement',False)}
 def command(argv,path,timeout,cwd=ROOT,env=None):
  started=time.monotonic();result={'argv':list(map(str,argv)),'timeout_seconds':timeout,'started_unix':time.time(),'log':path.name,'timed_out':False}
  with path.open('xb') as log:
@@ -55,7 +72,7 @@ def run_workload(stage,profile,evidence,omes_binary,omes_source,root=ROOT):
   report['omes_build_info']=info
   prepared=Path(omes_source)/'workers/go/prepared'
   worker_info=output(['go','version','-m',str(prepared/'program')],root)
-  if '\tdep\tgo.temporal.io/sdk\tv1.48.0\t' not in worker_info or '\t=>' in worker_info:raise ValueError('Prepared worker SDK dependency mismatch/replacement')
+  report['effective_worker_sdk']=effective_sdk(worker_info)
   report['worker_build_info']=worker_info
   baseline=tree(prepared)
   if not baseline:raise ValueError('missing prepared Go worker')

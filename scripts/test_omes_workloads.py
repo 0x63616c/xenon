@@ -8,6 +8,15 @@ sys.path.insert(0,str(Path(__file__).parent))
 import omes_workloads as runner
 
 class OmesWorkloadControls(unittest.TestCase):
+ def test_effective_sdk_replacements(self):
+  normal='\tdep\tgo.temporal.io/sdk\tv1.48.0\t'+runner.SDK_SUM+'\n'
+  self.assertFalse(runner.effective_sdk(normal)['replacement'])
+  original='\tdep\tgo.temporal.io/sdk\tv1.48.0\n'
+  replacement='\t=>\tgo.temporal.io/sdk\tv1.48.0\t'+runner.SDK_SUM+'\n'
+  self.assertTrue(runner.effective_sdk(original+replacement)['replacement'])
+  for invalid in [normal.replace('v1.48.0','v1.47.0'),original+'\t=>\t../sdk\t(devel)\n', original+replacement.replace(runner.SDK_SUM,'h1:wrong'), original+replacement.replace('go.temporal.io/sdk','example.org/sdk')]:
+   with self.assertRaises(ValueError):runner.effective_sdk(invalid)
+  self.assertTrue(runner.effective_sdk('\tdep\texample.org/other\tv1.0\n\t=>\t../other\t(devel)\n'+original+replacement)['replacement'])
  def test_exit_and_timeout(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp)
