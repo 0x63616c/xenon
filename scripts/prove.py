@@ -256,7 +256,7 @@ def main():
               "commands": [], "config_sha256": {}, "tool_versions": {}, "assertions": manifest["assertions"],
               "limitations": manifest["limitations"]}
     try:
-        report["cargo_config_sha256"] = {p: digest(Path(p)) for p in cargo_configs(ROOT / "test/compatibility/rust", env)}
+        report["cargo_config_sha256"] = {p: digest(Path(p)) for p in cargo_configs(ROOT, env)}
         if report["cargo_config_sha256"]:
             raise ValueError("ambient Cargo config detected; use a checkout/environment without these configs (hashes recorded, contents omitted)")
         if dirty and not args.allow_dirty:
@@ -353,7 +353,7 @@ def main():
                 raise ValueError(f"input changed while experiment ran: {relative}")
         if git("rev-parse", "HEAD") != sha or git("status", "--porcelain=v1", "--untracked-files=all") != dirty:
             raise ValueError("checkout changed while experiment ran")
-        if cargo_configs(ROOT / "test/compatibility/rust", env):
+        if cargo_configs(ROOT, env):
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name in ("shard", "go-shard-compat") and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
