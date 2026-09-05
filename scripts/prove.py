@@ -119,9 +119,9 @@ def command(spec):
             raise ValueError("unregistered visibility fanout proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^TestVisibilityIndependentFanout$"]
     if runner == "go-test-mixed-oracle":
-        if not spec["exact"] or spec["filter"] != "TestMixedSemantics":
+        if not spec["exact"] or spec["filter"] not in ("TestMixedSemantics", "TestMixedNexus", "TestMixedNexusCanceled"):
             raise ValueError("unregistered mixed oracle control")
-        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-omes-oracle", "-run", "^TestMixedSemantics$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-omes-oracle", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-sdk-readiness":
         if not spec["exact"] or spec["filter"] not in ("TestNexusReadinessShardCoverage", "TestNexusReadinessWorkflowEcho", "TestReadinessWorkerPollerScope", "TestNexusHistoryDiagnostic"):
             raise ValueError("unregistered SDK readiness proof")
