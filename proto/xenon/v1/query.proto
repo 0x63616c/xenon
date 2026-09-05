@@ -31,4 +31,5 @@ message VisibilityQuery {
   repeated QueryColumn group_by = 4;
   uint64 schema_version = 5;
   uint32 partition_format = 6;
+  bytes schema_context_sha256 = 7;
 }

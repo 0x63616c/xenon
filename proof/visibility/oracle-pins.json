@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "image": "postgres@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "platform": "linux/arm64",
+  "postgres_source": "7d3e000c5961a544302072058a1184e9a588837b",
+  "temporal_source": "19a774302c613da9adc4436ab14278ccdca8e0a5",
+  "docker_server": "29.4.0",
+  "python": "3.14.7",
+  "go": "go version go1.27.1 darwin/arm64",
+  "inputs": [
+    "internal/visibility/text.go",
+    "internal/visibility/text_test.go",
+    "proof/visibility/oracle-pins.json",
+    "proof/visibility/oracle-cases.json",
+    "proof/visibility/oracle.md",
+    "scripts/visibility-oracle.py"
+  ]
+}
