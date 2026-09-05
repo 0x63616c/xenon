@@ -41,6 +41,7 @@ jobs:
       - run: python3 scripts/prove.py go-outcomes
       - run: python3 scripts/prove.py go-visibility
       - run: python3 scripts/prove.py rpc-measurement
+      - run: python3 scripts/prove.py external-recorder
       - run: python3 scripts/prove.py go-visibility-frozen
       - run: go test -race ./...
         env:

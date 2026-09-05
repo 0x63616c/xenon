@@ -62,7 +62,8 @@
       "expected_tests": [
         "test_early_exit_does_not_wait_until_readiness_timeout",
         "test_readiness_queue_is_bounded_and_complete_log_retained",
-        "test_stop_cleans_descendant_even_after_parent_exit"
+        "test_stop_cleans_descendant_even_after_parent_exit",
+        "test_topology_event_is_a_snapshot"
       ]
     }
   ]
