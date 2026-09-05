@@ -29,7 +29,13 @@ type Config struct {
 // Namespace binding is explicit in the outer message and must be enforced by
 // every storage operation; a division predicate is not an isolation boundary.
 func Compile(text string, cfg Config) (*wire.VisibilityQuery, error) {
-	id, err := uuid.Parse(cfg.NamespaceID)
+	var id uuid.UUID
+	var err error
+	canonicalNamespace := ""
+	if cfg.NamespaceID != "" {
+		id, err = uuid.Parse(cfg.NamespaceID)
+		canonicalNamespace = id.String()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("namespace ID: %w", err)
 	}
@@ -47,7 +53,7 @@ func Compile(text string, cfg Config) (*wire.VisibilityQuery, error) {
 	if len(p.OrderBy) > 0 {
 		return nil, upstream.NewConverterError("ORDER BY is unsupported by the selected SQL visibility policy")
 	}
-	result := &wire.VisibilityQuery{FormatVersion: 1, NamespaceId: id.String(), Predicate: p.QueryExpr, SchemaVersion: cfg.SchemaVersion, PartitionFormat: 1}
+	result := &wire.VisibilityQuery{FormatVersion: 1, NamespaceId: canonicalNamespace, Predicate: p.QueryExpr, SchemaVersion: cfg.SchemaVersion, PartitionFormat: 1}
 	for _, col := range p.GroupBy {
 		result.GroupBy = append(result.GroupBy, column(col))
 	}

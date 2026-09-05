@@ -87,6 +87,10 @@ Every ticket below is a child of the map. In this manifest, identifiers are GitH
 - [Agree the Omes and failure-test acceptance criteria](https://github.com/0x63616c/xenon/issues/8)
 - [Agree the implementation sequence and local harness](https://github.com/0x63616c/xenon/issues/9)
 
-## Research frontier
+## Current execution frontier
 
-The first three research tickets are closed with source-backed reports, not runtime proofs. The next frontier is Choose the storage partition layout and engine. Former grilling tickets are now autonomous decision tickets: resolve their prerequisites and run the advocate/reviewer process without requesting live user approval. Continue creating implementation and validation tickets until the end-to-end destination is met. Assignment to 0x63616c records the agent's claim, not a request for Calum to act.
+The initial research and delegated decision tickets are closed. Their graph above is historical context, not an instruction to repeat those decisions. The live map remains authoritative.
+
+Implementation is under integration in PR55 and PR66. The active runtime frontier is visibility #61, the real multi-instance Temporal ministack #63, and saved fuzz replay #69. Native maintenance #64 and bounded outcome-capacity accounting #67 have clean component proofs; their full workload composition and final integration remain tracked. Fixed history routing #62 and factory #60 still require their documented runtime acceptance.
+
+The first ministack profile is explicitly a smoke gate. Preserve the larger workload, fault, scale-out, visibility and measurement requirements in `docs/design/acceptance.md`; a smaller passing profile does not discharge them. Hosted CI is externally blocked by the account billing/spending-limit annotation recorded on the map. Real-S3 validation requires an authorized bucket/prefix and external credentials. Neither is a pass.

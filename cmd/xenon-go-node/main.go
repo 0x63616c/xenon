@@ -93,6 +93,7 @@ func main() {
 	wire.RegisterMatchingPersistenceServer(server, &node.MatchingServer{Owner: owner})
 	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
 	wire.RegisterNexusPersistenceServer(server, &node.NexusServer{Owner: owner})
+	wire.RegisterVisibilityPersistenceServer(server, &node.VisibilityServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.

@@ -456,6 +456,7 @@ type StoredOutcome struct {
 	//	*StoredOutcome_ExecutionResult
 	//	*StoredOutcome_HistoryTasksResult
 	//	*StoredOutcome_ExecutionTasksResult
+	//	*StoredOutcome_VisibilityResult
 	Result        isStoredOutcome_Result `protobuf_oneof:"result"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -604,6 +605,15 @@ func (x *StoredOutcome) GetExecutionTasksResult() *ExecutionTasksResult {
 	return nil
 }
 
+func (x *StoredOutcome) GetVisibilityResult() *VisibilityResult {
+	if x != nil {
+		if x, ok := x.Result.(*StoredOutcome_VisibilityResult); ok {
+			return x.VisibilityResult
+		}
+	}
+	return nil
+}
+
 type isStoredOutcome_Result interface {
 	isStoredOutcome_Result()
 }
@@ -652,6 +662,10 @@ type StoredOutcome_ExecutionTasksResult struct {
 	ExecutionTasksResult *ExecutionTasksResult `protobuf:"bytes,12,opt,name=execution_tasks_result,json=executionTasksResult,proto3,oneof"`
 }
 
+type StoredOutcome_VisibilityResult struct {
+	VisibilityResult *VisibilityResult `protobuf:"bytes,13,opt,name=visibility_result,json=visibilityResult,proto3,oneof"`
+}
+
 func (*StoredOutcome_ShardResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_MetadataResult) isStoredOutcome_Result() {}
@@ -674,11 +688,13 @@ func (*StoredOutcome_HistoryTasksResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_ExecutionTasksResult) isStoredOutcome_Result() {}
 
+func (*StoredOutcome_VisibilityResult) isStoredOutcome_Result() {}
+
 var File_xenon_v1_persistence_proto protoreflect.FileDescriptor
 
 const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\n" +
-	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x16xenon/v1/cluster.proto\x1a\x14xenon/v1/queue.proto\x1a\x16xenon/v1/history.proto\x1a\x14xenon/v1/nexus.proto\x1a\x17xenon/v1/matching.proto\x1a\x16xenon/v1/queuev2.proto\x1a\x18xenon/v1/execution.proto\x1a\x1bxenon/v1/historytasks.proto\x1a\x1dxenon/v1/executiontasks.proto\"\xb9\x02\n" +
+	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x19xenon/v1/visibility.proto\x1a\x16xenon/v1/cluster.proto\x1a\x14xenon/v1/queue.proto\x1a\x16xenon/v1/history.proto\x1a\x14xenon/v1/nexus.proto\x1a\x17xenon/v1/matching.proto\x1a\x16xenon/v1/queuev2.proto\x1a\x18xenon/v1/execution.proto\x1a\x1bxenon/v1/historytasks.proto\x1a\x1dxenon/v1/executiontasks.proto\"\xb9\x02\n" +
 	"\fShardCommand\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.xenon.v1.ShardCommand.KindR\x04kind\x12\x19\n" +
 	"\bshard_id\x18\x02 \x01(\x05R\ashardId\x12*\n" +
@@ -716,7 +732,7 @@ const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\vStoredShard\x12\x19\n" +
 	"\brange_id\x18\x01 \x01(\x03R\arangeId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\xb6\x06\n" +
+	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\x81\a\n" +
 	"\rStoredOutcome\x12%\n" +
 	"\x0ecommand_sha256\x18\x01 \x01(\fR\rcommandSha256\x12:\n" +
 	"\fshard_result\x18\x02 \x01(\v2\x15.xenon.v1.ShardResultH\x00R\vshardResult\x12C\n" +
@@ -730,7 +746,8 @@ const file_xenon_v1_persistence_proto_rawDesc = "" +
 	" \x01(\v2\x17.xenon.v1.QueueV2ResultH\x00R\rqueuev2Result\x12F\n" +
 	"\x10execution_result\x18\t \x01(\v2\x19.xenon.v1.ExecutionResultH\x00R\x0fexecutionResult\x12P\n" +
 	"\x14history_tasks_result\x18\v \x01(\v2\x1c.xenon.v1.HistoryTasksResultH\x00R\x12historyTasksResult\x12V\n" +
-	"\x16execution_tasks_result\x18\f \x01(\v2\x1e.xenon.v1.ExecutionTasksResultH\x00R\x14executionTasksResultB\b\n" +
+	"\x16execution_tasks_result\x18\f \x01(\v2\x1e.xenon.v1.ExecutionTasksResultH\x00R\x14executionTasksResult\x12I\n" +
+	"\x11visibility_result\x18\r \x01(\v2\x1a.xenon.v1.VisibilityResultH\x00R\x10visibilityResultB\b\n" +
 	"\x06result2L\n" +
 	"\x10ShardPersistence\x128\n" +
 	"\aExecute\x12\x16.xenon.v1.ShardRequest\x1a\x15.xenon.v1.ShardResultB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
@@ -767,6 +784,7 @@ var file_xenon_v1_persistence_proto_goTypes = []any{
 	(*ExecutionResult)(nil),      // 14: xenon.v1.ExecutionResult
 	(*HistoryTasksResult)(nil),   // 15: xenon.v1.HistoryTasksResult
 	(*ExecutionTasksResult)(nil), // 16: xenon.v1.ExecutionTasksResult
+	(*VisibilityResult)(nil),     // 17: xenon.v1.VisibilityResult
 }
 var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	0,  // 0: xenon.v1.ShardCommand.kind:type_name -> xenon.v1.ShardCommand.Kind
@@ -783,13 +801,14 @@ var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	14, // 11: xenon.v1.StoredOutcome.execution_result:type_name -> xenon.v1.ExecutionResult
 	15, // 12: xenon.v1.StoredOutcome.history_tasks_result:type_name -> xenon.v1.HistoryTasksResult
 	16, // 13: xenon.v1.StoredOutcome.execution_tasks_result:type_name -> xenon.v1.ExecutionTasksResult
-	3,  // 14: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
-	4,  // 15: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
-	15, // [15:16] is the sub-list for method output_type
-	14, // [14:15] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	17, // 14: xenon.v1.StoredOutcome.visibility_result:type_name -> xenon.v1.VisibilityResult
+	3,  // 15: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
+	4,  // 16: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
+	16, // [16:17] is the sub-list for method output_type
+	15, // [15:16] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_xenon_v1_persistence_proto_init() }
@@ -798,6 +817,7 @@ func file_xenon_v1_persistence_proto_init() {
 		return
 	}
 	file_xenon_v1_metadata_proto_init()
+	file_xenon_v1_visibility_proto_init()
 	file_xenon_v1_cluster_proto_init()
 	file_xenon_v1_queue_proto_init()
 	file_xenon_v1_history_proto_init()
@@ -819,6 +839,7 @@ func file_xenon_v1_persistence_proto_init() {
 		(*StoredOutcome_ExecutionResult)(nil),
 		(*StoredOutcome_HistoryTasksResult)(nil),
 		(*StoredOutcome_ExecutionTasksResult)(nil),
+		(*StoredOutcome_VisibilityResult)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
