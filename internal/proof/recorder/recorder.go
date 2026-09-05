@@ -15,17 +15,20 @@ import (
 )
 
 type Event struct {
-	Kind        string `json:"kind"`
-	Phase       string `json:"phase,omitempty"`
-	Producer    string `json:"producer,omitempty"`
-	ID          string `json:"id,omitempty"`
-	Sequence    uint64 `json:"sequence,omitempty"`
-	Family      string `json:"family,omitempty"`
-	Method      string `json:"method,omitempty"`
-	Partition   string `json:"partition,omitempty"`
-	OperationID string `json:"operation_id,omitempty"`
-	Status      string `json:"status,omitempty"`
-	DurationNS  int64  `json:"duration_ns,omitempty"`
+	Measurement  string `json:"measurement,omitempty"`
+	ParentID     string `json:"parent_id,omitempty"`
+	ResultStatus string `json:"result_status,omitempty"`
+	Kind         string `json:"kind"`
+	Phase        string `json:"phase,omitempty"`
+	Producer     string `json:"producer,omitempty"`
+	ID           string `json:"id,omitempty"`
+	Sequence     uint64 `json:"sequence,omitempty"`
+	Family       string `json:"family,omitempty"`
+	Method       string `json:"method,omitempty"`
+	Partition    string `json:"partition,omitempty"`
+	OperationID  string `json:"operation_id,omitempty"`
+	Status       string `json:"status,omitempty"`
+	DurationNS   int64  `json:"duration_ns,omitempty"`
 }
 type State struct {
 	Limit         int
@@ -46,17 +49,21 @@ var identifier = regexp.MustCompile(`^[A-Za-z0-9_.:/-]{1,128}$`)
 
 func key(e Event) string { return pair(e.Producer, e.ID) }
 
+func validStatus(v string) bool {
+	switch v {
+	case "OK", "Canceled", "Unknown", "InvalidArgument", "DeadlineExceeded", "NotFound", "AlreadyExists", "PermissionDenied", "ResourceExhausted", "FailedPrecondition", "Aborted", "OutOfRange", "Unimplemented", "Internal", "Unavailable", "DataLoss", "Unauthenticated":
+		return true
+	}
+	return false
+}
 func pair(a, b string) string { raw, _ := json.Marshal([]string{a, b}); return string(raw) }
 
 // Apply returns false for an exact idempotent replay, true for a new event.
 func (s *State) Apply(e Event) (bool, error) {
-	for _, v := range []string{e.Phase, e.Producer, e.ID, e.Family, e.Method, e.Partition, e.OperationID} {
+	for _, v := range []string{e.Phase, e.Producer, e.ID, e.Family, e.Method, e.Partition, e.OperationID, e.ParentID, e.ResultStatus} {
 		if v != "" && !identifier.MatchString(v) {
 			return false, fmt.Errorf("invalid metadata identifier")
 		}
-	}
-	if e.Phase != "" && s.Closed[e.Phase] {
-		return false, fmt.Errorf("phase closed")
 	}
 	if e.Kind == "register" {
 		if old, ok := s.Registrations[key(e)]; ok {
@@ -73,6 +80,9 @@ func (s *State) Apply(e Event) (bool, error) {
 			}
 			return false, fmt.Errorf("conflicting terminal")
 		}
+	}
+	if e.Phase != "" && s.Closed[e.Phase] {
+		return false, fmt.Errorf("phase closed")
 	}
 	if s.Events >= s.Limit*4 {
 		return false, fmt.Errorf("event capacity exhausted")
@@ -96,6 +106,8 @@ func (s *State) Apply(e Event) (bool, error) {
 		clean.Method = ""
 		clean.Partition = ""
 		clean.OperationID = ""
+		clean.Measurement = ""
+		clean.ParentID = ""
 	case "terminal":
 		clean.Phase = ""
 		clean.Producer = ""
@@ -103,6 +115,7 @@ func (s *State) Apply(e Event) (bool, error) {
 		clean.Sequence = 0
 		clean.Status = ""
 		clean.DurationNS = 0
+		clean.ResultStatus = ""
 	}
 	clean.Kind = ""
 	if clean != (Event{}) {
@@ -115,6 +128,19 @@ func (s *State) Apply(e Event) (bool, error) {
 		}
 		s.Phases[e.Phase] = e.Status
 	case "register":
+		if e.Measurement != "rpc_invocation" && e.Measurement != "execute_attempt" {
+			return false, fmt.Errorf("invalid measurement kind")
+		}
+		if e.Measurement == "rpc_invocation" && e.ParentID != "" {
+			return false, fmt.Errorf("invocation cannot have parent")
+		}
+		if e.Measurement == "execute_attempt" {
+			parent, ok := s.Registrations[pair(e.Producer, e.ParentID)]
+			_, done := s.Terminals[pair(e.Producer, e.ParentID)]
+			if !ok || done || parent.Measurement != "rpc_invocation" || parent.Phase != e.Phase || parent.Family != e.Family {
+				return false, fmt.Errorf("invalid attempt parent")
+			}
+		}
 		if e.ID == "" || e.Producer == "" || e.Family == "" || s.Phases[e.Phase] == "" || s.Closed[e.Phase] || s.Dead[e.Producer] || e.Sequence != s.Sequence[e.Producer]+1 || len(s.Registrations) >= s.Limit || e.DurationNS != 0 || e.Status != "" {
 			return false, fmt.Errorf("registration rejected: phase, sequence or capacity")
 		}
@@ -127,6 +153,12 @@ func (s *State) Apply(e Event) (bool, error) {
 		}
 		if (e.Status != "completed" && e.Status != "admission_failed") || (e.Status == "completed" && e.DurationNS <= 0) || (e.Status == "admission_failed" && e.DurationNS != 0) {
 			return false, fmt.Errorf("invalid terminal observation")
+		}
+		if e.Status == "completed" && !validStatus(e.ResultStatus) {
+			return false, fmt.Errorf("invalid RPC result status")
+		}
+		if e.Status == "admission_failed" && e.ResultStatus != "" {
+			return false, fmt.Errorf("admission failure has RPC result")
 		}
 		s.Terminals[key(e)] = e
 	case "death":
@@ -172,7 +204,7 @@ func (s *State) Summary() (Summary, error) {
 	}
 	for k, registration := range s.Registrations {
 		t, ok := s.Terminals[k]
-		group := pair(registration.Phase, registration.Family)
+		group := pair(registration.Measurement, pair(registration.Phase, registration.Family))
 		if !ok {
 			r.Unobserved = append(r.Unobserved, k)
 		} else if t.Status == "admission_failed" {

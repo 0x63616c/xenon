@@ -89,7 +89,7 @@ def command(spec):
             raise ValueError("unregistered trace adapter proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-recorder":
-        if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss"):
+        if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage"):
             raise ValueError("unregistered recorder proof")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/recorder", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-rpctrace":

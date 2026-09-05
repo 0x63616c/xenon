@@ -30,7 +30,7 @@ func event(t *testing.T, url string, e Event) {
 	}
 }
 func registration(id string, seq uint64) Event {
-	return Event{Kind: "register", Phase: "fault", Producer: "producer-1", ID: id, Sequence: seq, Family: "shard"}
+	return Event{Measurement: "rpc_invocation", Kind: "register", Phase: "fault", Producer: "producer-1", ID: id, Sequence: seq, Family: "shard"}
 }
 func TestRecorderProducer(t *testing.T) {
 	if os.Getenv("XENON_RECORDER_CHILD") == "" {
@@ -164,18 +164,30 @@ func TestRecorderCompletedPopulationAndMalformedJournal(t *testing.T) {
 		if err = r.Accept(e); err != nil {
 			t.Fatal(err)
 		}
-		if err = r.Accept(Event{Kind: "terminal", Phase: e.Phase, Producer: e.Producer, ID: e.ID, Sequence: e.Sequence, Status: "completed", DurationNS: int64(i)}); err != nil {
+		if err = r.Accept(Event{Kind: "terminal", Phase: e.Phase, Producer: e.Producer, ID: e.ID, Sequence: e.Sequence, Status: "completed", ResultStatus: "OK", DurationNS: int64(i)}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if err = r.Accept(Event{Kind: "close", Phase: "steady"}); err != nil {
 		t.Fatal(err)
 	}
+	e := registration("1", 1)
+	e.Phase = "steady"
+	if err = r.Accept(e); err != nil {
+		t.Fatal("closed exact registration retry", err)
+	}
+	if err = r.Accept(Event{Kind: "terminal", Phase: "steady", Producer: e.Producer, ID: e.ID, Sequence: 1, Status: "completed", ResultStatus: "OK", DurationNS: 1}); err != nil {
+		t.Fatal("closed terminal retry", err)
+	}
+	e.Family = "changed"
+	if err = r.Accept(e); err == nil {
+		t.Fatal("closed conflict accepted")
+	}
 	if err = r.Close(); err != nil {
 		t.Fatal(err)
 	}
 	summary, err := Validate(path)
-	if err != nil || summary.Completed != 100 || !summary.SteadyEligible[pair("steady", "shard")] {
+	if err != nil || summary.Completed != 100 || !summary.SteadyEligible[pair("rpc_invocation", pair("steady", "shard"))] {
 		t.Fatal(summary, err)
 	}
 	raw, err := os.ReadFile(path)
@@ -257,5 +269,45 @@ func TestRecorderProcessLoss(t *testing.T) {
 	}
 	if _, err = Validate(path); err == nil {
 		t.Fatal("killed recorder passed")
+	}
+}
+
+func TestRecorderMeasurementLinkage(t *testing.T) {
+	s := NewState(10)
+	apply := func(e Event) {
+		t.Helper()
+		if _, err := s.Apply(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply(Event{Kind: "open", Phase: "fault", Status: "steady"})
+	parent := registration("parent", 1)
+	apply(parent)
+	child := registration("child", 2)
+	child.Measurement = "execute_attempt"
+	child.ParentID = "missing"
+	if _, err := s.Apply(child); err == nil {
+		t.Fatal("missing parent accepted")
+	}
+	child.ParentID = "parent"
+	apply(child)
+	end := Event{Kind: "terminal", Phase: "fault", Producer: child.Producer, ID: child.ID, Sequence: 2, Status: "completed", ResultStatus: "secret arbitrary text", DurationNS: 10}
+	if _, err := s.Apply(end); err == nil {
+		t.Fatal("arbitrary result accepted")
+	}
+	end.ResultStatus = "Unavailable"
+	apply(end)
+	end.ID = parent.ID
+	end.Sequence = 1
+	end.DurationNS = 100
+	end.ResultStatus = "OK"
+	apply(end)
+	apply(Event{Kind: "close", Phase: "fault"})
+	summary, err := s.Summary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.Durations) != 2 || summary.Durations[pair("execute_attempt", pair("fault", "shard"))][0] != 10 || summary.Durations[pair("rpc_invocation", pair("fault", "shard"))][0] != 100 {
+		t.Fatal(summary)
 	}
 }

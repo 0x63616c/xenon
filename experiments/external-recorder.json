@@ -67,6 +67,14 @@
       "expected_tests": [
         "TestRecorderProcessLoss"
       ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderMeasurementLinkage",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderMeasurementLinkage"
+      ]
     }
   ]
 }
