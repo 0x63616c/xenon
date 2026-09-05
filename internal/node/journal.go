@@ -10,8 +10,28 @@ import (
 	native "slatedb.io/slatedb-go/uniffi"
 )
 
+type outcomeFamily int
+
+const (
+	shardFamily outcomeFamily = iota
+	metadataFamily
+	clusterFamily
+)
+
+func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
+	switch family {
+	case shardFamily:
+		return outcome.GetShardResult() != nil
+	case metadataFamily:
+		return outcome.GetMetadataResult() != nil
+	case clusterFamily:
+		return outcome.GetClusterResult() != nil
+	}
+	return false
+}
+
 // journal runs only inside Owner.Run. All families share capacity and IDs.
-func (o *Owner) journal(id string, digest []byte, metadata bool, apply func(*native.DbTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
+func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply func(*native.DbTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
 	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
 	if err != nil {
 		return nil, backend(err)
@@ -30,7 +50,7 @@ func (o *Owner) journal(id string, digest []byte, metadata bool, apply func(*nat
 		if !bytes.Equal(outcome.CommandSha256, digest) {
 			return nil, status.Error(codes.InvalidArgument, "operation ID reused with different command")
 		}
-		if (metadata && outcome.GetMetadataResult() == nil) || (!metadata && outcome.GetShardResult() == nil) {
+		if !belongs(outcome, family) {
 			return nil, status.Error(codes.InvalidArgument, "operation ID belongs to another family")
 		}
 		old, err := get(tx, "v1/barrier")

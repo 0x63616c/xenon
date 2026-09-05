@@ -53,7 +53,7 @@ func (s *MetadataServer) Execute(ctx context.Context, request *wire.MetadataRequ
 		return nil, status.Error(codes.InvalidArgument, "command digest mismatch")
 	}
 	resultBytes, err := s.Owner.Run(ctx, func(_ *native.Db) ([]byte, error) {
-		outcome, err := s.Owner.journal(request.OperationId, request.CommandSha256, true, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		outcome, err := s.Owner.journal(request.OperationId, request.CommandSha256, metadataFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
 			result, err := applyNamespace(tx, c)
 			if err != nil {
 				return nil, err

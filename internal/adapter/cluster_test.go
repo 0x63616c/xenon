@@ -148,3 +148,19 @@ func TestClusterRetryAndErrors(t *testing.T) {
 		t.Fatal("missing blob accepted")
 	}
 }
+
+func TestClusterRemoteCancellation(t *testing.T) {
+	for _, c := range []codes.Code{codes.Canceled, codes.DeadlineExceeded} {
+		s := &ClusterStore{partition: "p", invocationTimeout: time.Second, client: clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+			return nil, status.Error(c, "remote deadline")
+		})}
+		err := s.DeleteClusterMetadata(context.Background(), &p.InternalDeleteClusterMetadataRequest{})
+		want := context.Canceled
+		if c == codes.DeadlineExceeded {
+			want = context.DeadlineExceeded
+		}
+		if !errors.Is(err, want) {
+			t.Fatalf("%v: %v", c, err)
+		}
+	}
+}
