@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
+	"github.com/0x63616c/xenon/internal/processcut"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -17,8 +21,9 @@ import (
 )
 
 func main() {
+	cut := processCut()
 	if os.Getenv("XENON_TOPOLOGY_PREFIX") != "" {
-		managedMain()
+		managedMain(cut)
 		return
 	}
 	backend := os.Getenv("XENON_BACKEND")
@@ -81,7 +86,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	server := grpc.NewServer(grpc.MaxRecvMsgSize(2 * 1024 * 1024))
+	options := []grpc.ServerOption{grpc.MaxRecvMsgSize(2 * 1024 * 1024)}
+	if cut != nil {
+		options = append(options, grpc.UnaryInterceptor(cut.Interceptor()))
+	}
+	server := grpc.NewServer(options...)
 	wire.RegisterShardPersistenceServer(server, owner)
 	wire.RegisterQueuePersistenceServer(server, &node.QueueServer{Owner: owner})
 	wire.RegisterQueueV2PersistenceServer(server, &node.QueueV2Server{Owner: owner})
@@ -102,7 +111,7 @@ func main() {
 	}
 }
 
-func managedMain() {
+func managedMain(cut *processcut.Controller) {
 	topology, err := ownership.Environment()
 	if err != nil {
 		log.Fatal(err)
@@ -132,7 +141,7 @@ func managedMain() {
 			}
 		}()
 	}
-	server, router := manager.Server()
+	server, router := manager.ServerWithProcessCut(cut)
 	defer router.Close()
 	go manager.Run(context.Background())
 	identity := manager.Identity()
@@ -152,4 +161,45 @@ func outcomeLimit() uint64 {
 		limit = value
 	}
 	return limit
+}
+
+func processCut() *processcut.Controller {
+	path := os.Getenv("XENON_PROCESS_CUT_PLAN")
+	if path == "" {
+		return nil
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		log.Fatal("process-cut plan unavailable")
+	}
+	defer f.Close()
+	data, e := io.ReadAll(io.LimitReader(f, 4097))
+	if e != nil || len(data) > 4096 {
+		log.Fatal("process-cut plan exceeds bound")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var plan processcut.Plan
+	if e = decoder.Decode(&plan); e != nil {
+		log.Fatal("invalid process-cut plan")
+	}
+	if e = decoder.Decode(new(any)); e != io.EOF {
+		log.Fatal("trailing process-cut plan")
+	}
+	cut, e := processcut.New(plan)
+	if e != nil {
+		log.Fatal(e)
+	}
+	listener, e := net.Listen("tcp", plan.Listen)
+	if e != nil {
+		log.Fatal(e)
+	}
+	server := &http.Server{Handler: cut, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: 5 * time.Second, MaxHeaderBytes: 4096}
+	go func() {
+		if e := server.Serve(listener); e != nil {
+			log.Fatal("process-cut control stopped")
+		}
+	}()
+	fmt.Printf("CUT_CONTROL %s\n", listener.Addr())
+	return cut
 }

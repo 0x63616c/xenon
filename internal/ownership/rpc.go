@@ -4,6 +4,7 @@ import (
 	"context"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/node"
+	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/0x63616c/xenon/internal/routing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -12,9 +13,17 @@ import (
 )
 
 // Server binds every registered family to the same manager and owner admission.
-func (m *Manager) Server() (*grpc.Server, *routing.Router) {
+func (m *Manager) Server() (*grpc.Server, *routing.Router) { return m.ServerWithProcessCut(nil) }
+
+// ServerWithProcessCut is opt-in proof instrumentation; default Server is unchanged.
+func (m *Manager) ServerWithProcessCut(cut *processcut.Controller) (*grpc.Server, *routing.Router) {
 	r := &routing.Router{Node: m.identity.Node + "/" + m.identity.Incarnation, Directory: m, Local: m.dispatch}
-	server := grpc.NewServer(grpc.MaxRecvMsgSize(2*1024*1024), grpc.UnaryInterceptor(r.Interceptor(reply)))
+	interceptors := []grpc.UnaryServerInterceptor{}
+	if cut != nil {
+		interceptors = append(interceptors, cut.Interceptor())
+	}
+	interceptors = append(interceptors, r.Interceptor(reply))
+	server := grpc.NewServer(grpc.MaxRecvMsgSize(2*1024*1024), grpc.ChainUnaryInterceptor(interceptors...))
 	wire.RegisterShardPersistenceServer(server, &wire.UnimplementedShardPersistenceServer{})
 	wire.RegisterQueuePersistenceServer(server, &wire.UnimplementedQueuePersistenceServer{})
 	wire.RegisterQueueV2PersistenceServer(server, &wire.UnimplementedQueueV2PersistenceServer{})
