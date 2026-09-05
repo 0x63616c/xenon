@@ -114,5 +114,6 @@
   "scope": "first-boot-smoke",
   "full_acceptance": false,
   "recovery_seconds": 120,
-  "minimum_free_disk_bytes": 5368709120
+  "minimum_free_disk_bytes": 5368709120,
+  "cold_storage_readiness_seconds": 60
 }

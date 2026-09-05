@@ -9,6 +9,15 @@ import unittest
 spec=importlib.util.spec_from_file_location('ministack_runtime',Path(__file__).with_name('ministack-runtime.py'))
 runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
 class RuntimeSupervisionTests(unittest.TestCase):
+    def test_topology_event_is_a_snapshot(self):
+        fields={'members':{'a':{'incarnation':'old'}},'assignments':{'global':{'node':'a'}}}
+        event=runtime.event_record('topology-published',1.23456,fields)
+        fields['members']['a']['incarnation']='new'
+        fields['assignments']['global']['node']='cold-b'
+        self.assertEqual(event['members']['a']['incarnation'],'old')
+        self.assertEqual(event['assignments']['global']['node'],'a')
+        self.assertEqual(event['elapsed_seconds'],1.235)
+
     def test_early_exit_does_not_wait_until_readiness_timeout(self):
         with tempfile.TemporaryDirectory() as folder:
             process=runtime.Process([sys.executable,'-c','print("wrong readiness")'],folder,os.environ.copy(),Path(folder)/'log')

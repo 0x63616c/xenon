@@ -39,7 +39,11 @@ func run() error {
 	runID := flag.String("run-id", "", "initial run ID for complete history verification")
 	storage := flag.String("storage-address", "127.0.0.1:17935", "stable Xenon ingress")
 	output := flag.String("output", "", "existing evidence output directory")
+	readinessTimeout := flag.Duration("readiness-timeout", 60*time.Second, "bounded cold storage readiness budget")
 	flag.Parse()
+	if *mode == "storage-ready" {
+		return storageReady(*storage, *readinessTimeout)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	c, e := client.DialContext(ctx, client.Options{HostPort: *address, Namespace: *namespace})
