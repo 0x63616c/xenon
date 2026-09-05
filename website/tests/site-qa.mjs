@@ -104,6 +104,7 @@ try {
         await page.screenshot({
           path: `${output}/${name}-${path ? "architecture" : "home"}.png`,
           fullPage: true,
+          animations: "disabled",
         });
       if (!path && name === "desktop") {
         await page.getByRole("button", { name: /Search/ }).click();
@@ -146,6 +147,7 @@ try {
     await currentPage.screenshot({
       path: `${output}/failure.png`,
       fullPage: true,
+      animations: "disabled",
     });
     await writeFile(`${output}/failure.html`, await currentPage.content());
   }
