@@ -26,6 +26,7 @@ func (m *Manager) Server() (*grpc.Server, *routing.Router) {
 	wire.RegisterExecutionPersistenceServer(server, &wire.UnimplementedExecutionPersistenceServer{})
 	wire.RegisterHistoryTasksPersistenceServer(server, &wire.UnimplementedHistoryTasksPersistenceServer{})
 	wire.RegisterExecutionTasksPersistenceServer(server, &wire.UnimplementedExecutionTasksPersistenceServer{})
+	wire.RegisterVisibilityPersistenceServer(server, &wire.UnimplementedVisibilityPersistenceServer{})
 	return server, r
 }
 
@@ -35,6 +36,16 @@ type dispatchMethod struct {
 }
 
 var methods = map[string]dispatchMethod{
+	wire.VisibilityPersistence_Execute_FullMethodName: {
+		response: func() proto.Message { return &wire.VisibilityResult{} },
+		execute: func(ctx context.Context, o *node.Owner, q proto.Message) (proto.Message, error) {
+			request, ok := q.(*wire.VisibilityRequest)
+			if !ok {
+				return nil, status.Error(codes.InvalidArgument, "wrong request type")
+			}
+			return (&node.VisibilityServer{Owner: o}).Execute(ctx, request)
+		},
+	},
 	wire.ExecutionTasksPersistence_Execute_FullMethodName: {
 		response: func() proto.Message { return &wire.ExecutionTasksResult{} },
 		execute: func(ctx context.Context, o *node.Owner, q proto.Message) (proto.Message, error) {
