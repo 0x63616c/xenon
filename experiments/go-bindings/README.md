@@ -1,0 +1,11 @@
+# Official Go binding feasibility probe
+
+Run `python3 scripts/prove.py go-bindings` from a clean checkout. Use `--allow-dirty` only for development; that mode cannot produce `proof_pass=true`.
+
+The committed manifest pins SlateDB source, Rust/Go toolchains, native runtime threads, test names, setup/test deadlines and input paths. The script recreates a verified clean source checkout under `.local`, builds `slatedb-uniffi --locked`, creates an ignored Go module pointing to that exact source's official binding, and runs the committed Go tests. No `/tmp` source path or manually installed shared library is required. It records C compiler/host versions, native-library hash, source/input hashes, commands, exact asserted tests and final source cleanliness in `.local/evidence/<run-id>/result.json`. The root Go module does not depend on the binding; the nested fixture module is materialized by the runner with its explicit local replacement.
+
+Requirements: Git, Python 3.10+, Rustup with pinned Rust 1.94.0 available, Go toolchain bootstrap, and a working C compiler. The experiment explicitly selects Rust 1.94.0 rather than inheriting SlateDB's own toolchain file. It requires cgo and configures library search paths only for the generated test process. Build and test timeouts terminate the entire subprocess group. Linux/macOS shared-library names are supported. Native environment measurements are recorded; this is not a containerized deployment certification.
+
+The cases check actual official APIs for SerializableSnapshot read dependencies, Memory/Remote publication differences, AwaitDurable blocked until WAL flush, recovery, typed fenced errors, and explicit Shutdown/Destroy. The timeout case retains one native wait/handle and admission slot after the caller times out, rejects sixteen further callers, then flushes and observes native completion before freeing the handle. The owner remains quarantined after draining. A Go timeout is never described as cancellation of the Rust future.
+
+These are feasibility tests only. No node implementation or architecture switch is made. Real S3, process kill/recovery, callback lifetime under arbitrary faults, normal maintenance execution and full Temporal conformance remain separate gates. Successful cleanup in a bounded test does not prove an indefinitely stalled native operation can be canceled.
