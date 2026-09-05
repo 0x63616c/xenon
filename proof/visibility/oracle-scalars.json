@@ -141,5 +141,23 @@
         "count": 1
       }
     ]
+  },
+  {
+    "name": "datetime-tie-0000015",
+    "sql": "to_jsonb(to_char('2026-01-01T00:00:00.0000015Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": "2026-01-01 00:00:00.000002"
+  },
+  {
+    "name": "datetime-tie-0000025",
+    "sql": "to_jsonb(to_char('2026-01-01T00:00:00.0000025Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": "2026-01-01 00:00:00.000002"
+  },
+  {
+    "name": "keyword-IN-or-null",
+    "sql": "jsonb_build_object('missing', (( '{}'::jsonb->'KeywordList01') @> jsonb_build_array('x')) OR (( '{}'::jsonb->'KeywordList01') @> jsonb_build_array('y')), 'present', (( '{\"KeywordList01\":[\"y\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('x')) OR (( '{\"KeywordList01\":[\"y\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('y')))",
+    "expected": {
+      "missing": null,
+      "present": true
+    }
   }
 ]
