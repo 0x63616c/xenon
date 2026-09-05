@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import signal
@@ -17,6 +18,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def classify_success(dirty):
+    return ("development-passed", False) if dirty else ("passed", True)
+
+
+def cargo_configs(root, env):
+    # Cargo searches the invocation directory and ancestors, then CARGO_HOME.
+    dirs = [root, *root.parents]
+    home = Path(env.get("CARGO_HOME", str(Path(env["HOME"]) / ".cargo")))
+    if not home.is_absolute():
+        home = root / home
+    paths = [d / ".cargo" / n for d in dirs for n in ("config", "config.toml")]
+    paths += [home / n for n in ("config", "config.toml")]
+    return sorted({str(p.resolve()) for p in paths if p.is_file()})
 
 
 def command(spec):
@@ -90,10 +106,15 @@ def main():
     evidence = ROOT / ".local" / "evidence" / run_id
     evidence.mkdir(parents=True)
     report = {"schema": 1, "experiment": args.name, "commit": sha, "dirty_status": dirty,
-              "reproducible_clean_checkout": not bool(dirty), "backend": "memory", "result": "failed",
+              "reproducible_clean_checkout": not bool(dirty), "backend": "memory", "result": "failed", "proof_pass": False,
+              "platform": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
+              "python": {"version": sys.version, "executable": sys.executable},
               "commands": [], "config_sha256": {}, "tool_versions": {}, "assertions": manifest["assertions"],
               "limitations": manifest["limitations"]}
     try:
+        report["cargo_config_sha256"] = {p: digest(Path(p)) for p in cargo_configs(ROOT, env)}
+        if report["cargo_config_sha256"]:
+            raise ValueError("ambient Cargo config detected; use a checkout/environment without these configs (hashes recorded, contents omitted)")
         if dirty and not args.allow_dirty:
             raise ValueError("checkout is dirty; commit inputs or explicitly use --allow-dirty for development")
         if dirty:
@@ -104,8 +125,9 @@ def main():
                 raise ValueError(f"missing or invalid declared input: {relative}")
             report["config_sha256"][relative] = digest(path)
         (evidence / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-        for tool in ("git", "rustc", "cargo", "python3"):
-            code, output, expired = run_process([tool, "--version"], 30, env, ROOT)
+        for tool in ("git", "rustc", "cargo", "python"):
+            argv = [sys.executable, "--version"] if tool == "python" else [tool, "-vV" if tool == "rustc" else "--version"]
+            code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
                 raise ValueError(f"cannot record tool version: {tool}")
             report["tool_versions"][tool] = output.strip()
@@ -127,13 +149,15 @@ def main():
                 raise ValueError(f"input changed while experiment ran: {relative}")
         if git("rev-parse", "HEAD") != sha or git("status", "--porcelain=v1", "--untracked-files=all") != dirty:
             raise ValueError("checkout changed while experiment ran")
-        report["result"] = "passed"
+        if cargo_configs(ROOT, env):
+            raise ValueError("ambient Cargo config appeared during execution")
+        report["result"], report["proof_pass"] = classify_success(bool(dirty))
     except Exception as error:
         report["error"] = str(error)
     finally:
         (evidence / "result.json").write_text(json.dumps(report, indent=2) + "\n")
         print(f"{report['result'].upper()}: {evidence / 'result.json'}", flush=True)
-    return 0 if report["result"] == "passed" else 1
+    return 0 if report["result"] in ("passed", "development-passed") else 1
 
 
 if __name__ == "__main__":

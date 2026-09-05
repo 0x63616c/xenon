@@ -1,12 +1,26 @@
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 import prove
 
 
 class RunnerTests(unittest.TestCase):
+    def test_dirty_development_can_never_be_proof_pass(self):
+        self.assertEqual(prove.classify_success(True), ("development-passed", False))
+        self.assertEqual(prove.classify_success(False), ("passed", True))
+
+    def test_ambient_cargo_config_discovery(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "repo"
+            root.mkdir()
+            config = Path(folder) / ".cargo" / "config.toml"
+            config.parent.mkdir()
+            config.write_text("[build]\n")
+            self.assertEqual(prove.cargo_configs(root, {"HOME": str(Path(folder) / "home")}), [str(config.resolve())])
+
     def test_commands_are_allowlisted(self):
         with self.assertRaises(ValueError):
             prove.command({'runner': 'shell', 'filter': 'x', 'exact': True, 'expected_tests': ['x']})
