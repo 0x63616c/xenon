@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/ministack"
 	"github.com/0x63616c/xenon/internal/rpctrace"
 	"log"
 	"os"
@@ -20,9 +21,17 @@ import (
 
 func main() {
 	path := flag.String("config", "", "exact Temporal config path")
+	check := flag.Bool("check-config", false, "validate pinned configuration and Nexus HTTP routing without starting services")
 	flag.Parse()
 	if *path == "" {
 		log.Fatal("config required")
+	}
+	if *check {
+		if err := ministack.CheckNexusConfig(*path); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("TEMPORAL_CONFIG_VALID")
+		return
 	}
 	server, e := temporal.NewServer(temporal.WithServerConfigFilePath(*path), temporal.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporal.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporal.ForServices(temporal.DefaultServices))
 	if e != nil {

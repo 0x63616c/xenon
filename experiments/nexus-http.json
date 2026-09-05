@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "name": "nexus-http",
+  "backend": "memory",
+  "timeout_seconds_per_command": 180,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "cmd/xenon-temporal/main.go",
+    "internal/ministack/nexus_config.go",
+    "internal/ministack/nexus_config_test.go",
+    "deploy/ministack/temporal-a.json",
+    "deploy/ministack/temporal-b.json",
+    "deploy/ministack/haproxy.cfg",
+    "deploy/ministack/compose.json",
+    "proof/ministack/case.json",
+    "proof/ministack/nexus-http.md"
+  ],
+  "fault_schedule": "Remove listener, clusterHTTPaddress and publicHTTPclient independently from each declared config; each mustreject. Execute real check-config CLI for bothfiles.",
+  "assertions": [
+    "Pinned Temporal config.Load/Validate accepts both completeconfigs and customcheckrejects missing HTTP requirements.",
+    "Same stable17243 ingress reaches two declared18243/19243 frontendlisteners.",
+    "Actual server launcher check-config exits without startingservices and reportsvalid."
+  ],
+  "limitations": [
+    "Configuration validation, not live HTTP transport or successful Nexus operation; next fullruntime required."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-nexus-config",
+      "filter": "TestNexusHTTPConfiguration",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusHTTPConfiguration"
+      ]
+    },
+    {
+      "runner": "go-check-nexus-config",
+      "filter": "a",
+      "exact": true,
+      "expected_tests": [
+        "TEMPORAL_CONFIG_VALID"
+      ]
+    },
+    {
+      "runner": "go-check-nexus-config",
+      "filter": "b",
+      "exact": true,
+      "expected_tests": [
+        "TEMPORAL_CONFIG_VALID"
+      ]
+    }
+  ]
+}

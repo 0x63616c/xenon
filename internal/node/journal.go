@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/processcut"
@@ -165,6 +166,10 @@ func (o *Owner) cutStage(stage string) error {
 	return nil
 }
 func (o *Owner) commitCut(tx *native.DbTransaction) error {
+	if e := o.cut.Candidate(); e != nil {
+		o.quarantined.Store(true)
+		return backend(e)
+	}
 	optional, e := tx.Commit()
 	if e != nil {
 		return backend(e)
@@ -184,4 +189,27 @@ func (o *Owner) commitCut(tx *native.DbTransaction) error {
 		return pauseErr
 	}
 	return o.cutStage(processcut.AfterAwait)
+}
+
+// runJournalResult returns only the outcome of one fully durable journal call.
+// Its callback runs before journal Commit, and no caller-supplied code executes
+// after that commit under this gate. Thus the journal's nonempty durable write
+// itself is the read/fencing barrier. Arbitrary exported Run keeps its trailing
+// barrier, even if its callback happens to call journal before additional reads.
+func (o *Owner) runJournalResult(ctx context.Context, id string, digest []byte, family outcomeFamily, apply func(*native.DbTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
+	raw, err := o.run(ctx, func(*native.Db) ([]byte, error) {
+		outcome, err := o.journal(id, digest, family, apply)
+		if err != nil {
+			return nil, err
+		}
+		return proto.Marshal(outcome)
+	}, true)
+	if err != nil {
+		return nil, err
+	}
+	result := new(wire.StoredOutcome)
+	if err = proto.Unmarshal(raw, result); err != nil {
+		return nil, backend(err)
+	}
+	return result, nil
 }

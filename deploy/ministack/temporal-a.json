@@ -47,7 +47,8 @@
       "rpc": {
         "grpcPort": 18233,
         "membershipPort": 18300,
-        "bindOnIP": "0.0.0.0"
+        "bindOnIP": "0.0.0.0",
+        "httpPort": 18243
       }
     },
     "history": {
@@ -82,7 +83,8 @@
         "enabled": true,
         "initialFailoverVersion": 1,
         "rpcName": "frontend",
-        "rpcAddress": "127.0.0.1:17233"
+        "rpcAddress": "127.0.0.1:17233",
+        "httpAddress": "127.0.0.1:17243"
       }
     }
   },
@@ -98,5 +100,8 @@
       "state": "disabled",
       "enableRead": false
     }
+  },
+  "publicClient": {
+    "httpHostPort": "127.0.0.1:17243"
   }
 }

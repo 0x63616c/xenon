@@ -64,6 +64,7 @@ def event_record(name,elapsed,fields):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
+    parser.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of the smoke scenario')
     args=parser.parse_args()
     measurement_config=json.loads((ROOT/'proof/ministack/measurements.json').read_text()) if args.measurements else None
     if measurement_config and (measurement_config['schema']!=1 or measurement_config['incomplete_policy']!='preserve_functional_result_but_fail_measurement_and_overall_proof' or measurement_config['resources']!='proof/acceptance/resources.json' or measurement_config['s3_meter']!='proof/s3-meter/local.json'):
@@ -211,93 +212,115 @@ def main():
         for address in ['127.0.0.1:18233','127.0.0.1:19233']:
             wait(lambda:probe('visibility-count','--address',address,'--query',alias_query),60)
         event('both-frontends-search-aliases-ready')
-        worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
-        execution=probe('start');event('workflow-started',**execution)
-        wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')
-        initial=checkpoint('before-owner-kill')
-        if any(successful(initial[name])<=0 for name in ['a','b']):raise RuntimeError('both initial nodes must perform local persistence work')
-        owner=assignments[bootstrap['history_partition']]['node'];nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
-        port=17351 if owner=='a' else 17352
-        # Name is intentionally new: empty local directory and a new process incarnation.
-        replacement=owner+'-replacement';node(replacement,port)
-        for assignment in assignments.values():
-            if assignment['node']==owner:assignment['node']=replacement
-        publish()
-        wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
-        live_history=evidence/'history-before-cold';live_history.mkdir()
-        verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(live_history)])
-        verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)
-        event('live-sdk-client-connected-before-temporal-kill')
-        recovery_deadline=time.monotonic()+case['recovery_seconds']
-        def recovery_remaining():
-            remaining=recovery_deadline-time.monotonic()
-            if remaining<=0:raise TimeoutError('locked Temporal recovery deadline exceeded')
-            return remaining
-        ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid,recovery_seconds=case['recovery_seconds'])
-        probe('control',timeout=recovery_remaining());verify.process.wait(timeout=recovery_remaining())
-        if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
-        event('sdk-sequence-completed')
-        wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
-        # Omes uses its own pinned source/module, never the embedded server.
-        omes=ROOT/'.local/omes-source'
-        if not omes.exists():run(['git','clone','--no-checkout',pins['omes']['repository'],str(omes)],120)
-        run(['git','checkout','--detach',pins['omes']['commit']],cwd=omes)
-        if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
-        run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
-        run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
-        worker_program=omes/'workers/go/prepared/program'
-        report['omes_worker_build_info']=run(['go','version','-m',str(worker_program)])
-        report['effective_omes_worker_sdk']=effective_sdk(report['omes_worker_build_info'])
-        if report['effective_omes_worker_sdk']['version']!=pins['omes']['worker_go_sdk']:raise RuntimeError('prepared Omes binary SDK pin mismatch')
-        report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
-        def omes_inputs():return {str(path.relative_to(omes)):sha(path) for path in (omes/'workers/go/prepared').rglob('*') if path.is_file()}
-        report['omes_generated_sha256']=omes_inputs()
-        if not report['omes_generated_sha256']:raise RuntimeError('missing prepared Omes worker artifacts')
-        omes_process=launch('omes',[str(ROOT/'.local/bin/omes'),*case['omes_command']])
-        # Pinned getRepoDir uses runtime.Caller's build-source path. Build without
-        # -trimpath above and retain the verified checkout for its worker builder.
-        wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-ministack-omes'").get('count',0)>0,60)
-        if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
-        event('omes-work-observed-before-addition')
-        node('c',17353);before_c=wait(lambda:metrics('c'));assignments['matching']['node']='c';publish();event('node-added-during-omes')
-        wait(lambda:successful(metrics('c'),'matching')>successful(before_c,'matching'),60)
-        checkpoint('node-c-served-matching')
-        omes_process.process.wait(timeout=360)
-        if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
-        wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
-        run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
-        if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker inputs changed during workload')
-        if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256']:raise RuntimeError('Omes binary changed during workload')
-        if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
-        event('ui-assertions-passed');checkpoint('before-cold-restart')
-        # Explicit final cold-local restart retains only the S3 service volume.
-        cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config else processes
-        for process in cold_order:process.stop()
-        nodes.clear();members.clear()
-        node('cold-a',17351);node('cold-b',17352)
-        for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
-        publish()
-        readiness=case['cold_storage_readiness_seconds']
-        probe('storage-ready','--storage-address',f"127.0.0.1:{case['ports']['storage_ingress']}",'--readiness-timeout',str(readiness)+'s',timeout=readiness+5)
-        event('cold-storage-ingress-ready')
-        healthy_temporal('cold-temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
-        healthy_temporal('cold-temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
-        cold_history=evidence/'history-after-cold';cold_history.mkdir()
-        wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(cold_history)),120)
-        for original in sorted(live_history.glob('history-*.json')):
-            recovered=cold_history/original.name
-            if json.loads(original.read_text())!=json.loads(recovered.read_text()):raise RuntimeError('acknowledged history changed after cold recovery')
-        report['history_sha256']={str(path.relative_to(evidence)):sha(path) for folder in [live_history,cold_history] for path in folder.glob('history-*.json')}
-        wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
-        wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
-        run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
-        event('cold-local-recovery-passed');checkpoint('cold-recovered')
-        if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
-        if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
-        if sha(Path(node_bin)/'node')!=report['ui_node_sha256']:raise RuntimeError('UI Node binary changed during proof')
-        if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during proof')
-        if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native build artifacts changed during proof')
-        report.update(result='passed',proof_pass=True)
+        def prepare_omes():
+            omes=ROOT/'.local/omes-source'
+            if not omes.exists():run(['git','clone','--no-checkout',pins['omes']['repository'],str(omes)],120)
+            run(['git','checkout','--detach',pins['omes']['commit']],cwd=omes)
+            if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
+            run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
+            run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
+            worker_program=omes/'workers/go/prepared/program'
+            report['omes_worker_build_info']=run(['go','version','-m',str(worker_program)])
+            report['effective_omes_worker_sdk']=effective_sdk(report['omes_worker_build_info'])
+            if report['effective_omes_worker_sdk']['version']!=pins['omes']['worker_go_sdk']:raise RuntimeError('prepared Omes binary SDK pin mismatch')
+            report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
+            def omes_inputs():return {str(path.relative_to(omes)):sha(path) for path in (omes/'workers/go/prepared').rglob('*') if path.is_file()}
+            report['omes_generated_sha256']=omes_inputs()
+            if not report['omes_generated_sha256']:raise RuntimeError('missing prepared Omes worker artifacts')
+            return omes,omes_inputs
+        if args.fuzz_soak:
+            omes,omes_inputs=prepare_omes()
+            probe('fuzz-endpoint',timeout=60)
+            event('fuzz-endpoint-created')
+            readiness=probe('fuzz-endpoint-ready',timeout=75)
+            event('fuzz-endpoint-functionally-ready',**readiness)
+            config=json.loads((ROOT/'proof/omes-corpus/soak.json').read_text())
+            signal.alarm(config['controller_timeout_seconds'])
+            run([sys.executable,'scripts/fuzz-soak.py','--evidence-dir',str(evidence/'fuzz'),'--omes-binary',str(ROOT/'.local/bin/omes'),'--omes-source',str(omes)],config['controller_timeout_seconds']-60)
+            report['fuzz']=json.loads((evidence/'fuzz/result.json').read_text())
+            if not report['fuzz']['soak_pass']:raise RuntimeError('fuzz soak failed')
+            checkpoint('fuzz-finished')
+            if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during fuzz soak')
+            if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during fuzz soak')
+            if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during fuzz soak')
+            if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native artifacts changed during fuzz soak')
+            if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker changed during fuzz soak')
+            report.update(result='passed',proof_pass=True,scope='saved Omes fuzz soak against real MinIO stack; no injected faults')
+        else:
+            worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
+            execution=probe('start');event('workflow-started',**execution)
+            wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')
+            initial=checkpoint('before-owner-kill')
+            if any(successful(initial[name])<=0 for name in ['a','b']):raise RuntimeError('both initial nodes must perform local persistence work')
+            owner=assignments[bootstrap['history_partition']]['node'];nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
+            port=17351 if owner=='a' else 17352
+            # Name is intentionally new: empty local directory and a new process incarnation.
+            replacement=owner+'-replacement';node(replacement,port)
+            for assignment in assignments.values():
+                if assignment['node']==owner:assignment['node']=replacement
+            publish()
+            wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
+            live_history=evidence/'history-before-cold';live_history.mkdir()
+            verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(live_history)])
+            verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)
+            event('live-sdk-client-connected-before-temporal-kill')
+            recovery_deadline=time.monotonic()+case['recovery_seconds']
+            def recovery_remaining():
+                remaining=recovery_deadline-time.monotonic()
+                if remaining<=0:raise TimeoutError('locked Temporal recovery deadline exceeded')
+                return remaining
+            ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid,recovery_seconds=case['recovery_seconds'])
+            probe('control',timeout=recovery_remaining());verify.process.wait(timeout=recovery_remaining())
+            if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
+            event('sdk-sequence-completed')
+            wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
+            # Omes uses its own pinned source/module, never the embedded server.
+            omes,omes_inputs=prepare_omes()
+            omes_process=launch('omes',[str(ROOT/'.local/bin/omes'),*case['omes_command']])
+            # Pinned getRepoDir uses runtime.Caller's build-source path. Build without
+            # -trimpath above and retain the verified checkout for its worker builder.
+            wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-ministack-omes'").get('count',0)>0,60)
+            if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
+            event('omes-work-observed-before-addition')
+            node('c',17353);before_c=wait(lambda:metrics('c'));assignments['matching']['node']='c';publish();event('node-added-during-omes')
+            wait(lambda:successful(metrics('c'),'matching')>successful(before_c,'matching'),60)
+            checkpoint('node-c-served-matching')
+            omes_process.process.wait(timeout=360)
+            if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
+            wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
+            run(['node','probe.mjs',str(evidence/'browser'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
+            if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker inputs changed during workload')
+            if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256']:raise RuntimeError('Omes binary changed during workload')
+            if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
+            event('ui-assertions-passed');checkpoint('before-cold-restart')
+            # Explicit final cold-local restart retains only the S3 service volume.
+            cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config else processes
+            for process in cold_order:process.stop()
+            nodes.clear();members.clear()
+            node('cold-a',17351);node('cold-b',17352)
+            for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
+            publish()
+            readiness=case['cold_storage_readiness_seconds']
+            probe('storage-ready','--storage-address',f"127.0.0.1:{case['ports']['storage_ingress']}",'--readiness-timeout',str(readiness)+'s',timeout=readiness+5)
+            event('cold-storage-ingress-ready')
+            healthy_temporal('cold-temporal-a','deploy/ministack/temporal-a.json','127.0.0.1:18233')
+            healthy_temporal('cold-temporal-b','deploy/ministack/temporal-b.json','127.0.0.1:19233')
+            cold_history=evidence/'history-after-cold';cold_history.mkdir()
+            wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(cold_history)),120)
+            for original in sorted(live_history.glob('history-*.json')):
+                recovered=cold_history/original.name
+                if json.loads(original.read_text())!=json.loads(recovered.read_text()):raise RuntimeError('acknowledged history changed after cold recovery')
+            report['history_sha256']={str(path.relative_to(evidence)):sha(path) for folder in [live_history,cold_history] for path in folder.glob('history-*.json')}
+            wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
+            wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
+            run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
+            event('cold-local-recovery-passed');checkpoint('cold-recovered')
+            if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
+            if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
+            if sha(Path(node_bin)/'node')!=report['ui_node_sha256']:raise RuntimeError('UI Node binary changed during proof')
+            if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during proof')
+            if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native build artifacts changed during proof')
+            report.update(result='passed',proof_pass=True)
     except Exception as error:report['error']=str(error)
     finally:
         try:run([*compose,'logs','--no-color'],30)

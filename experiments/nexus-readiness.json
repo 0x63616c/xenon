@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "name": "nexus-readiness",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "cmd/xenon-sdk-probe/main.go",
+    "cmd/xenon-sdk-probe/nexus_readiness.go",
+    "cmd/xenon-sdk-probe/nexus_readiness_test.go",
+    "cmd/xenon-sdk-probe/nexus_diagnostics.go",
+    "cmd/xenon-sdk-probe/nexus_diagnostics_test.go",
+    "proof/ministack/nexus-readiness.md"
+  ],
+  "fault_schedule": "SDK workflow testsuite real registered Nexus echo operation, deterministic workflowID all4shard mapping, missing-history diagnostic control.",
+  "assertions": [
+    "Readiness IDs cover exact four declared history shards.",
+    "Readiness workflow returns actual registered sync echo result in SDK testsuite.",
+    "Readiness workers disable unused activity polling and endpoint worker disables unused workflow polling.",
+    "History diagnostics expose event counts and progress without payloads; missing history never appears complete."
+  ],
+  "limitations": [
+    "SDK testsuite and diagnostic unit controls, not a live Nexus readiness pass.",
+    "Preserved real runtime60s timeout remains failed; next live run must diagnose matching and Nexus transport."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-sdk-readiness",
+      "filter": "TestNexusReadinessShardCoverage",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusReadinessShardCoverage"
+      ]
+    },
+    {
+      "runner": "go-test-sdk-readiness",
+      "filter": "TestNexusReadinessWorkflowEcho",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusReadinessWorkflowEcho"
+      ]
+    },
+    {
+      "runner": "go-test-sdk-readiness",
+      "filter": "TestReadinessWorkerPollerScope",
+      "exact": true,
+      "expected_tests": [
+        "TestReadinessWorkerPollerScope"
+      ]
+    },
+    {
+      "runner": "go-test-sdk-readiness",
+      "filter": "TestNexusHistoryDiagnostic",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusHistoryDiagnostic"
+      ]
+    }
+  ]
+}
