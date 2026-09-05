@@ -49,6 +49,8 @@
       "filter": "TestRecorderAdapterTimingAndLoss",
       "exact": true,
       "expected_tests": [
+        "TestRecorderAdapterTimingAndLoss/delayed-lost-ack",
+        "TestRecorderAdapterTimingAndLoss/recorder-death",
         "TestRecorderAdapterTimingAndLoss"
       ]
     },
