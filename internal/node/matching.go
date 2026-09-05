@@ -206,9 +206,27 @@ func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Mat
 			}
 			after = c.Token
 		}
+		// Seek to the requested suffix in the native iterator. Scanning from the
+		// prefix for every one-row page makes the pinned 1024-row suite quadratic.
+		end := make([]byte, 8)
+		binary.BigEndian.PutUint64(end, uint64(c.MaxId)^(1<<63))
+		bounds := native.KeyRange{End: &end}
+		if c.Kind == wire.MatchingCommand_GET_TASKS {
+			start := make([]byte, 8)
+			binary.BigEndian.PutUint64(start, uint64(c.MinId)^(1<<63))
+			bounds.Start = &start
+			bounds.StartInclusive = true
+			if after != nil && bytes.Compare(after, start) >= 0 {
+				bounds.Start = &after
+				bounds.StartInclusive = false
+			}
+			if bytes.Compare(*bounds.Start, end) >= 0 {
+				return r, nil
+			}
+		}
 		truncated := false
 		var remove [][]byte
-		err := scanCluster(tx, prefix, func(suffix, value []byte) (bool, error) {
+		err := scanClusterRange(tx, prefix, bounds, func(suffix, value []byte) (bool, error) {
 			if len(suffix) != 8 {
 				return false, status.Error(codes.Internal, "invalid stored task key")
 			}

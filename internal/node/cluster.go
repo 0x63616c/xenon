@@ -115,7 +115,11 @@ func saveCluster(tx *native.DbTransaction, key string, message proto.Message) er
 	return put(tx, key, b)
 }
 func scanCluster(tx *native.DbTransaction, prefix string, visit func([]byte, []byte) (bool, error)) error {
-	iter, err := tx.ScanPrefix([]byte(prefix), native.KeyRange{})
+	return scanClusterRange(tx, prefix, native.KeyRange{}, visit)
+}
+
+func scanClusterRange(tx *native.DbTransaction, prefix string, bounds native.KeyRange, visit func([]byte, []byte) (bool, error)) error {
+	iter, err := tx.ScanPrefix([]byte(prefix), bounds)
 	if err != nil {
 		return backend(err)
 	}
