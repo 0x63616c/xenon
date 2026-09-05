@@ -48,7 +48,7 @@ def output(args, **kwargs):
     return subprocess.check_output(args, timeout=30, **kwargs)
 
 def replay_command(item):
-    return ["omes", "run-scenario-with-worker", "--scenario", "fuzzer", "--language", "go", "--version", "v1.48.0", "--namespace", "xenon-ministack", "--server-address", "127.0.0.1:17233", "--run-id", "xenon-ministack-fuzz", "--iterations", "1", "--max-concurrent", "1", "--max-iteration-attempts", "1", "--timeout", "900s", "--option", "nexus-endpoint=xenon-fuzz", "--option", "input-file=proof/omes-corpus/" + item["file"]]
+    return ["omes", "run-scenario-with-worker", "--scenario", "fuzzer", "--language", "go", "--version", "v1.48.0", "--dir-name", "prepared", "--namespace", "xenon-ministack", "--server-address", "127.0.0.1:17233", "--run-id", "xenon-ministack-fuzz", "--iterations", "1", "--max-concurrent", "1", "--max-iteration-attempts", "1", "--timeout", "900s", "--option", "nexus-endpoint=xenon-fuzz", "--option", "input-file=proof/omes-corpus/" + item["file"]]
 
 def verify():
     manifest = json.loads((CORPUS / 'manifest.json').read_text())
