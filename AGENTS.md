@@ -14,6 +14,10 @@ This project adapts Matt Pocock's Wayfinder: execution is in scope, agent debate
 
 Calum clarified during autonomous execution that the system must use S3 directly unless demonstrated impossible. Continue with SlateDB backed by S3; the exploratory SQLite snapshot alternative was dropped before acceptance. Do not reintroduce it as a shortcut. No evidence establishes impossibility.
 
+## Node language preference
+
+Calum explicitly prefers Go for Xenon application code. Use the official pinned SlateDB Go bindings if the reproducible binding and lifecycle tests support the required correctness contracts. SlateDB retains its Rust core and direct S3 durability. Record any concrete blocker before choosing another node language; existing Rust probes remain engine evidence, not a reason to override this preference.
+
 ## Requirements
 
 S3-only durable application storage; disposable local disks; retain Temporal Server and existing SDKs/UI; execution and visibility; Omes; dynamic Xenon storage-node addition and ownership movement; multiple Temporal instances; crash recovery; preserved acknowledged writes. Slower is acceptable, correctness is mandatory. SlateDB and adapter-side routing remain candidates until delegated decisions validate them.
