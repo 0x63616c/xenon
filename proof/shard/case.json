@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "backend": "memory",
+  "partition": "execution-0",
+  "prefix": "shard-rpc-proof",
+  "shard_id": 7,
+  "initial_range": 11,
+  "updated_range": 15,
+  "initial_data": "AAH+/2FiYw==",
+  "updated_data": "AQIDAA==",
+  "encoding": 2,
+  "startup_timeout_seconds": 30,
+  "test_timeout_seconds": 60,
+  "fault": "drop_first_completed_update_response"
+}
