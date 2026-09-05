@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v7.36.0
-// source: proto/xenon/v1/persistence.proto
+// source: xenon/v1/persistence.proto
 
 package xenonv1
 
@@ -121,5 +121,5 @@ var ShardPersistence_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/xenon/v1/persistence.proto",
+	Metadata: "xenon/v1/persistence.proto",
 }
