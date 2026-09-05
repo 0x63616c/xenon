@@ -48,7 +48,8 @@
     "internal/node/queue_test.go",
     "proof/queue/case.json",
     "proof/queue/README.md",
-    "docs/research/queue-contract.md"
+    "docs/research/queue-contract.md",
+    ".github/workflows/ci.yaml"
   ],
   "fault_schedule": "Committed queue RPC proxy drops first completed DLQ enqueue response; native test stages delete then aborts journal, reopens after delete-all and fences prior owner.",
   "assertions": [
