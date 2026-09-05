@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -85,6 +86,9 @@ func New(client S3, bucket, prefix, partition, dataPrefix string) (*Directory, e
 	if !canonical(prefix) || !canonical(dataPrefix) || prefix == dataPrefix || strings.HasPrefix(prefix, dataPrefix+"/") || strings.HasPrefix(dataPrefix, prefix+"/") {
 		return nil, ErrInvalid
 	}
+	if !utf8.ValidString(prefix) || !utf8.ValidString(partition) || !utf8.ValidString(dataPrefix) || len(prefix)+1+2*len(partition)+5 > 1024 {
+		return nil, ErrInvalid
+	}
 	if client == nil || bucket == "" || prefix == "" || partition == "" || dataPrefix == "" || len(partition) > 256 || len(dataPrefix) > 1024 {
 		return nil, ErrInvalid
 	}
@@ -93,7 +97,7 @@ func New(client S3, bucket, prefix, partition, dataPrefix string) (*Directory, e
 func (d *Directory) valid(r Record) bool {
 	_, te := uuid.Parse(r.Transition)
 	_, ie := uuid.Parse(r.Incarnation)
-	return r.Format == 1 && r.Partition == d.partition && r.DataPrefix == d.dataPrefix && r.Generation > 0 && te == nil && ie == nil && r.Node != "" && len(r.Node) <= 256 && r.Address != "" && len(r.Address) <= 1024 && (r.State == "opening" || r.State == "ready")
+	return r.Format == 1 && r.Partition == d.partition && r.DataPrefix == d.dataPrefix && r.Generation > 0 && te == nil && ie == nil && r.Node != "" && utf8.ValidString(r.Node) && len(r.Node) <= 256 && r.Address != "" && utf8.ValidString(r.Address) && len(r.Address) <= 1024 && (r.State == "opening" || r.State == "ready")
 }
 func (d *Directory) Read(ctx context.Context) (Snapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, OperationTimeout)
