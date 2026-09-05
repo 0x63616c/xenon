@@ -26,6 +26,8 @@ class RunnerTests(unittest.TestCase):
     def test_all_committed_experiments_keep_registered_commands(self):
         for path in sorted((prove.ROOT / "experiments").glob("*.json")):
             manifest = json.loads(path.read_text())
+            help_text = subprocess.check_output([sys.executable, str(prove.ROOT / "scripts/prove.py"), "--help"], text=True)
+            self.assertIn(manifest["name"], help_text)
             if manifest["name"] == "go-bindings":
                 self.assertEqual(manifest["source_commit"], "3fb9e8abab0c9f5833f0c154140ceef009fea02a")
                 self.assertEqual(len(manifest["expected_tests"]), 4)
@@ -67,6 +69,19 @@ class RunnerTests(unittest.TestCase):
         for bad in ("", json.dumps(passed[-1]), output + '\n' + json.dumps({"Action": "skip", "Test": "Other"})):
             with self.assertRaises(ValueError):
                 prove.verify_go_tests(bad, ["TestShardRPC"])
+
+    def test_go_owner_commands_and_result_family(self):
+        self.assertEqual(prove.command({"runner": "go-node-build"}), [sys.executable, "scripts/build-go-node.py"])
+        spec = {"runner": "go-test-node", "filter": "TestGoOwnerRecoveryAndReplay", "exact": True, "expected_tests": ["TestGoOwnerRecoveryAndReplay"]}
+        self.assertIn("./internal/node", prove.command(spec))
+        with self.assertRaises(ValueError):
+            prove.command({**spec, "filter": "TestOtherPackage"})
+        package = "github.com/0x63616c/xenon/internal/node"
+        events = [{"Action": "pass", "Test": spec["filter"], "Package": package}, {"Action": "pass", "Package": package}]
+        output = "\n".join(json.dumps(event) for event in events)
+        prove.verify_go_tests(output, spec["expected_tests"], package)
+        with self.assertRaises(ValueError):
+            prove.verify_go_tests(output, spec["expected_tests"])
 
     def test_timeout_is_failure(self):
         code, _, expired = prove.run_process([sys.executable, '-c', 'import time; time.sleep(10)'], 0.05, os.environ.copy(), Path.cwd())
