@@ -36,18 +36,36 @@ def cargo_configs(root, env):
 
 
 def command(spec):
+    if spec == {"runner": "cargo-build-node"}:
+        return ["cargo", "build", "--locked", "-p", "xenon-node"]
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
-    if spec["runner"] != "cargo-test" or not isinstance(spec["exact"], bool):
-        raise ValueError("only structured cargo-test commands are allowed")
+    runner = spec["runner"]
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard") or not isinstance(spec["exact"], bool):
+        raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
     tests = spec["expected_tests"]
     if not isinstance(tests, list) or not tests or len(set(tests)) != len(tests):
         raise ValueError("expected_tests must be a nonempty unique list")
-    if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", t) for t in tests):
+    if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
-    return ["cargo", "test", "--locked", "-p", "slatedb-probe", "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
+    if runner == "go-test-shard":
+        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes"):
+            raise ValueError("unregistered Go test")
+        return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+    package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
+    return ["cargo", "test", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
+
+
+def verify_go_tests(output, expected):
+    events = [json.loads(line) for line in output.splitlines() if line.strip() and not line.startswith("go: downloading ")]
+    if any(event.get("Action") in ("skip", "fail") for event in events):
+        raise ValueError("Go test skipped or failed")
+    actual = [event["Test"] for event in events if event.get("Action") == "pass" and "Test" in event]
+    packages = [event for event in events if event.get("Action") == "pass" and "Test" not in event]
+    if sorted(actual) != sorted(expected) or len(packages) != 1 or packages[0].get("Package") != "github.com/0x63616c/xenon/internal/adapter":
+        raise ValueError(f"Go test assertions mismatch: expected {expected}, observed {actual}")
 
 
 def verify_tests(output, expected):
@@ -83,7 +101,7 @@ def run_process(argv, timeout, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "go-bindings"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "go-bindings"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -95,11 +113,15 @@ def main():
     timeout = manifest["timeout_seconds_per_command"]
     if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 900:
         raise ValueError("invalid timeout")
-    commands = [(command(spec), spec["expected_tests"]) for spec in manifest["commands"]]
+    commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
+    if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
+        raise ValueError("shard proof must build the node before tests")
     if not commands:
         raise ValueError("empty experiment")
     env = {k: os.environ[k] for k in ("PATH", "HOME", "USER", "TMPDIR", "RUSTUP_HOME", "CARGO_HOME") if k in os.environ}
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
+    if args.name == "shard":
+        env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
     def git(*argv):
         return subprocess.check_output(["git", *argv], cwd=ROOT, env=env, text=True).strip()
     sha = git("rev-parse", "HEAD")
@@ -127,13 +149,25 @@ def main():
                 raise ValueError(f"missing or invalid declared input: {relative}")
             report["config_sha256"][relative] = digest(path)
         (evidence / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-        for tool in ("git", "rustc", "cargo", "python"):
-            argv = [sys.executable, "--version"] if tool == "python" else [tool, "-vV" if tool == "rustc" else "--version"]
+        if args.name == "shard":
+            install_argv = [sys.executable, "scripts/install-protoc.py"]
+            code, output, expired = run_process(install_argv, 120, env, ROOT)
+            (evidence / "compiler-install.log").write_text(output)
+            report["compiler_install"] = {"argv": install_argv, "exit_code": code, "timed_out": expired, "output": "compiler-install.log"}
+            if code or expired:
+                raise ValueError("pinned compiler installation failed")
+            env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
+            report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else [])):
+            argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
                 raise ValueError(f"cannot record tool version: {tool}")
             report["tool_versions"][tool] = output.strip()
-        for index, (argv, expected) in enumerate(commands, 1):
+            required = manifest.get("required_tool_prefixes", {}).get(tool)
+            if required and not output.strip().startswith(required):
+                raise ValueError(f"tool version mismatch: {tool} requires {required}")
+        for index, (argv, expected, runner) in enumerate(commands, 1):
             print(f"[{index}/{len(commands)}] {' '.join(argv)}", flush=True)
             started = time.monotonic()
             code, output, expired = run_process(argv, timeout, env, ROOT)
@@ -144,7 +178,17 @@ def main():
                 "output_sha256": digest(evidence / log), "expected_tests": expected})
             if code or expired:
                 raise ValueError(f"command {index} failed (exit={code}, timeout={expired}); see {log}")
-            verify_tests(output, expected)
+            if runner == "cargo-build-node":
+                binary = ROOT / "target/debug/xenon-node"
+                if not binary.is_file():
+                    raise ValueError("node build produced no binary")
+                report["node_binary_sha256"] = digest(binary)
+            elif runner == "go-test-shard":
+                verify_go_tests(output, expected)
+                if digest(ROOT / "target/debug/xenon-node") != report.get("node_binary_sha256"):
+                    raise ValueError("node binary changed during tests")
+            else:
+                verify_tests(output, expected)
         # Detect edits made during execution rather than assigning them the starting hash.
         for relative, expected_hash in report["config_sha256"].items():
             if digest(ROOT / relative) != expected_hash:
@@ -153,6 +197,8 @@ def main():
             raise ValueError("checkout changed while experiment ran")
         if cargo_configs(ROOT, env):
             raise ValueError("ambient Cargo config appeared during execution")
+        if args.name == "shard" and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
+            raise ValueError("compiler binary changed during experiment")
         report["result"], report["proof_pass"] = classify_success(bool(dirty))
     except Exception as error:
         report["error"] = str(error)
