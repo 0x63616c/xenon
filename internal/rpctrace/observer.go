@@ -49,7 +49,7 @@ func NewObserver(endpoint, producer, phase string) (*Observer, error) {
 	if _, err = state.Apply(recorder.Event{Kind: "register", Phase: phase, Producer: producer, ID: "validate", Sequence: 1, Family: "validate", Measurement: "rpc_invocation"}); err != nil {
 		return nil, err
 	}
-	return &Observer{endpoint: endpoint + "/event", producer: producer, phase: phase, client: &http.Client{Timeout: time.Second, Transport: &http.Transport{Proxy: nil, MaxConnsPerHost: 4}}, serial: make(chan struct{}, 1)}, nil
+	return &Observer{endpoint: endpoint + "/event", producer: producer, phase: phase, client: &http.Client{Timeout: time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }, Transport: &http.Transport{Proxy: nil, MaxConnsPerHost: 4}}, serial: make(chan struct{}, 1)}, nil
 }
 func (o *Observer) Failure() error {
 	if o.failed.Load() || o.active.Load() != 0 {

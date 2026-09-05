@@ -30,7 +30,9 @@
     "internal/adapter/shard.go",
     "internal/adapter/matching.go",
     "internal/adapter/history.go",
-    "internal/adapter/historytasks.go"
+    "internal/adapter/historytasks.go",
+    "internal/adapter/rpc_trace_test.go",
+    "internal/rpctrace/trace_test.go"
   ],
   "fault_schedule": "20ms registration ACK delay, first ACK dropped after real journal Accept, actual gRPC handler10ms with firsttwo Unavailable and20+40ms adapterbackoff. Independent recorder listener death after invocation registration, before Execute. Concurrent20 producers share serialized sequence.",
   "assertions": [
