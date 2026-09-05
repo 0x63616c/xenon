@@ -62,6 +62,9 @@ func callContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, 30*time.Second)
 }
 func check(ctx context.Context, api workflowservice.WorkflowServiceClient, ns string, d dataset, sizes []int) (map[string]any, error) {
+	return checkPages(ctx, api, ns, d, sizes, nil)
+}
+func checkPages(ctx context.Context, api workflowservice.WorkflowServiceClient, ns string, d dataset, sizes []int, afterFirstPage func() error) (map[string]any, error) {
 	expected := d.expected()
 	names := map[string]string{}
 	for i := 0; i < d.count; i++ {
@@ -86,8 +89,14 @@ func check(ctx context.Context, api workflowservice.WorkflowServiceClient, ns st
 			if e != nil {
 				return nil, e
 			}
+			if r == nil {
+				return nil, fmt.Errorf("nil list response")
+			}
 			pageCount++
 			for _, x := range r.Executions {
+				if x == nil || x.Execution == nil {
+					return nil, fmt.Errorf("nil execution record")
+				}
 				want, ok := expected[x.Execution.RunId]
 				if !ok || seen[x.Execution.RunId] || x.Status != want {
 					return nil, fmt.Errorf("unexpected, duplicate or wrong-status visibility record")
@@ -100,6 +109,14 @@ func check(ctx context.Context, api workflowservice.WorkflowServiceClient, ns st
 					return nil, fmt.Errorf("wrong workflow ID version")
 				}
 				seen[x.Execution.RunId] = true
+			}
+			if pageCount == 1 && afterFirstPage != nil {
+				if len(r.NextPageToken) == 0 {
+					return nil, fmt.Errorf("interpage control requires another page")
+				}
+				if err := afterFirstPage(); err != nil {
+					return nil, err
+				}
 			}
 			if len(r.NextPageToken) == 0 {
 				break
@@ -128,6 +145,9 @@ func check(ctx context.Context, api workflowservice.WorkflowServiceClient, ns st
 	if e != nil {
 		return nil, e
 	}
+	if count == nil {
+		return nil, fmt.Errorf("nil count response")
+	}
 	if count.Count != int64(d.count) {
 		return nil, fmt.Errorf("count mismatch")
 	}
@@ -137,10 +157,13 @@ func check(ctx context.Context, api workflowservice.WorkflowServiceClient, ns st
 	if e != nil {
 		return nil, e
 	}
+	if groups == nil {
+		return nil, fmt.Errorf("nil group response")
+	}
 	got := map[string]int64{}
 	for _, g := range groups.Groups {
 		var value string
-		if len(g.GroupValues) != 1 || payload.Decode(g.GroupValues[0], &value) != nil {
+		if g == nil || len(g.GroupValues) != 1 || payload.Decode(g.GroupValues[0], &value) != nil {
 			return nil, fmt.Errorf("invalid group")
 		}
 		if _, ok := got[value]; ok {
@@ -194,6 +217,9 @@ func run() error {
 	if e != nil {
 		return e
 	}
+	if description == nil || description.NamespaceInfo == nil || description.NamespaceInfo.Id == "" {
+		return fmt.Errorf("missing namespace identity")
+	}
 	d := dataset{namespace: description.NamespaceInfo.Id, queue: "xenon-frozen-visibility", count: 2000}
 	s, e := adapter.NewVisibilityStore(*storage, "xenon-visibility", "global", searchattribute.NewTestEsProvider(), nil, chasm.NewRegistry(log.NewNoopLogger()))
 	if e != nil {
@@ -224,56 +250,30 @@ func run() error {
 		report["partition_counts"] = partitions
 	}
 	if *mode == "mutate" {
-		// Explicit per-write barriers interleave acknowledged mutations and public scans.
-		changed := make(chan int)
-		ack := make(chan struct{})
-		finished := make(chan error, 1)
+		// Freeze page one before exactly one durable mutation, then resume cursor.
 		d.concurrent = true
-		go func() {
-			for i := 0; i < d.count; i++ {
+		events := []map[string]any{}
+		for i := 0; i < d.count; i++ {
+			hook := func() error {
+				events = append(events, map[string]any{"round": i, "event": "first_page_received", "unix_nano": time.Now().UnixNano()})
 				b := d.record(i, 2)
 				b.WorkflowID += "-updated"
 				if e := s.UpsertWorkflowExecution(ctx, &store.InternalUpsertWorkflowExecutionRequest{InternalVisibilityRequestBase: b}); e != nil {
-					finished <- e
-					close(changed)
-					return
+					return e
 				}
-				select {
-				case changed <- i:
-				case <-ctx.Done():
-					finished <- ctx.Err()
-					close(changed)
-					return
-				}
-				select {
-				case <-ack:
-				case <-ctx.Done():
-					finished <- ctx.Err()
-					close(changed)
-					return
-				}
+				events = append(events, map[string]any{"round": i, "event": "write_durably_acknowledged", "unix_nano": time.Now().UnixNano()})
+				return nil
 			}
-			finished <- nil
-			close(changed)
-		}()
-		for range changed {
-			select {
-			case ack <- struct{}{}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			if _, e = check(ctx, c.WorkflowService(), *ns, d, []int{7}); e != nil {
-				cancel()
+			if _, e = checkPages(ctx, c.WorkflowService(), *ns, d, []int{7}, hook); e != nil {
 				return e
 			}
-		}
-		if e = <-finished; e != nil {
-			return e
+			events = append(events, map[string]any{"round": i, "event": "remaining_pages_verified", "unix_nano": time.Now().UnixNano()})
 		}
 		d.concurrent = false
 		d.updated = 20
+		report["mutation_events"] = events
 		report["mutation_acknowledged_rounds"] = 20
-		report["mutation_scope"] = "writer and public scans overlap after per-write release; known old/new values allowed during mutation, exact final values required; no snapshot claim"
+		report["mutation_scope"] = "exactly one durable write between first and remaining public pages; no simultaneous-commit or snapshot claim"
 	}
 	verified, e := check(ctx, c.WorkflowService(), *ns, d, f.PageSizes)
 	if e != nil {
