@@ -21,3 +21,7 @@ A successful mutation is recoverable from S3 after serving-process failure and c
 The delivery includes pinned Omes mixed workflows, visibility API assertions, unchanged UI exercises, fault injection, benchmarks and real-S3 validation. Emulator results do not satisfy the real-S3 gate. Numeric targets require delegated advocate/reviewer agreement before being used as acceptance gates.
 
 The repository remains private. Deliver runnable setup, teardown, CI, recovery instructions, compatibility matrix and exact evidence. The Wayfinder map and active goal remain open until all shipping gates pass, or external blockers are accurately recorded after independent work is exhausted.
+
+## Reproducible experiments
+
+Every accepted proof is committed and rerunnable from a clean checkout. Pin tools and container digests; declare topology, storage configuration, workload inputs and fault schedules as versioned files. Preserve generated fuzz inputs as content-addressed replay assets. One entrypoint recreates the environment, runs assertions, and emits machine-readable evidence tied to the source commit and input/configuration hashes. Include teardown and retention behavior. Real-S3 resources use declarative configuration with credentials supplied externally. Ad hoc observations do not satisfy shipping gates.

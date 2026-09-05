@@ -20,6 +20,10 @@ S3-only durable application storage; disposable local disks; retain Temporal Ser
 
 Do not silently weaken scope or confuse source review with executed tests. Pin versions, cite primary evidence, and report failures honestly. A debate is not a correctness proof.
 
+## Reproducible proof requirement
+
+Calum requires experiments and tests to be repeatable and committed using declarative setup. A passing ad hoc command is not a delivery gate. Commit pinned tool/image versions, environment/topology definitions, workload configuration, fault schedules and saved fuzz inputs, automatic assertions, and setup/run/teardown commands. Evidence must identify the exact source revision, configuration/input hashes, environment versions and result. A clean checkout must recreate the experiment. Keep real-S3 target configuration declarative but credentials external and secret-free. Do not replace this with prose saying a test once passed.
+
 ## Delivery
 
 Use GitHub issues as the Wayfinder map and publish linked resolution evidence. Claim tickets before work. Commit, review, test, push and integrate completed work, respecting actual branch protections. Former grilling tickets no longer require Calum to reply. Preserve historical comments and annotate the new delegation.
