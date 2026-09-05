@@ -172,6 +172,10 @@ func run() error {
 		if *runID == "" || *output == "" {
 			return fmt.Errorf("verify requires initial run ID and output directory")
 		}
+		if _, e = c.CheckHealth(ctx, &client.CheckHealthRequest{}); e != nil {
+			return e
+		}
+		fmt.Println("VERIFY_CLIENT_CONNECTED")
 		var result ministack.Result
 		if e = c.GetWorkflow(ctx, *id, *runID).Get(ctx, &result); e != nil {
 			return e

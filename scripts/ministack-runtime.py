@@ -175,6 +175,8 @@ def main():
         publish()
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
         verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(evidence)])
+        verify.line('VERIFY_CLIENT_CONNECTED',timeout=30)
+        event('live-sdk-client-connected-before-temporal-kill')
         ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid)
         probe('control');verify.process.wait(timeout=120)
         if verify.process.returncode:raise RuntimeError('live SDK verifier failed')
