@@ -94,6 +94,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
+		fmt.Fprintf(os.Stderr, "VISIBILITY_COUNT count=%d expected=%d\n", count.Count, *expectedCount)
 		if count.Count != int64(*expectedCount) {
 			return fmt.Errorf("visibility count %d != %d", count.Count, *expectedCount)
 		}
@@ -114,6 +115,7 @@ func run() error {
 				}
 				seen[key] = true
 			}
+			fmt.Fprintf(os.Stderr, "VISIBILITY_PAGE page=%d rows=%d total=%d next=%t\n", page, len(response.Executions), len(seen), len(response.NextPageToken) > 0)
 			token = response.NextPageToken
 			if len(token) == 0 {
 				break
