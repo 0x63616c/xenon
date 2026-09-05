@@ -224,13 +224,23 @@ type oneNativeWait struct {
 }
 
 func (w *oneNativeWait) await(h *db.WriteHandle, deadline time.Duration) (<-chan error, error) {
+	return w.awaitWithPause(h, deadline, nil)
+}
+func (w *oneNativeWait) awaitWithPause(h *db.WriteHandle, deadline time.Duration, afterPrecheck func()) (<-chan error, error) {
 	if w.quarantined.Load() {
 		return nil, errors.New("quarantined")
+	}
+	if afterPrecheck != nil {
+		afterPrecheck()
 	}
 	select {
 	case w.slot <- struct{}{}:
 	default:
 		return nil, errors.New("busy")
+	}
+	if w.quarantined.Load() {
+		<-w.slot
+		return nil, errors.New("quarantined")
 	}
 	done := make(chan error, 1)
 	w.active.Add(1)
@@ -257,6 +267,13 @@ func TestTimedOutNativeWaitRetainsHandleAndGate(t *testing.T) {
 	defer closeDB(t, d)
 	w := &oneNativeWait{slot: make(chan struct{}, 1)}
 	h := put(t, d, "pending", "retained")
+	paused, resume := make(chan struct{}), make(chan struct{})
+	pausedResult := make(chan error, 1)
+	go func() {
+		_, err := w.awaitWithPause(nil, time.Second, func() { close(paused); <-resume })
+		pausedResult <- err
+	}()
+	<-paused
 	started := time.Now()
 	done, e := w.await(h, time.Duration(c.CallerTimeoutMS)*time.Millisecond)
 	if e == nil || done == nil || time.Since(started) > time.Second {
@@ -286,5 +303,17 @@ func TestTimedOutNativeWaitRetainsHandleAndGate(t *testing.T) {
 	}
 	if w.active.Load() != 0 || !w.destroyed.Load() || len(w.slot) != 0 || !w.quarantined.Load() {
 		t.Fatal("lifecycle/quarantine invariant lost")
+	}
+	close(resume)
+	select {
+	case err := <-pausedResult:
+		if err == nil || err.Error() != "quarantined" {
+			t.Fatal("paused caller crossed quarantine", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("paused admission did not reject")
+	}
+	if w.active.Load() != 0 || len(w.slot) != 0 {
+		t.Fatal("paused caller acquired native worker after quarantine")
 	}
 }

@@ -53,6 +53,7 @@ def main():
             run(['git','checkout','--detach',manifest['source_commit']],30,source)
         if git('rev-parse','HEAD',cwd=source)!=manifest['source_commit'] or git('status','--porcelain=v1','--untracked-files=all',cwd=source):
             raise ValueError('cached SlateDB source is wrong revision or dirty')
+        if prove.cargo_configs(source,env):raise ValueError('Cargo config detected at actual native build directory')
         report['slatedb_commit']=manifest['source_commit']
         report['slatedb_cargo_lock_sha256']=prove.digest(source/'Cargo.lock')
         for tool,argv in [('rustc',['rustc','+'+manifest['rust_toolchain'],'-vV']),('go',['go','version']),('cc',['cc','--version']),('git',['git','--version']),('python',[sys.executable,'--version'])]:
@@ -85,6 +86,7 @@ def main():
         if git('rev-parse','HEAD')!=sha or git('status','--porcelain=v1','--untracked-files=all')!=dirty:raise ValueError('checkout changed during run')
         if git('rev-parse','HEAD',cwd=source)!=manifest['source_commit'] or git('status','--porcelain=v1','--untracked-files=all',cwd=source):raise ValueError('SlateDB source changed during run')
         if prove.digest(library)!=report['shared_library_sha256']:raise ValueError('native library changed during run')
+        if prove.cargo_configs(source,env) or prove.cargo_configs(ROOT,env):raise ValueError('Cargo config appeared during run')
         report['result'],report['proof_pass']=prove.classify_success(bool(dirty))
     except Exception as error:
         report['error']=str(error)
