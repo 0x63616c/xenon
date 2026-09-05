@@ -29,13 +29,7 @@ jobs:
       - run: python3 scripts/prove.py ownership
       - run: cargo run --locked -p slatedb-probe
       - run: python3 scripts/prove.py shard
-      - run: python3 scripts/prove.py go-matching-userdata
-      - run: python3 scripts/prove.py go-nexus
-      - run: python3 scripts/prove.py forwarding
-      - run: python3 scripts/prove.py go-cluster
-      - run: python3 scripts/prove.py go-queue
-      - run: python3 scripts/prove.py go-history
-      - run: python3 scripts/prove.py go-queuev2
+      - run: python3 scripts/prove.py go-persistence
       - run: go test -race ./...
         env:
           CGO_ENABLED: '1'

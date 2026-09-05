@@ -1,0 +1,562 @@
+{
+  "schema": 1,
+  "name": "go-persistence",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    ".github/workflows/ci.yaml",
+    "Cargo.lock",
+    "Cargo.toml",
+    "cmd/xenon-go-node/main.go",
+    "docs/research/history-contract.md",
+    "docs/research/nexus-contract.md",
+    "docs/research/queue-contract.md",
+    "gen/xenon/v1/cluster.pb.go",
+    "gen/xenon/v1/cluster_grpc.pb.go",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "gen/xenon/v1/matching.pb.go",
+    "gen/xenon/v1/matching_grpc.pb.go",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "gen/xenon/v1/nexus.pb.go",
+    "gen/xenon/v1/nexus_grpc.pb.go",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "gen/xenon/v1/queue.pb.go",
+    "gen/xenon/v1/queue_grpc.pb.go",
+    "gen/xenon/v1/queuev2.pb.go",
+    "gen/xenon/v1/queuev2_grpc.pb.go",
+    "go.mod",
+    "go.sum",
+    "internal/adapter/cluster.go",
+    "internal/adapter/cluster_test.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/adapter/matching.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "internal/adapter/nexus.go",
+    "internal/adapter/nexus_test.go",
+    "internal/adapter/queue.go",
+    "internal/adapter/queue_integration_test.go",
+    "internal/adapter/queuev2.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "internal/node/cluster.go",
+    "internal/node/cluster_test.go",
+    "internal/node/family_collision_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "internal/node/journal.go",
+    "internal/node/matching.go",
+    "internal/node/matching_test.go",
+    "internal/node/matching_userdata.go",
+    "internal/node/matching_userdata_test.go",
+    "internal/node/metadata.go",
+    "internal/node/metadata_test.go",
+    "internal/node/nexus.go",
+    "internal/node/nexus_test.go",
+    "internal/node/queue.go",
+    "internal/node/queue_test.go",
+    "internal/node/queuev2.go",
+    "internal/node/queuev2_test.go",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "internal/routing/router.go",
+    "internal/routing/router_test.go",
+    "proof/forwarding/README.md",
+    "proof/go-cluster/README.md",
+    "proof/go-cluster/case.json",
+    "proof/go-matching/README.md",
+    "proof/go-matching/USERDATA.md",
+    "proof/go-matching/case.json",
+    "proof/go-matching/userdata.json",
+    "proof/go-shard/README.md",
+    "proof/go-shard/case.json",
+    "proof/history/README.md",
+    "proof/history/case.json",
+    "proof/namespace/case.json",
+    "proof/queue/README.md",
+    "proof/queue/case.json",
+    "proof/queuev2/README.md",
+    "proof/queuev2/case.json",
+    "proof/shard/case.json",
+    "proto/xenon/v1/cluster.proto",
+    "proto/xenon/v1/history.proto",
+    "proto/xenon/v1/matching.proto",
+    "proto/xenon/v1/metadata.proto",
+    "proto/xenon/v1/nexus.proto",
+    "proto/xenon/v1/persistence.proto",
+    "proto/xenon/v1/queue.proto",
+    "proto/xenon/v1/queuev2.proto",
+    "rust-toolchain.toml",
+    "scripts/build-go-node.py",
+    "scripts/generate-proto.sh",
+    "scripts/install-protoc.py",
+    "scripts/test-shard.sh",
+    "scripts/test_prove.py",
+    "tools/protoc.json",
+    "tools/slatedb-native.json"
+  ],
+  "fault_schedule": "Union of the committed cluster, queue, history, Nexus, matching user data, QueueV2 and forwarding manifests. Includes actual equal-byte command collision across shard/queue families in both directions before and after reopen.",
+  "assertions": [
+    "Exact Go ShardStore payload/encoding and callback semantics cross real gRPC into Rust SlateDB.",
+    "Lost completed response retries same operation identity and does not overwrite intervening state.",
+    "Shard and outcomes reopen together; replay cannot bypass writer fencing.",
+    "Missing Update and range mismatch preserve distinct typed errors.",
+    "Stalled durability quarantines; caller timeout and admission are bounded.",
+    "All integration fixtures execute only the freshly built Go owner; no Rust server fallback.",
+    "All namespace MetadataStore methods execute across real gRPC into the Go SlateDB owner.",
+    "Namespace rename/version/name indexes and durable outcomes update atomically; replay cannot cross operation families.",
+    "Near-limit namespace records paginate within the default gRPC receive limit and replay identically.",
+    "Cluster CAS has exactly one winner and reopens with same durable result.",
+    "Replay cannot extend membership expiry or bypass fencing.",
+    "Membership filters preserve strict time boundaries, optional filter presence and paging.",
+    "Real gRPC and upstream manager receive byte-bounded pages and typed errors.",
+    "All legacy Queue methods cross actual RPC to Go SlateDB owner.",
+    "Normal and DLQ versions guard writes and Init preserves existing metadata.",
+    "Lost completed response retries exact operation identity without duplicate enqueue.",
+    "Message allocation survives delete-all and reopen; replay does not recreate deleted messages.",
+    "Aborted transaction publishes neither staged delete nor outcome journal.",
+    "Queue replay rejects fenced owners.",
+    "Near-limit page fits default gRPC response bound and continuation omits no record.",
+    "All seven history methods cross actual gRPC to the Go native owner.",
+    "Forward and reverse multipage reads return complete node/transaction sequences; metadata-only preserves ordering.",
+    "Exact-key append uses PostgreSQL upsert semantics.",
+    "New branch/tree/node abort together; acknowledged tree and nodes reopen together with durable replay.",
+    "Fork and deletion boundaries preserve ancestry guard and opaque tree information.",
+    "Lost completed append response retries unchanged identity; fenced owner cannot replay.",
+    "Bounded large-node pagination preserves continuation; append timeout types match selected SQL paths.",
+    "Endpoint and catalog version CAS commit atomically, failed CAS and missing delete leave catalog unchanged.",
+    "Reopen preserves endpoint bytes, versions and historical outcomes; changed replay is rejected and a competing owner fences replay.",
+    "Five 1MiB endpoints page completely in binary UUID order within 3MiB responses.",
+    "Actual gRPC preserves blobs, retries a lost completed response once without a second mutation, and returns observed catalog version with stale-list errors.",
+    "Eight legacy matching queue/tasks operations cross real Go adapter gRPC into the official native SlateDB owner.",
+    "Stale range and duplicate batches leave no partial writes across subqueues.",
+    "Sorted bounded task pages, completion limits, and byte-bounded queue/task pages preserve blobs.",
+    "Completed-response retry and reopened outcome replay preserve state and identity.",
+    "Full pinned legacy TaskStore satisfies upstream TaskQueue, TaskQueueTask and TaskQueueUserData suites over actual gRPC.",
+    "Namespace batches atomically update user-data versions and build-ID mappings; pointer Applied/Conflicting outputs survive typed transport.",
+    "Conflict and duplicate mapping rollback preserve both data and indexes; durable replay/reopen cannot repeat prior mutation.",
+    "User-data near-limit pages preserve three complete blobs across byte-budget continuation.",
+    "Pinned upstream QueueV2 and HistoryTaskQueueManager interface suites pass over real gRPC.",
+    "Range-delete metadata and messages commit atomically; replay preserves subsequent enqueue.",
+    "Pages obey full3MiB wire budget and exact protobuf continuation format.",
+    "Terminal and stale cursors cannot wrap or resurrect logically deleted sentinel.",
+    "Complete operation envelope unchanged across actual gRPC forwarding.",
+    "Stale route refresh reaches owner; in-memory recorded response prevents a second logical test execution.",
+    "Forwarded deadline never extends original deadline.",
+    "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline.",
+    "Closed router rejects new local admissions.",
+    "Equal command bytes in different RPC families cannot replay another family outcome."
+  ],
+  "limitations": [
+    "Single logical partition; no directory/routing/full Temporal boot.",
+    "Memory object store only; no real-S3 or process-crash recovery claim.",
+    "Native registered proof; pinned container orchestration remains a separate shipping gate.",
+    "Memory object store; no process-crash or real S3 claim.",
+    "Legacy Queue only; QueueV2 and full Temporal boot remain pending.",
+    "Three pinned SQL deviations explicitly adjudicated in issue30 and contract evidence.",
+    "Memory object store only; no S3/process-crash proof.",
+    "History component only, not full ExecutionStore or Temporal boot.",
+    "GetAllHistoryTreeBranches covers configured partition; adapter routing/global fanout remains a later gate.",
+    "Pinned PostgreSQL reverse and metadata-only query defects corrected explicitly; no broad SQL parity claim.",
+    "Local memory object store only, no real S3/Temporal boot/FairTaskStore/distributed catalog proof.",
+    "Blob1MiB, command1800KiB, batch/list1000, response3MiB ceilings remain; nonpaginated build-ID result fails explicitly above budget.",
+    "Upstream suites generate randomized UUIDs/task IDs in pinned code; workload shape fixed, not byte-identical generated inputs. Custom fault fixtures use committed IDs.",
+    "Upstream conformance helper uses declared1ms WAL flush for1024durable one-row reads inside upstream30s deadline. Production default remains100ms; every operation still awaits durability.",
+    "Transport component only; test resolver and recorded response are in-memory fixtures, not S3 authority or durable replay proof.",
+    "Production ownership manager, process integration and live scale-out remain required."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerRecoveryAndReplay",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerRecoveryAndReplay"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerFencedReplay",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerFencedReplay"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNativeTimeout",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNativeTimeout"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerPausedAdmission",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerPausedAdmission"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestShardRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestShardRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestShardTransportBoundsAndTypes",
+      "exact": true,
+      "expected_tests": [
+        "TestShardTransportBoundsAndTypes",
+        "TestShardTransportBoundsAndTypes/Unavailable",
+        "TestShardTransportBoundsAndTypes/ResourceExhausted",
+        "TestShardTransportBoundsAndTypes/InvalidArgument",
+        "TestShardTransportBoundsAndTypes/OK"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNamespaceRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestNamespaceRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNamespaceByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestNamespaceByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNamespaceRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNamespaceRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerClusterRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerClusterRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerClusterMembership",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerClusterMembership"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerClusterRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerClusterRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestQueueRemoteCancellation",
+      "exact": true,
+      "expected_tests": [
+        "TestQueueRemoteCancellation"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryTimeoutTypes",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryTimeoutTypes"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerHistoryRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerHistoryRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusPages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusPages"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerNexusRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerNexusRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestNexusTransport",
+      "exact": true,
+      "expected_tests": [
+        "TestNexusTransport"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRPC"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingBytePages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingBytePages"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUserData",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUserData"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUserDataRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUserDataRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUserDataBytePages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUserDataBytePages"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUpstreamUserData",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUpstreamUserData",
+        "TestGoOwnerMatchingUpstreamUserData/TestSetInitialAndIncrement",
+        "TestGoOwnerMatchingUpstreamUserData/TestUpdateConflict"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUpstreamQueues",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUpstreamQueues",
+        "TestGoOwnerMatchingUpstreamQueues/TestCreate_Normal",
+        "TestGoOwnerMatchingUpstreamQueues/TestCreate_Sticky",
+        "TestGoOwnerMatchingUpstreamQueues/TestCreate_Normal_Dup",
+        "TestGoOwnerMatchingUpstreamQueues/TestCreate_Sticky_Dup",
+        "TestGoOwnerMatchingUpstreamQueues/TestUpdate_Normal",
+        "TestGoOwnerMatchingUpstreamQueues/TestUpdate_Normal_Conflict",
+        "TestGoOwnerMatchingUpstreamQueues/TestUpdate_Sticky",
+        "TestGoOwnerMatchingUpstreamQueues/TestUpdate_Sticky_Conflict",
+        "TestGoOwnerMatchingUpstreamQueues/TestDelete",
+        "TestGoOwnerMatchingUpstreamQueues/TestDelete_Conflict"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingUpstreamTasks",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingUpstreamTasks",
+        "TestGoOwnerMatchingUpstreamTasks/TestCreateGet_Conflict",
+        "TestGoOwnerMatchingUpstreamTasks/TestCreateGet_One",
+        "TestGoOwnerMatchingUpstreamTasks/TestCreateGet_Multiple",
+        "TestGoOwnerMatchingUpstreamTasks/TestCreateDelete_Multiple"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Upstream",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Upstream",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/BestEffortDeleteTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest/DeleteDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ClientTest/ReadDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks/HappyPath",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteDLQTasks/QueueDoesNotExist",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/DeleteTasksErr",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/GetDLQTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/HappyPath",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/InvalidNextPageToken",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/ListQueues/InvalidPageSize",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask/empty_blob",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTQMErrDeserializeTask/nil_blob",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerCreateQueueErr",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerEnqueueTasks",
+        "TestGoOwnerQueueV2Upstream/HistoryTaskQueueManagerImpl/TestHistoryTaskQueueManagerEnqueueTasksErr",
+        "TestGoOwnerQueueV2Upstream/InvalidEncodingForQueueMessage",
+        "TestGoOwnerQueueV2Upstream/InvalidEncodingForQueueMetadata",
+        "TestGoOwnerQueueV2Upstream/TestCreateQueueTwice",
+        "TestGoOwnerQueueV2Upstream/TestEnqueueMessageToNonExistentQueue",
+        "TestGoOwnerQueueV2Upstream/TestHappyPath",
+        "TestGoOwnerQueueV2Upstream/TestInvalidPageToken",
+        "TestGoOwnerQueueV2Upstream/TestListQueues",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/HappyPath",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/InvalidPageToken",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/NegativePageSize",
+        "TestGoOwnerQueueV2Upstream/TestListQueues/QueueSize",
+        "TestGoOwnerQueueV2Upstream/TestNonPositivePageSize",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteAllAndReEnqueue",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteAndValidateMinId",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteBeforeCreate",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/DeleteSameRangeTwice",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/HappyPath",
+        "TestGoOwnerQueueV2Upstream/TestRangeDeleteMessages/InvalidMaxMessageID"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Recovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Recovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerQueueV2Terminal",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerQueueV2Terminal"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingReplayAndRefresh",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingReplayAndRefresh"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingLoopsAndDeadline",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingLoopsAndDeadline"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingClosedAdmission",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingClosedAdmission"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerCrossFamilyCollision",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerCrossFamilyCollision",
+        "TestGoOwnerCrossFamilyCollision/shard_first",
+        "TestGoOwnerCrossFamilyCollision/queue_first"
+      ]
+    }
+  ]
+}
