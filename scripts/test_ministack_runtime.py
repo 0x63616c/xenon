@@ -15,6 +15,16 @@ class RuntimeSupervisionTests(unittest.TestCase):
             try:
                 with self.assertRaises(RuntimeError):process.line('READY',timeout=2)
             finally:process.stop()
+    def test_readiness_queue_is_bounded_and_complete_log_retained(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'log'
+            process=runtime.Process([sys.executable,'-c','for i in range(4096): print(i)'],folder,os.environ.copy(),path)
+            try:
+                process.process.wait(timeout=5);process.thread.join(timeout=5)
+                self.assertFalse(process.thread.is_alive())
+                self.assertEqual(process.lines.qsize(),1024)
+            finally:process.stop()
+            self.assertEqual(path.read_text().splitlines(),[str(i) for i in range(4096)])
     def test_stop_cleans_descendant_even_after_parent_exit(self):
         with tempfile.TemporaryDirectory() as folder:
             marker=Path(folder)/'survived'
