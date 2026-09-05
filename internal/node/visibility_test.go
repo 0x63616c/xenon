@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -12,6 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"math"
 	"os"
+	native "slatedb.io/slatedb-go/uniffi"
+	"strings"
 	"testing"
 	"time"
 )
@@ -177,5 +180,147 @@ func TestGoOwnerVisibilityEmptyIdentity(t *testing.T) {
 	call("late-start", &wire.VisibilityCommand{Kind: wire.VisibilityCommand_START, Document: late})
 	if r := call("still-deleted", &wire.VisibilityCommand{Kind: wire.VisibilityCommand_GET, NamespaceId: zero, RunId: ""}); r.Error != wire.VisibilityResult_NOT_FOUND {
 		t.Fatal(r)
+	}
+}
+
+func TestGoOwnerVisibilitySchemaBudget(t *testing.T) {
+	var fixture struct {
+		Schema            int `json:"schema"`
+		BatchSize         int `json:"batch_size"`
+		NameBytes         int `json:"name_bytes"`
+		SuccessfulBatches int `json:"successful_batches"`
+		ResponseBudget    int `json:"response_budget"`
+		TimeoutSeconds    int `json:"timeout_seconds"`
+	}
+	raw, err := os.ReadFile("../../proof/visibility/schema-budget.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(raw, &fixture); err != nil || fixture.Schema != 1 || fixture.ResponseBudget != vmodel.ResponseBudget || fixture.BatchSize <= 0 || fixture.NameBytes != 256 || fixture.SuccessfulBatches != 3 || fixture.TimeoutSeconds <= 0 {
+		t.Fatal("invalid schema budget fixture", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fixture.TimeoutSeconds)*time.Second)
+	defer cancel()
+	objects := objects(t)
+	open := func() *Owner {
+		o, e := NewOwner(engine(t, objects, "visibility-schema-budget", false), DefaultConfig("global"))
+		if e != nil {
+			t.Fatal(e)
+		}
+		t.Cleanup(func() { _ = o.Close(context.Background()) })
+		return o
+	}
+	o := open()
+	s := &VisibilityServer{Owner: o}
+	call := func(id string, c *wire.VisibilityCommand) *wire.VisibilityResult {
+		t.Helper()
+		b, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
+		if e != nil {
+			t.Fatal(e)
+		}
+		h := sha256.Sum256(b)
+		r, e := s.Execute(ctx, &wire.VisibilityRequest{ProtocolVersion: 1, Partition: "global", OperationId: id, CommandSha256: h[:], Command: c})
+		if e != nil {
+			t.Fatal(e)
+		}
+		return r
+	}
+	batch := func(n int) *wire.VisibilityCommand {
+		c := &wire.VisibilityCommand{Kind: wire.VisibilityCommand_ADD_ATTRIBUTES, SearchAttributeTypes: map[string]int32{}}
+		for i := 0; i < fixture.BatchSize; i++ {
+			name := fmt.Sprintf("%016d", n*fixture.BatchSize+i)
+			name += strings.Repeat("x", fixture.NameBytes-len(name))
+			c.SearchAttributeTypes[name] = int32(enumspb.INDEXED_VALUE_TYPE_KEYWORD)
+		}
+		if proto.Size(c) >= fixture.ResponseBudget {
+			t.Fatal("individual request exceeds fixture budget")
+		}
+		return c
+	}
+	var accepted *wire.VisibilityResult
+	for i := 0; i < fixture.SuccessfulBatches; i++ {
+		accepted = call(fmt.Sprintf("schema-add-%d", i), batch(i))
+		if accepted.Error != wire.VisibilityResult_NONE || accepted.SchemaVersion != uint64(i+1) || proto.Size(accepted) > fixture.ResponseBudget {
+			t.Fatal("bounded addition failed", accepted.Error, accepted.SchemaVersion, proto.Size(accepted))
+		}
+	}
+	overflow := batch(fixture.SuccessfulBatches)
+	rejected := call("schema-overflow", overflow)
+	if rejected.Error != wire.VisibilityResult_RESOURCE_EXHAUSTED || len(rejected.SearchAttributeTypes) != 0 {
+		t.Fatal("overflow was not bounded", rejected.Error)
+	}
+	getSchema := &wire.VisibilityCommand{Kind: wire.VisibilityCommand_GET_SCHEMA}
+	if got := call("schema-after-reject", getSchema); !proto.Equal(got, accepted) {
+		t.Fatal("failed addition changed durable schema")
+	}
+	if o.Quarantined() {
+		t.Fatal("logical exhaustion quarantined owner")
+	}
+	if err = o.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+	o = open()
+	s.Owner = o
+	if got := call("schema-overflow", overflow); !proto.Equal(got, rejected) {
+		t.Fatal("reopened rejection replay differs")
+	}
+	if got := call("schema-reopened", getSchema); !proto.Equal(got, accepted) {
+		t.Fatal("schema changed after reopen")
+	}
+	// Seed a pre-cap format record through a real native transaction to exercise
+	// the defensive read guard. The guarded read must not repair or mutate it.
+	oversized := proto.Clone(accepted).(*wire.VisibilityResult)
+	for name, typ := range overflow.SearchAttributeTypes {
+		oversized.SearchAttributeTypes[name] = typ
+	}
+	if proto.Size(oversized) <= fixture.ResponseBudget {
+		t.Fatal("fixture does not exceed aggregate limit")
+	}
+	_, err = o.Run(ctx, func(db *native.Db) ([]byte, error) {
+		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+		if e != nil {
+			return nil, e
+		}
+		defer tx.Destroy()
+		if e = putHistory(tx, "v1/visibility/schema", oversized); e != nil {
+			return nil, e
+		}
+		return nil, commit(tx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = o.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+	o = open()
+	s.Owner = o
+	if got := call("schema-legacy-read", getSchema); got.Error != wire.VisibilityResult_RESOURCE_EXHAUSTED || proto.Size(got) > fixture.ResponseBudget {
+		t.Fatal("oversized persisted schema escaped GET guard")
+	}
+	if got := call("schema-legacy-add", batch(0)); got.Error != wire.VisibilityResult_RESOURCE_EXHAUSTED {
+		t.Fatal("oversized persisted schema escaped ADD guard")
+	}
+	_, err = o.Run(ctx, func(db *native.Db) ([]byte, error) {
+		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+		if e != nil {
+			return nil, e
+		}
+		defer tx.Destroy()
+		b, e := get(tx, "v1/visibility/schema")
+		if e != nil {
+			return nil, e
+		}
+		got := new(wire.VisibilityResult)
+		if e = proto.Unmarshal(b, got); e != nil {
+			return nil, e
+		}
+		if !proto.Equal(got, oversized) {
+			return nil, fmt.Errorf("guard mutated oversized schema")
+		}
+		return nil, nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

@@ -262,6 +262,9 @@ func applyVisibility(tx *native.DbTransaction, c *wire.VisibilityCommand) (*wire
 				return nil, backend(e)
 			}
 		}
+		if proto.Size(result) > vmodel.ResponseBudget {
+			return &wire.VisibilityResult{Error: wire.VisibilityResult_RESOURCE_EXHAUSTED, Message: "visibility schema exceeds response budget"}, nil
+		}
 		if c.Kind == wire.VisibilityCommand_GET_SCHEMA {
 			return result, nil
 		}
@@ -285,6 +288,9 @@ func applyVisibility(tx *native.DbTransaction, c *wire.VisibilityCommand) (*wire
 		}
 		if changed {
 			result.SchemaVersion++
+			if proto.Size(result) > vmodel.ResponseBudget {
+				return &wire.VisibilityResult{Error: wire.VisibilityResult_RESOURCE_EXHAUSTED, Message: "visibility schema exceeds response budget"}, nil
+			}
 			if e = putHistory(tx, "v1/visibility/schema", result); e != nil {
 				return nil, e
 			}
