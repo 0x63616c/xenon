@@ -160,7 +160,7 @@
     "Memory object store only; no real-S3 or process-crash recovery claim.",
     "Native registered proof; pinned container orchestration remains a separate shipping gate.",
     "Memory object store; no process-crash or real S3 claim.",
-    "Legacy Queue only; QueueV2 and full Temporal boot remain pending.",
+    "Legacy Queue and QueueV2 are covered; full Temporal boot remains pending.",
     "Three pinned SQL deviations explicitly adjudicated in issue30 and contract evidence.",
     "Memory object store only; no S3/process-crash proof.",
     "History component only, not full ExecutionStore or Temporal boot.",
