@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "name": "directory",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 300,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "internal/directory/directory.go",
+    "internal/directory/directory_test.go",
+    "deploy/directory.compose.yaml",
+    "scripts/directory-proof.py",
+    "scripts/test_prove.py",
+    "proof/directory/case.json",
+    "proof/directory/README.md",
+    ".github/workflows/ci.yaml"
+  ],
+  "fault_schedule": "proof/directory/case.json: conditional creation, simultaneous replacements, stale readiness, HTTP response loss before/after PUT, no ABA, oversized read and deadline.",
+  "assertions": [
+    "Exactly one concurrent conditional reservation succeeds.",
+    "Stale/consumed/cross-directory readiness cannot publish.",
+    "Lost committed PUT response reconciles exact transition; before-write failure stays unknown.",
+    "Repeated owner labels produce fresh generation/transition and old ETag cannot overwrite.",
+    "Read validates immutable prefix, size and caller deadline.",
+    "Scoped pinned MinIO resources are cleaned."
+  ],
+  "limitations": [
+    "S3-compatible local emulator only, not real AWS.",
+    "Recorded ownership intentions only: no controller/election, engine admission, safe handover or Resolver authority.",
+    "Reservation consumption is local memory; restarting processes require fresh incarnations and reservations."
+  ],
+  "commands": [
+    {
+      "runner": "s3-directory",
+      "filter": "TestS3Directory",
+      "exact": true,
+      "expected_tests": [
+        "TestS3Directory"
+      ]
+    }
+  ]
+}
