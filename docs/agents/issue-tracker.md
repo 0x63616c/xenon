@@ -4,7 +4,7 @@ Canonical map: [Prove S3-backed Temporal with dynamically scalable Xenon storage
 
 ## Wayfinding operations
 
-Use GitHub issues, `wayfinder:map` and `wayfinder:<type>` labels, native sub-issues and native blocking relationships. Claim a ticket by assigning 0x63616c before research. Human decisions require Calum. Record research resolutions as comments, close the research issue, and add a linked context pointer to the map. Research assets live on `research/<name>` branches under `docs/research/`.
+Use GitHub issues, `wayfinder:map` and `wayfinder:<type>` labels, native sub-issues and native blocking relationships. Claim a ticket by assigning 0x63616c before research. Decision tickets use delegated advocate/reviewer debate under [the autonomous delivery handoff](../handoff-autonomous.md); the coordinator records the outcome without waiting for Calum. Record research resolutions as comments, close the research issue, and add a linked context pointer to the map. Research assets live on `research/<name>` branches under `docs/research/`.
 
 ## Current capability gap
 
@@ -89,4 +89,4 @@ Every ticket below is a child of the map. In this manifest, identifiers are GitH
 
 ## Research frontier
 
-The first three research tickets have no blockers and are assigned to Calum on behalf of the agents. Other tickets must wait for their listed prerequisites and live user decisions. No implementation work has been approved through those decisions yet; the overall proof remains the destination.
+The first three research tickets are closed with source-backed reports, not runtime proofs. The next frontier is Choose the storage partition layout and engine. Former grilling tickets are now autonomous decision tickets: resolve their prerequisites and run the advocate/reviewer process without requesting live user approval. Continue creating implementation and validation tickets until the end-to-end destination is met. Assignment to 0x63616c records the agent's claim, not a request for Calum to act.
