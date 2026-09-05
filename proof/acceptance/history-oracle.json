@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "NOT_EXECUTED",
+  "build": [
+    "go",
+    "build",
+    "-o",
+    ".local/bin/xenon-omes-oracle",
+    "./cmd/xenon-omes-oracle"
+  ],
+  "commands": [
+    [
+      ".local/bin/xenon-omes-oracle",
+      "--omes-run-id",
+      "xenon-full-simple",
+      "--exact-runs",
+      "100",
+      "--require-activity-per-run",
+      "--output",
+      ".local/evidence/full-simple-histories"
+    ]
+  ],
+  "controller_obligations": [
+    "Execute the pinned workload and independently enumerate attempted starts",
+    "Wait for declared visibility convergence",
+    "Record source, binary and input hashes",
+    "Require exit zero and parse final report; retain partial output on failure",
+    "Validate scenario-specific terminal result values separately"
+  ],
+  "full_acceptance": false
+}
