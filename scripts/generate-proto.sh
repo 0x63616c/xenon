@@ -8,3 +8,6 @@ fi
 mkdir -p .local/tools
 GOBIN="$PWD/.local/tools" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
 PATH="$PWD/.local/tools:$PATH" protoc --go_out=. --go_opt=module=github.com/0x63616c/xenon proto/xenon/v1/query.proto
+
+GOBIN="$PWD/.local/tools" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+PATH="$PWD/.local/tools:$PATH" protoc --go_out=. --go_opt=module=github.com/0x63616c/xenon --go-grpc_out=. --go-grpc_opt=module=github.com/0x63616c/xenon proto/xenon/v1/persistence.proto
