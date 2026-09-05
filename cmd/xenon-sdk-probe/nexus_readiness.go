@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,9 +74,9 @@ func nexusReadiness(ctx context.Context, c client.Client, namespace string) (map
 	if err != nil {
 		return nil, err
 	}
-	w := worker.New(c, "xenon-nexus-readiness", worker.Options{})
+	w := worker.New(c, "xenon-nexus-readiness", readinessWorkerOptions(false))
 	w.RegisterWorkflow(nexusReadinessWorkflow)
-	nexusWorker := worker.New(c, readinessQueue, worker.Options{})
+	nexusWorker := worker.New(c, readinessQueue, readinessWorkerOptions(true))
 	nexusWorker.RegisterNexusService(s)
 	if err = w.Start(); err != nil {
 		return nil, err
@@ -85,15 +87,37 @@ func nexusReadiness(ctx context.Context, c client.Client, namespace string) (map
 	}
 	defer nexusWorker.Stop()
 	runs := map[string]string{}
-	for _, id := range ids {
+	for shard, id := range ids {
+		readinessLog(map[string]any{"event": "nexus_readiness_start", "workflow_id": id, "history_shard": shard + 1})
 		run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{ID: id, TaskQueue: "xenon-nexus-readiness", WorkflowExecutionTimeout: 60 * time.Second}, nexusReadinessWorkflow, nonce)
 		if err != nil {
 			return nil, err
 		}
+		readinessLog(map[string]any{"event": "nexus_readiness_started", "workflow_id": id, "run_id": run.GetRunID(), "history_shard": shard + 1})
+		monitorCtx, stopMonitor := context.WithCancel(context.Background())
+		monitorDone := make(chan struct{})
+		go func() {
+			defer close(monitorDone)
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-monitorCtx.Done():
+					return
+				case <-ticker.C:
+					readinessLog(readinessHistory(monitorCtx, c.WorkflowService(), namespace, id, run.GetRunID()))
+				}
+			}
+		}()
 		var output string
-		if err = run.Get(ctx, &output); err != nil {
-			return nil, err
+		err = run.Get(ctx, &output)
+		stopMonitor()
+		<-monitorDone
+		readinessLog(readinessHistory(context.Background(), c.WorkflowService(), namespace, id, run.GetRunID()))
+		if err != nil {
+			return nil, fmt.Errorf("Nexus readiness shard %d workflow %s run %s: %w", shard+1, id, run.GetRunID(), err)
 		}
+		readinessLog(map[string]any{"event": "nexus_readiness_completed", "workflow_id": id, "run_id": run.GetRunID(), "history_shard": shard + 1})
 		if output != nonce {
 			return nil, fmt.Errorf("Nexus readiness result mismatch")
 		}
@@ -101,3 +125,8 @@ func nexusReadiness(ctx context.Context, c client.Client, namespace string) (map
 	}
 	return map[string]any{"endpoint": "xenon-fuzz", "namespace_id": description.NamespaceInfo.Id, "task_queue": readinessQueue, "history_shards_verified": 4, "runs": runs, "scope": "actual named endpoint resolution and synchronous worker operation before fuzz"}, nil
 }
+
+func readinessWorkerOptions(nexusOnly bool) worker.Options {
+	return worker.Options{DisableWorkflowWorker: nexusOnly, LocalActivityWorkerOnly: true}
+}
+func readinessLog(record map[string]any) { _ = json.NewEncoder(os.Stderr).Encode(record) }
