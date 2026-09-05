@@ -45,3 +45,12 @@ func TestHistoryPartitionDeadline(t *testing.T) {
 		t.Fatal("fanout did not stop")
 	}
 }
+
+func TestHistoryPartitionInvalidCursor(t *testing.T) {
+	s := &HistoryStore{historyPartitions: []string{"first"}, invocationTimeout: time.Second}
+	for _, token := range []string{"{}", "null", `{"Version":1}`, `{"Version":1,"Partition":0,"Local":null}`, `{"ListHash":null,"Partition":0,"Local":null}`} {
+		if r, e := s.GetAllHistoryTreeBranches(context.Background(), &p.GetAllHistoryTreeBranchesRequest{PageSize: 1, NextPageToken: []byte(token)}); e == nil || r != nil {
+			t.Fatal("incomplete token accepted", token, r, e)
+		}
+	}
+}

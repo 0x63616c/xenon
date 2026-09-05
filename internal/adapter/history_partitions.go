@@ -76,9 +76,20 @@ func (s *HistoryStore) listHistoryPartitions(ctx context.Context, q *p.GetAllHis
 	hash := sha256.Sum256(names)
 	cursor := historyPartitionCursor{Version: 1, ListHash: append([]byte(nil), hash[:]...)}
 	if len(q.NextPageToken) > 0 {
-		if json.Unmarshal(q.NextPageToken, &cursor) != nil || cursor.Version != 1 || !bytes.Equal(cursor.ListHash, hash[:]) || cursor.Partition < 0 || cursor.Partition >= len(s.historyPartitions) {
+		var supplied historyPartitionCursor
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(q.NextPageToken, &fields) != nil || len(fields) != 4 {
 			return nil, serviceerror.NewInvalidArgument("invalid history partition cursor")
 		}
+		for _, name := range []string{"Version", "ListHash", "Partition", "Local"} {
+			if raw, ok := fields[name]; !ok || (name != "Local" && bytes.Equal(bytes.TrimSpace(raw), []byte("null"))) {
+				return nil, serviceerror.NewInvalidArgument("incomplete history partition cursor")
+			}
+		}
+		if json.Unmarshal(q.NextPageToken, &supplied) != nil || supplied.Version != 1 || !bytes.Equal(supplied.ListHash, hash[:]) || supplied.Partition < 0 || supplied.Partition >= len(s.historyPartitions) {
+			return nil, serviceerror.NewInvalidArgument("invalid history partition cursor")
+		}
+		cursor = supplied
 	}
 	for cursor.Partition < len(s.historyPartitions) {
 		local := *s

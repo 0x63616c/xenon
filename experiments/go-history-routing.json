@@ -121,6 +121,14 @@
       "expected_tests": [
         "TestHistoryPartitionDeadline"
       ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryPartitionInvalidCursor",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryPartitionInvalidCursor"
+      ]
     }
   ]
 }
