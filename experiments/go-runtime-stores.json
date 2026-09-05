@@ -216,7 +216,7 @@
   ],
   "limitations": [
     "This manifest uses memory object stores and loopback gRPC. Actual MinIO ownership/crash proofs are separate; no real S3 or Temporal boot claim.",
-    "Factory uses coarse history/matching/global domains for initial boot. Deterministic history-shard routing and GetAllHistoryTreeBranches fanout remain required before final scalability acceptance.",
+    "This manifest retains the coarse three-domain factory fixture. The separate go-history-routing manifest verifies four-owner shard placement and listing; live Temporal scale-out remains required.",
     "All low-level ExecutionStore methods are composed, but upstream coverage is the registered workflow/history/task subsets, not every Temporal integration scenario.",
     "Pinned SQL deviations are explicit in the queue, history, fair matching and execution contracts; no unqualified SQL parity claim.",
     "Transport fixtures use an in-memory resolver; the separate owner-manager proof establishes S3 authority and actual process movement.",
