@@ -39,7 +39,7 @@ def command(spec):
     if spec == {"runner": "go-node-build"}:
         return [sys.executable, "scripts/build-go-node.py"]
     if spec == {"runner": "cargo-build-node"}:
-        return ["cargo", "build", "--locked", "-p", "xenon-node"]
+        return ["cargo", "build", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", "xenon-node"]
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
@@ -137,7 +137,7 @@ def command(spec):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
-    return ["cargo", "test", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
+    return ["cargo", "test", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
 
 
 def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/adapter"):

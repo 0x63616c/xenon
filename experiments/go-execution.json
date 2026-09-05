@@ -8,8 +8,8 @@
     "go": "go version go1.27.1 "
   },
   "inputs": [
-    "Cargo.toml",
-    "Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
     "rust-toolchain.toml",
     "go.mod",
     "go.sum",

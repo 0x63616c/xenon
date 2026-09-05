@@ -94,7 +94,7 @@ def main(pause_at_stack_ready=False):
                 "XENON_PROBE_BUCKET": manifest["bucket"]})
     env.pop("AWS_SESSION_TOKEN", None)
     env.pop("AWS_PROFILE", None)
-    execute(["cargo", "build", "--locked", "-p", "slatedb-probe", "--bin", "crash-worker"], env, 300)
+    execute(["cargo", "build", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", "slatedb-probe", "--bin", "crash-worker"], env, 300)
     binary = ROOT / "target/debug/crash-worker"
     project = os.environ.get("XENON_PROOF_PROJECT", "xenon-crash-" + uuid.uuid4().hex[:12])
     if not __import__("re").fullmatch(r"xenon-crash-[a-f0-9]{12}", project):
