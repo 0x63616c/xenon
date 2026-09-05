@@ -4,12 +4,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/0x63616c/xenon/internal/temporalstore"
 	"go.temporal.io/server/temporal"
@@ -35,5 +38,13 @@ func main() {
 	// External supervisor bounds shutdown and owns process-group termination.
 	if e = server.Stop(); e != nil {
 		log.Fatal(e)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if e = rpctrace.Close(ctx); e != nil {
+		log.Fatal(e)
+	}
+	if os.Getenv("XENON_RPC_TRACE_PATH") != "" {
+		fmt.Println("TEMPORAL_TRACE_CLOSED")
 	}
 }

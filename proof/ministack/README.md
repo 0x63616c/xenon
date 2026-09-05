@@ -110,3 +110,33 @@ The controller installs official Node v24.19.0/npm11.17.0 from SHA256-pinned pla
 Prospective delegated deadline correction: smoke `c09a2d7` was recorded FAILED after the generic20s control-command supervisor cut off failover. Surviving Temporal logs showed connection refusals to killed history18234/matching18235 until that cutoff. The smoke now uses the existing locked120s recovery budget from `docs/design/acceptance.md` as one monotonic deadline from the Temporal kill through control and live verification; it does not reset per command. Ordinary probes retain20s, native/per-RPC ceilings and full acceptance budgets are unchanged, and the old run remains failed.
 
 Bootstrap also pre-registers pinned Omes defaults `OmesExecutionID`/`KS_Keyword` (Keyword) and `KS_Int` (Int), then successfully compiles an alias-filtered Count through both direct frontends before work begins. Omes remains unchanged. Its own immediate AddSearchAttributes→Start sequence can race normal namespace-cache propagation: smoke `c52d639` recorded that exact failure after successful SDK failover recovery.
+
+## Optional measurements
+
+`python3 scripts/ministack-runtime.py --measurements` applies the committed
+`measurements.json` instrumentation configuration without changing smoke workload
+counts or fault schedules. The local meter starts after MinIO readiness and spans
+cold node restarts; directory/native clients share its endpoint. Long-lived
+launched host process incarnations are sampled; short CLI probes and container
+resources are outside those samples. Each Temporal process gets a unique trace.
+After successful server.Stop, it drains rpctrace.Close and confirms closure in
+its log. The controller requires that confirmation, zero exit status and a
+successful trace footer before declaring its trace complete.
+
+Raw traces and samples, hashes, separate invocation/Execute-attempt histograms,
+status counts and final S3 counters are retained under the runtime evidence.
+P99 is unavailable below100samples per family/kind, rather than inferred from a
+small population. The recorded scope is entire process lifetimes, not selected
+steady or fault windows. Default execution does not enable instrumentation.
+
+The mandatory SIGKILL necessarily prevents that process's trace from completing.
+This opt-in reports `functional_result` separately and fails `measurement_complete`
+and the overall proof when requested data are incomplete. A passing functional
+smoke must not be reported as a full measured acceptance pass. Phase-scoped trace
+rotation or an external synchronous recorder is still required to establish
+complete steady/fault windows. This limitation is preserved, not bypassed by
+silently removing killed-process data.
+
+`python3 scripts/prove.py runtime-measurements` validates the committed parser,
+completeness failures, histogram separation, host resource controls and supervisor
+controls. It does not execute or claim the measured ministack/full acceptance.

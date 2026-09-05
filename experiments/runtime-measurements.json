@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "name": "runtime-measurements",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {},
+  "inputs": [
+    ".github/workflows/ci.yaml",
+    "cmd/xenon-temporal/main.go",
+    "internal/rpctrace/trace.go",
+    "proof/acceptance/resources.json",
+    "proof/ministack/README.md",
+    "proof/ministack/case.json",
+    "proof/ministack/measurements.json",
+    "proof/s3-meter/local.json",
+    "scripts/ministack-runtime.py",
+    "scripts/prove.py",
+    "scripts/resource_samples.py",
+    "scripts/runtime_measurements.py",
+    "scripts/test_ministack_runtime.py",
+    "scripts/test_prove.py",
+    "scripts/test_resource_samples.py",
+    "scripts/test_runtime_measurements.py"
+  ],
+  "fault_schedule": "malformed/truncated/failed trace footer, missing graceful close, unmatched/duplicate attempts, bounded parser overflow, killed producer, undrained/invalid meter counters; real host CPU/RSS and subprocess supervision controls",
+  "assertions": [
+    "Helper invocation latency and generated Execute attempt distributions remain distinct, with p99 unavailable below100samples.",
+    "Incomplete trace, killed producer and invalid meter reports never satisfy measurement completeness.",
+    "Host sampler and process supervision bounded controls pass; default workload remains unchanged."
+  ],
+  "limitations": [
+    "Instrumentation/parser controls only; no measured ministack or full acceptance run.",
+    "Whole process trace from intentional SIGKILL is incomplete; complete steady/fault phase recorder remains unresolved.",
+    "Helper RPC metrics do not measure whole public API latency; host samples exclude container resources; S3 counters exclude headers/TLS/billing."
+  ],
+  "commands": [
+    {
+      "runner": "python-measurements",
+      "filter": "test_runtime_measurements",
+      "exact": true,
+      "expected_tests": [
+        "test_incomplete_trace_controls",
+        "test_invocations_and_attempts_are_distinct",
+        "test_killed_producer_never_becomes_complete",
+        "test_meter_completeness_controls",
+        "test_producers_stop_before_storage_and_meter_survives_cold"
+      ]
+    },
+    {
+      "runner": "python-measurements",
+      "filter": "test_resource_samples",
+      "exact": true,
+      "expected_tests": [
+        "test_platform_cpu_formats_and_reused_root",
+        "test_actual_memory_cpu_and_bounded_completion"
+      ]
+    },
+    {
+      "runner": "python-measurements",
+      "filter": "test_ministack_runtime",
+      "exact": true,
+      "expected_tests": [
+        "test_early_exit_does_not_wait_until_readiness_timeout",
+        "test_readiness_queue_is_bounded_and_complete_log_retained",
+        "test_stop_cleans_descendant_even_after_parent_exit"
+      ]
+    }
+  ]
+}
