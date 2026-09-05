@@ -1,0 +1,8 @@
+ Container xenon-proof-s3-1 Running 
+ Container xenon-proof-s3-1 Waiting 
+ Container xenon-proof-s3-1 Healthy 
+   Compiling slatedb-probe v0.1.0 (/Users/calum/Documents/ChatGPT/xenon/crates/slatedb-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.87s
+     Running `target/debug/slatedb-probe`
+PASS durable write and reopen; backend=s3
+Emulator primitive probe passed. Real S3 and Temporal end-to-end gates remain open.

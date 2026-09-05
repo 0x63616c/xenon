@@ -1,0 +1,9 @@
+[package]
+name = "slatedb-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+slatedb = { version = "=0.16.0", default-features = false, features = ["aws"] }
+tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "time", "sync"] }

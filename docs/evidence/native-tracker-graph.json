@@ -1,0 +1,51 @@
+{
+  "map": 1,
+  "children": [
+    {
+      "number": 2,
+      "blocked_by": []
+    },
+    {
+      "number": 3,
+      "blocked_by": []
+    },
+    {
+      "number": 4,
+      "blocked_by": []
+    },
+    {
+      "number": 5,
+      "blocked_by": [
+        2,
+        3
+      ]
+    },
+    {
+      "number": 6,
+      "blocked_by": [
+        3,
+        5
+      ]
+    },
+    {
+      "number": 7,
+      "blocked_by": [
+        4,
+        5
+      ]
+    },
+    {
+      "number": 8,
+      "blocked_by": [
+        6,
+        7
+      ]
+    },
+    {
+      "number": 9,
+      "blocked_by": [
+        8
+      ]
+    }
+  ]
+}
