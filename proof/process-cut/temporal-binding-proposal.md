@@ -1,6 +1,6 @@
 # Proposed real Temporal mutation binding
 
-Status: proposal for coordinator adjudication, independently challenged by the priority advocate. This is not an executed Temporal fault proof. The existing exact-selector component remains unchanged.
+Status: delegated coordinator decision after independent priority-advocate challenge, recorded on issue75. Implementation controls are pending execution. This is not an executed Temporal fault proof. The existing exact-selector component remains unchanged.
 
 The adapter's `UpdateWorkflowExecution` constructs an execution UPDATE whose identity is in `Command.Mutation.Upsert.NamespaceId`, `WorkflowId`, and `RunId`; the command's top-level identity fields are not populated for UPDATE. The server validates the command and deterministic digest before Owner.Run. The journal applies the operation and stages its outcome before committing. These are the appropriate identity and candidate boundaries.
 
