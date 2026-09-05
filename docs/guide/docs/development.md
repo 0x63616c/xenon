@@ -8,7 +8,7 @@ The repository pins Go **1.27.1**, Rust **1.94.0** and SlateDB **0.16.0**. Nativ
 
 The full ministack additionally checks AWS CLI **2.36.39**. Its controller prepares Node **24.19.0**, npm **11.17.0**, the pinned Playwright browser, Temporal UI and Omes. Those downloads require network access. Its disk preflight requires at least **5 GiB free**; a cold compiler cache can require more.
 
-The examples below are repository-root commands implemented in the source at the documented checkpoint. They are test entrypoints, not a claim that every machine or shipping gate has passed.
+The examples below are repository-root commands implemented in the integrated source. `make help` lists the current Go-first development entrypoints. They are test entrypoints, not a claim that every machine or shipping gate has passed.
 
 ## Run a component proof
 
@@ -69,3 +69,5 @@ npm run build --prefix website
 ```
 
 VitePress renders the curated Markdown in `docs/guide/`. The local preview binds loopback port `4178`; the production output is `website/dist/`. Only that generated directory is eligible for a site deployment. Runtime logs, source files and `.local/` are excluded.
+
+For the full development loop, use the [testing guide](./testing.md) and `docs/development-loop.md` in the checkout. Version changes follow the [Temporal upgrade guide](./upgrades.md).

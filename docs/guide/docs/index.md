@@ -14,13 +14,13 @@ The pinned integration uses Temporal Server **1.31.2**, the smoke SDK **1.41.1**
 
 A **storage partition** is Xenon's unit of atomic operation, admission and write ownership. It is distinct from a Temporal **history shard**, which groups workflow executions within the Temporal engine.
 
-The current proof places history shards across an immutable ordered list of four history partitions. Matching uses a shared partition; global metadata uses another; visibility uses four fixed partitions. One node may own several partitions. Adding a node moves existing partitions without changing their identities.
+History placement uses an immutable ordered partition list; the current ministack configures four history partitions. Matching uses a shared partition; global metadata uses another; visibility uses four fixed partitions. One node may own several partitions. Adding a node moves existing partitions without changing their identities.
 
 Changing partition count or order is a data-layout migration. It is not the same operation as moving an existing partition to another node.
 
 ## Where the project stands
 
-Persistence families, any-node forwarding, conditional ownership, and a real multi-instance smoke controller are implemented. Component proofs and parts of the integrated runtime have passed. **The complete shipping proof has not passed.** The latest recorded integrated smoke failed the post-cold Omes visibility check after exact workflow-history recovery succeeded.
+Persistence families, any-node forwarding, conditional ownership, and a real multi-instance smoke controller are implemented. Component proofs and parts of the integrated runtime have passed. **The complete shipping proof has not passed.** The recorded integrated smoke failed its post-cold Omes visibility check after exact workflow-history recovery succeeded. A later fuzz-soak startup failed functional Nexus readiness before any saved corpus input ran.
 
 Read [verification status](./status.md) before interpreting a feature list or running the proof. The larger acceptance profile, saved fuzz replay under faults, final measurements and real AWS S3 validation remain separate gates.
 

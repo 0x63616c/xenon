@@ -10,9 +10,9 @@ import { withBase } from "vitepress";
         Your workflows stay Temporal.<br />Your durable state lives in S3.
       </p>
       <div class="actions">
-        <a class="primary" :href="withBase('/architecture.html')"
+        <a class="primary" :href="withBase('/docs/architecture.html')"
           >Explore the architecture <span>↗</span></a
-        ><a class="text-link" :href="withBase('/overview.html')"
+        ><a class="text-link" :href="withBase('/docs/')"
           >Read the docs <span>→</span></a
         >
       </div>
@@ -93,7 +93,7 @@ import { withBase } from "vitepress";
           Follow a request from the SDK to S3. Explore partition admission,
           durable replay, and what happens when an owner disappears.
         </p>
-        <a class="text-link" :href="withBase('/architecture.html')"
+        <a class="text-link" :href="withBase('/docs/architecture.html')"
           >Open the interactive guide <span>→</span></a
         >
       </div>
@@ -115,7 +115,7 @@ import { withBase } from "vitepress";
           recovery, Omes and the unchanged Temporal UI. The full acceptance gate
           is still open.
         </p>
-        <a class="text-link" :href="withBase('/status.html')"
+        <a class="text-link" :href="withBase('/docs/status.html')"
           >See what is verified <span>→</span></a
         >
       </div>

@@ -36,7 +36,7 @@ The pinned SQL behavior matters for nulls, numeric precision, timestamps and sea
 
 ## Native engine and proof tools
 
-`crates/` retains Rust primitives and reference probes. `scripts/build-go-node.py` prepares the official pinned SlateDB Go bindings and native library. Those Rust components remain useful for cross-language and engine proofs; application node code is Go.
+`test/compatibility/rust/` retains the Rust workspace, primitives and reference probes. `scripts/build-go-node.py` prepares the official pinned SlateDB Go bindings and native library. Those Rust components remain useful for cross-language and engine proofs; application node code is Go.
 
 `internal/processcut/`, `internal/rpctrace/` and `internal/proof/` contain explicitly scoped test/measurement helpers. Optional hooks are disabled in the ordinary runtime profile. Their control tests are not equivalent to executing a complete application fault workload.
 
@@ -45,3 +45,5 @@ The pinned SQL behavior matters for nulls, numeric precision, timestamps and sea
 Go unit and integration tests live beside their packages. `experiments/` binds runnable proof commands to expected assertions. `proof/` stores workloads, manifests and fixtures; `deploy/` stores local topology definitions. `docs/research/` records detailed compatibility decisions and their limits.
 
 Add a new operation as a complete vertical slice: contract, adapter, handler, durable outcome and tests. Managed RPC descriptor coverage should fail when a newly registered family is missing from forwarding or dispatch. Avoid splitting a single atomic persistence operation across remote storage calls.
+
+The repository development loop is recorded in `docs/development-loop.md`. The [testing guide](./testing.md) explains how its gates fit together; [Temporal upgrades](./upgrades.md) describes the maintained version-change procedure.

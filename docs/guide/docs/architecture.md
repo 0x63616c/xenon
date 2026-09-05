@@ -14,7 +14,7 @@ The routing decision and the authority decision are separate. Forwarding chooses
 
 | Domain | Current placement | Consequence |
 | --- | --- | --- |
-| Execution and history | Four ordered history partitions | Stable shard-ID placement; global listing fans out across the fixed list. |
+| Execution and history | Ordered list; four in the ministack | Stable shard-ID placement; global listing fans out across the fixed list. |
 | Matching | One matching partition | Task-queue subqueues stay colocated; namespace user-data batches remain atomic. |
 | Global metadata | One global partition | Namespace and cluster/control records use a stable transaction domain. |
 | Visibility | Four fixed partitions | Bounded fan-out and a global schema context support list/count operations. |
