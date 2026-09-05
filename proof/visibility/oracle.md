@@ -12,3 +12,14 @@ Primary source pins:
 `TextMatch(vector, query)` accepts raw tsvector input plus Temporal's original query text. It preserves case, interprets prefix/weights and compact query operators, and resolves missing-position uncertainty at the outer phrase operator before Boolean NOT, matching PostgreSQL. The position-width truncations are intentional source compatibility, not mathematical phrase-distance simplifications. Query parsing has an explicit 1,024-node admission ceiling to bound recursion; this is a resource ceiling rather than an unsupported operator. Error strings are not promised identical; oracle assertions compare success/error classification and successful match results.
 
 The 1,200 saved nested inputs exercise the complete supported operator vocabulary but are not statistical reliability evidence. Visibility null/UNKNOWN semantics, KeywordList JSON operators, grouping, timestamp/numeric ordering, aliases/CHASM, durable indexing and full query integration are separate proofs owned by the visibility component. This matcher alone does not establish those gates.
+
+
+## Scalar oracle extension
+
+`oracle-scalars.json` freezes generated-column conversion, comparison and raw-response distinctions against the same ephemeral PG16.15/C/UTF8 instance. These are SQL oracle fixtures, not a claim the Xenon evaluator already matches them. The runner validates all expected JSON results and records scalar SQL/input hashes alongside the Text corpus results.
+
+Custom Double JSON is cast through decimal into DECIMAL(20,5): ties round away from zero and overflow raises SQLSTATE22003. The stored generated1.23457 does not equal the unrounded query operand1.234565; SELECT search_attributes still returns the original1.234565 JSON number. Do not normalize response payloads to generated columns.
+
+Custom Datetime's `s::timestamptz AT TIME ZONE 'UTC'` rounds fractional microseconds, with the checked ties-to-even examples .0000005→.000000, .0000015→.000002, .0000025→.000002. .9999995 carries into the next second, including the tested preepoch boundary. Offset conversion is UTC; raw search_attributes retains the original string. System timestamp columns follow Temporal's explicit UTC.Truncate(microsecond) preprocessing instead; these custom-column fixtures do not authorize changing system timestamp semantics.
+
+KeywordList missing field is SQL NULL: containment and its NOT both return UNKNOWN/null. Explicit JSON null and an empty array yield false containment/true NOT. IN's disjunction retains UNKNOWN for missing fields. Duplicates do not change containment. C collation orders the checked UTF8 strings A,a,z,é; GROUP BY includes the NULL group and counts both missing entries. This finite fixture set is not exhaustive PostgreSQL parity evidence.
