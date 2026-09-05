@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup", "go-test-routing") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -56,6 +56,10 @@ def command(spec):
         if spec["filter"] != "crash" or spec["exact"]:
             raise ValueError("invalid crash command")
         return [sys.executable, "scripts/crash-proof.py", *(["--check-cleanup"] if runner == "s3-crash-cleanup" else [])]
+    if runner == "go-test-routing":
+        if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline"):
+            raise ValueError("unregistered routing test")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/routing", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
         if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
             raise ValueError("unregistered Go owner test")
@@ -126,7 +130,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "forwarding"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -149,6 +153,8 @@ def main():
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
     if args.name == "shard":
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
+    if args.name == "forwarding":
+        env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1"})
     if args.name == "crash":
         env["XENON_PROOF_PROJECT"] = "xenon-crash-" + uuid.uuid4().hex[:12]
     if args.name in ("go-shard", "go-namespace", "go-cluster"):
@@ -190,7 +196,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "forwarding") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -218,6 +224,8 @@ def main():
                 if not binary.is_file():
                     raise ValueError("node build produced no binary")
                 report["node_binary_sha256"] = digest(binary)
+            elif runner == "go-test-routing":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/routing")
             elif runner in ("go-test-shard", "go-test-node"):
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else "github.com/0x63616c/xenon/internal/adapter")
                 binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-cluster") else "target/debug/xenon-node")

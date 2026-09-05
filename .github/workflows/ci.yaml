@@ -29,6 +29,7 @@ jobs:
       - run: python3 scripts/prove.py ownership
       - run: cargo run --locked -p slatedb-probe
       - run: python3 scripts/prove.py shard
+      - run: python3 scripts/prove.py forwarding
       - run: python3 scripts/prove.py go-cluster
       - run: go test -race ./...
         env:
