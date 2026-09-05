@@ -84,6 +84,7 @@ func main() {
 	wire.RegisterShardPersistenceServer(server, owner)
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
 	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
+	wire.RegisterQueueV2PersistenceServer(server, &node.QueueV2Server{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.

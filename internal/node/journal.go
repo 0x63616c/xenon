@@ -16,6 +16,7 @@ const (
 	shardFamily outcomeFamily = iota
 	metadataFamily
 	clusterFamily
+	queuev2Family
 )
 
 func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
@@ -26,6 +27,8 @@ func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
 		return outcome.GetMetadataResult() != nil
 	case clusterFamily:
 		return outcome.GetClusterResult() != nil
+	case queuev2Family:
+		return outcome.GetQueuev2Result() != nil
 	}
 	return false
 }
