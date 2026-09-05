@@ -22,6 +22,16 @@ func TestNexusHTTPConfiguration(t *testing.T) {
 		if err = json.Unmarshal(raw, &original); err != nil {
 			t.Fatal(err)
 		}
+		expectedPort := float64(18243)
+		if name == "b" {
+			expectedPort = 19243
+		}
+		if original["services"].(map[string]any)["frontend"].(map[string]any)["rpc"].(map[string]any)["httpPort"] != expectedPort {
+			t.Fatal("frontend HTTP listener differs from declared ingress backend", name)
+		}
+		if original["publicClient"].(map[string]any)["httpHostPort"] != "127.0.0.1:17243" {
+			t.Fatal("public HTTP client differs from ingress")
+		}
 		for _, field := range []string{"listener", "cluster_address", "public_address"} {
 			var m map[string]any
 			_ = json.Unmarshal(raw, &m)
