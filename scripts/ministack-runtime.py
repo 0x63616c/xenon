@@ -114,10 +114,29 @@ def main():
             with urllib.request.urlopen(env['AWS_ENDPOINT']+'/minio/health/live',timeout=2) as response:return response.status==200
         wait(s3_ready,30)
         run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket',env['XENON_BUCKET']])
-        nodes={};members={};assignments={}
+        nodes={};members={};assignments={};metrics_ports={} 
         def node(name,port):
-            process=launch(name,[str(ROOT/'.local/bin/xenon-go-node')],{'XENON_NODE':name,'XENON_LISTEN':f'0.0.0.0:{port}','XENON_ADVERTISE':f'127.0.0.1:{port}'})
+            process=launch(name,[str(ROOT/'.local/bin/xenon-go-node')],{'XENON_NODE':name,'XENON_LISTEN':f'0.0.0.0:{port}','XENON_ADVERTISE':f'127.0.0.1:{port}','XENON_MAX_OUTCOMES':str(case['max_outcomes']),'XENON_METRICS_LISTEN':f'127.0.0.1:{port+100}'})
+            metrics_ports[name]=port+100
             _,id,incarnation,address=process.line('INGRESS ').split();nodes[name]=process;members[id]={'address':address,'incarnation':incarnation};event('node-ingress',node=id,incarnation=incarnation,pid=process.process.pid)
+        def metrics(name):
+            with urllib.request.urlopen(f'http://127.0.0.1:{metrics_ports[name]}/outcomes',timeout=5) as response:
+                snapshot=json.load(response)
+            if snapshot['schema_version']!=1 or snapshot['incarnation']!=members[name]['incarnation']:
+                raise RuntimeError('metrics identity/schema mismatch')
+            for partition in snapshot['partitions'].values():
+                if partition.get('error'):raise RuntimeError('partition metrics error')
+                usage=partition.get('usage')
+                if usage and (not usage['accounting_complete'] or usage['unaccounted_legacy_entries'] or usage['remaining']<=0 or usage['limit']!=case['max_outcomes']):
+                    raise RuntimeError('outcome capacity/accounting gate failed')
+            return snapshot
+        def checkpoint(label):
+            snapshots={name:metrics(name) for name,process in nodes.items() if process.process.poll() is None}
+            path=evidence/('outcomes-'+label+'.json');path.write_text(json.dumps(snapshots,indent=2))
+            event('outcome-accounting-checkpoint',label=label,file=path.name,sha256=sha(path))
+            return snapshots
+        def successful(snapshot,partition=None):
+            return sum(value['local_dispatch']['successful_operations'] for name,value in snapshot['partitions'].items() if partition is None or name==partition)
         def publish():
             path=evidence/'desired-topology.json';path.write_text(json.dumps({'members':members,'partitions':assignments},indent=2))
             run([str(ROOT/'.local/bin/xenon-topology'),str(path)])
@@ -137,6 +156,8 @@ def main():
         worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
         execution=probe('start');event('workflow-started',**execution)
         wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-durable-pause')
+        initial=checkpoint('before-owner-kill')
+        if any(successful(initial[name])<=0 for name in ['a','b']):raise RuntimeError('both initial nodes must perform local persistence work')
         owner=assignments[bootstrap['history_partition']]['node'];nodes[owner].stop(kill=True);event('active-history-owner-killed',node=owner)
         port=17351 if owner=='a' else 17352
         # Name is intentionally new: empty local directory and a new process incarnation.
@@ -144,7 +165,7 @@ def main():
         for assignment in assignments.values():
             if assignment['node']==owner:assignment['node']=replacement
         publish()
-        wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered')
+        wait(lambda:probe('phase').get('phase')=='await-control');event('workflow-recovered');checkpoint('owner-recovered')
         verify=launch('verify-live',[sdk,'--mode','verify',*probe_flags,'--run-id',execution['run_id'],'--output',str(evidence)])
         ta.stop(kill=True);event('temporal-instance-killed',pid=ta.process.pid)
         probe('control');verify.process.wait(timeout=120)
@@ -164,7 +185,9 @@ def main():
         wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-ministack-omes'").get('count',0)>0,60)
         if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
         event('omes-work-observed-before-addition')
-        node('c',17353);assignments['matching']['node']='c';publish();event('node-added-during-omes')
+        node('c',17353);before_c=wait(lambda:metrics('c'));assignments['matching']['node']='c';publish();event('node-added-during-omes')
+        wait(lambda:successful(metrics('c'),'matching')>successful(before_c,'matching'),60)
+        checkpoint('node-c-served-matching')
         omes_process.process.wait(timeout=360)
         if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
         wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
@@ -177,7 +200,7 @@ def main():
         report['omes_generated_sha256']={str(path.relative_to(omes)):sha(path) for folder in [omes/'workers/go/prepared'] for path in folder.rglob('*') if path.is_file()}
         if not report['omes_generated_sha256']:raise RuntimeError('missing retained Omes worker artifacts')
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
-        event('ui-assertions-passed')
+        event('ui-assertions-passed');checkpoint('before-cold-restart')
         # Explicit final cold-local restart retains only the S3 service volume.
         for process in processes:process.stop()
         nodes.clear();members.clear()
@@ -192,7 +215,7 @@ def main():
         wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
         wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
         run(['node','probe.mjs',str(evidence/'browser-after-cold'),str(ROOT/'proof/ministack/case.json')],120,cwd=ui)
-        event('cold-local-recovery-passed')
+        event('cold-local-recovery-passed');checkpoint('cold-recovered')
         if report['git_sha']!=run(['git','rev-parse','HEAD']).strip() or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('checkout changed during runtime')
         if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()):raise RuntimeError('input changed during runtime')
         report.update(result='passed',proof_pass=True)
