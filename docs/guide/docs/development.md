@@ -1,6 +1,6 @@
 # Local development
 
-Use a private checkout you are authorized to access. Start with a clean committed revision when producing proof evidence. Generated builds, emulator state and reports belong under ignored `.local/` paths.
+Use a private checkout you are authorized to access. The commands below describe the integration candidate; check [verification status](./status.md) before assuming that `main` contains it. Start with a clean committed revision when producing proof evidence. Generated builds, emulator state and reports belong under ignored `.local/` paths.
 
 ## Prerequisites
 
@@ -48,6 +48,17 @@ This command launches a scoped MinIO environment, stable HAProxy ingress, two Te
 The local ports include S3 `19006`, Temporal ingress `17233`, Xenon ingress `17935` and UI `18080`. The checked-in Compose and Temporal configurations live under `test/scenarios/ministack/config/`; workload and tool inputs live under `test/scenarios/ministack/` and `test/scenarios/ministack/pins.json`.
 
 The controller tears down its own containers and emulator volume after saving evidence. Treat it as a test environment, not a long-lived development database. Do not run concurrent heavy builds when measuring a runtime scenario. The latest integrated smoke still [fails its cold Omes visibility gate](./status.md).
+
+## Additional runtime modes
+
+Choose one workload/fault mode per run:
+
+```sh
+python3 scripts/ministack-runtime.py --omes-mixed
+python3 scripts/ministack-runtime.py --process-cut-stage after_await
+```
+
+The mixed mode consumes the frozen 40-iteration throughput command. The process-cut mode watches the actual workflow execution UPDATE, binds its operation identity and digest, and kills the selected native owner at the declared stage. Other stages are `commit_before_await` and `before_result_publication`. These are separate candidate scenarios, not completed full-acceptance evidence. Read `test/scenarios/ministack/README.md` and `scenario.json` for their exact scope and command contracts.
 
 ## Saved Omes inputs
 
