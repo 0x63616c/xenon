@@ -8,7 +8,7 @@ Calum explicitly reiterated direct S3 storage: “nope i want s3” and “unles
 
 This is a **delegated agent decision under Calum's autonomous-delivery authorization**. The independent user-priority advocate and adversarial systems reviewer agreed on the recommendation below. Their agreement is a design review, not correctness evidence, and does not imply Calum personally chose the engine internals or implementation language.
 
-## Recommendation
+## Original recommendation (language superseded below)
 
 Use pinned SlateDB v0.16.0 directly on S3. Retain pinned Temporal v1.31.2 with a Go persistence adapter issuing complete operation RPCs to Rust Xenon nodes embedding SlateDB. Keep operation semantics, admission gates, engine ownership and lifecycle in the owning Rust process. Do not expose remote transactions to Temporal clients.
 
@@ -40,3 +40,13 @@ A failed gate triggers diagnosis, an implementation correction and a repeatable 
 ## Remaining risks and revisit triggers
 
 Operation volume and query compatibility require substantial implementation. The initial control partition has a single-writer ceiling, durable-outcome retention needs safe limits/reclamation, and ownership convergence needs an explicit failure model and measured bound. Numeric workload targets and proof coverage remain decisions #7/#8. Revisit placement when measured control load prevents the accepted workload from progressing; revisit the language seam only with a concrete correctness-preserving prototype. The [verification matrix](../design/verification-matrix.md) must remain explicit about pending evidence.
+
+## Superseding node-language decision: official Go bindings
+
+On 2026-09-05 Calum explicitly preferred Go. Select Go application nodes embedding the same pinned SlateDB Rust engine through its official UniFFI bindings. The original comparison omitted this same-process option. The engine, placement, complete-operation RPC boundary and S3-only requirements are unchanged; the Rust application-node choice above is historical.
+
+Independent advocate and adversarial reviewer approved the bounded feasibility experiment at `833a76ea309b6ec50e7af818fefb0d227e01b7d3` on `codex/go-bindings-probe`. The clean `python3 scripts/prove.py go-bindings` report passed four named cases: serializable conflicts, durable publication/flush/reopen, typed fencing, and bounded admission retaining a timed-out native wait. Review found and verified fixes for paused admission after quarantine and effective native-build Cargo configuration checks. Integration of this experiment and the Go node port are pending; these results do not establish a running Temporal backend.
+
+Go reduces translation of Temporal domain behavior into another application language. It retains cgo, a pinned generated wrapper/native library ABI and platform-specific library packaging. Generated calls have no context cancellation. Every native operation must run within bounded owner admission; a timeout atomically quarantines the owner and retains active handles until native completion or process termination. A supervisor must recover permanently stuck processes through the ownership protocol. A goroutine timeout or `Destroy` is not native cancellation.
+
+Port the shard server behind the existing operation-level RPC and reuse its typed-error, replay and fencing fixtures against the Go binary. Test stored shard/outcome compatibility with the Rust checkpoint. Preserve Rust engine experiments. Full node lifecycle, supervised recovery, S3 deployment, conformance and all shipping gates remain required. A concrete failing correctness gate triggers a fix and regression; do not override the Go preference merely because the Rust prototype already exists.
