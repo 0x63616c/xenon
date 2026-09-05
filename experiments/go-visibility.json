@@ -89,6 +89,7 @@
     "proof/visibility/oracle-pins.json",
     "proof/visibility/oracle-scalars.json",
     "proof/visibility/oracle.md",
+    "proof/visibility/schema-budget.json",
     "proto/xenon/v1/execution.proto",
     "proto/xenon/v1/executiontasks.proto",
     "proto/xenon/v1/history.proto",
@@ -112,7 +113,8 @@
     "Full unchanged pinned VisibilityPersistenceSuite passes through a genuine Temporal visibility manager and actual Go service processes.",
     "All seven attribute types, direct schema additions, CHASM aliases/divisions, four-partition keyset merge and fanout failure are checked.",
     "Terminal tombstones, index deletion, empty-vs-zero identity separation, durable outcome replay and fenced old-owner rejection survive reopening.",
-    "Saved PostgreSQL Text expectations and exact integer/decimal/null semantics pass pure-Go tests."
+    "Saved PostgreSQL Text expectations and exact integer/decimal/null semantics pass pure-Go tests.",
+    "Repeated bounded schema additions reject aggregate response overflow before commit; unchanged schema and rejected outcome survive reopen, and oversized legacy GET fails closed."
   ],
   "limitations": [
     "Memory object-store component and process RPC proof; managed S3 topology, Temporal boot/Omes and real-S3 remain separate gates.",
@@ -207,6 +209,14 @@
       "exact": true,
       "expected_tests": [
         "TestVisibilityCustomTimeRounding"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilitySchemaBudget",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilitySchemaBudget"
       ]
     }
   ]

@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "batch_size": 3000,
+  "name_bytes": 256,
+  "successful_batches": 3,
+  "response_budget": 3145728,
+  "timeout_seconds": 60
+}

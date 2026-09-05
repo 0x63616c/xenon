@@ -82,3 +82,12 @@ Double equality-index values normalize to DECIMAL(20,5) semantics before hashing
 so equivalent rounded values share candidate keys. Original double payloads and
 full query operands remain unchanged. The dedicated RPC/native regressions cover
 all three representations instead of assuming they are identical.
+
+Schema additions are bounded by the encoded VisibilityResult, not merely each
+individual request: the full candidate registry must fit the 3 MiB response
+budget before its version or definitions are persisted. Exceeding the budget
+returns a journaled ResourceExhausted result without changing the schema. GET
+also rejects a preexisting oversized registry without rewriting it. The committed
+schema-budget fixture performs three successful bounded additions and a fourth
+aggregate overflow, then verifies unchanged definitions/version and exact rejected
+outcome replay after reopening; a native pre-cap record exercises the GET guard.
