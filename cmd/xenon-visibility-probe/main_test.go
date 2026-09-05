@@ -10,6 +10,7 @@ import (
 	"go.temporal.io/server/common/payload"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"strconv"
 	"testing"
 )
 
@@ -21,7 +22,18 @@ type fakeVisibility struct {
 
 func (f fakeVisibility) ListWorkflowExecutions(_ context.Context, q *workflowservice.ListWorkflowExecutionsRequest, _ ...grpc.CallOption) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 	r := &workflowservice.ListWorkflowExecutionsResponse{}
-	for i := 0; i < f.d.count; i++ {
+	start := 0
+	if len(q.NextPageToken) > 0 {
+		start, _ = strconv.Atoi(string(q.NextPageToken))
+	}
+	end := start + int(q.PageSize)
+	if end > f.d.count {
+		end = f.d.count
+	}
+	if end < f.d.count {
+		r.NextPageToken = []byte(strconv.Itoa(end))
+	}
+	for i := start; i < end; i++ {
 		id := f.d.run(i)
 		if f.duplicate {
 			id = f.d.run(0)

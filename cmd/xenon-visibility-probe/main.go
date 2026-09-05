@@ -257,7 +257,11 @@ func run() error {
 			close(changed)
 		}()
 		for range changed {
-			ack <- struct{}{}
+			select {
+			case ack <- struct{}{}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			if _, e = check(ctx, c.WorkflowService(), *ns, d, []int{7}); e != nil {
 				cancel()
 				return e
