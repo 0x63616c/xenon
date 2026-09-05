@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-meter-cli", "s3-meter") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -52,6 +52,18 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner == "go-test-meter-cli":
+        if spec["filter"] != "TestMeterCLI" or not spec["exact"]:
+            raise ValueError("unregistered meter CLI control")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-s3-meter", "-run", "^TestMeterCLI$"]
+    if runner == "go-test-meter":
+        if spec["filter"] != "TestMeter" or spec["exact"]:
+            raise ValueError("unregistered meter controls")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/s3meter", "-run", "^TestMeter"]
+    if runner == "s3-meter":
+        if spec["filter"] != "TestMeterSignedS3" or not spec["exact"]:
+            raise ValueError("unregistered signed meter test")
+        return [sys.executable, "scripts/s3-meter-proof.py"]
     if runner == "s3-maintenance":
         if spec["filter"] != "TestS3Maintenance" or not spec["exact"]:
             raise ValueError("unregistered maintenance test")
@@ -166,14 +178,14 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance", "s3-meter"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
         return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
     manifest_path = ROOT / "experiments" / (args.name + ".json")
     manifest = json.loads(manifest_path.read_text())
-    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory", "owner-manager", "maintenance") else "memory"):
+    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory", "owner-manager", "maintenance", "s3-meter") else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
     if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= (1500 if args.name == "maintenance" else 900):
@@ -204,6 +216,8 @@ def main():
         env["XENON_MAINTENANCE_PROJECT"] = "xenon-maintenance-" + uuid.uuid4().hex[:12]
     if args.name == "owner-manager":
         env["XENON_OWNER_MANAGER_PROJECT"] = "xenon-owner-manager-" + uuid.uuid4().hex[:12]
+    if args.name == "s3-meter":
+        env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "XENON_S3_METER_PROJECT":"xenon-s3-meter-" + uuid.uuid4().hex[:12]})
     if args.name == "directory":
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "XENON_DIRECTORY_PROJECT":"xenon-directory-" + uuid.uuid4().hex[:12]})
     def git(*argv):
@@ -274,6 +288,10 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
                 if digest(ROOT / ".local/bin/xenon-go-node") != report["node_binary_sha256"]:
                     raise ValueError("node binary changed during test")
+            elif runner == "go-test-meter-cli":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-s3-meter")
+            elif runner in ("go-test-meter", "s3-meter"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/s3meter")
             elif runner == "s3-directory":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/directory")
             elif runner == "go-test-outcomes":
@@ -327,8 +345,8 @@ def main():
                 report["cleanup"] = {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
                 report.update(result="failed", proof_pass=False, error="compatibility Compose cleanup failed")
-        if args.name in ("directory", "owner-manager", "maintenance"):
-            env_key = {"directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT"}[args.name]
+        if args.name in ("directory", "owner-manager", "maintenance", "s3-meter"):
+            env_key = {"directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT", "s3-meter":"XENON_S3_METER_PROJECT"}[args.name]
             compose_path = "deploy/" + args.name + ".compose.yaml"
             try:
                 code, output, expired = run_process(["docker", "compose", "--project-name", env[env_key], "-f", compose_path, "down", "--volumes"], 60, env, ROOT)

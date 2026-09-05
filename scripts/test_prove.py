@@ -11,6 +11,15 @@ import prove
 
 
 class RunnerTests(unittest.TestCase):
+    def test_meter_registered_commands(self):
+        manifest = json.loads((prove.ROOT / "experiments/s3-meter.json").read_text())
+        for spec in manifest["commands"]:
+            self.assertTrue(prove.command(spec))
+        spec = dict(manifest["commands"][0], filter="TestUnknown")
+        with self.assertRaises(ValueError):
+            prove.command(spec)
+
+
     def test_compatibility_cleanup_failure_preserves_evidence(self):
         manifest = (prove.ROOT / "experiments/go-shard-compat.json").read_text()
         with tempfile.TemporaryDirectory() as folder:
