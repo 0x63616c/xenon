@@ -1,8 +1,10 @@
-.PHONY: check build test test-rust test-go proof probe-local stop generate
+.PHONY: help smoke fuzz-soak test-harness check-layout check build test test-rust test-go proof probe-local stop generate
 
 test: test-go
 
-check: test-go test-rust
+check: check-layout test-harness test-go test-rust
+
+.NOTPARALLEL: check
 
 test-rust:
 	cargo test --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked --workspace
@@ -33,3 +35,24 @@ generate:
 
 build:
 	python3 scripts/build-go-node.py
+
+help:
+	@echo "make build          Build Go server and pinned native library"
+	@echo "make test           Run Go race tests"
+	@echo "make test-harness   Run Python controller regression tests"
+	@echo "make proof CASE=... Run one registered component proof"
+	@echo "make smoke          Run real Temporal/MinIO smoke and cold recovery"
+	@echo "make fuzz-soak      Run saved Omes corpus for the declared soak"
+	@echo "make check          Run local layout, harness, Go and Rust checks"
+
+check-layout:
+	python3 scripts/check-layout.py
+
+test-harness:
+	PYTHONPATH=scripts python3 -m unittest discover -s scripts -p 'test_*.py'
+
+smoke:
+	python3 scripts/ministack-runtime.py
+
+fuzz-soak:
+	python3 scripts/ministack-runtime.py --fuzz-soak
