@@ -43,9 +43,20 @@ func applyFairTasks(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Ma
 		after = c.Token[33:]
 	}
 	min, max := fairLevel(c.MinPass, c.MinId), fairLevel(c.MaxPass, c.MaxId)
+	bounds := native.KeyRange{}
+	if c.Kind == wire.MatchingCommand_GET_TASKS {
+		bounds.Start = &min
+		bounds.StartInclusive = true
+		if after != nil && bytes.Compare(after, min) >= 0 {
+			bounds.Start = &after
+			bounds.StartInclusive = false
+		}
+	} else {
+		bounds.End = &max
+	}
 	var remove [][]byte
 	truncated := false
-	e := scanCluster(tx, prefix, func(key, value []byte) (bool, error) {
+	e := scanClusterRange(tx, prefix, bounds, func(key, value []byte) (bool, error) {
 		if len(key) != 16 {
 			return false, status.Error(codes.Unavailable, "corrupt fair task key")
 		}
