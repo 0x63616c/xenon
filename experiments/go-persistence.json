@@ -101,7 +101,8 @@
     "scripts/test-shard.sh",
     "scripts/test_prove.py",
     "tools/protoc.json",
-    "tools/slatedb-native.json"
+    "tools/slatedb-native.json",
+    "internal/node/matching_range_test.go"
   ],
   "fault_schedule": "Union of the committed cluster, queue, history, Nexus, matching user data, QueueV2 and forwarding manifests. Includes actual equal-byte command collision across shard/queue families in both directions before and after reopen.",
   "assertions": [
@@ -153,7 +154,8 @@
     "Router retains the incoming context deadline without creating a fresh timeout; caller cancellation reaches the forwarded destination.",
     "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline.",
     "Closed router rejects new local admissions.",
-    "Equal command bytes in different RPC families cannot replay another family outcome."
+    "Equal command bytes in different RPC families cannot replay another family outcome.",
+    "Native matching range seeks preserve signed bounds and exclusive cursor endpoints without rescanning prior rows."
   ],
   "limitations": [
     "Single logical partition; no directory/routing/full Temporal boot.",
@@ -556,6 +558,14 @@
         "TestGoOwnerCrossFamilyCollision",
         "TestGoOwnerCrossFamilyCollision/shard_first",
         "TestGoOwnerCrossFamilyCollision/queue_first"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRangeSeek",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRangeSeek"
       ]
     }
   ]
