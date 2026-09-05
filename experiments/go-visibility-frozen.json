@@ -109,17 +109,17 @@
     "proof/visibility/frozen.json",
     "proof/visibility/frozen.md"
   ],
-  "fault_schedule": "Five real memory-backed Go processes: drop completed START response, retry exact identity; one unavailable partition; native competing owner after close/reopen; terminal deletion and byte-capped global merge.",
+  "fault_schedule": "No injected faults or ownership movement: five in-process real native owners (four visibility partitions plus schema/control) behind actual loopback gRPC; declared 1ms WAL flush.",
   "assertions": [
-    "Full unchanged pinned VisibilityPersistenceSuite passes through a genuine Temporal visibility manager and actual Go service processes.",
-    "All seven attribute types, direct schema additions, CHASM aliases/divisions, four-partition keyset merge and fanout failure are checked.",
-    "Terminal tombstones, index deletion, empty-vs-zero identity separation, durable outcome replay and fenced old-owner rejection survive reopening.",
-    "Saved PostgreSQL Text expectations and exact integer/decimal/null semantics pass pure-Go tests."
+    "All 2000 deterministic records are written and populate all four fixed visibility partitions.",
+    "Page sizes 1, 7 and 100 each enumerate the exact 2000 unique RunIDs without duplicates or omissions.",
+    "Count equals 2000 and four ExecutionStatus groups each contain exactly 500 records.",
+    "Three 1.1MB memos force byte-limited underfilled global pages at page sizes 7 and 100."
   ],
   "limitations": [
-    "Memory object-store component and process RPC proof; managed S3 topology, Temporal boot/Omes and real-S3 remain separate gates.",
-    "The separate PostgreSQL oracle script executes the pinned host-specific ephemeral database fixture; saved oracle cases run in this portable Go manifest.",
-    "Terminal deletion prevents same-run repair/reindex by design. Documents cap at2MiB, results at3MiB; journal retention remains bounded and no expiry is invented."
+    "Frozen memory-object-store native component fixture only; no managed ownership movement, process kills, S3 or Temporal/Omes/UI proof.",
+    "The 1ms WAL flush is a committed test setting, not production performance evidence; adapter per-call deadline remains 30 seconds.",
+    "Concurrent mutation, full type/CHASM semantics and movement/runtime acceptance remain separate required gates."
   ],
   "commands": [
     {
