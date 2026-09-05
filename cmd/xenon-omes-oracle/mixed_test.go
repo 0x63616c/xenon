@@ -67,7 +67,7 @@ func mixedFixture(t *testing.T) ([]runAudit, map[string]*historypb.History) {
 					add(h, "activityTaskStarted", map[string]any{"scheduledEventId": id, "attempt": 2})
 					add(h, "activityTaskCompleted", map[string]any{"scheduledEventId": id})
 				}
-				for _, action := range []string{`{"timer":{"duration":"0.1s"}}`, `{"execActivity":{"payload":{"bytesToReturn":256},"isRemote":{}}}`, `{"execActivity":{"payload":{"bytesToReturn":256},"isLocal":{}}}`} {
+				for _, action := range []string{`{"timer":{"milliseconds":"100"}}`, `{"execActivity":{"payload":{"bytesToReturn":256},"remote":{}}}`, `{"execActivity":{"payload":{"bytesToReturn":256},"isLocal":{}}}`} {
 					data := []byte(`{"doActions":{"actions":[` + action + `]}}`)
 					id := add(h, "workflowExecutionUpdateAccepted", map[string]any{"acceptedRequest": map[string]any{"input": map[string]any{"name": "do_actions_update", "args": map[string]any{"payloads": []any{map[string]any{"metadata": map[string]string{"encoding": base64.StdEncoding.EncodeToString([]byte("json/protobuf"))}, "data": base64.StdEncoding.EncodeToString(data)}}}}}})
 					add(h, "workflowExecutionUpdateCompleted", map[string]any{"acceptedEventId": id, "outcome": map[string]any{"success": map[string]any{}}})
