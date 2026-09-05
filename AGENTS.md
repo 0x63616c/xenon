@@ -37,3 +37,9 @@ Research reports currently live on research branches; integrate validated artifa
 Keep this private repo private pending explicit public-release authorization. Use existing authorized resources within their scope; do not invent credentials or assume permission for external spend. Missing external access must be recorded precisely while independent work continues.
 
 Consult docs/handoff-autonomous.md for exact ticket URLs, research commits, architecture evidence, acceptance gates and the full delegation protocol.
+
+## Accepted service routing
+
+Calum explicitly selected one Go Xenon binary and one client-facing service endpoint. The Temporal persistence adapter connects to that endpoint (a Kubernetes Service when deployed in Kubernetes, or an equivalent load-balanced endpoint elsewhere). Every ready Xenon node accepts complete operations, executes locally when it owns the partition, and otherwise forwards internally to the current owner. Retain SlateDB single-writer ownership and S3-only durability. Do not introduce a separate frontend fleet, custom transaction coordinator, or multi-writer engine to pursue WarpStream-style interchangeable execution.
+
+Keep stable logical partition identities and exclude transient node addresses from durable application records and pagination tokens (the S3 ownership directory may carry owner contact metadata). Forwarding must preserve operation identity, input digest and deadlines; bound hops/retries, refresh stale ownership routes, and preserve typed errors and durable replay. Direct adapter-to-owner routing is a future measured optimization, not an initial delivery prerequisite. One endpoint does not waive multi-node serving, dynamic ownership movement, or multiple Temporal instances.
