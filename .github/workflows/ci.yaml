@@ -35,6 +35,7 @@ jobs:
       - run: python3 scripts/prove.py shard
       - run: python3 scripts/prove.py go-runtime-stores
       - run: python3 scripts/prove.py go-history-routing
+      - run: python3 scripts/prove.py go-outcomes
       - run: go test -race ./...
         env:
           CGO_ENABLED: '1'
