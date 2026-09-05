@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Actual local runtime controller. Missing factories/builds are failures, not skips."""
+import argparse
 import hashlib
 import json
 import os
@@ -14,11 +15,14 @@ import threading
 import time
 import urllib.request
 import uuid
+from resource_samples import ProcessSampler
+import runtime_measurements
 
 ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 class Process:
-    def __init__(self,argv,cwd,env,log):
+    def __init__(self,argv,cwd,env,log,stop_timeout=10):
+        self.stop_timeout=stop_timeout
         self.stopped=False;self.lines=queue.Queue(maxsize=1024);self.log=open(log,'w');self.process=subprocess.Popen(argv,cwd=cwd,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
         def drain():
             for line in self.process.stdout:
@@ -44,7 +48,7 @@ class Process:
         try:os.killpg(self.process.pid,signal.SIGKILL if kill else signal.SIGTERM)
         except ProcessLookupError:pass
         if self.process.poll() is None:
-            try:self.process.wait(timeout=10)
+            try:self.process.wait(timeout=self.stop_timeout)
             except subprocess.TimeoutExpired:
                 try:os.killpg(self.process.pid,signal.SIGKILL)
                 except ProcessLookupError:pass
@@ -54,6 +58,13 @@ class Process:
         self.process.stdout.close();self.log.close()
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
+    args=parser.parse_args()
+    measurement_config=json.loads((ROOT/'proof/ministack/measurements.json').read_text()) if args.measurements else None
+    if measurement_config and (measurement_config['schema']!=1 or measurement_config['incomplete_policy']!='preserve_functional_result_but_fail_measurement_and_overall_proof' or measurement_config['resources']!='proof/acceptance/resources.json' or measurement_config['s3_meter']!='proof/s3-meter/local.json'):
+        raise ValueError('unsupported measurement configuration')
+    sampler=None;meter=None;traces={}
     case=json.loads((ROOT/'proof/ministack/case.json').read_text());pins=json.loads((ROOT/'tools/ministack.json').read_text())
     project='xenon-ministack-'+uuid.uuid4().hex[:12]
     evidence=ROOT/'.local/evidence'/(time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())+'-'+project)
@@ -94,7 +105,9 @@ def main():
         raise TimeoutError('progress deadline: '+str(last))
     def launch(name,argv,extra=None):
         directory=runtime/name;directory.mkdir()
-        process=Process(argv,directory,{**env,**(extra or {})},evidence/(name+'.log'));processes.append(process);return process
+        process=Process(argv,directory,{**env,**(extra or {})},evidence/(name+'.log'),stop_timeout=measurement_config['producer_shutdown_seconds'] if measurement_config and 'XENON_RPC_TRACE_PATH' in (extra or {}) else 10);processes.append(process)
+        if sampler:sampler.register(name,process.process.pid)
+        return process
     sdk=str(ROOT/'.local/bin/xenon-sdk-probe')
     probe_flags=['--address',f"127.0.0.1:{case['ports']['temporal_ingress']}",'--namespace',case['namespace'],'--workflow-id',case['workflow_id'],'--task-queue',case['task_queue']]
     def probe(mode,*args,timeout=20):return json_result(run([sdk,'--mode',mode,*probe_flags,*args],timeout))
@@ -121,6 +134,11 @@ def main():
         for name,path,tags in [('xenon-topology','./cmd/xenon-topology',[]),('xenon-sdk-probe','./cmd/xenon-sdk-probe',[]),('xenon-temporal','./cmd/xenon-temporal',['-tags','ministack'])]:
             run(['go','build',*tags,'-o',str(ROOT/'.local/bin'/name),path],900)
         report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon-go-node','xenon-topology','xenon-sdk-probe','xenon-temporal']}
+        if measurement_config:
+            run(['go','build','-o',str(ROOT/'.local/bin/xenon-s3-meter'),'./cmd/xenon-s3-meter'],120)
+            report['binaries']['xenon-s3-meter']=sha(ROOT/'.local/bin/xenon-s3-meter')
+            resource_config=json.loads((ROOT/measurement_config['resources']).read_text())
+            sampler=ProcessSampler(evidence/'resources.jsonl',resource_config['interval_seconds'],resource_config['max_samples'],resource_config['max_processes'])
         ui=ROOT/'.local/ministack-ui';ui.mkdir(exist_ok=True)
         for file in ['package.json','package-lock.json','probe.mjs']:shutil.copyfile(ROOT/'proof/ministack/ui'/file,ui/file)
         run(['npm','ci','--ignore-scripts'],120,cwd=ui)
@@ -129,6 +147,13 @@ def main():
         def s3_ready():
             with urllib.request.urlopen(env['AWS_ENDPOINT']+'/minio/health/live',timeout=2) as response:return response.status==200
         wait(s3_ready,30)
+        if measurement_config:
+            meter_config=json.loads((ROOT/measurement_config['s3_meter']).read_text())
+            if meter_config['target']!=env['AWS_ENDPOINT']:raise RuntimeError('meter target differs from declared local MinIO')
+            meter=launch('s3-meter',[str(ROOT/'.local/bin/xenon-s3-meter'),'--config',str(ROOT/measurement_config['s3_meter'])])
+            ready=json.loads(meter.line('{'))
+            if ready.get('event')!='ready' or ready.get('listen')!=meter_config['listen'] or ready.get('report_listen')!=meter_config['report_listen']:raise RuntimeError('meter readiness identity mismatch')
+            env['AWS_ENDPOINT']='http://'+meter_config['listen']
         run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket',env['XENON_BUCKET']])
         nodes={};members={};assignments={};metrics_ports={} 
         def node(name,port):
@@ -162,7 +187,10 @@ def main():
         publish()
         temporals=[]
         def temporal(name,config):
-            process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)]);temporals.append(process);return process
+            extra={'XENON_RPC_TRACE_PATH':str(evidence/(name+'.rpc.jsonl'))} if measurement_config else None
+            process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)],extra);temporals.append(process)
+            if measurement_config:traces[name]=process
+            return process
         def healthy_temporal(name,config,address):
             process=temporal(name,config);process.line('TEMPORAL_STARTED',timeout=120)
             wait(lambda:probe('health','--address',address),60)
@@ -233,7 +261,8 @@ def main():
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
         event('ui-assertions-passed');checkpoint('before-cold-restart')
         # Explicit final cold-local restart retains only the S3 service volume.
-        for process in processes:process.stop()
+        cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config else processes
+        for process in cold_order:process.stop()
         nodes.clear();members.clear()
         node('cold-a',17351);node('cold-b',17352)
         for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
@@ -258,9 +287,21 @@ def main():
         report.update(result='passed',proof_pass=True)
     except Exception as error:report['error']=str(error)
     finally:
-        for process in reversed(processes):
+        shutdown_order=runtime_measurements.producer_first(list(reversed(processes)),traces) if measurement_config else reversed(processes)
+        for process in shutdown_order:
             try:process.stop()
             except Exception as error:report.setdefault('cleanup_errors',[]).append(str(error))
+        if measurement_config:
+            report['functional_result']=report['result'];report['functional_proof_pass']=report['proof_pass']
+            try:
+                report['measurements']=runtime_measurements.finalize(evidence,traces,meter,sampler,measurement_config) if sampler else {'enabled':True,'measurement_complete':False,'error':'measurement setup never completed'}
+            except Exception as error:
+                if sampler:
+                    try:sampler.stop()
+                    except Exception:pass
+                report['measurements']={'enabled':True,'measurement_complete':False,'error':str(error)}
+            if not report['measurements']['measurement_complete']:
+                report.update(result='failed',proof_pass=False)
         try:
             run([*compose,'down','--volumes'],60)
             for argv in (['docker','ps','-aq','--filter','label=com.docker.compose.project='+project],['docker','volume','ls','-q','--filter','label=com.docker.compose.project='+project]):

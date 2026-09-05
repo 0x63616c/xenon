@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "enabled_only_by_flag": "--measurements",
+  "resources": "proof/acceptance/resources.json",
+  "s3_meter": "proof/s3-meter/local.json",
+  "producer_shutdown_seconds": 60,
+  "max_trace_events": 2000000,
+  "max_trace_line_bytes": 4096,
+  "p99_minimum_samples": 100,
+  "incomplete_policy": "preserve_functional_result_but_fail_measurement_and_overall_proof",
+  "window_scope": "whole process lifetimes; phase rotation not implemented"
+}

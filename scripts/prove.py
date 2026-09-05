@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-meter-cli", "s3-meter") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-meter-cli", "s3-meter", "python-measurements") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -52,6 +52,10 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner == "python-measurements":
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples"):
+            raise ValueError("unregistered runtime measurement controls")
+        return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
     if runner == "go-test-meter-cli":
         if spec["filter"] != "TestMeterCLI" or not spec["exact"]:
             raise ValueError("unregistered meter CLI control")
@@ -178,7 +182,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance", "s3-meter"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -288,6 +292,10 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
                 if digest(ROOT / ".local/bin/xenon-go-node") != report["node_binary_sha256"]:
                     raise ValueError("node binary changed during test")
+            elif runner == "python-measurements":
+                actual = re.findall(r"^(test_[a-zA-Z0-9_]+) \([^\n)]+\) \.\.\. ok$", output, re.MULTILINE)
+                if sorted(actual) != sorted(expected) or not re.search(r"^Ran " + str(len(expected)) + r" tests? in [^\n]+\n\nOK$", output.strip(), re.MULTILINE):
+                    raise ValueError("Python measurement assertions mismatch")
             elif runner == "go-test-meter-cli":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-s3-meter")
             elif runner in ("go-test-meter", "s3-meter"):
