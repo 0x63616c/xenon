@@ -146,6 +146,9 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	if operation == nil {
 		return nil, status.Error(codes.InvalidArgument, "nil operation")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if o.quarantined.Load() {
 		return nil, status.Error(codes.Unavailable, "partition requires recovery")
 	}
@@ -163,6 +166,12 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 		return nil, ctx.Err()
 	case <-timer.C:
 		return nil, status.Error(codes.ResourceExhausted, "partition admission timeout")
+	}
+	// A ready gate and a canceled context may both win the select. Reject
+	// before starting authority/native work; no uncertain operation exists yet.
+	if err := ctx.Err(); err != nil {
+		<-o.gate
+		return nil, err
 	}
 	if o.quarantined.Load() {
 		<-o.gate
