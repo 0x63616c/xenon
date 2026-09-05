@@ -72,3 +72,13 @@ The legacy Rust protobuf build boxes StoredOutcome.execution_result to avoid a
 large generated enum after adding field13. This changes Rust memory layout only;
 protobuf field numbers and bytes remain compatible, and the legacy Rust service
 does not acquire an unimplemented visibility handler.
+
+The executed PostgreSQL scalar oracle distinguishes generated comparison columns
+from raw SearchAttributes JSON. Responses preserve original scalar payloads;
+null-removal attributes are omitted as in the pinned SQL generator. Custom
+datetime fractions round to microseconds using PostgreSQL's ties-to-even rule,
+including second carry and pre-epoch values, while system timestamps truncate.
+Double equality-index values normalize to DECIMAL(20,5) semantics before hashing,
+so equivalent rounded values share candidate keys. Original double payloads and
+full query operands remain unchanged. The dedicated RPC/native regressions cover
+all three representations instead of assuming they are identical.

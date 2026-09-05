@@ -122,7 +122,7 @@ func Value(t enumspb.IndexedValueType, v any) (*wire.VisibilityAttribute, error)
 		if !ok {
 			return nil, fmt.Errorf("expected time.Time, got %T", v)
 		}
-		a.Values = []*wire.QueryValue{String(x.UTC().Truncate(time.Microsecond).Format("2006-01-02 15:04:05.999999"))}
+		a.Values = []*wire.QueryValue{String(customDatetime(x).Format("2006-01-02 15:04:05.999999"))}
 	default:
 		return nil, fmt.Errorf("unknown search attribute type %d", t)
 	}
@@ -329,4 +329,13 @@ func NormalizedScalar(a *wire.VisibilityAttribute) (any, error) {
 		return time.Parse("2006-01-02 15:04:05.999999", a.Values[0].GetStringValue())
 	}
 	return Scalar(a), nil
+}
+
+// PostgreSQL convert_ts parses the JSON timestamp fraction as a double and uses
+// rint at microsecond precision (ties to even), unlike system-column truncation.
+func customDatetime(t time.Time) time.Time {
+	t = t.UTC()
+	fraction, _ := strconv.ParseFloat(fmt.Sprintf("0.%09d", t.Nanosecond()), 64)
+	micros := int64(math.RoundToEven(fraction * 1e6))
+	return time.Unix(t.Unix(), micros*1000).UTC()
 }

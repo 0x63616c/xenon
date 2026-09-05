@@ -87,6 +87,7 @@
     "proof/visibility/case.json",
     "proof/visibility/oracle-cases.json",
     "proof/visibility/oracle-pins.json",
+    "proof/visibility/oracle-scalars.json",
     "proof/visibility/oracle.md",
     "proto/xenon/v1/execution.proto",
     "proto/xenon/v1/executiontasks.proto",
@@ -198,6 +199,14 @@
       "exact": true,
       "expected_tests": [
         "TestVisibilitySystemTimeSentinel"
+      ]
+    },
+    {
+      "runner": "go-test-visibility",
+      "filter": "TestVisibilityCustomTimeRounding",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityCustomTimeRounding"
       ]
     }
   ]

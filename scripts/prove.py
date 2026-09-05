@@ -61,7 +61,7 @@ def command(spec):
             raise ValueError("unregistered factory configuration test")
         return ["go", "test", "-json", "-count=1", "./internal/temporalstore", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-visibility":
-        if not spec["exact"] or spec["filter"] not in ("TestVisibilityTypedEvaluation", "TestTextPostgreSQLOracle", "TestVisibilitySystemTimeSentinel"):
+        if not spec["exact"] or spec["filter"] not in ("TestVisibilityTypedEvaluation", "TestTextPostgreSQLOracle", "TestVisibilitySystemTimeSentinel", "TestVisibilityCustomTimeRounding"):
             raise ValueError("unregistered visibility value test")
         return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
