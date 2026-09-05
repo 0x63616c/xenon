@@ -13,6 +13,8 @@
       "run-scenario-with-worker",
       "--language",
       "go",
+      "--version",
+      "v1.48.0",
       "--namespace",
       "xenon-ministack",
       "--server-address",
@@ -22,13 +24,17 @@
       "--iterations",
       "100",
       "--run-id",
-      "xenon-full-simple"
+      "xenon-full-simple",
+      "--max-iteration-attempts",
+      "1"
     ],
     "mixed": [
       "omes",
       "run-scenario-with-worker",
       "--language",
       "go",
+      "--version",
+      "v1.48.0",
       "--namespace",
       "xenon-ministack",
       "--server-address",
@@ -54,13 +60,15 @@
       "--option",
       "sleep-time=100ms",
       "--option",
-      "visibility-count-timeout=60s"
+      "visibility-count-timeout=60s",
+      "--max-iteration-attempts",
+      "1"
     ],
     "fuzz": {
       "manifest": "proof/omes-corpus/manifest.json",
       "manifest_sha256": "c6c08a316c6f13ec768595787599a5b6fe645e4ab771a9f7dec40d0e491a373a",
       "replay": "proof/omes-corpus/replay.json",
-      "replay_sha256": "35d389a6809d5375c84d87525ebbfe476ec70fea406a8f43b4d2e6d8edb45cfb",
+      "replay_sha256": "a2d54bc8dff7618ff95cd5a2aa9520904041dcb2f0be1458d77e5c4a1e451a4b",
       "inputs_per_profile": 20,
       "profiles": [
         "without-faults",

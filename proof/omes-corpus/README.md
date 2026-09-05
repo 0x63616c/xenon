@@ -13,3 +13,5 @@ Seeds are provenance, not replay inputs. Upstream uses Rust HashMaps for protobu
 A zero Omes exit status is insufficient for release acceptance. The controller must assert expected workflow outcomes, histories, no acknowledged loss, observed fault barriers, capacity headroom and recovery bounds for both profiles. No SQL or other durable application dependency is introduced.
 
 Run `python3 scripts/test_omes_corpus.py` for the committed optimized-Python regression: clean committed corrupted bytes and a substituted replay input must both fail under `python -O`. Generator subprocesses have a 600-second ceiling and their process groups are killed on timeout or interruption before temporary-directory cleanup; short version/git reads have a 30-second ceiling.
+
+Every replay/workload command explicitly selects `--language go --version v1.48.0` and `--max-iteration-attempts 1`. Worker selection is pinned in executable arguments, not only metadata; the latter flag fixes the upstream default of one scenario iteration attempt and does not disable internal SDK/activity retries required by the workload.

@@ -3,7 +3,7 @@
 import hashlib,json,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-EXPECTED_PROFILE_SHA256="3420d02c9c185d3cc8b34973fb4a6d031acd14fcabd329e8a27e118d170e9dce"
+EXPECTED_PROFILE_SHA256="65b548d7f3f920a916dc5c618ec92f88bac993195c50cbfac50d7d5c336097e5"
 def validate(root=ROOT):
  path=root/'proof/acceptance/full-profile.json'
  if hashlib.sha256(path.read_bytes()).hexdigest()!=EXPECTED_PROFILE_SHA256:
