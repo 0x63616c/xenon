@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/node"
+	"github.com/0x63616c/xenon/internal/ownership"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -14,6 +16,10 @@ import (
 )
 
 func main() {
+	if os.Getenv("XENON_TOPOLOGY_PREFIX") != "" {
+		managedMain()
+		return
+	}
 	backend := os.Getenv("XENON_BACKEND")
 	if backend == "" {
 		backend = "s3"
@@ -92,6 +98,33 @@ func main() {
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.
+	if err = server.Serve(listener); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func managedMain() {
+	topology, err := ownership.Environment()
+	if err != nil {
+		log.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", os.Getenv("XENON_LISTEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	address := os.Getenv("XENON_ADVERTISE")
+	if address == "" {
+		address = listener.Addr().String()
+	}
+	manager, err := ownership.NewManager(topology, os.Getenv("XENON_NODE"), address, "s3://"+os.Getenv("XENON_BUCKET"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	server, router := manager.Server()
+	defer router.Close()
+	go manager.Run(context.Background())
+	identity := manager.Identity()
+	fmt.Printf("INGRESS %s %s %s\n", identity.Node, identity.Incarnation, identity.Address)
 	if err = server.Serve(listener); err != nil {
 		log.Fatal(err)
 	}

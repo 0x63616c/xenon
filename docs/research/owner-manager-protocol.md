@@ -48,8 +48,9 @@ engine-fence ordering below.
 A desired owner whose handle is fenced retires it and makes a fresh reservation
 only after reading the current topology again. Reconciliation has bounded backoff
 and at most one active opening attempt per partition per process. Previously
-scheduled stale attempts may finish and fence a newer writer, but cannot publish
-READY or serve work. They do not retry an obsolete assignment. Finite delayed
+scheduled stale attempts may finish and fence a newer writer. Directory-superseded
+attempts cannot publish READY; topology-only changes may allow transient READY as
+described above, but fresh admission rejects them. They do not retry an obsolete assignment. Finite delayed
 contenders therefore cause bounded failed service/recovery cycles, not unsafe
 acknowledgments. This is not a liveness claim under infinitely many stale contenders.
 
