@@ -49,6 +49,12 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "health":
+		_, e = c.CheckHealth(ctx, &client.CheckHealthRequest{})
+		if e != nil {
+			return e
+		}
+		return emit(map[string]string{"health": "serving"})
 	case "bootstrap":
 		_, e = c.WorkflowService().RegisterNamespace(ctx, &workflowservice.RegisterNamespaceRequest{Namespace: *namespace, WorkflowExecutionRetentionPeriod: durationpb.New(24 * time.Hour)})
 		if _, exists := e.(*serviceerror.NamespaceAlreadyExists); exists {

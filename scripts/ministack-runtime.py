@@ -18,9 +18,15 @@ ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 class Process:
     def __init__(self,argv,cwd,env,log):
-        self.stopped=False;self.lines=queue.Queue();self.log=open(log,'w');self.process=subprocess.Popen(argv,cwd=cwd,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
+        self.stopped=False;self.lines=queue.Queue(maxsize=1024);self.log=open(log,'w');self.process=subprocess.Popen(argv,cwd=cwd,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
         def drain():
-            for line in self.process.stdout:self.log.write(line);self.log.flush();self.lines.put(line.rstrip())
+            for line in self.process.stdout:
+                self.log.write(line);self.log.flush()
+                try:self.lines.put_nowait(line.rstrip())
+                except queue.Full:
+                    try:self.lines.get_nowait()
+                    except queue.Empty:pass
+                    self.lines.put_nowait(line.rstrip())
         self.thread=threading.Thread(target=drain,daemon=True);self.thread.start()
     def line(self,prefix,timeout=30):
         end=time.monotonic()+timeout
@@ -37,10 +43,14 @@ class Process:
         try:os.killpg(self.process.pid,signal.SIGKILL if kill else signal.SIGTERM)
         except ProcessLookupError:pass
         if self.process.poll() is None:
-            os.killpg(self.process.pid,signal.SIGKILL if kill else signal.SIGTERM)
             try:self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:os.killpg(self.process.pid,signal.SIGKILL);self.process.wait(timeout=10)
-        self.thread.join(timeout=5);self.log.close()
+            except subprocess.TimeoutExpired:
+                try:os.killpg(self.process.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                self.process.wait(timeout=10)
+        self.thread.join(timeout=5)
+        if self.thread.is_alive():raise RuntimeError("process output did not drain after shutdown")
+        self.process.stdout.close();self.log.close()
 
 def main():
     case=json.loads((ROOT/'proof/ministack/case.json').read_text());pins=json.loads((ROOT/'tools/ministack.json').read_text())
@@ -49,7 +59,7 @@ def main():
     evidence.mkdir(parents=True);runtime=evidence/'runtime';runtime.mkdir()
     env={k:os.environ[k] for k in ('PATH','HOME','USER','TMPDIR','RUSTUP_HOME','CARGO_HOME') if k in os.environ}
     library=ROOT/'.local/slatedb-native-target/debug'
-    env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(library),LD_LIBRARY_PATH=str(library),DYLD_LIBRARY_PATH=str(library),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19005',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false',XENON_BUCKET='xenon-ministack-proof',XENON_TOPOLOGY_PREFIX='metadata')
+    env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(library),LD_LIBRARY_PATH=str(library),DYLD_LIBRARY_PATH=str(library),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19006',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false',XENON_BUCKET='xenon-ministack-proof',XENON_TOPOLOGY_PREFIX='metadata')
     report={'kind':'ministack-runtime','proof_pass':False,'result':'failed','project':project,'commands':[],'events':[]};processes=[];sequence=0
     compose=['docker','compose','--project-name',project,'-f','deploy/ministack/compose.json']
     def run(argv,timeout=120,cwd=ROOT,command_env=None):
@@ -119,6 +129,10 @@ def main():
         def temporal(name,config):
             process=launch(name,[str(ROOT/'.local/bin/xenon-temporal'),'--config',str(ROOT/config)]);temporals.append(process);return process
         ta=temporal('temporal-a','deploy/ministack/temporal-a.json');tb=temporal('temporal-b','deploy/ministack/temporal-b.json')
+        for process,address in [(ta,'127.0.0.1:18233'),(tb,'127.0.0.1:19233')]:
+            process.line('TEMPORAL_STARTED',timeout=120)
+            wait(lambda:probe('health','--address',address),60)
+        event('both-temporal-instances-healthy')
         bootstrap=wait(lambda:probe('bootstrap'),120);event('namespace-and-search-schema-ready',**bootstrap)
         worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
         execution=probe('start');event('workflow-started',**execution)
@@ -169,7 +183,11 @@ def main():
         nodes.clear();members.clear()
         node('cold-a',17351);node('cold-b',17352)
         for index,assignment in enumerate(assignments.values()):assignment['node']='cold-a' if index%2==0 else 'cold-b'
-        publish();temporal('cold-temporal-a','deploy/ministack/temporal-a.json');temporal('cold-temporal-b','deploy/ministack/temporal-b.json')
+        publish()
+        cold_a=temporal('cold-temporal-a','deploy/ministack/temporal-a.json');cold_b=temporal('cold-temporal-b','deploy/ministack/temporal-b.json')
+        for process,address in [(cold_a,'127.0.0.1:18233'),(cold_b,'127.0.0.1:19233')]:
+            process.line('TEMPORAL_STARTED',timeout=120)
+            wait(lambda:probe('health','--address',address),60)
         wait(lambda:probe('verify','--run-id',execution['run_id'],'--output',str(evidence)),120)
         wait(lambda:probe('visibility','--query',"WorkflowId = 'xenon-durable-workflow-1' AND ExecutionStatus = 'Completed' AND XenonProof = 'durable'"))
         wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))

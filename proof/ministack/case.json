@@ -7,7 +7,7 @@
   "task_queue": "xenon-ministack-worker",
   "history_shards": 4,
   "ports": {
-    "s3": 19005,
+    "s3": 19006,
     "ui": 18080,
     "storage_ingress": 17935,
     "temporal_ingress": 17233,
