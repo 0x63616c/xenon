@@ -225,7 +225,7 @@ func commit(tx *native.DbTransaction) error {
 	return backend(handle.AwaitDurable())
 }
 func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
-	outcome, err := o.journal(request.OperationId, request.CommandSha256, false, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	outcome, err := o.journal(request.OperationId, request.CommandSha256, shardFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
 		command := request.Command
 		shardKey := fmt.Sprintf("v1/shard/%010d", command.ShardId)
 		raw, err := get(tx, shardKey)
