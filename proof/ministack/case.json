@@ -110,5 +110,7 @@
     "vis-v1-2",
     "vis-v1-3"
   ],
-  "max_outcomes": 200000
+  "max_outcomes": 200000,
+  "scope": "first-boot-smoke",
+  "full_acceptance": false
 }

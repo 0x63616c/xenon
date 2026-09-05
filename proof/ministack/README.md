@@ -100,3 +100,5 @@ AddSearchAttributes API. The UI probe uses pinned Playwright and Chromium to ins
 list/filter/detail pages; Omes uses its own pinned module and retains generated
 worker inputs for hashing. None of these candidate stages is claimed passed until
 the runtime report says so after all assertions and cleanup.
+
+This profile is the bounded first-boot smoke, not the full delivery acceptance profile in `docs/design/acceptance.md`. Even a runtime pass here does not cover the required 100 simple, 40 throughput and 20 frozen fuzz workloads, ten local operations per node, movement of both history and visibility partitions, or 2,000 frozen visibility rows paged at 1/7/100. Those remain a separate declarative follow-on after boot is proven.

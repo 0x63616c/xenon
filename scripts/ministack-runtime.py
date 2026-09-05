@@ -60,7 +60,7 @@ def main():
     env={k:os.environ[k] for k in ('PATH','HOME','USER','TMPDIR','RUSTUP_HOME','CARGO_HOME') if k in os.environ}
     library=ROOT/'.local/slatedb-native-target/debug'
     env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(library),LD_LIBRARY_PATH=str(library),DYLD_LIBRARY_PATH=str(library),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19006',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false',XENON_BUCKET='xenon-ministack-proof',XENON_TOPOLOGY_PREFIX='metadata')
-    report={'kind':'ministack-runtime','proof_pass':False,'result':'failed','project':project,'commands':[],'events':[]};processes=[];sequence=0
+    report={'kind':'ministack-runtime','scope':case['scope'],'full_acceptance':False,'proof_pass':False,'result':'failed','project':project,'commands':[],'events':[]};processes=[];sequence=0
     compose=['docker','compose','--project-name',project,'-f','deploy/ministack/compose.json']
     def run(argv,timeout=120,cwd=ROOT,command_env=None):
         nonlocal sequence
