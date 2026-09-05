@@ -54,6 +54,12 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "mixed-inventory":
+		result, err := mixedInventory(ctx, c.WorkflowService(), *namespace)
+		if err != nil {
+			return err
+		}
+		return emit(result)
 	case "fuzz-endpoint-ready":
 		result, err := nexusReadiness(ctx, c, *namespace)
 		if err != nil {
