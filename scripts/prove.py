@@ -190,7 +190,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else [])):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name == "go-shard" else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -237,6 +237,13 @@ def main():
             raise ValueError("compiler binary changed during experiment")
         if args.name == "go-shard":
             native_build = report["native_build"]
+            source = ROOT / ".local/slatedb-native-source"
+            for argv, expected in [(["git", "rev-parse", "HEAD"], native_build["source_commit"]), (["git", "status", "--porcelain=v1", "--untracked-files=all"], "")]:
+                code, output, expired = run_process(argv, 30, env, source)
+                if code or expired or output.strip() != expected:
+                    raise ValueError("native source changed during experiment")
+            if cargo_configs(source, env):
+                raise ValueError("native source Cargo config appeared during experiment")
             if digest(ROOT / native_build["shared_library"]) != native_build["shared_library_sha256"]:
                 raise ValueError("native library changed during experiment")
         report["result"], report["proof_pass"] = classify_success(bool(dirty))

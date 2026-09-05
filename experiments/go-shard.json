@@ -29,11 +29,13 @@
     "internal/node/shard.go",
     "internal/node/shard_test.go",
     "cmd/xenon-go-node/main.go",
-    "proof/go-shard/case.json"
+    "proof/go-shard/case.json",
+    "proof/go-shard/README.md",
+    ".github/workflows/ci.yaml"
   ],
-  "fault_schedule": "case.json drop_first_completed_update_response; Rust stalled WAL flush and competing writer tests use committed deterministic transitions.",
+  "fault_schedule": "case.json drop_first_completed_update_response; Go native stalled WAL flush and competing writer tests use committed deterministic transitions.",
   "assertions": [
-    "Exact Go ShardStore payload/encoding and callback semantics cross real gRPC into Rust SlateDB.",
+    "Exact Go ShardStore payload/encoding and callback semantics cross real gRPC into the Go owner with official SlateDB native bindings.",
     "Lost completed response retries same operation identity and does not overwrite intervening state.",
     "Shard and outcomes reopen together; replay cannot bypass writer fencing.",
     "Missing Update and range mismatch preserve distinct typed errors.",
