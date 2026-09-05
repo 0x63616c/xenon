@@ -43,6 +43,7 @@ def main():
   source=evidence/'source';source.mkdir();archive=evidence/'upstream.tar'
   with archive.open('wb') as stream:subprocess.run(['git','archive',OMES],cwd=a.source,stdout=stream,check=True,timeout=30)
   with tarfile.open(archive) as stream:stream.extractall(source,filter='data')
+  run(['git','init','--quiet'],source)
   worker=source/'workers/go/workerlib/kitchensink';shutil.copyfile(CASE/'red_test.go.in',worker/'xenon_red_test.go')
   run(['go','test','./workerlib/kitchensink','-run','^TestXenonOriginalGeneratedReturn$','-count=1'],source/'workers/go',expected=1)
   if 'ORIGINAL_NUMBERED_RETURN_SKIPPED' not in (evidence/report['commands'][-1]['log']).read_text():raise ValueError('red test failed for unrelated reason')
@@ -54,7 +55,11 @@ def main():
   run([a.protoc,'-I'+str(a.api_source),'-I'+str(source/'workers/proto/kitchen_sink'),'--go_out='+str(source/'loadgen/kitchensink'),'--go_opt=paths=source_relative',source/'workers/proto/kitchen_sink/kitchen_sink.proto'],source)
   report['generated_pb_sha256']=sha(source/'loadgen/kitchensink/kitchen_sink.pb.go')
   shutil.copyfile(CASE/'worker_signal_test.go.in',worker/'xenon_signal_test.go')
-  run(['go','test','./workerlib/kitchensink','-run','^TestXenon','-count=1'],source/'workers/go')
+  output=run(['go','test','-json','./workerlib/kitchensink','-run','^TestXenon','-count=1'],source/'workers/go')
+  passed={event['Test'] for line in output.splitlines() if (event:=json.loads(line)).get('Action')=='pass' and 'Test' in event and '/' not in event['Test']}
+  expected={'TestXenonSignalMetadataContract','TestXenonOptionalSignalContract','TestXenonRequiredSignalStillDrains','TestXenonCANSignalScope','TestXenonOptionalDeliveryExecutes'}
+  if passed!=expected:raise ValueError('worker assertion set mismatch')
+  report['worker_assertions']=sorted(passed)
   shutil.copyfile(CASE/'normalize.go.in',source/'normalize_xenon.go')
   run(['go','build','-o',tools/'normalize','normalize_xenon.go'],source)
   report['normalizer_sha256']=sha(tools/'normalize');report['corpus']=[]
