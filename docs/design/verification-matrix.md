@@ -68,3 +68,10 @@ against #66. #55 then #66 retain the merge path; `main` is still `457fad9`, not 
 integration branch. CI billing and authorized real-AWS access remain external
 gates. The website/docs are now explicitly in user-authorized scope (#78); Xenon
 is currently private/proprietary with no open-source release commitment.
+
+
+### Integrated verification checkpoint: original fuzz corpus incompatibility
+
+At `90327c9`, clean runtime `20260905T233427Z-xenon-ministack-71ee471f700a` passed pinned Node/build/startup and real Nexus readiness on all four history shards. The first original saved fuzz input (`2026090501.proto`) then reached its unchanged 900-second timeout; the soak and runtime receipts remain **FAILED**, with successful cleanup. No corpus round completed. Read-only history diagnosis observed three signals, the upsert and fired timers, but no child/Nexus actions or workflow completion. Pinned Omes generator/Go-worker inspection identified missing signal-acceptance metadata: numbered signals carrying actions and the final return were skipped. This is not an S3 durability failure receipt. Original corpus bytes remain unchanged; a separately versioned correction is pending actual worker controls and runtime verification.
+
+Next integration `51e5e79` adds the reviewed external recorder lifecycle, upgrade-state runner and candidate mixed history oracle. The combined Python harness passes 63 controls. Clean recorder proof `20260905T235019Z-recorder-lifecycle-e7720697` passes all six commands; mixed baseline oracle proof `20260905T234716Z-mixed-oracle-bc31b7c9` passes synthetic controls. Independent source review found that Nexus handler runs must be included separately from the 240 baseline parent/child runs; that correction remains pending, so these controls do not establish mixed runtime acceptance. The upgrade runner has ten passing controls but no actual old/target version pair has been executed. CI billing and authorized real-AWS resources remain external gates.
