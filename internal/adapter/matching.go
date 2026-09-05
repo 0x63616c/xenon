@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -30,7 +31,7 @@ type MatchingStore struct {
 // Implements the pinned legacy TaskStore, including namespace-wide user data.
 
 func NewMatchingStore(address, partition string) (*MatchingStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +50,9 @@ func (s *MatchingStore) Close() {
 	}
 }
 func (s *MatchingStore) GetName() string { return "xenon" }
-func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingCommand) (traceResult *wire.MatchingResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "matching")
+	defer func() { traceFinish(traceErr) }()
 	c.Fair = s.fair
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()

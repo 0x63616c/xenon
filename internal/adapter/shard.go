@@ -4,6 +4,7 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
@@ -32,7 +33,7 @@ var _ persistence.ShardStore = (*ShardStore)(nil)
 // NewShardStore creates a wrapper for one configured logical partition. It does
 // not claim dynamic routing or expose a factory for unimplemented stores.
 func NewShardStore(address, partition, cluster string) (*ShardStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +43,9 @@ func (s *ShardStore) Close()                 { _ = s.connection.Close() }
 func (s *ShardStore) GetName() string        { return "xenon" }
 func (s *ShardStore) GetClusterName() string { return s.cluster }
 
-func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (*wire.ShardResult, error) {
+func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (traceResult *wire.ShardResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "shard")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)

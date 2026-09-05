@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
@@ -26,7 +27,7 @@ type HistoryTasksStore struct {
 }
 
 func NewHistoryTasksStore(address, partition string) (*HistoryTasksStore, error) {
-	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -38,7 +39,9 @@ func (s *HistoryTasksStore) Close() {
 	}
 }
 func (s *HistoryTasksStore) GetName() string { return "xenon" }
-func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.HistoryTasksCommand) (*wire.HistoryTasksResult, error) {
+func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.HistoryTasksCommand) (traceResult *wire.HistoryTasksResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "historytasks")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

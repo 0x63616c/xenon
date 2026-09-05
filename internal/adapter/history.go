@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -32,7 +33,7 @@ type HistoryStore struct {
 }
 
 func NewHistoryStore(address, partition string) (*HistoryStore, error) {
-	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -45,7 +46,9 @@ func (s *HistoryStore) Close() {
 }
 func (s *HistoryStore) GetName() string                           { return "xenon" }
 func (s *HistoryStore) GetHistoryBranchUtil() p.HistoryBranchUtil { return s.HistoryBranchUtilImpl }
-func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand) (*wire.HistoryResult, error) {
+func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand) (traceResult *wire.HistoryResult, traceErr error) {
+	ctx, traceFinish := rpctrace.Begin(ctx, "history")
+	defer func() { traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
