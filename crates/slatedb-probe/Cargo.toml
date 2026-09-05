@@ -1,5 +1,6 @@
 [package]
 name = "slatedb-probe"
+default-run = "slatedb-probe"
 version = "0.1.0"
 edition = "2021"
 publish = false

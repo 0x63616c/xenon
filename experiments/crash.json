@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "name": "crash",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 600,
+  "stages": [
+    "before-durable",
+    "after-durable",
+    "after-ack"
+  ],
+  "barrier_sequence": 3,
+  "endpoint": "http://127.0.0.1:19001",
+  "bucket": "xenon-crash-proof",
+  "worker_timeout_seconds": 60,
+  "compose": "deploy/crash.compose.yaml",
+  "retention": "Delete only this run's Compose project and object volume after verification; retain logs/evidence.",
+  "inputs": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "crates/slatedb-probe/Cargo.toml",
+    "crates/slatedb-probe/src/lib.rs",
+    "crates/slatedb-probe/src/bin/crash-worker.rs",
+    "deploy/crash.compose.yaml",
+    "scripts/crash-proof.py",
+    "scripts/test_crash_proof.py"
+  ],
+  "commands": [
+    {
+      "runner": "s3-crash",
+      "filter": "crash",
+      "exact": false,
+      "expected_tests": [
+        "crash::before_durable",
+        "crash::after_durable",
+        "crash::after_ack"
+      ]
+    },
+    {
+      "runner": "s3-crash-cleanup",
+      "filter": "crash",
+      "exact": false,
+      "expected_tests": [
+        "crash::cleanup_sigterm",
+        "crash::cleanup_sigkill"
+      ]
+    }
+  ],
+  "assertions": [
+    "Actual SIGKILL after each observed declared barrier",
+    "Every independently observed acknowledgement recovered",
+    "State and task batch never partially recovered",
+    "New process writes after recovering without local cache"
+  ],
+  "limitations": [
+    "Local S3 emulator, not real AWS S3",
+    "Manual flush in pre-durability experiment",
+    "Normal maintenance retained but compaction/GC execution not asserted",
+    "No complete Temporal adapter, Omes, UI, or scaling proof"
+  ]
+}
