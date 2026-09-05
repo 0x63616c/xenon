@@ -564,8 +564,8 @@ func (s *VisibilityStore) AddSearchAttributes(ctx context.Context, r *manager.Ad
 // Initial partition reads are independent live reads, not a cross-partition
 // snapshot. Join every worker before return and preserve the first real failure.
 func parallelVisibility(ctx context.Context, call func(context.Context, int) error) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// Peer errors must not cancel admitted sibling durability operations: doing
+	// so can quarantine a healthy owner mid-commit. The caller deadline still bounds all reads.
 	var wg sync.WaitGroup
 	var once sync.Once
 	var first error
@@ -574,7 +574,7 @@ func parallelVisibility(ctx context.Context, call func(context.Context, int) err
 		go func(i int) {
 			defer wg.Done()
 			if err := call(ctx, i); err != nil {
-				once.Do(func() { first = err; cancel() })
+				once.Do(func() { first = err })
 			}
 		}(i)
 	}
