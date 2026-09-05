@@ -320,3 +320,31 @@ func TestShardTransportBoundsAndTypes(t *testing.T) {
 		})
 	}
 }
+
+// Return transport cancellation while the caller context is still live, so the
+// result cannot depend on which of the remote and local timers fires first.
+type cancellationClient struct{ code codes.Code }
+
+func (c cancellationClient) Execute(ctx context.Context, _ *wire.ShardRequest, _ ...grpc.CallOption) (*wire.ShardResult, error) {
+	if ctx.Err() != nil {
+		panic("test requires a live context")
+	}
+	return nil, status.Error(c.code, "remote cancellation")
+}
+func TestShardRemoteCancellationTypes(t *testing.T) {
+	for _, tc := range []struct {
+		code codes.Code
+		want error
+	}{
+		{codes.DeadlineExceeded, context.DeadlineExceeded},
+		{codes.Canceled, context.Canceled},
+	} {
+		t.Run(tc.code.String(), func(t *testing.T) {
+			store := &ShardStore{client: cancellationClient{tc.code}, invocationTimeout: time.Minute}
+			_, err := store.invoke(context.Background(), &wire.ShardCommand{Kind: wire.ShardCommand_GET})
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("got %T %v, want %v", err, err, tc.want)
+			}
+		})
+	}
+}
