@@ -39,3 +39,5 @@ dispatch remains a separate runtime hook requirement. Execution UPDATE selection
 is wired but not a workflow crash-proof claim. Directory response loss, delayed
 owners, full workloads, maintenance composition and real-S3 execution remain
 separate acceptance gates. Current smoke defaults are unchanged.
+
+The optional discovery mode is a separate delegated extension. `/watch` accepts a known namespace/workflow/run identity and the current boot/session; the first successfully staged fresh execution UPDATE exposes its exact candidate before Commit. `/arm` must echo the actual candidate selector before its deadline. A late ARM cannot revive an aborted transaction. The candidate abort/reopen and three-stage execution S3 fixtures are registered in the same manifest; their execution status must come from the receipt for the exact revision, not the earlier fixed-shard receipt. See [the binding contract](temporal-binding-proposal.md). The direct execution fixture still does not run Temporal or prove the full workflow fault schedule.
