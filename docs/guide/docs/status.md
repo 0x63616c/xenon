@@ -1,6 +1,6 @@
 # Verification status
 
-**Xenon is an experimental backend, not a production-ready service.** This page separates the recorded `ae1f663` smoke result from the later integration work through `45ea658` on September 5, 2026. It is a checkpoint, not a live dashboard.
+**Xenon is an experimental backend, not a production-ready service.** This page separates the recorded `ae1f663` smoke result from the later integration work through `90327c9` on September 5, 2026. It is a checkpoint, not a live dashboard.
 
 ## Recorded integrated smoke
 
@@ -28,7 +28,9 @@ The cold Omes visibility probe was terminated at its 20-second command limit on 
 
 The first real fuzz-soak attempt at `281bc2c` (`20260905T230543Z-xenon-ministack-96ea9ccced55`) failed during the functional Nexus readiness workflow. The endpoint existed, but **no saved corpus input executed**. Matching admission behavior and missing Nexus HTTP configuration were investigated; bounded diagnostics and targeted fixes do not establish a completed fuzz pass.
 
-Concurrent initial visibility reads have been integrated after targeted testing. A complete cold smoke rerun is still required. The larger fault profile remains open. The repository's `docs/design/verification-matrix.md` retains the detailed integration ledger and exact component receipts.
+Concurrent initial visibility reads and cancellation of sibling reads after a failed partition have been integrated after targeted testing. A complete cold smoke rerun is still required. The larger fault profile remains open. The repository's `docs/design/verification-matrix.md` retains the detailed integration ledger and exact component receipts.
+
+The integrated controller also exposes separate frozen mixed-workload and exact native process-cut modes. Their implementation and helper controls are not completed runtime receipts. These modes do not combine into the full acceptance profile automatically.
 
 ## Component evidence
 
@@ -51,6 +53,6 @@ The saved corpus and workload helpers are committed. Their existence is not evid
 
 ## External and product boundaries
 
-Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI has been blocked by the repository account's billing/spending-limit annotation; local checks do not waive required hosted checks.
+Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI remains blocked: checks on integration PRs #55 and #66 report that jobs did not start because of account payments or the spending limit. This was checked against the `90327c9` candidate on September 5, 2026; local checks do not waive required hosted checks. At that checkpoint both PRs were open and `main` remained at `457fad9`. The integrated code and this site therefore describe a delivery candidate, not a release already merged to main.
 
 There is no published performance benchmark, production availability commitment, automatic rebalancer, public source release or available Xenon Cloud service.
