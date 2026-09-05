@@ -449,6 +449,7 @@ type StoredOutcome struct {
 	//	*StoredOutcome_MetadataResult
 	//	*StoredOutcome_HistoryResult
 	//	*StoredOutcome_ExecutionResult
+	//	*StoredOutcome_VisibilityResult
 	//	*StoredOutcome_ExecutionTasksResult
 	//	*StoredOutcome_HistoryTasksResult
 	Result        isStoredOutcome_Result `protobuf_oneof:"result"`
@@ -536,6 +537,15 @@ func (x *StoredOutcome) GetExecutionResult() *ExecutionResult {
 	return nil
 }
 
+func (x *StoredOutcome) GetVisibilityResult() *VisibilityResult {
+	if x != nil {
+		if x, ok := x.Result.(*StoredOutcome_VisibilityResult); ok {
+			return x.VisibilityResult
+		}
+	}
+	return nil
+}
+
 func (x *StoredOutcome) GetExecutionTasksResult() *ExecutionTasksResult {
 	if x != nil {
 		if x, ok := x.Result.(*StoredOutcome_ExecutionTasksResult); ok {
@@ -574,6 +584,10 @@ type StoredOutcome_ExecutionResult struct {
 	ExecutionResult *ExecutionResult `protobuf:"bytes,9,opt,name=execution_result,json=executionResult,proto3,oneof"`
 }
 
+type StoredOutcome_VisibilityResult struct {
+	VisibilityResult *VisibilityResult `protobuf:"bytes,13,opt,name=visibility_result,json=visibilityResult,proto3,oneof"`
+}
+
 type StoredOutcome_ExecutionTasksResult struct {
 	ExecutionTasksResult *ExecutionTasksResult `protobuf:"bytes,12,opt,name=execution_tasks_result,json=executionTasksResult,proto3,oneof"`
 }
@@ -590,6 +604,8 @@ func (*StoredOutcome_HistoryResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_ExecutionResult) isStoredOutcome_Result() {}
 
+func (*StoredOutcome_VisibilityResult) isStoredOutcome_Result() {}
+
 func (*StoredOutcome_ExecutionTasksResult) isStoredOutcome_Result() {}
 
 func (*StoredOutcome_HistoryTasksResult) isStoredOutcome_Result() {}
@@ -598,7 +614,7 @@ var File_xenon_v1_persistence_proto protoreflect.FileDescriptor
 
 const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\n" +
-	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x16xenon/v1/history.proto\x1a\x18xenon/v1/execution.proto\x1a\x1dxenon/v1/executiontasks.proto\x1a\x1bxenon/v1/historytasks.proto\"\xb9\x02\n" +
+	"\x1axenon/v1/persistence.proto\x12\bxenon.v1\x1a\x17xenon/v1/metadata.proto\x1a\x19xenon/v1/visibility.proto\x1a\x16xenon/v1/history.proto\x1a\x18xenon/v1/execution.proto\x1a\x1dxenon/v1/executiontasks.proto\x1a\x1bxenon/v1/historytasks.proto\"\xb9\x02\n" +
 	"\fShardCommand\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.xenon.v1.ShardCommand.KindR\x04kind\x12\x19\n" +
 	"\bshard_id\x18\x02 \x01(\x05R\ashardId\x12*\n" +
@@ -636,13 +652,14 @@ const file_xenon_v1_persistence_proto_rawDesc = "" +
 	"\vStoredShard\x12\x19\n" +
 	"\brange_id\x18\x01 \x01(\x03R\arangeId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x1a\n" +
-	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\xf5\x03\n" +
+	"\bencoding\x18\x03 \x01(\x05R\bencoding\"\xc0\x04\n" +
 	"\rStoredOutcome\x12%\n" +
 	"\x0ecommand_sha256\x18\x01 \x01(\fR\rcommandSha256\x12:\n" +
 	"\fshard_result\x18\x02 \x01(\v2\x15.xenon.v1.ShardResultH\x00R\vshardResult\x12C\n" +
 	"\x0fmetadata_result\x18\x03 \x01(\v2\x18.xenon.v1.MetadataResultH\x00R\x0emetadataResult\x12@\n" +
 	"\x0ehistory_result\x18\x06 \x01(\v2\x17.xenon.v1.HistoryResultH\x00R\rhistoryResult\x12F\n" +
-	"\x10execution_result\x18\t \x01(\v2\x19.xenon.v1.ExecutionResultH\x00R\x0fexecutionResult\x12V\n" +
+	"\x10execution_result\x18\t \x01(\v2\x19.xenon.v1.ExecutionResultH\x00R\x0fexecutionResult\x12I\n" +
+	"\x11visibility_result\x18\r \x01(\v2\x1a.xenon.v1.VisibilityResultH\x00R\x10visibilityResult\x12V\n" +
 	"\x16execution_tasks_result\x18\f \x01(\v2\x1e.xenon.v1.ExecutionTasksResultH\x00R\x14executionTasksResult\x12P\n" +
 	"\x14history_tasks_result\x18\v \x01(\v2\x1c.xenon.v1.HistoryTasksResultH\x00R\x12historyTasksResultB\b\n" +
 	"\x06result2L\n" +
@@ -674,8 +691,9 @@ var file_xenon_v1_persistence_proto_goTypes = []any{
 	(*MetadataResult)(nil),       // 7: xenon.v1.MetadataResult
 	(*HistoryResult)(nil),        // 8: xenon.v1.HistoryResult
 	(*ExecutionResult)(nil),      // 9: xenon.v1.ExecutionResult
-	(*ExecutionTasksResult)(nil), // 10: xenon.v1.ExecutionTasksResult
-	(*HistoryTasksResult)(nil),   // 11: xenon.v1.HistoryTasksResult
+	(*VisibilityResult)(nil),     // 10: xenon.v1.VisibilityResult
+	(*ExecutionTasksResult)(nil), // 11: xenon.v1.ExecutionTasksResult
+	(*HistoryTasksResult)(nil),   // 12: xenon.v1.HistoryTasksResult
 }
 var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	0,  // 0: xenon.v1.ShardCommand.kind:type_name -> xenon.v1.ShardCommand.Kind
@@ -685,15 +703,16 @@ var file_xenon_v1_persistence_proto_depIdxs = []int32{
 	7,  // 4: xenon.v1.StoredOutcome.metadata_result:type_name -> xenon.v1.MetadataResult
 	8,  // 5: xenon.v1.StoredOutcome.history_result:type_name -> xenon.v1.HistoryResult
 	9,  // 6: xenon.v1.StoredOutcome.execution_result:type_name -> xenon.v1.ExecutionResult
-	10, // 7: xenon.v1.StoredOutcome.execution_tasks_result:type_name -> xenon.v1.ExecutionTasksResult
-	11, // 8: xenon.v1.StoredOutcome.history_tasks_result:type_name -> xenon.v1.HistoryTasksResult
-	3,  // 9: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
-	4,  // 10: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
-	10, // [10:11] is the sub-list for method output_type
-	9,  // [9:10] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	10, // 7: xenon.v1.StoredOutcome.visibility_result:type_name -> xenon.v1.VisibilityResult
+	11, // 8: xenon.v1.StoredOutcome.execution_tasks_result:type_name -> xenon.v1.ExecutionTasksResult
+	12, // 9: xenon.v1.StoredOutcome.history_tasks_result:type_name -> xenon.v1.HistoryTasksResult
+	3,  // 10: xenon.v1.ShardPersistence.Execute:input_type -> xenon.v1.ShardRequest
+	4,  // 11: xenon.v1.ShardPersistence.Execute:output_type -> xenon.v1.ShardResult
+	11, // [11:12] is the sub-list for method output_type
+	10, // [10:11] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_xenon_v1_persistence_proto_init() }
@@ -702,6 +721,7 @@ func file_xenon_v1_persistence_proto_init() {
 		return
 	}
 	file_xenon_v1_metadata_proto_init()
+	file_xenon_v1_visibility_proto_init()
 	file_xenon_v1_history_proto_init()
 	file_xenon_v1_execution_proto_init()
 	file_xenon_v1_executiontasks_proto_init()
@@ -711,6 +731,7 @@ func file_xenon_v1_persistence_proto_init() {
 		(*StoredOutcome_MetadataResult)(nil),
 		(*StoredOutcome_HistoryResult)(nil),
 		(*StoredOutcome_ExecutionResult)(nil),
+		(*StoredOutcome_VisibilityResult)(nil),
 		(*StoredOutcome_ExecutionTasksResult)(nil),
 		(*StoredOutcome_HistoryTasksResult)(nil),
 	}

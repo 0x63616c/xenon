@@ -32,6 +32,7 @@ jobs:
       - run: python3 scripts/prove.py go-namespace
       - run: python3 scripts/prove.py go-execution
       - run: python3 scripts/prove.py go-executiontasks
+      - run: python3 scripts/prove.py go-visibility
       - run: go test -race ./...
         env:
           CGO_ENABLED: '1'

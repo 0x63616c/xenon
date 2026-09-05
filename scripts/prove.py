@@ -43,7 +43,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -56,12 +56,20 @@ def command(spec):
         if spec["filter"] != "crash" or spec["exact"]:
             raise ValueError("invalid crash command")
         return [sys.executable, "scripts/crash-proof.py", *(["--check-cleanup"] if runner == "s3-crash-cleanup" else [])]
+    if runner == "go-test-factory":
+        if not spec["exact"] or spec["filter"] != "TestVisibilityFactoryConfiguration":
+            raise ValueError("unregistered factory configuration test")
+        return ["go", "test", "-json", "-count=1", "./internal/temporalstore", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-visibility":
+        if not spec["exact"] or spec["filter"] not in ("TestVisibilityTypedEvaluation", "TestTextPostgreSQLOracle", "TestVisibilitySystemTimeSentinel"):
+            raise ValueError("unregistered visibility value test")
+        return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
         if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
-        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC"):
+        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC", "TestVisibilityRPC", "TestVisibilityUpstream"):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
@@ -126,7 +134,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -141,7 +149,7 @@ def main():
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
         raise ValueError("shard proof must build the node before tests")
-    if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks") and (not commands or commands[0][2] != "go-node-build"):
+    if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility") and (not commands or commands[0][2] != "go-node-build"):
         raise ValueError("Go shard proof must build native Go node first")
     if not commands:
         raise ValueError("empty experiment")
@@ -151,7 +159,7 @@ def main():
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
     if args.name == "crash":
         env["XENON_PROOF_PROJECT"] = "xenon-crash-" + uuid.uuid4().hex[:12]
-    if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks"):
+    if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility"):
         target = ROOT / ".local/slatedb-native-target/debug"
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
     def git(*argv):
@@ -190,7 +198,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name == "shard" else (["go"] if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -218,9 +226,9 @@ def main():
                 if not binary.is_file():
                     raise ValueError("node build produced no binary")
                 report["node_binary_sha256"] = digest(binary)
-            elif runner in ("go-test-shard", "go-test-node"):
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else "github.com/0x63616c/xenon/internal/adapter")
-                binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks") else "target/debug/xenon-node")
+            elif runner in ("go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else ("github.com/0x63616c/xenon/internal/visibility" if runner == "go-test-visibility" else ("github.com/0x63616c/xenon/internal/temporalstore" if runner == "go-test-factory" else "github.com/0x63616c/xenon/internal/adapter")))
+                binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility") else "target/debug/xenon-node")
                 if digest(binary) != report.get("node_binary_sha256"):
                     raise ValueError("node binary changed during tests")
             else:
@@ -235,7 +243,7 @@ def main():
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name == "shard" and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
-        if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks"):
+        if args.name in ("go-shard", "go-namespace", "go-history", "go-execution", "go-executiontasks", "go-historytasks", "go-visibility"):
             native_build = report["native_build"]
             source = ROOT / ".local/slatedb-native-source"
             for argv, expected in [(["git", "rev-parse", "HEAD"], native_build["source_commit"]), (["git", "status", "--porcelain=v1", "--untracked-files=all"], "")]:

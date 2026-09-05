@@ -21,10 +21,13 @@ const (
 	executionFamily
 	executionTasksFamily
 	historyTasksFamily
+	visibilityFamily
 )
 
 func belongs(o *wire.StoredOutcome, f outcomeFamily) bool {
 	switch f {
+	case visibilityFamily:
+		return o.GetVisibilityResult() != nil
 	case historyTasksFamily:
 		return o.GetHistoryTasksResult() != nil
 	case shardFamily:

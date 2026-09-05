@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v7.36.0
-// source: proto/xenon/v1/query.proto
+// source: xenon/v1/query.proto
 
 package xenonv1
 
@@ -37,7 +37,7 @@ type QueryValue struct {
 
 func (x *QueryValue) Reset() {
 	*x = QueryValue{}
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[0]
+	mi := &file_xenon_v1_query_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *QueryValue) String() string {
 func (*QueryValue) ProtoMessage() {}
 
 func (x *QueryValue) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[0]
+	mi := &file_xenon_v1_query_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *QueryValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryValue.ProtoReflect.Descriptor instead.
 func (*QueryValue) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_query_proto_rawDescGZIP(), []int{0}
+	return file_xenon_v1_query_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *QueryValue) GetScalar() isQueryValue_Scalar {
@@ -148,7 +148,7 @@ type QueryColumn struct {
 
 func (x *QueryColumn) Reset() {
 	*x = QueryColumn{}
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[1]
+	mi := &file_xenon_v1_query_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -160,7 +160,7 @@ func (x *QueryColumn) String() string {
 func (*QueryColumn) ProtoMessage() {}
 
 func (x *QueryColumn) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[1]
+	mi := &file_xenon_v1_query_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -173,7 +173,7 @@ func (x *QueryColumn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryColumn.ProtoReflect.Descriptor instead.
 func (*QueryColumn) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_query_proto_rawDescGZIP(), []int{1}
+	return file_xenon_v1_query_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *QueryColumn) GetField() string {
@@ -210,7 +210,7 @@ type QueryExpr struct {
 
 func (x *QueryExpr) Reset() {
 	*x = QueryExpr{}
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[2]
+	mi := &file_xenon_v1_query_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +222,7 @@ func (x *QueryExpr) String() string {
 func (*QueryExpr) ProtoMessage() {}
 
 func (x *QueryExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[2]
+	mi := &file_xenon_v1_query_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +235,7 @@ func (x *QueryExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryExpr.ProtoReflect.Descriptor instead.
 func (*QueryExpr) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_query_proto_rawDescGZIP(), []int{2}
+	return file_xenon_v1_query_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *QueryExpr) GetOperator() string {
@@ -267,20 +267,21 @@ func (x *QueryExpr) GetChildren() []*QueryExpr {
 }
 
 type VisibilityQuery struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FormatVersion   uint32                 `protobuf:"varint,1,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
-	NamespaceId     string                 `protobuf:"bytes,2,opt,name=namespace_id,json=namespaceId,proto3" json:"namespace_id,omitempty"`
-	Predicate       *QueryExpr             `protobuf:"bytes,3,opt,name=predicate,proto3" json:"predicate,omitempty"`
-	GroupBy         []*QueryColumn         `protobuf:"bytes,4,rep,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
-	SchemaVersion   uint64                 `protobuf:"varint,5,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
-	PartitionFormat uint32                 `protobuf:"varint,6,opt,name=partition_format,json=partitionFormat,proto3" json:"partition_format,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	FormatVersion       uint32                 `protobuf:"varint,1,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
+	NamespaceId         string                 `protobuf:"bytes,2,opt,name=namespace_id,json=namespaceId,proto3" json:"namespace_id,omitempty"`
+	Predicate           *QueryExpr             `protobuf:"bytes,3,opt,name=predicate,proto3" json:"predicate,omitempty"`
+	GroupBy             []*QueryColumn         `protobuf:"bytes,4,rep,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
+	SchemaVersion       uint64                 `protobuf:"varint,5,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	PartitionFormat     uint32                 `protobuf:"varint,6,opt,name=partition_format,json=partitionFormat,proto3" json:"partition_format,omitempty"`
+	SchemaContextSha256 []byte                 `protobuf:"bytes,7,opt,name=schema_context_sha256,json=schemaContextSha256,proto3" json:"schema_context_sha256,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *VisibilityQuery) Reset() {
 	*x = VisibilityQuery{}
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[3]
+	mi := &file_xenon_v1_query_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -292,7 +293,7 @@ func (x *VisibilityQuery) String() string {
 func (*VisibilityQuery) ProtoMessage() {}
 
 func (x *VisibilityQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_xenon_v1_query_proto_msgTypes[3]
+	mi := &file_xenon_v1_query_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -305,7 +306,7 @@ func (x *VisibilityQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VisibilityQuery.ProtoReflect.Descriptor instead.
 func (*VisibilityQuery) Descriptor() ([]byte, []int) {
-	return file_proto_xenon_v1_query_proto_rawDescGZIP(), []int{3}
+	return file_xenon_v1_query_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *VisibilityQuery) GetFormatVersion() uint32 {
@@ -350,11 +351,18 @@ func (x *VisibilityQuery) GetPartitionFormat() uint32 {
 	return 0
 }
 
-var File_proto_xenon_v1_query_proto protoreflect.FileDescriptor
+func (x *VisibilityQuery) GetSchemaContextSha256() []byte {
+	if x != nil {
+		return x.SchemaContextSha256
+	}
+	return nil
+}
 
-const file_proto_xenon_v1_query_proto_rawDesc = "" +
+var File_xenon_v1_query_proto protoreflect.FileDescriptor
+
+const file_xenon_v1_query_proto_rawDesc = "" +
 	"\n" +
-	"\x1aproto/xenon/v1/query.proto\x12\bxenon.v1\"\xa0\x01\n" +
+	"\x14xenon/v1/query.proto\x12\bxenon.v1\"\xa0\x01\n" +
 	"\n" +
 	"QueryValue\x12#\n" +
 	"\fstring_value\x18\x01 \x01(\tH\x00R\vstringValue\x12\x1d\n" +
@@ -372,35 +380,36 @@ const file_proto_xenon_v1_query_proto_rawDesc = "" +
 	"\boperator\x18\x01 \x01(\tR\boperator\x12-\n" +
 	"\x06column\x18\x02 \x01(\v2\x15.xenon.v1.QueryColumnR\x06column\x12,\n" +
 	"\x06values\x18\x03 \x03(\v2\x14.xenon.v1.QueryValueR\x06values\x12/\n" +
-	"\bchildren\x18\x04 \x03(\v2\x13.xenon.v1.QueryExprR\bchildren\"\x92\x02\n" +
+	"\bchildren\x18\x04 \x03(\v2\x13.xenon.v1.QueryExprR\bchildren\"\xc6\x02\n" +
 	"\x0fVisibilityQuery\x12%\n" +
 	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12!\n" +
 	"\fnamespace_id\x18\x02 \x01(\tR\vnamespaceId\x121\n" +
 	"\tpredicate\x18\x03 \x01(\v2\x13.xenon.v1.QueryExprR\tpredicate\x120\n" +
 	"\bgroup_by\x18\x04 \x03(\v2\x15.xenon.v1.QueryColumnR\agroupBy\x12%\n" +
 	"\x0eschema_version\x18\x05 \x01(\x04R\rschemaVersion\x12)\n" +
-	"\x10partition_format\x18\x06 \x01(\rR\x0fpartitionFormatB0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
+	"\x10partition_format\x18\x06 \x01(\rR\x0fpartitionFormat\x122\n" +
+	"\x15schema_context_sha256\x18\a \x01(\fR\x13schemaContextSha256B0Z.github.com/0x63616c/xenon/gen/xenon/v1;xenonv1b\x06proto3"
 
 var (
-	file_proto_xenon_v1_query_proto_rawDescOnce sync.Once
-	file_proto_xenon_v1_query_proto_rawDescData []byte
+	file_xenon_v1_query_proto_rawDescOnce sync.Once
+	file_xenon_v1_query_proto_rawDescData []byte
 )
 
-func file_proto_xenon_v1_query_proto_rawDescGZIP() []byte {
-	file_proto_xenon_v1_query_proto_rawDescOnce.Do(func() {
-		file_proto_xenon_v1_query_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_query_proto_rawDesc), len(file_proto_xenon_v1_query_proto_rawDesc)))
+func file_xenon_v1_query_proto_rawDescGZIP() []byte {
+	file_xenon_v1_query_proto_rawDescOnce.Do(func() {
+		file_xenon_v1_query_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_xenon_v1_query_proto_rawDesc), len(file_xenon_v1_query_proto_rawDesc)))
 	})
-	return file_proto_xenon_v1_query_proto_rawDescData
+	return file_xenon_v1_query_proto_rawDescData
 }
 
-var file_proto_xenon_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_proto_xenon_v1_query_proto_goTypes = []any{
+var file_xenon_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_xenon_v1_query_proto_goTypes = []any{
 	(*QueryValue)(nil),      // 0: xenon.v1.QueryValue
 	(*QueryColumn)(nil),     // 1: xenon.v1.QueryColumn
 	(*QueryExpr)(nil),       // 2: xenon.v1.QueryExpr
 	(*VisibilityQuery)(nil), // 3: xenon.v1.VisibilityQuery
 }
-var file_proto_xenon_v1_query_proto_depIdxs = []int32{
+var file_xenon_v1_query_proto_depIdxs = []int32{
 	1, // 0: xenon.v1.QueryExpr.column:type_name -> xenon.v1.QueryColumn
 	0, // 1: xenon.v1.QueryExpr.values:type_name -> xenon.v1.QueryValue
 	2, // 2: xenon.v1.QueryExpr.children:type_name -> xenon.v1.QueryExpr
@@ -413,12 +422,12 @@ var file_proto_xenon_v1_query_proto_depIdxs = []int32{
 	0, // [0:5] is the sub-list for field type_name
 }
 
-func init() { file_proto_xenon_v1_query_proto_init() }
-func file_proto_xenon_v1_query_proto_init() {
-	if File_proto_xenon_v1_query_proto != nil {
+func init() { file_xenon_v1_query_proto_init() }
+func file_xenon_v1_query_proto_init() {
+	if File_xenon_v1_query_proto != nil {
 		return
 	}
-	file_proto_xenon_v1_query_proto_msgTypes[0].OneofWrappers = []any{
+	file_xenon_v1_query_proto_msgTypes[0].OneofWrappers = []any{
 		(*QueryValue_StringValue)(nil),
 		(*QueryValue_IntValue)(nil),
 		(*QueryValue_DoubleValue)(nil),
@@ -428,17 +437,17 @@ func file_proto_xenon_v1_query_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_xenon_v1_query_proto_rawDesc), len(file_proto_xenon_v1_query_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xenon_v1_query_proto_rawDesc), len(file_xenon_v1_query_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_proto_xenon_v1_query_proto_goTypes,
-		DependencyIndexes: file_proto_xenon_v1_query_proto_depIdxs,
-		MessageInfos:      file_proto_xenon_v1_query_proto_msgTypes,
+		GoTypes:           file_xenon_v1_query_proto_goTypes,
+		DependencyIndexes: file_xenon_v1_query_proto_depIdxs,
+		MessageInfos:      file_xenon_v1_query_proto_msgTypes,
 	}.Build()
-	File_proto_xenon_v1_query_proto = out.File
-	file_proto_xenon_v1_query_proto_goTypes = nil
-	file_proto_xenon_v1_query_proto_depIdxs = nil
+	File_xenon_v1_query_proto = out.File
+	file_xenon_v1_query_proto_goTypes = nil
+	file_xenon_v1_query_proto_depIdxs = nil
 }

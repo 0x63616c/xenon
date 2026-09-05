@@ -87,6 +87,7 @@ func main() {
 	wire.RegisterExecutionTasksPersistenceServer(server, &node.ExecutionTasksServer{Owner: owner})
 	wire.RegisterHistoryTasksPersistenceServer(server, &node.HistoryTasksServer{Owner: owner})
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
+	wire.RegisterVisibilityPersistenceServer(server, &node.VisibilityServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.
