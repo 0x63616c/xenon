@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Recheck committed Text cases against ephemeral pinned PostgreSQL and Go."""
-import base64, hashlib, json, os, pathlib, subprocess, sys, time, uuid
+import base64, hashlib, json, os, pathlib, subprocess, sys, time, uuid, signal
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def run(args,**kw):
  return subprocess.run(args,cwd=ROOT,text=True,check=True,capture_output=True,timeout=180,**kw).stdout.strip()
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def literal(s):return "convert_from(decode('"+base64.b64encode(s.encode()).decode()+"','base64'),'UTF8')"
+def interrupted(signum, frame):
+ raise RuntimeError('oracle interrupted by signal '+str(signum))
 def main():
+ for sig in (signal.SIGINT,signal.SIGTERM):signal.signal(sig,interrupted)
  pins=json.loads((ROOT/'proof/visibility/oracle-pins.json').read_text());cases=json.loads((ROOT/'proof/visibility/oracle-cases.json').read_text())
  clean=run(['git','status','--porcelain=v1','--untracked-files=all'])==''
  if not clean:raise SystemExit('dirty checkout cannot produce oracle PASS')
@@ -45,7 +48,8 @@ def main():
  except Exception as e:result['error']=str(e)
  finally:
   cleanup=subprocess.run(['docker','rm','-f',name],capture_output=True,text=True,timeout=30)
-  result['cleanup_ok']=cleanup.returncode==0
+  remaining=subprocess.run(['docker','ps','-aq','--filter','name=^/'+name+'$'],capture_output=True,text=True,timeout=30)
+  result['cleanup_ok']=cleanup.returncode==0 and remaining.returncode==0 and not remaining.stdout.strip()
   if not result['cleanup_ok']:result['proof_pass']=False
   (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
  print(('PASSED' if result['proof_pass'] else 'FAILED')+': '+str(output/'result.json'))
