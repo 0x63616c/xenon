@@ -67,6 +67,13 @@ class RunnerTests(unittest.TestCase):
                 with self.subTest(experiment=manifest["name"], runner=spec["runner"]):
                     self.assertTrue(prove.command(spec))
 
+    def test_owner_manager_command_is_exact(self):
+        spec = {"runner":"s3-owner-manager", "filter":"TestS3OwnerManager", "exact":True, "expected_tests":["TestS3OwnerManager"]}
+        self.assertEqual(prove.command(spec), [sys.executable, "scripts/owner-manager-proof.py"])
+        for changed in ({"filter":"Other"}, {"exact":False}):
+            with self.assertRaises(ValueError):
+                prove.command({**spec, **changed})
+
     def test_commands_are_allowlisted(self):
         with self.assertRaises(ValueError):
             prove.command({'runner': 'shell', 'filter': 'x', 'exact': True, 'expected_tests': ['x']})
