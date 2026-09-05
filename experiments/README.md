@@ -24,3 +24,9 @@ python3 -m unittest discover -s scripts -p 'test_prove.py'
 ```
 
 This is host-native reproduction, not a hermetic container build. OS/kernel/architecture and verbose compiler identity are recorded; matching commit and input hashes alone does not promise byte-identical artifacts across hosts. The runner rejects ambient Cargo `config`/`config.toml` files in the checkout, its ancestors and `CARGO_HOME`, recording only their hashes. Use an environment without those overrides. Inherited compiler flags and wrappers are removed; native system linker/toolchain differences remain a declared boundary.
+
+## Process-kill S3 emulator proof
+
+`python3 scripts/prove.py crash` builds the pinned worker, creates an isolated Compose project, kills the worker at three emitted durability/acknowledgement barriers, and opens a separate recovery process. It also tests controller SIGTERM/SIGKILL cleanup. The manifest declares stages, automatic assertions, port 19001, input files and resource retention. Docker/Compose and AWS CLI are required; the latter is configured only with local fixture credentials and a loopback endpoint.
+
+Each run's object volume is explicitly disposable and removed with its uniquely named project; proof logs remain under `.local/evidence/`. Outer timeout cleanup knows that project and all subprocesses remain in the outer process group. No real AWS target is used. Normal maintenance remains configured but actual compaction/GC execution is not asserted by this small test.

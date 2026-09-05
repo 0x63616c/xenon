@@ -41,7 +41,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "s3-crash", "s3-crash-cleanup") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -50,6 +50,10 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner in ("s3-crash", "s3-crash-cleanup"):
+        if spec["filter"] != "crash" or spec["exact"]:
+            raise ValueError("invalid crash command")
+        return [sys.executable, "scripts/crash-proof.py", *(["--check-cleanup"] if runner == "s3-crash-cleanup" else [])]
     if runner == "go-test-shard":
         if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes"):
             raise ValueError("unregistered Go test")
@@ -87,7 +91,11 @@ def run_process(argv, timeout, env, root):
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-            time.sleep(0.2)
+            try:
+                output, _ = process.communicate(timeout=15)
+                return process.returncode, output, True
+            except subprocess.TimeoutExpired:
+                pass
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -99,14 +107,25 @@ def run_process(argv, timeout, env, root):
             return process.returncode, output, True
 
 
+def cleanup_crash(project, env, root):
+    if not re.fullmatch(r"xenon-crash-[a-f0-9]{12}", project):
+        raise ValueError("invalid scoped cleanup identity")
+    argv = ["docker", "compose", "--project-name", project, "-f", "deploy/crash.compose.yaml", "down", "--volumes"]
+    try:
+        code, output, expired = run_process(argv, 60, env, root)
+        return {"project": project, "exit_code": code, "timed_out": expired}
+    except Exception as error:
+        return {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard"])
+    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     manifest_path = ROOT / "experiments" / (args.name + ".json")
     manifest = json.loads(manifest_path.read_text())
-    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != "memory":
+    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name == "crash" else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
     if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 900:
@@ -120,6 +139,8 @@ def main():
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
     if args.name == "shard":
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
+    if args.name == "crash":
+        env["XENON_PROOF_PROJECT"] = "xenon-crash-" + uuid.uuid4().hex[:12]
     def git(*argv):
         return subprocess.check_output(["git", *argv], cwd=ROOT, env=env, text=True).strip()
     sha = git("rev-parse", "HEAD")
@@ -128,7 +149,7 @@ def main():
     evidence = ROOT / ".local" / "evidence" / run_id
     evidence.mkdir(parents=True)
     report = {"schema": 1, "experiment": args.name, "commit": sha, "dirty_status": dirty,
-              "reproducible_clean_checkout": not bool(dirty), "backend": "memory", "result": "failed", "proof_pass": False,
+              "reproducible_clean_checkout": not bool(dirty), "backend": manifest["backend"], "result": "failed", "proof_pass": False,
               "platform": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
               "python": {"version": sys.version, "executable": sys.executable},
               "commands": [], "config_sha256": {}, "tool_versions": {}, "assertions": manifest["assertions"],
@@ -201,6 +222,11 @@ def main():
     except Exception as error:
         report["error"] = str(error)
     finally:
+        if args.name == "crash":
+            # Out-of-process cleanup also handles a controller killed before finally.
+            report["cleanup"] = cleanup_crash(env["XENON_PROOF_PROJECT"], env, ROOT)
+            if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
+                report.update(result="failed", proof_pass=False, error="scoped Compose cleanup failed")
         (evidence / "result.json").write_text(json.dumps(report, indent=2) + "\n")
         print(f"{report['result'].upper()}: {evidence / 'result.json'}", flush=True)
     return 0 if report["result"] in ("passed", "development-passed") else 1
