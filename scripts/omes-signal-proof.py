@@ -57,7 +57,7 @@ def main():
   shutil.copyfile(CASE/'worker_signal_test.go.in',worker/'xenon_signal_test.go')
   output=run(['go','test','-json','./workerlib/kitchensink','-run','^TestXenon','-count=1'],source/'workers/go')
   passed={event['Test'] for line in output.splitlines() if (event:=json.loads(line)).get('Action')=='pass' and 'Test' in event and '/' not in event['Test']}
-  expected={'TestXenonSignalMetadataContract','TestXenonOptionalSignalContract','TestXenonRequiredSignalStillDrains','TestXenonCANSignalScope','TestXenonOptionalDeliveryExecutes'}
+  expected={'TestXenonSignalMetadataContract','TestXenonOptionalSignalContract','TestXenonRequiredSignalStillDrains','TestXenonCANSignalScope','TestXenonOptionalDeliveryExecutes','TestXenonOptionalCancellationAndNoHandlerDrain'}
   if passed!=expected:raise ValueError('worker assertion set mismatch')
   report['worker_assertions']=sorted(passed)
   shutil.copyfile(CASE/'normalize.go.in',source/'normalize_xenon.go')

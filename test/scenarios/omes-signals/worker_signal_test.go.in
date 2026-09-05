@@ -9,6 +9,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"testing"
 	"time"
 )
@@ -144,11 +145,58 @@ func TestXenonCANSignalScope(t *testing.T) {
 }
 
 func TestXenonOptionalDeliveryExecutes(t *testing.T) {
- var suite testsuite.WorkflowTestSuite
- env:=suite.NewTestWorkflowEnvironment();env.SetDataConverter(clioptions.OmesDataConverter());env.RegisterWorkflow(KitchenSinkWorkflow)
- env.RegisterDelayedCallback(func(){env.SignalWorkflow("do_actions_signal",returnSignal(3,"optional-executed"))},time.Second)
- env.RegisterDelayedCallback(func(){env.CancelWorkflow()},2*time.Second)
- env.ExecuteWorkflow(KitchenSinkWorkflow,&pb.WorkflowInput{OptionalSignalIds:[]int32{3}})
- if err:=env.GetWorkflowError();err!=nil{t.Fatal(err)}
- var result string;if err:=env.GetWorkflowResult(&result);err!=nil{t.Fatal(err)};if result!="optional-executed"{t.Fatal(result)}
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetDataConverter(clioptions.OmesDataConverter())
+	env.RegisterWorkflow(KitchenSinkWorkflow)
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(3, "optional-executed")) }, time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 2*time.Second)
+	env.ExecuteWorkflow(KitchenSinkWorkflow, &pb.WorkflowInput{OptionalSignalIds: []int32{3}})
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	var result string
+	if err := env.GetWorkflowResult(&result); err != nil {
+		t.Fatal(err)
+	}
+	if result != "optional-executed" {
+		t.Fatal(result)
+	}
+}
+
+func TestXenonOptionalCancellationAndNoHandlerDrain(t *testing.T) {
+	for _, cancelled := range []bool{false, true} {
+		t.Run(fmt.Sprint(cancelled), func(t *testing.T) {
+			var suite testsuite.WorkflowTestSuite
+			env := suite.NewTestWorkflowEnvironment()
+			env.SetDataConverter(clioptions.OmesDataConverter())
+			env.RegisterWorkflow(KitchenSinkWorkflow)
+			choice := &pb.AwaitableChoice{}
+			if cancelled {
+				choice.Condition = &pb.AwaitableChoice_CancelBeforeStarted{CancelBeforeStarted: &emptypb.Empty{}}
+			}
+			timer := &pb.Action{Variant: &pb.Action_Timer{Timer: &pb.TimerAction{Milliseconds: 10000, AwaitableChoice: choice}}}
+			signal := returnSignal(3, "optional-finished")
+			signal.GetDoActionsInMain().Actions = append([]*pb.Action{timer}, signal.GetDoActionsInMain().Actions...)
+			env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", signal) }, time.Second)
+			env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(2, "required-finished")) }, 2*time.Second)
+			late := false
+			env.RegisterDelayedCallback(func() { late = true; env.CancelWorkflow() }, 5*time.Second)
+			env.ExecuteWorkflow(KitchenSinkWorkflow, &pb.WorkflowInput{ExpectedSignalIds: []int32{2}, OptionalSignalIds: []int32{3}})
+			if err := env.GetWorkflowError(); err != nil {
+				t.Fatal(err)
+			}
+			var result string
+			if err := env.GetWorkflowResult(&result); err != nil {
+				t.Fatal(err)
+			}
+			expected := "required-finished"
+			if cancelled {
+				expected = "optional-finished"
+			}
+			if result != expected || late {
+				t.Fatalf("result=%s late=%v", result, late)
+			}
+		})
+	}
 }
