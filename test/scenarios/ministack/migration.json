@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "source_commit": "fae2c00d7d16cc4b35b38eb492a0dd089be5e5aa",
+  "scope": "exact-byte relocation; no acceptance or corpus changes",
+  "preserved_inputs": [
+    {
+      "from": "proof/ministack/case.json",
+      "to": "test/scenarios/ministack/case.json",
+      "sha256": "729e2c5b1e0030d6751d10db28c45dc9eca706c3b80a6dd67f391d5f4640272b"
+    },
+    {
+      "from": "proof/ministack/measurements.json",
+      "to": "test/scenarios/ministack/measurements.json",
+      "sha256": "b9149ea412eea24e86dd8ff53256475e7c5de1c40234c30580d61dab0a680741"
+    },
+    {
+      "from": "proof/ministack/ui/completed-history.json",
+      "to": "test/scenarios/ministack/ui/completed-history.json",
+      "sha256": "53f95bfdaa947edce50e3b0ad3513df6c959ac822ae4aaa9b372d3ab93ecc368"
+    },
+    {
+      "from": "proof/ministack/ui/history-import-regression.mjs",
+      "to": "test/scenarios/ministack/ui/history-import-regression.mjs",
+      "sha256": "ef387a0b1f4ff7ccbac58a2044393bc37cae88cd937aafa86231b7307b2301ad"
+    },
+    {
+      "from": "proof/ministack/ui/package-lock.json",
+      "to": "test/scenarios/ministack/ui/package-lock.json",
+      "sha256": "70dd0d8e01e2030e59750b76dc83a3039227408effa9f8713139ddc25adc1e14"
+    },
+    {
+      "from": "proof/ministack/ui/package.json",
+      "to": "test/scenarios/ministack/ui/package.json",
+      "sha256": "4cf1d5d736c0721afd3d5db8e62df9a227b3bce839ea4c6a91da6238515c53bd"
+    },
+    {
+      "from": "proof/ministack/ui/probe.mjs",
+      "to": "test/scenarios/ministack/ui/probe.mjs",
+      "sha256": "68e80f190ee2410438c88c4f7d820d8c99c48b4ba786cb571ef36628475fae3c"
+    },
+    {
+      "from": "deploy/ministack/compose.json",
+      "to": "test/scenarios/ministack/config/compose.json",
+      "sha256": "eb8c678eea795619967b073b8a5112d363937f047d72050cb3e1c94bd0072f1b"
+    },
+    {
+      "from": "deploy/ministack/haproxy.cfg",
+      "to": "test/scenarios/ministack/config/haproxy.cfg",
+      "sha256": "e32429f416014a884c962ef11d065cd7913f0ad365e220b6c1bcfede790e5e6d"
+    },
+    {
+      "from": "deploy/ministack/temporal-a.json",
+      "to": "test/scenarios/ministack/config/temporal-a.json",
+      "sha256": "5471bfd2a9ea45e640ef3fbc1a213f44907296881f2aae3481e6d1b65824fcef"
+    },
+    {
+      "from": "deploy/ministack/temporal-b.json",
+      "to": "test/scenarios/ministack/config/temporal-b.json",
+      "sha256": "c24480a6f5fac92dfd2cffbba31943a816987d0aefc7ad969f8700e12faab9eb"
+    },
+    {
+      "from": "tools/ministack.json",
+      "to": "test/scenarios/ministack/pins.json",
+      "sha256": "548b562bcf655610a0b06238cb2035e3c26cabe4ca3abb7789aa3492820d025a"
+    }
+  ]
+}

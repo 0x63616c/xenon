@@ -13,12 +13,12 @@
     "cmd/xenon-temporal/main.go",
     "internal/ministack/nexus_config.go",
     "internal/ministack/nexus_config_test.go",
-    "deploy/ministack/temporal-a.json",
-    "deploy/ministack/temporal-b.json",
-    "deploy/ministack/haproxy.cfg",
-    "deploy/ministack/compose.json",
-    "proof/ministack/case.json",
-    "proof/ministack/nexus-http.md"
+    "test/scenarios/ministack/config/temporal-a.json",
+    "test/scenarios/ministack/config/temporal-b.json",
+    "test/scenarios/ministack/config/haproxy.cfg",
+    "test/scenarios/ministack/config/compose.json",
+    "test/scenarios/ministack/case.json",
+    "test/scenarios/ministack/nexus-http.md"
   ],
   "fault_schedule": "Remove listener, clusterHTTPaddress and publicHTTPclient independently from each declared config; each mustreject. Execute real check-config CLI for bothfiles.",
   "assertions": [

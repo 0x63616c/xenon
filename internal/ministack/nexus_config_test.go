@@ -10,7 +10,7 @@ import (
 
 func TestNexusHTTPConfiguration(t *testing.T) {
 	for _, name := range []string{"a", "b"} {
-		path := "../../deploy/ministack/temporal-" + name + ".json"
+		path := "../../test/scenarios/ministack/config/temporal-" + name + ".json"
 		if err := CheckNexusConfig(path); err != nil {
 			t.Fatal(name, err)
 		}
@@ -53,7 +53,7 @@ func TestNexusHTTPConfiguration(t *testing.T) {
 			}
 		}
 	}
-	raw, err := os.ReadFile("../../deploy/ministack/haproxy.cfg")
+	raw, err := os.ReadFile("../../test/scenarios/ministack/config/haproxy.cfg")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestNexusHTTPConfiguration(t *testing.T) {
 			t.Fatal("missing ingress route", required)
 		}
 	}
-	raw, err = os.ReadFile("../../deploy/ministack/compose.json")
+	raw, err = os.ReadFile("../../test/scenarios/ministack/config/compose.json")
 	if err != nil {
 		t.Fatal(err)
 	}

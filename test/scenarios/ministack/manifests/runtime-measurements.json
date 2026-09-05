@@ -9,9 +9,9 @@
     "cmd/xenon-temporal/main.go",
     "internal/rpctrace/trace.go",
     "proof/acceptance/resources.json",
-    "proof/ministack/README.md",
-    "proof/ministack/case.json",
-    "proof/ministack/measurements.json",
+    "test/scenarios/ministack/README.md",
+    "test/scenarios/ministack/case.json",
+    "test/scenarios/ministack/measurements.json",
     "proof/s3-meter/local.json",
     "scripts/ministack-runtime.py",
     "scripts/prove.py",
@@ -20,7 +20,11 @@
     "scripts/test_ministack_runtime.py",
     "scripts/test_prove.py",
     "scripts/test_resource_samples.py",
-    "scripts/test_runtime_measurements.py"
+    "scripts/test_runtime_measurements.py",
+    "scripts/check-layout.py",
+    "scripts/test_scenario_layout.py",
+    "test/scenarios/ministack/scenario.json",
+    "test/scenarios/ministack/migration.json"
   ],
   "fault_schedule": "malformed/truncated/failed trace footer, missing graceful close, unmatched/duplicate attempts, bounded parser overflow, killed producer, undrained/invalid meter counters; real host CPU/RSS and subprocess supervision controls",
   "assertions": [
@@ -64,6 +68,16 @@
         "test_readiness_queue_is_bounded_and_complete_log_retained",
         "test_stop_cleans_descendant_even_after_parent_exit",
         "test_topology_event_is_a_snapshot"
+      ]
+    },
+    {
+      "runner": "python-measurements",
+      "filter": "test_scenario_layout",
+      "exact": true,
+      "expected_tests": [
+        "test_legacy_and_moved_manifests_remain_resolvable",
+        "test_missing_external_and_duplicate_inputs_rejected",
+        "test_moved_fixture_hash_and_old_path_are_enforced"
       ]
     }
   ]

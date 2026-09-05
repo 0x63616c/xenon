@@ -19,8 +19,8 @@ After the declared ministack Node/Playwright setup, rerun from the repository ro
 
 ```sh
 docker run -d --name xenon-ui-history-regression -p 127.0.0.1:18081:8080 -e TEMPORAL_ADDRESS=127.0.0.1:1 temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a
-cp proof/ministack/ui/history-import-regression.mjs .local/ministack-ui/
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/playwright-browsers" .local/node-v24.19.0-darwin-arm64/bin/node .local/ministack-ui/history-import-regression.mjs http://127.0.0.1:18081 proof/ministack/ui/completed-history.json .local/evidence/ui-history-regression
+cp test/scenarios/ministack/ui/history-import-regression.mjs .local/ministack-ui/
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/playwright-browsers" .local/node-v24.19.0-darwin-arm64/bin/node .local/ministack-ui/history-import-regression.mjs http://127.0.0.1:18081 test/scenarios/ministack/ui/completed-history.json .local/evidence/ui-history-regression
 docker rm -f xenon-ui-history-regression
 ```
 

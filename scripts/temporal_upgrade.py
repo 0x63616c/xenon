@@ -12,8 +12,8 @@ SEAMS = [
     ('serialization', ('api/persistence/', 'proto/internal/', 'common/codec/', 'common/primitives/', 'common/converter/'), ['proto/xenon/v1', 'internal/adapter/execution_codec.go', 'internal/node'], ['go-runtime-stores', 'go-visibility']),
     ('schema', ('schema/',), ['internal/node', 'docs/research'], ['go-runtime-stores', 'go-visibility']),
     ('visibility', ('common/persistence/visibility/', 'common/searchattribute/',), ['internal/query', 'internal/visibility', 'internal/adapter/visibility.go'], ['go-visibility', 'go-visibility-frozen']),
-    ('server-integration', ('temporal/', 'common/config/', 'service/',), ['internal/temporalstore', 'cmd', 'proof/ministack'], ['go-runtime-stores']),
-    ('dependencies', ('go.mod', 'go.sum'), ['go.mod', 'go.sum', 'tools', 'proof/ministack'], ['go-runtime-stores', 'go-visibility']),
+    ('server-integration', ('temporal/', 'common/config/', 'service/',), ['internal/temporalstore', 'cmd', 'test/scenarios/ministack'], ['go-runtime-stores']),
+    ('dependencies', ('go.mod', 'go.sum'), ['go.mod', 'go.sum', 'tools', 'test/scenarios/ministack'], ['go-runtime-stores', 'go-visibility']),
 ]
 
 def git(repo, *args):

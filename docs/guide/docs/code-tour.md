@@ -42,7 +42,7 @@ The pinned SQL behavior matters for nulls, numeric precision, timestamps and sea
 
 ## Keep the evidence close
 
-Go unit and integration tests live beside their packages. `experiments/` binds runnable proof commands to expected assertions. `proof/` stores workloads, manifests and fixtures; `deploy/` stores local topology definitions. `docs/research/` records detailed compatibility decisions and their limits.
+Go unit and integration tests live beside their packages. `experiments/` and `test/scenarios/*/manifests/` bind runnable proof commands to expected assertions. The ministack scenario consolidates its local topology, pins and fixtures under `test/scenarios/ministack/`. Unmigrated workloads and the frozen corpus remain in `proof/`; other local deployment definitions remain in `deploy/`. `docs/research/` records detailed compatibility decisions and their limits.
 
 Add a new operation as a complete vertical slice: contract, adapter, handler, durable outcome and tests. Managed RPC descriptor coverage should fail when a newly registered family is missing from forwarding or dispatch. Avoid splitting a single atomic persistence operation across remote storage calls.
 

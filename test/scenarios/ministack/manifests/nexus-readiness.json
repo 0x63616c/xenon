@@ -15,7 +15,7 @@
     "cmd/xenon-sdk-probe/nexus_readiness_test.go",
     "cmd/xenon-sdk-probe/nexus_diagnostics.go",
     "cmd/xenon-sdk-probe/nexus_diagnostics_test.go",
-    "proof/ministack/nexus-readiness.md"
+    "test/scenarios/ministack/nexus-readiness.md"
   ],
   "fault_schedule": "SDK workflow testsuite real registered Nexus echo operation, deterministic workflowID all4shard mapping, missing-history diagnostic control.",
   "assertions": [

@@ -8,7 +8,7 @@ import tarfile
 import urllib.request
 ROOT=Path(__file__).resolve().parents[1]
 def prepare():
-    pins=json.loads((ROOT/'tools/ministack.json').read_text())['runtime_tools']
+    pins=json.loads((ROOT/'test/scenarios/ministack/pins.json').read_text())['runtime_tools']
     os_name={'Darwin':'darwin','Linux':'linux'}[platform.system()]
     arch={'arm64':'arm64','aarch64':'arm64','x86_64':'x64','AMD64':'x64'}[platform.machine()]
     name='node-'+pins['node']+'-'+os_name+'-'+arch

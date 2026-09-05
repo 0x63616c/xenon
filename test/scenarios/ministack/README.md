@@ -58,7 +58,7 @@ and binary hashes, exact fault-trigger events and every workflow result.
 
 ## Pins and required execution
 
-`tools/ministack.json` pins Temporal 1.31.2, the existing Go SDK 1.41.1, Omes commit
+`test/scenarios/ministack/pins.json` pins Temporal 1.31.2, the existing Go SDK 1.41.1, Omes commit
 c6978ba39aa03551ce28974117e8d7ecf983d2b3 with its own worker SDK 1.48.0, UI 2.53.3,
 HAProxy 3.2.12 and MinIO by immutable OCI index digests. Omes's separate module keeps
 its upstream SDK/tool dependencies; it must not upgrade Xenon's module indirectly.
@@ -158,3 +158,16 @@ report remains failed. That report also has a known evidence limitation: earlier
 in-memory topology event maps were aliased and display final cold assignments.
 The source now snapshots nested event values; it does not rewrite old reports or
 claim they recorded the earlier assignment values correctly.
+
+## Scenario layout
+
+This directory owns the case, pinned tool declarations, optional measurement
+configuration, UI fixtures, and local service configurations in `config/`.
+`scenario.json` records the stable runtime command contracts. Related component
+manifests are in `manifests/`; their public names remain `runtime-measurements`,
+`nexus-http` and `nexus-readiness` through `scripts/prove.py`.
+
+`make smoke` and `make fuzz-soak` still invoke the shared runtime controller.
+`make check-layout` verifies all current manifest links and the exact-byte
+relocation inventory. The migration does not change deadlines, workloads, images,
+corpus content, protocol behavior or the meaning of an earlier failed receipt.
