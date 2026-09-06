@@ -14,7 +14,7 @@ This document records the discussion following docs/handoff-testing-strategy.md.
 - Start with SlateDB and direct S3. Keep engine-specific details behind a precise storage contract so future replacement remains possible. Portability of coordination does not prove portability of the data engine.
 - Automatic rebalancing is accepted. Database paths and logical partition identities remain stable when ownership moves.
 - Multi-region is deferred. Focus on one region, with multi-AZ deployments where supported. Cross-region replication/failover is not a current implementation requirement.
-- Efficiency is an explicit priority: reuse suitable libraries, bounded experiments and reviews, no vanity frameworks, no broad rewrites merely for aesthetics. Keep the repository private.
+- Efficiency is an explicit priority: reuse suitable libraries, bounded experiments and reviews, no vanity frameworks, no broad rewrites merely for aesthetics. Public publication to the existing public repository was explicitly authorized on 2026-09-06, superseding earlier private-delivery instructions.
 
 ## Accepted codebase structure — required target
 

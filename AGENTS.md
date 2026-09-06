@@ -34,7 +34,7 @@ Use GitHub issues as the Wayfinder map and publish linked resolution evidence. C
 
 Research reports currently live on research branches; integrate validated artifacts so main becomes self-contained. Build the runnable proof, CI, operational documentation, compatibility matrix, demonstration and release-ready packaging. Prepare an accurate landing-page draft after the core proof if useful; production SaaS/billing/dashboard remain later scope.
 
-Keep this private repo private pending explicit public-release authorization. Use existing authorized resources within their scope; do not invent credentials or assume permission for external spend. Missing external access must be recorded precisely while independent work continues.
+On 2026-09-06 Calum explicitly authorized public publication of this work to the already-public 0x63616c/xenon repository. This supersedes the earlier private-delivery restriction. Use existing authorized resources within their scope; do not invent credentials or assume permission for external spend. Missing external access must be recorded precisely while independent work continues.
 
 Consult docs/handoff-autonomous.md for exact ticket URLs, research commits, architecture evidence, acceptance gates and the full delegation protocol.
 

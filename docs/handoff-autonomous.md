@@ -2,6 +2,8 @@
 
 ## Start here
 
+Publication update (2026-09-06): Calum explicitly authorized public publication to the already-public repository. This supersedes the historical private-only instructions below.
+
 You are the coordinating agent for [0x63616c/xenon](https://github.com/0x63616c/xenon), currently private. Your goal is to finish the Wayfinder effort and deliver the working end-to-end proof, with professional repository packaging and reproducible evidence. Do not stop at another plan, a scaffold, a successful build, or a single happy-path workflow.
 
 **Latest user authorization supersedes the earlier human-in-the-loop workflow.** Calum explicitly requested full-auto operation, coordinated subagents, and agent debate to resolve decisions formerly labelled grilling. You may make project architecture, implementation, test, packaging and integration decisions on his behalf within the requirements below. Do not repeatedly ask him to choose or approve routine work. Record choices as **delegated agent decisions**, never as statements Calum actually made.
