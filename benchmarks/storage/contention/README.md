@@ -57,3 +57,63 @@ failures, no takeover, no production field authorization, no native databases,
 no embedded Temporal. The existing registry contract suite owns lost-response
 semantics. Actual cluster control cadence, batching, receipt bounds and renewal
 policy still require production-controller testing and coupled DST.
+
+## Executed evidence and decision limit
+
+All three captured runs stopped at their first unexpected outcome and have
+`status=failed`. They are retained as failed experiments, not passing gates:
+
+- [Initial baseline](evidence/fb34501-baseline/summary.jsonl), source `fb34501`:
+  256 partitions/1 and 10 contenders passed; 100 contenders stopped at an unknown
+  outcome. This first version did not expose its nested SDK error.
+- [Diagnostic baseline](evidence/fb87d30-diagnostic/summary.jsonl), source `fb87d30`:
+  256/1 passed; 256/10 stopped with PUT `http: server closed idle connection`.
+- [No-keepalive diagnostic](evidence/a21fa9b-no-keepalive/summary.jsonl), source
+  `a21fa9b`: five cases completed; 1024/100 stopped with PUT `EOF` and a later
+  envelope that could not prove the historical outcome.
+
+The third run used `no-keepalive.json`, differing only by explicitly disabling
+HTTP connection reuse. Reproduce that transport diagnostic with:
+
+```sh
+python3 benchmarks/storage/contention/run.py /tmp/fresh-no-keepalive-evidence benchmarks/storage/contention/no-keepalive.json
+```
+
+It does not qualify a production transport policy. The default pooled transport
+remains the baseline; disabling reuse did not eliminate unknown outcomes.
+
+| Partitions | Contenders | Successful updates / requested | Conflicts | Maximum observed renewal gap | Whole final state |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 256 | 1 | 13/13 | 5 | 116 ms | verified |
+| 256 | 10 | 40/40 | 35 | 267 ms | verified |
+| 256 | 100 | 310/310 | 2987 | 2884 ms | verified |
+| 1024 | 1 | 13/13 | 5 | 138 ms | verified |
+| 1024 | 10 | 40/40 | 79 | 892 ms | verified |
+| 1024 | 100 | 50/310 | 1363 | 4098 ms before abort | unverified |
+
+The 256/100 completed case transferred 1,543,802,523 response-body bytes and
+submitted 348,778,958 declared request-body bytes in 7.77 seconds. Its 310 logical
+updates induced 8119 successful GETs and 1524 PUT/412 responses. Counts include
+initialization and final validation. The actual creation envelopes were 189,942
+and 758,262 bytes. These observations argue against assuming cheap, frequent
+full-record updates or deriving a short suspicion timeout from nominal cadence.
+They do not establish that a single bounded control record is impossible.
+
+The probe deliberately has no retained per-actor historical transition receipt.
+The adapter can reconcile the latest envelope but cannot determine whether an
+unknown older mutation published before another actor replaced that envelope.
+The production reservation/readiness protocol must retain a bounded actor-owned
+receipt while that actor has a pending attempt, atomically with the affected
+fields. Matching transition and intent digest can then establish publication
+across unrelated updates; absence alone must not be guessed as nonpublication.
+That production protocol and a corresponding ambiguity experiment remain needed.
+These results do not qualify it, and must not be used to choose coordinator
+renewal/suspicion defaults. Batch owner updates and bound outstanding control CAS
+work before repeating with the actual controller.
+
+The original two captures predate runner cleanup/provenance hardening. Both
+completed teardown successfully, but do not claim their runner had the later
+always-attempt-cleanup or sanitized-environment guarantees. The third capture
+records an empty source status, pinned Go environment, unchanged input hashes
+and successful scoped cleanup. All evidence includes source/input hashes and
+actual tool/image versions. Binaries are omitted; their hashes are retained.

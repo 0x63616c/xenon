@@ -1,0 +1,1 @@
+CalledProcessError(1, ['/private/tmp/xenon-contention-evidence-20260906-diagnostic/probe', '/private/tmp/xenon-control-contention-20260906/benchmarks/storage/contention/config.json', '/private/tmp/xenon-contention-evidence-20260906-diagnostic'])
