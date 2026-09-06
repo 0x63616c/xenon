@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "scope": "ten-minute local corrected Omes fuzz with real Nexus, mixed40 and identical Go agent churn; bounded profile, not comprehensive release/AWS acceptance",
+  "setup_seconds": 2400,
+  "mixed_seconds": 900,
+  "workload_seconds": 600,
+  "drain_seconds": 300,
+  "verification_seconds": 900,
+  "cold_recovery_seconds": 480,
+  "cleanup_seconds": 120,
+  "maximum_commands": 1000,
+  "faults": [
+    {
+      "action": "join-c",
+      "not_before_seconds": 60,
+      "complete_by_seconds": 180
+    },
+    {
+      "action": "kill-b",
+      "not_before_seconds": 240,
+      "complete_by_seconds": 330
+    },
+    {
+      "action": "restart-b",
+      "not_before_seconds": 360,
+      "complete_by_seconds": 480
+    }
+  ],
+  "run": [
+    "python3",
+    "scripts/agent-smoke.py",
+    "--profile",
+    "ten-minute"
+  ],
+  "limitations": [
+    "Saved corrected-v1 corpus explores timing, not generated action coverage.",
+    "Omes completion and recovered histories are checked; independent complete attempted-start/per-ack census remains open.",
+    "Existing historical profiles are unchanged.",
+    "Actual execution is required; profile validation is not a pass."
+  ]
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Reproducible combined-agent component proof. No real AWS credentials accepted."""
-import argparse, hashlib, json, os, signal, socket, subprocess, sys, time, urllib.request, uuid
+import argparse, hashlib, json, os, re, signal, socket, subprocess, sys, time, urllib.request, uuid
 from urllib.parse import quote_plus
 from pathlib import Path
 from omes_workloads import effective_sdk
@@ -17,8 +17,22 @@ def check_children(children, expected_stops, names):
     for child in children:
         code=child.poll()
         name=names[child.pid]
-        if code is not None and child.pid not in expected_stops and (name != 'omes' or code != 0):
+        if code is not None and child.pid not in expected_stops and ((name != 'omes' and not name.startswith('workload-')) or code != 0):
             raise ScenarioInvariant('background process exited unexpectedly: '+name+' ('+str(code)+')')
+
+class OmesLog:
+    # Pinned generic_executor.go logs these terminal iteration errors before
+    # worker cleanup. max-iteration-attempts=1 makes them fatal for this profile.
+    failure=re.compile(rb'iteration [0-9]+ (?:encountered error|failed):')
+    def __init__(self,path):self.path=path;self.offset=0;self.tail=b''
+    def check(self):
+        with self.path.open('rb') as stream:
+            stream.seek(self.offset);data=stream.read((1<<20)+1);self.offset=stream.tell()
+        if len(data)>1<<20:raise ScenarioInvariant('Omes log burst exceeds 1 MiB')
+        text=self.tail+data
+        if self.failure.search(text):raise ScenarioInvariant('terminal Omes iteration failure; see '+str(self.path))
+        self.tail=text[-4096:]
+
 
 def kill_and_collect(process):
     if process.poll() is None:
@@ -53,7 +67,7 @@ def capture_failure_diagnostics(run, configs, control_command):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');parser.add_argument('--profile',choices=['smoke','ten-minute'],default='smoke');args=parser.parse_args()
     receipt=ROOT/'.local/evidence'/('agent-'+time.strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:6]);receipt.mkdir(parents=True)
     project='xenon-agent-'+uuid.uuid4().hex[:10]
     env=os.environ.copy()
@@ -63,53 +77,99 @@ def main():
     env.update(GOENV='off',GOWORK='off',GOFLAGS='-mod=readonly',GOTOOLCHAIN='go1.27.1',CGO_ENABLED='1',CGO_LDFLAGS='-L'+str(lib),DYLD_LIBRARY_PATH=str(lib),LD_LIBRARY_PATH=str(lib),SLATEDB_UNIFFI_RUNTIME_THREADS='2',AWS_ACCESS_KEY_ID='xenon-local',AWS_SECRET_ACCESS_KEY='xenon-local-test-only',AWS_DEFAULT_REGION='us-east-1',AWS_ENDPOINT='http://127.0.0.1:19006',AWS_ALLOW_HTTP='true',AWS_VIRTUAL_HOSTED_STYLE_REQUEST='false')
     compose=['docker','compose','--project-name',project,'-f',str(SCENARIO/'compose.json')]
     agent_case=json.loads((SCENARIO/'case.json').read_text())
+    expanded=None
+    if args.profile=='ten-minute':
+        from agent_ten_minute import expand
+        expanded=expand(ROOT)
     ministack_pins=json.loads((ROOT/'test/scenarios/ministack/pins.json').read_text())
     omes_run_id=agent_case['omes_command'][agent_case['omes_command'].index('--run-id')+1]
     omes_queue='omes-'+omes_run_id
     report={'schema':1,'scope':agent_case['scope'],'status':'failed','full_acceptance':False,'development':args.development,'commands':[],'events':[]}
-    children=[];expected_stops=set();child_names={};logs=[];deadline=time.monotonic()+900;started=False
+    monitors=[]
+    children=[];expected_stops=set();child_names={};logs=[];deadline=time.monotonic()+(expanded['profile']['setup_seconds'] if expanded else 900);started=False
     def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
     def tree(path):return {str(p.relative_to(path)):sha(p) for p in sorted(path.rglob('*')) if p.is_file()}
+    def save(name,value):
+        with (receipt/name).open('w') as stream:
+            json.dump(value,stream,indent=2);stream.write('\n');stream.flush();os.fsync(stream.fileno())
+    def record(event):
+        report['events'].append(event)
+        save('progress.json',report)
+    def set_budget(seconds):
+        nonlocal deadline
+        deadline=time.monotonic()+seconds
+    def background_health():
+        if report.get('error'):return  # bounded diagnostics retain the already-latched primary
+        check_children(children,expected_stops,child_names)
+        for monitor in monitors:monitor.check()
+        if sum((receipt/name).stat().st_size for name in [p.name for p in receipt.glob('*.log')])>256<<20:
+            raise ScenarioInvariant('scenario logs exceed 256 MiB')
     def run(command,timeout=60,cwd=ROOT):
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError('scenario deadline')
-        p=subprocess.Popen(command,cwd=cwd,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
-        timed_out=False;interrupted=None
-        end=time.monotonic()+min(timeout,remaining)
-        try:
-            while True:
-                check_children(children,expected_stops,child_names)
-                left=end-time.monotonic()
-                if left<=0:
-                    timed_out=True;output,_=kill_and_collect(p);break
-                try:output,_=p.communicate(timeout=min(1,left));break
-                except subprocess.TimeoutExpired:pass
-        except BaseException as error:
-            interrupted=error
-            output=''
+        path=receipt/('command-'+str(len(report['commands']))+'.log')
+        item={'argv':list(map(str,command)),'log':path.name,'timed_out':False}
+        report['commands'].append(item)
+        save('progress.json',report)
+        primary=None
+        with path.open('xb') as log:
+            monitor=OmesLog(path) if Path(str(command[0])).name=='omes' else None
+            p=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            end=time.monotonic()+min(timeout,remaining)
             try:
-                output,_=kill_and_collect(p)
-            except Exception as cleanup_error:
-                report.setdefault('command_cleanup_errors',[]).append(str(cleanup_error))
-        path=receipt/('command-'+str(len(report['commands']))+'.log');path.write_text(output)
-        report['commands'].append({'argv':list(map(str,command)),'returncode':p.returncode,'timed_out':timed_out,'output_sha256':sha(path)})
-        if interrupted is not None:raise interrupted
-        if timed_out or p.returncode:raise RuntimeError('command failed: '+str(command)+'; see '+str(path))
-        return output
+                while p.poll() is None:
+                    background_health()
+                    if monitor:monitor.check()
+                    if path.stat().st_size>16<<20:raise ScenarioInvariant('command log exceeds 16 MiB')
+                    left=end-time.monotonic()
+                    if left<=0:
+                        item['timed_out']=True
+                        raise TimeoutError('command deadline: '+str(command))
+                    try:p.wait(timeout=min(.2,left))
+                    except subprocess.TimeoutExpired:pass
+                p.wait()
+            except BaseException as error:
+                primary=error
+                try:kill_and_collect(p)
+                except Exception as cleanup_error:report.setdefault('command_cleanup_errors',[]).append(str(cleanup_error))
+            finally:
+                # The scoped command may spawn workers: retire its group even
+                # after the command leader exits, without losing its exit status.
+                try:os.killpg(p.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                log.flush();os.fsync(log.fileno())
+        item.update(returncode=p.returncode,output_sha256=sha(path))
+        if primary is not None:raise primary
+        if monitor:monitor.check()
+        if path.stat().st_size>16<<20:raise ScenarioInvariant('command log exceeds 16 MiB')
+        if p.returncode:raise RuntimeError('command failed: '+str(command)+'; see '+str(path))
+        return path.read_text()
     def launch(name,command,cwd=receipt):
         log=(receipt/(name+'.log')).open('w');logs.append(log)
+        item={'name':name,'argv':list(map(str,command)),'cwd':str(cwd),'log':name+'.log'}
+        report.setdefault('background_commands',[]).append(item)
+        save('progress.json',report)
         p=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        item['pid']=p.pid
+        if name=='omes' or name.startswith('workload-'):monitors.append(OmesLog(receipt/(name+'.log')))
         children.append(p);child_names[p.pid]=name;return p
     def stop(p,kill=False):
         expected_stops.add(p.pid)
-        if p.poll() is not None:return
-        os.killpg(p.pid,signal.SIGKILL if kill else signal.SIGTERM)
+        if p.poll() is not None:
+            try:os.killpg(p.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+            p.wait();return
+        try:os.killpg(p.pid,signal.SIGKILL if kill else signal.SIGTERM)
+        except ProcessLookupError:pass
         try:p.wait(timeout=35)
-        except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait(timeout=10);raise
+        except subprocess.TimeoutExpired:
+            try:os.killpg(p.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+            p.wait(timeout=10);raise
     def wait(fn,timeout=120):
         end=min(deadline,time.monotonic()+timeout);last=None
         while time.monotonic()<end:
-            check_children(children,expected_stops,child_names)
+            background_health()
             try:
                 v=fn()
                 if v:return v
@@ -163,6 +223,19 @@ def main():
             if response.status!=200:raise RuntimeError('UI workflow page returned '+str(response.status))
             if b'<html' not in response.read(4096).lower():raise RuntimeError('UI workflow route did not return HTML')
         return {'port':ui_port}
+    def joined_owner(before):
+        c_id=json.loads((SCENARIO/'c.json').read_text())['service_storage']['node_id']
+        joined=topology('control-after-c.json')
+        owned=ready_assignments(joined,c_id)
+        if not owned:return False
+        logical=sorted(owned)[0]
+        physical=next(p['id'] for p in joined['layout']['partitions'] if p['logical_name']==logical)
+        if owned[logical]['assignment_revision']<=before['partitions'][physical]['assignment_revision']:
+            raise ScenarioInvariant('join did not advance ownership assignment')
+        probe('partition-ready','--storage-address','127.0.0.1:21241','--storage-partition',logical,'--readiness-timeout','60s')
+        after=topology('control-after-c-probe.json')
+        if not same_authority(owned[logical],after['partitions'][physical]):return False
+        return {'node':c_id,'partition':logical,'physical_partition':physical,'generation':owned[logical]['generation']}
     def start(name,label=None,wait_health=True):
         p=launch(label or name,[str(agent),'start','--config',str(SCENARIO/(name+'.json'))])
         config=json.loads((SCENARIO/(name+'.json')).read_text())
@@ -183,10 +256,16 @@ def main():
             with socket.socket() as s:
                 s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
                 s.bind(('127.0.0.1',port))
+        report['profile']=args.profile
+        if expanded:
+            report['scope']=expanded['profile']['scope']
+            save('expanded-profile.json',expanded)
+        report['tracked_input_sha256']={name:sha(ROOT/name) for name in run(['git','ls-files']).splitlines() if (ROOT/name).is_file()}
+        save('initial.json',report)
         run(['python3','scripts/build-go-node.py'],600)
-        for name in ['xenon-sdk-probe','xenon-ingress']:
+        for name in ['xenon-sdk-probe','xenon-ingress',*(['xenon-omes-oracle'] if expanded else [])]:
             run(['go','build','-o',str(ROOT/'.local/bin'/name),'./cmd/'+name],600)
-        report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon','xenon-sdk-probe','xenon-ingress']}
+        report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon','xenon-sdk-probe','xenon-ingress',*(['xenon-omes-oracle'] if expanded else [])]}
         report['native_build']=json.loads((ROOT/'.local/go-node-build.json').read_text())
         report['version']=json.loads(run([str(agent),'version']))
         started=True;run([*compose,'up','-d','--pull','never'],90)
@@ -210,55 +289,54 @@ def main():
             run(['git','clone','--no-checkout',ministack_pins['omes']['repository'],str(omes_source)],900)
         run(['git','checkout','--detach',ministack_pins['omes']['commit']],cwd=omes_source)
         if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes_source).strip():raise RuntimeError('dirty Omes source')
-        run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes_source)
-        run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',ministack_pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes_source)
-        report['omes_source_commit']=run(['git','rev-parse','HEAD'],cwd=omes_source).strip()
-        if report['omes_source_commit']!=ministack_pins['omes']['commit']:raise RuntimeError('Omes source pin mismatch')
-        report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
-        worker_info=run(['go','version','-m',str(omes_source/'workers/go/prepared/program')]).strip()
-        report['effective_omes_worker_sdk']=effective_sdk(worker_info)
-        if report['effective_omes_worker_sdk']['version']!=ministack_pins['omes']['worker_go_sdk']:raise RuntimeError('prepared Omes SDK pin mismatch')
-        report['omes_worker_build_info']=worker_info
-        report['omes_worker_sha256']=sha(omes_source/'workers/go/prepared/program')
-        report['omes_prepared_sha256']=tree(omes_source/'workers/go/prepared')
-        omes=launch('omes',[str(ROOT/'.local/bin/omes'),*agent_case['omes_command']],cwd=omes_source)
-        wait(lambda:probe('visibility-count','--query',"TaskQueue = '"+omes_queue+"'").get('count',0)>0,90)
-        join_runs=wait(omes_running_ids,90)
-        report['events'].append({'event':'omes-running-observed-before-join','workflow_ids':join_runs})
-        before_join=topology('control-before-c.json')
-        c=start('c');report['events'].append({'event':'join-started-during-active-sdk-and-omes-workflows'})
-        c_id=json.loads((SCENARIO/'c.json').read_text())['service_storage']['node_id']
-        def verify_joined_owner():
-            joined=topology('control-after-c.json')
-            owned=ready_assignments(joined,c_id)
-            if not owned:return False
-            logical=sorted(owned)[0]
-            physical=next(p['id'] for p in joined['layout']['partitions'] if p['logical_name']==logical)
-            if owned[logical]['assignment_revision']<=before_join['partitions'][physical]['assignment_revision']:
-                raise ScenarioInvariant('join did not advance ownership assignment')
-            probe('partition-ready','--storage-address','127.0.0.1:21241','--storage-partition',logical,'--readiness-timeout','60s')
-            after=topology('control-after-c-probe.json')
-            if not same_authority(owned[logical],after['partitions'][physical]):return False
-            return {'node':c_id,'partition':logical,'physical_partition':physical,'generation':owned[logical]['generation']}
-        report['events'].append({'event':'joined-agent-served-assigned-partition',**wait(verify_joined_owner,90)})
-        fault_runs=wait(omes_running_ids,90)
-        stop(b,kill=True);report['events'].append({'event':'SIGKILL-during-running-omes-execution','node':'b','workflow_ids':fault_runs})
-        if omes.poll() is not None:raise RuntimeError('Omes runner stopped before agent failure and recovery')
-        b_id=json.loads((SCENARIO/'b.json').read_text())['service_storage']['node_id']
-        wait(lambda:absent_owner(topology('control-after-eviction.json'),b_id),45)
-        evicted=topology('control-after-eviction-final.json')
-        if not absent_owner(evicted,b_id):raise RuntimeError('failed member retains partition')
-        report['events'].append({'event':'failed-member-evicted-and-rebalanced','node':'b'})
-        b=start('b','b-restarted')
-        wait(lambda:omes.poll() is not None,360)
-        if omes.returncode:raise RuntimeError('Omes workload failed')
-        probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
-        for workflow_id in sorted(set(join_runs+fault_runs)):
-            probe('visibility','--query',"WorkflowId = '"+workflow_id+"' AND ExecutionStatus = 'Completed'")
-        report['ui_api']=probe_ui_api()
-        report['events'].append({'event':'omes-and-ui-passed-through-unified-endpoint','ui':report['ui_api']})
-        if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256'] or sha(omes_source/'workers/go/prepared/program')!=report['omes_worker_sha256'] or tree(omes_source/'workers/go/prepared')!=report['omes_prepared_sha256'] or run(['git','rev-parse','HEAD'],cwd=omes_source).strip()!=report['omes_source_commit']:raise RuntimeError('Omes inputs changed during workload')
-        probe('control')
+        if expanded:
+            from agent_ten_minute import run as run_ten_minute
+            probe('control')
+            initial_history=receipt/'sdk-acknowledged-before-fuzz';initial_history.mkdir()
+            probe('verify','--run-id',execution['run_id'],'--output',str(initial_history))
+            agents={'a':a,'b':b}
+            run_ten_minute(ROOT,receipt,expanded,command=run,launch=launch,stop=stop,wait=wait,
+                probe=probe,topology=topology,joined_owner=joined_owner,start=start,agents=agents,
+                check_children=background_health,
+                set_budget=set_budget,record=record,report=report)
+            a,b,c=agents['a'],agents['b'],agents['c']
+        else:
+            run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes_source)
+            run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',ministack_pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes_source)
+            report['omes_source_commit']=run(['git','rev-parse','HEAD'],cwd=omes_source).strip()
+            if report['omes_source_commit']!=ministack_pins['omes']['commit']:raise RuntimeError('Omes source pin mismatch')
+            report['omes_binary_sha256']=sha(ROOT/'.local/bin/omes')
+            worker_info=run(['go','version','-m',str(omes_source/'workers/go/prepared/program')]).strip()
+            report['effective_omes_worker_sdk']=effective_sdk(worker_info)
+            if report['effective_omes_worker_sdk']['version']!=ministack_pins['omes']['worker_go_sdk']:raise RuntimeError('prepared Omes SDK pin mismatch')
+            report['omes_worker_build_info']=worker_info
+            report['omes_worker_sha256']=sha(omes_source/'workers/go/prepared/program')
+            report['omes_prepared_sha256']=tree(omes_source/'workers/go/prepared')
+            omes=launch('omes',[str(ROOT/'.local/bin/omes'),*agent_case['omes_command']],cwd=omes_source)
+            wait(lambda:probe('visibility-count','--query',"TaskQueue = '"+omes_queue+"'").get('count',0)>0,90)
+            join_runs=wait(omes_running_ids,90)
+            report['events'].append({'event':'omes-running-observed-before-join','workflow_ids':join_runs})
+            before_join=topology('control-before-c.json')
+            c=start('c');report['events'].append({'event':'join-started-during-active-sdk-and-omes-workflows'})
+            report['events'].append({'event':'joined-agent-served-assigned-partition',**wait(lambda:joined_owner(before_join),90)})
+            fault_runs=wait(omes_running_ids,90)
+            stop(b,kill=True);report['events'].append({'event':'SIGKILL-during-running-omes-execution','node':'b','workflow_ids':fault_runs})
+            if omes.poll() is not None:raise RuntimeError('Omes runner stopped before agent failure and recovery')
+            b_id=json.loads((SCENARIO/'b.json').read_text())['service_storage']['node_id']
+            wait(lambda:absent_owner(topology('control-after-eviction.json'),b_id),45)
+            evicted=topology('control-after-eviction-final.json')
+            if not absent_owner(evicted,b_id):raise RuntimeError('failed member retains partition')
+            report['events'].append({'event':'failed-member-evicted-and-rebalanced','node':'b'})
+            b=start('b','b-restarted')
+            wait(lambda:omes.poll() is not None,360)
+            if omes.returncode:raise RuntimeError('Omes workload failed')
+            probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
+            for workflow_id in sorted(set(join_runs+fault_runs)):
+                probe('visibility','--query',"WorkflowId = '"+workflow_id+"' AND ExecutionStatus = 'Completed'")
+            report['ui_api']=probe_ui_api()
+            report['events'].append({'event':'omes-and-ui-passed-through-unified-endpoint','ui':report['ui_api']})
+            if sha(ROOT/'.local/bin/omes')!=report['omes_binary_sha256'] or sha(omes_source/'workers/go/prepared/program')!=report['omes_worker_sha256'] or tree(omes_source/'workers/go/prepared')!=report['omes_prepared_sha256'] or run(['git','rev-parse','HEAD'],cwd=omes_source).strip()!=report['omes_source_commit']:raise RuntimeError('Omes inputs changed during workload')
+        if not expanded:probe('control')
         before=receipt/'history-before';before.mkdir()
         probe('verify','--run-id',execution['run_id'],'--output',str(before))
         stop(worker)
@@ -275,15 +353,32 @@ def main():
         if not originals:raise RuntimeError('missing history oracle')
         for old in originals:
             if json.loads(old.read_text())!=json.loads((after/old.name).read_text()):raise RuntimeError('cold history mismatch')
-        probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
-        report['ui_api_after_cold']=probe_ui_api()
-        report['events'].append({'event':'identical-histories-after-cold-recovery'})
-        report['events'].append({'event':'omes-visibility-and-ui-recovered-after-cold-restart','ui':report['ui_api_after_cold']})
+        if expanded:
+            set_budget(expanded['profile']['verification_seconds'])
+            run([str(ROOT/'.local/bin/xenon-omes-oracle'),'--omes-run-id','xenon-ministack-fuzz',
+                 '--minimum-runs','20','--output',str(receipt/'fuzz-histories-cold')],timeout=expanded['profile']['verification_seconds'])
+            original=receipt/'fuzz-histories'
+            recovered=receipt/'fuzz-histories-cold'
+            if tree(original)!=tree(recovered):raise ScenarioInvariant('cold fuzz histories or inventory changed')
+            report['ui_api_after_cold']=probe_temporal_http()
+            ui_surface()
+            record({'event':'identical-sdk-and-fuzz-histories-after-cold-recovery'})
+        else:
+            probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
+            report['ui_api_after_cold']=probe_ui_api()
+            report['events'].append({'event':'identical-histories-after-cold-recovery'})
+            report['events'].append({'event':'omes-visibility-and-ui-recovered-after-cold-restart','ui':report['ui_api_after_cold']})
         if run(['git','rev-parse','HEAD']).strip()!=report['revision']:raise RuntimeError('source revision changed')
         if not args.development and run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('source changed')
+        if any(sha(ROOT/name)!=digest for name,digest in report['tracked_input_sha256'].items()):raise RuntimeError('input bytes changed')
+        if any(sha(ROOT/'.local/bin'/name)!=digest for name,digest in report['binaries'].items()):raise RuntimeError('binary changed')
+        native=report['native_build']
+        if sha(ROOT/native['shared_library'])!=native['shared_library_sha256']:raise RuntimeError('native library changed')
         check_children(children,expected_stops,child_names)
         report['status']='development-passed' if args.development else 'component-passed'
-    except BaseException as e:report['error']=type(e).__name__+': '+str(e)
+    except BaseException as e:
+        report['error']=type(e).__name__+': '+str(e)
+        save('first-failure.json',{'error':report['error'],'events':report['events']})
     finally:
         expected_stops.update(p.pid for p in children)
         cleanup=[]
@@ -298,16 +393,45 @@ def main():
                      '--key',agent_case['control_key'],str(receipt/'control-at-failure.json')])
             except Exception as error:
                 report['failure_diagnostics_error']=type(error).__name__+': '+str(error)
+        cleanup_deadline=time.monotonic()+(expanded['profile']['cleanup_seconds'] if expanded else 120)
+        # Signal all groups first. Waiting for one slow process must not leave
+        # other writers running past the shared cleanup budget.
         for p in reversed(children):
-            try:stop(p)
+            try:os.killpg(p.pid,signal.SIGTERM)
+            except ProcessLookupError:pass
+            except Exception as e:cleanup.append(str(e))
+        for p in reversed(children):
+            try:p.wait(timeout=max(.001,cleanup_deadline-time.monotonic()-20))
+            except subprocess.TimeoutExpired:cleanup.append('process exceeded graceful cleanup: '+child_names[p.pid])
+            except Exception as e:cleanup.append(str(e))
+        for p in reversed(children):
+            try:
+                try:os.killpg(p.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                p.wait(timeout=max(.001,cleanup_deadline-time.monotonic()-15))
             except Exception as e:cleanup.append(str(e))
         if started:
-            deadline=time.monotonic()+90
+            deadline=cleanup_deadline
             try:run([*compose,'down','--volumes'],60)
             except Exception as e:cleanup.append(str(e))
         for log in logs:log.close()
+        report['log_sha256']={path.name:sha(path) for path in receipt.glob('*.log')}
+        try:
+            if any(sha(ROOT/name)!=digest for name,digest in report.get('tracked_input_sha256',{}).items()):
+                raise ScenarioInvariant('source/input bytes changed during run or cleanup')
+            if any(sha(ROOT/'.local/bin'/name)!=digest for name,digest in report.get('binaries',{}).items()):
+                raise ScenarioInvariant('binary changed during run or cleanup')
+            native=report.get('native_build')
+            if native and sha(ROOT/native['shared_library'])!=native['shared_library_sha256']:
+                raise ScenarioInvariant('native library changed during run or cleanup')
+        except Exception as error:
+            cleanup.append(str(error))
+
         if cleanup:report['cleanup_errors']=cleanup;report['status']='failed'
-        (receipt/'result.json').write_text(json.dumps(report,indent=2)+'\n')
+        save('result.json',report)
         print(json.dumps({'receipt':str(receipt),'status':report['status'],'error':report.get('error')}),flush=True)
     return 0 if report['status'].endswith('passed') else 1
-if __name__=='__main__':raise SystemExit(main())
+if __name__=='__main__':
+    def interrupted(signum,frame):raise RuntimeError('scenario interrupted by signal '+str(signum))
+    for signum in (signal.SIGINT,signal.SIGTERM):signal.signal(signum,interrupted)
+    raise SystemExit(main())
