@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose Xenon's brand exports from the canonical symbol and bundled Space Grotesk font.
+"""Compose Xenon's brand exports from the canonical symbol and bundled brand fonts.
 
 Requires rsvg-convert 2.62.3 and ImageMagick 7.1.2-31 for raster exports.
 Requires fonttools 4.61.1; the pinned font is bundled in assets/fonts/.
@@ -18,6 +18,8 @@ from fontTools.pens.teePen import TeePen
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets/brand"
+WORDMARK_FONT = ROOT / "assets/fonts/VarelaRound-Regular.ttf"
+BODY_FONT = ROOT / "assets/fonts/PlusJakartaSans.ttf"
 NS = "{http://www.w3.org/2000/svg}"
 ET.register_namespace("", NS[1:-1])
 
@@ -47,13 +49,15 @@ def place(content, x, y, scale):
 
 
 @lru_cache(maxsize=None)
-def font(weight):
-    return instantiateVariableFont(TTFont(ROOT / "assets/fonts/SpaceGrotesk.ttf"),
-                                   {"wght": weight}, inplace=True)
+def font(path, weight):
+    face = TTFont(path)
+    if "fvar" in face:
+        return instantiateVariableFont(face, {"wght": weight}, inplace=True)
+    return face
 
 
-def outline(text, size, weight=400, tracking=0):
-    face = font(weight)
+def outline(text, size, weight=400, tracking=0, wordmark=False):
+    face = font(WORDMARK_FONT if wordmark else BODY_FONT, weight)
     glyphs = face.getGlyphSet()
     cmap = face.getBestCmap()
     scale = size / face["head"].unitsPerEm
@@ -75,7 +79,9 @@ def label(text, x, y, size, color, weight=400, tracking=0, end=False):
 
 
 def main():
-    path, (left, top, right, bottom), _ = outline("xenon", 1000, 600, -20)
+    path, (left, top, right, bottom), _ = outline(
+        "xenon", 1000, 400, -20, wordmark=True
+    )
     svg("wordmark.svg", right - left, bottom - top, "xenon",
         f'<path transform="translate({-left} {-top})" fill="#000000" d="{path}"/>')
     _, _, word_w, word_h = map(
@@ -109,6 +115,14 @@ def main():
             "Xenon — Temporal persistence. Built on object storage. In development.", banner)
         subprocess.run(["rsvg-convert", "-w", "1024", "-h", "1024", "-o",
                         str(OUT / f"mark{suffix}.png"), str(OUT / f"mark{suffix}.svg")], check=True)
+    counter = fragment("spinners/counter-white.svg", "#ffffff")
+    word_white = fragment("wordmark-white.svg", "#ffffff")
+    svg(
+        "banner-counter.svg", 1200, 300, "Xenon",
+        '<rect width="1200" height="300" fill="#000000"/>'
+        + place(counter, 52, 42, 216 / 512)
+        + f'<svg x="316" y="90" width="730" height="120" viewBox="0 0 {word_w} {word_h}">{word_white}</svg>',
+    )
     for name in ["banner", "banner-dark"]:
         subprocess.run(["rsvg-convert", "-o", str(OUT / f"{name}.png"),
                         str(OUT / f"{name}.svg")], check=True)
@@ -118,7 +132,7 @@ def main():
                     str(OUT / "apple-touch-icon.png"), str(OUT / "favicon.svg")], check=True)
     subprocess.run(["magick", str(OUT / "apple-touch-icon.png"), "-define",
                     "icon:auto-resize=48,32,16", str(OUT / "favicon.ico")], check=True)
-    print("Brand exports built from mark.svg and bundled Space Grotesk")
+    print("Brand exports built from the Varela Round wordmark and Plus Jakarta Sans")
 
 
 if __name__ == "__main__":

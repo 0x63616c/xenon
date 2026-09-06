@@ -7,7 +7,8 @@ center, no crossing bars, and rounded arm ends and inward corners. Calum selecte
 this shape and the three-layer staggered loading motion in the logo editor.
 
 Use black on white, or white on black. Preserve the geometry, aspect ratio,
-clear space and lowercase Space Grotesk wordmark. Keep production marks static;
+clear space and lowercase Varela Round wordmark. Use Plus Jakarta Sans for
+website text and interface copy. Keep production marks static;
 use the supplied animated variants for loading and intentional motion.
 
 ## Assets
@@ -21,7 +22,8 @@ use the supplied animated variants for loading and intentional motion.
 
 Browser assets include `favicon.svg`, `favicon.ico` and `apple-touch-icon.png`.
 The documentation site uses the same mark and favicon. Its dark endpoint panel
-uses the white variant for contrast. Existing Space Grotesk wordmarks are retained.
+uses the white variant for contrast. Varela Round wordmarks and Plus Jakarta Sans
+website text are the current approved typography.
 
 ## Approved shape and motion
 
@@ -71,11 +73,11 @@ npm run build --prefix website
 `mark.svg`, site symbol, SVG spinners, approved settings and standalone editor.
 `tools/logo-editor/editor.fragment.html` is the editable editor source.
 `build-brand.py` derives the outlined wordmarks, lockups, banners, raster images
-and favicons. It uses the existing bundled Space Grotesk font and fonttools
+and favicons, including the animated README banner. It uses the bundled Varela Round and Plus Jakarta Sans fonts and fonttools
 4.61.1, librsvg `rsvg-convert` 2.62.3, and ImageMagick 7.1.2-31.
 
 The standalone editor imports pinned Three.js 0.180.0 from jsDelivr and its GLB
-exporter from esm.sh. It loads Space Grotesk from Google Fonts. It runs without
+exporter from esm.sh. It loads Varela Round and Plus Jakarta Sans from Google Fonts. It runs without
 Codex, but requires network access for those imports. All static logo and SVG
 spinner assets work offline. Editor exports are static GLB poses and JSON motion
 settings, not baked animated GLB files.
