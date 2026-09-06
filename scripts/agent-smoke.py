@@ -46,6 +46,10 @@ def main():
             time.sleep(.5)
         raise TimeoutError(str(last))
     sdk=ROOT/'.local/bin/xenon-sdk-probe';agent=ROOT/'.local/bin/xenon'
+    def topology(name):
+        path=receipt/name
+        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key','agent/metadata/topology.json',str(path)])
+        return json.loads(path.read_text())
     def probe(mode,*flags):
         out=run([str(sdk),'--mode',mode,'--cluster','xenon','--storage-address','127.0.0.1:17935',*flags],timeout=125)
         return json.loads(next(line for line in reversed(out.splitlines()) if line.startswith('{')))
@@ -85,13 +89,15 @@ def main():
         execution=probe('start');report['execution']=execution
         wait(lambda:probe('phase').get('phase')=='await-control',120)
         c=start('c');report['events'].append({'event':'joined-c-during-active-workflow'})
-        topology_file=receipt/'topology-after-c.json'
-        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key','agent/metadata/topology.json',str(topology_file)])
-        topology=json.loads(topology_file.read_text())
-        if topology['partitions']['history-1']['node']!='c':raise RuntimeError('joined agent did not receive history-1')
+        joined=topology('topology-after-c.json')
+        if joined['partitions']['history-1']['node']!='c':raise RuntimeError('joined agent did not receive history-1')
         probe('partition-ready','--storage-address','127.0.0.1:21241','--storage-partition','history-1','--readiness-timeout','60s')
         report['events'].append({'event':'joined-agent-served-assigned-partition','node':'c','partition':'history-1'})
         stop(b,kill=True);report['events'].append({'event':'SIGKILL','node':'b'})
+        wait(lambda:'b' not in topology('topology-after-eviction.json')['members'],45)
+        evicted=topology('topology-after-eviction-final.json')
+        if any(a['node']=='b' for a in evicted['partitions'].values()):raise RuntimeError('evicted member retains partition')
+        report['events'].append({'event':'failed-member-evicted-and-rebalanced','node':'b'})
         b=start('b','b-restarted')
         probe('control')
         before=receipt/'history-before';before.mkdir()

@@ -200,3 +200,17 @@ func TestTransientHealthFailureChangesReadinessAndRecovers(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPermanentHealthFailureStopsProcess(t *testing.T) {
+	calls := 0
+	r := Runtime{StartupTimeout: time.Second, ShutdownTimeout: time.Second, Storage: component{ready: func(context.Context) error {
+		calls++
+		if calls == 2 {
+			return Permanent(errors.New("membership replaced"))
+		}
+		return nil
+	}}, Temporal: component{}}
+	if err := r.Run(context.Background()); err == nil || err.Error() != "agent health: membership replaced" {
+		t.Fatal(err)
+	}
+}

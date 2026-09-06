@@ -12,6 +12,7 @@ import (
 
 	"github.com/0x63616c/xenon/internal/adapter"
 	"github.com/0x63616c/xenon/internal/agent"
+	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
 	"github.com/0x63616c/xenon/internal/routing"
@@ -28,6 +29,8 @@ type Runtime struct {
 	serveErr chan error
 	stop     sync.Once
 	events   chan<- routing.Event
+	errMu    sync.Mutex
+	fatalErr error
 }
 
 func New(c agent.Config, events ...chan<- routing.Event) *Runtime {
@@ -72,20 +75,31 @@ func (r *Runtime) Start(parent context.Context) error {
 		return fmt.Errorf("cluster join: %w", err)
 	}
 	r.manager = m
+	membership, err := ownership.NewMembership(topology, m.Identity(), ownership.FailureTimeout)
+	if err != nil {
+		return err
+	}
 	r.server, r.router = m.Server()
 	r.router.Events = r.events
 	ctx, cancel := context.WithCancel(parent)
 	r.cancel = cancel
 	go m.Run(ctx)
+	go r.runMembership(ctx, membership)
 	go func() { r.serveErr <- r.server.Serve(listener) }()
 	success = true
 	return nil
 }
 
 func (r *Runtime) Ready(ctx context.Context) error {
+	r.errMu.Lock()
+	fatal := r.fatalErr
+	r.errMu.Unlock()
+	if fatal != nil {
+		return agent.Permanent(fatal)
+	}
 	select {
 	case err := <-r.serveErr:
-		return fmt.Errorf("storage listener stopped: %w", err)
+		return agent.Permanent(fmt.Errorf("storage listener stopped: %w", err))
 	default:
 	}
 	if r.manager == nil {
@@ -108,6 +122,29 @@ func (r *Runtime) Ready(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("routed persistence not ready: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (r *Runtime) runMembership(ctx context.Context, membership *ownership.Membership) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		if err := membership.Step(ctx, time.Now()); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			if errors.Is(err, directory.ErrConflict) {
+				r.errMu.Lock()
+				r.fatalErr = fmt.Errorf("membership authority lost: %w", err)
+				r.errMu.Unlock()
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
 		case <-ticker.C:
 		}
 	}

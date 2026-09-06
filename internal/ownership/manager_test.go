@@ -77,7 +77,7 @@ func TestS3OwnerManager(t *testing.T) {
 	}
 	a, killA := launch("a")
 	b, _ := launch("b")
-	members := map[string]Member{"a": {a.Address, a.Incarnation}, "b": {b.Address, b.Incarnation}}
+	members := map[string]Member{"a": {Address: a.Address, Incarnation: a.Incarnation}, "b": {Address: b.Address, Incarnation: b.Incarnation}}
 	desired := Topology{Members: members, Partitions: map[string]Assignment{"p": {"a", "data/p"}, "q": {"b", "data/q"}}}
 	snap, e := store.Publish(ctx, nil, desired)
 	if e != nil {
@@ -128,7 +128,7 @@ func TestS3OwnerManager(t *testing.T) {
 	if e != nil || observed.Record().Incarnation != a.Incarnation {
 		t.Fatal("unactivated same-member process acquired", e)
 	}
-	desired.Members["a"] = Member{replacement.Address, replacement.Incarnation}
+	desired.Members["a"] = Member{Address: replacement.Address, Incarnation: replacement.Incarnation}
 	desired.Partitions["p"] = Assignment{"b", "data/p"}
 	snap, e = store.Publish(ctx, &snap, desired)
 	if e != nil {
@@ -163,7 +163,7 @@ func TestS3OwnerManager(t *testing.T) {
 	// and replay acknowledged operations through the other ingress.
 	killReplacement()
 	restarted, _ := launch("a")
-	desired.Members["a"] = Member{restarted.Address, restarted.Incarnation}
+	desired.Members["a"] = Member{Address: restarted.Address, Incarnation: restarted.Incarnation}
 	snap, e = store.Publish(ctx, &snap, desired)
 	if e != nil {
 		t.Fatal(e)
@@ -189,7 +189,7 @@ func TestS3OwnerManager(t *testing.T) {
 	activate := func(m *Manager) {
 		t.Helper()
 		identity := m.Identity()
-		desired.Members[identity.Node] = Member{identity.Address, identity.Incarnation}
+		desired.Members[identity.Node] = Member{Address: identity.Address, Incarnation: identity.Incarnation}
 		desired.Partitions["r"] = Assignment{identity.Node, "data/r"}
 		var e error
 		snap, e = store.Publish(ctx, &snap, desired)
@@ -333,7 +333,7 @@ func topologyAssertions(t *testing.T, ctx context.Context, base *TopologyStore) 
 	if e != nil {
 		t.Fatal(e)
 	}
-	cfg := Topology{Members: map[string]Member{"a": {"127.0.0.1:1", "00000000-0000-4000-8000-000000000001"}}, Partitions: map[string]Assignment{"p": {"a", "fault-data/p"}}}
+	cfg := Topology{Members: map[string]Member{"a": {Address: "127.0.0.1:1", Incarnation: "00000000-0000-4000-8000-000000000001"}}, Partitions: map[string]Assignment{"p": {"a", "fault-data/p"}}}
 	first, e := store.Publish(ctx, nil, cfg)
 	if e != nil || first.data.Revision != 1 {
 		t.Fatal("lost response not reconciled", e)

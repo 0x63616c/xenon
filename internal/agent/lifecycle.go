@@ -21,6 +21,14 @@ type Component interface {
 // The caller must terminate the process without further component teardown.
 var ErrProcessExitRequired = errors.New("process exit required")
 
+// PermanentError marks a completed component failure that cannot recover in
+// this process incarnation, such as durable membership replacement.
+type PermanentError struct{ Err error }
+
+func (e *PermanentError) Error() string { return e.Err.Error() }
+func (e *PermanentError) Unwrap() error { return e.Err }
+func Permanent(err error) error         { return &PermanentError{Err: err} }
+
 type Runtime struct {
 	Storage, Temporal               Component
 	StartupTimeout, ShutdownTimeout time.Duration
@@ -110,6 +118,10 @@ func (r *Runtime) Run(ctx context.Context) (result error) {
 				// process unsafe. A probe that outlives its bound still requires exit:
 				// teardown could otherwise race work using native resources.
 				if errors.Is(err, ErrProcessExitRequired) {
+					return fmt.Errorf("agent health: %w", err)
+				}
+				var permanent *PermanentError
+				if errors.As(err, &permanent) {
 					return fmt.Errorf("agent health: %w", err)
 				}
 				continue

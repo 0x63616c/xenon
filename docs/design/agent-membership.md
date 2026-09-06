@@ -27,11 +27,16 @@ stateless Join invocation cannot tell an intentional restart from stale reentry;
 node IDs must be controlled by deployment configuration. Concurrent duplicate node
 IDs are an operator error, not a supported replica configuration.
 
-There is no automatic failure detector or failed-member removal in this helper.
-Recovery requires replacement under the same node ID or explicit topology
-administration to remove a failed member and reassign its partitions. Bootstrap
-and join unit proofs do not establish automatic crash failover, Temporal service
-membership, native writer fencing, or workload progress during scale-out. Those
-remain separate real-stack gates. The helper performs real S3 I/O and the existing
-publisher generates transition UUIDs; it is outside the deterministic coordination
-simulation boundary until its effects are controlled there.
+Each process advances a counter in the conditional S3 topology. Surviving agents
+observe peer counter changes and may remove one unchanged peer after 15 seconds
+measured on their own monotonic clock. That interval triggers suspicion only; it
+never grants writer authority. The topology CAS, owner directory, per-operation
+authority checks, and SlateDB fencing remain the safety boundary. A concurrently
+restarted incarnation changes the member record and cannot be removed by a stale
+CAS. A removed process treats lost membership as permanent and exits.
+
+The production loop passes time explicitly into the membership decision so the
+same decision can run under deterministic scheduling. Unit proofs cover live
+heartbeats, lost publication responses, stale incarnation replacement,
+deterministic rebalance, and competing evictors. The extended real-stack eviction
+scenario remains a separate gate.

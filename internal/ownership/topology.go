@@ -25,6 +25,7 @@ const maxPartitions = 256
 type Member struct {
 	Address     string `json:"address"`
 	Incarnation string `json:"incarnation"`
+	Heartbeat   uint64 `json:"heartbeat"`
 }
 type Assignment struct {
 	Node       string `json:"node"`
