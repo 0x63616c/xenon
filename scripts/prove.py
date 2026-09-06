@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SCENARIO_MANIFESTS = {
     name: "test/scenarios/ministack/manifests/" + name + ".json"
-    for name in ("runtime-measurements", "nexus-http", "nexus-readiness")
+    for name in ("runtime-measurements", "nexus-http", "nexus-readiness", "corrected-fuzz-controls")
 }
 
 def manifest_path(name, root=None):
@@ -75,7 +75,7 @@ def command(spec):
             raise ValueError("unregistered process-cut S3 fixture")
         return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
     if runner == "python-measurements":
-        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout", "test_recorder_lifecycle"):
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout", "test_recorder_lifecycle", "test_corrected_fuzz"):
             raise ValueError("unregistered runtime measurement controls")
         return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
     if runner == "go-test-meter-cli":
@@ -237,7 +237,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
+    parser.add_argument("name", choices=["corrected-fuzz-controls", "primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "runtime-measurements", "process-cut"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":

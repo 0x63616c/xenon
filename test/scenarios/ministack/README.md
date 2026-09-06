@@ -191,3 +191,12 @@ After the actual DurableWorkflow reaches `await-control`, the controller watches
 The replacement uses a fresh local directory and activation. The existing recovery budget bounds owner readiness and completion of the original SDK update. The workflow still waits for its signal. Later normal `control` repeats the same update identity, then sends the signal, preserving the original result/history verification. The subsequent original Temporal-process kill remains a separate recorded event; the two faults are not described as one injection.
 
 This wiring is a candidate until an exact clean runtime receipt executes it. The separately passed native execution cut component is not that receipt. Every report retains `full_acceptance=false`; this mode alone does not cover the complete frozen fault/workload/measurement matrix.
+
+## Corrected Omes signal metadata profile
+
+`--corrected-fuzz-soak` explicitly selects the audited compatibility overlay and
+separate corrected-v1 corpus described in `test/scenarios/omes-signals/README.md`.
+It is exclusive with smoke, original fuzz, mixed and process-cut modes. It keeps
+the original twenty-input, two-round, one-hour minimum and900-second per-input
+budgets. Original `--fuzz-soak` and failed receipts remain unchanged. This mode is
+implemented candidate wiring until a complete clean runtime receipt passes.

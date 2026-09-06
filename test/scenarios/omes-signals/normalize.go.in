@@ -1,0 +1,236 @@
+// Command normalize creates a new corpus; it never rewrites source inputs.
+package main
+
+import (
+	"bytes"
+	"fmt"
+	pb "github.com/temporalio/omes/loadgen/kitchensink"
+	common "go.temporal.io/api/common/v1"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"os"
+	"sort"
+)
+
+type normalizer struct{ next int32 }
+
+func (n *normalizer) walk(m protoreflect.Message, input *pb.WorkflowInput, optional bool) error {
+	if !m.IsValid() {
+		return nil
+	}
+	switch x := m.Interface().(type) {
+	case *pb.DoSignal_DoSignalActions:
+		n.next++
+		x.SignalId = n.next
+		if optional {
+			input.OptionalSignalIds = append(input.OptionalSignalIds, n.next)
+		} else {
+			input.ExpectedSignalIds = append(input.ExpectedSignalIds, n.next)
+		}
+		// Signals sent from this handler are conditional on execution of its actions.
+		optional = true
+	case *pb.ExecuteActivityAction:
+		optional = true
+	case *pb.ContinueAsNewAction:
+		return fmt.Errorf("unsupported CAN outside declared top-level boundary")
+	case *common.Payload:
+		if string(x.Metadata["encoding"]) == "binary/protobuf" && string(x.Metadata["messageType"]) == "temporal.omes.kitchen_sink.WorkflowInput" {
+			child := new(pb.WorkflowInput)
+			if err := proto.Unmarshal(x.Data, child); err != nil {
+				return err
+			}
+			if err := n.run(child, nil, nil); err != nil {
+				return err
+			}
+			b, err := proto.MarshalOptions{Deterministic: true}.Marshal(child)
+			if err != nil {
+				return err
+			}
+			x.Data = b
+		}
+		return nil
+	}
+	return children(m, func(child protoreflect.Message) error { return n.walk(child, input, optional) })
+}
+func children(m protoreflect.Message, visit func(protoreflect.Message) error) error {
+	fields := m.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		f := fields.Get(i)
+		if !m.Has(f) {
+			continue
+		}
+		v := m.Get(f)
+		if f.IsMap() {
+			if f.MapValue().Kind() == protoreflect.MessageKind {
+				keys := []string{}
+				v.Map().Range(func(k protoreflect.MapKey, _ protoreflect.Value) bool { keys = append(keys, k.String()); return true })
+				sort.Strings(keys)
+				for _, k := range keys {
+					if err := visit(v.Map().Get(protoreflect.ValueOfString(k).MapKey()).Message()); err != nil {
+						return err
+					}
+				}
+			}
+		} else if f.IsList() && f.Kind() == protoreflect.MessageKind {
+			for j := 0; j < v.List().Len(); j++ {
+				if err := visit(v.List().Get(j).Message()); err != nil {
+					return err
+				}
+			}
+		} else if f.Kind() == protoreflect.MessageKind {
+			if err := visit(v.Message()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func stripped(m protoreflect.Message) error {
+	switch x := m.Interface().(type) {
+	case *pb.WorkflowInput:
+		x.ExpectedSignalCount = 0
+		x.ExpectedSignalIds = nil
+		x.ReceivedSignalIds = nil
+		x.OptionalSignalIds = nil
+	case *pb.DoSignal_DoSignalActions:
+		x.SignalId = 0
+	case *common.Payload:
+		if string(x.Metadata["encoding"]) == "binary/protobuf" && string(x.Metadata["messageType"]) == "temporal.omes.kitchen_sink.WorkflowInput" {
+			z := new(pb.WorkflowInput)
+			if e := proto.Unmarshal(x.Data, z); e != nil {
+				return e
+			}
+			if e := stripped(z.ProtoReflect()); e != nil {
+				return e
+			}
+			var e error
+			x.Data, e = proto.MarshalOptions{Deterministic: true}.Marshal(z)
+			return e
+		}
+		return nil
+	}
+	if e := children(m, stripped); e != nil {
+		return e
+	}
+	if x, ok := m.Interface().(*pb.TestInput); ok && x.WorkflowInput != nil && proto.Size(x.WorkflowInput) == 0 {
+		x.WorkflowInput = nil
+	}
+	return nil
+}
+func actionBytes(x *pb.TestInput) ([]byte, error) {
+	c := proto.Clone(x).(*pb.TestInput)
+	if e := stripped(c.ProtoReflect()); e != nil {
+		return nil, e
+	}
+	return proto.MarshalOptions{Deterministic: true}.Marshal(c)
+}
+
+func boundary(set *pb.ClientActionSet) (*pb.DoSignal_DoSignalActions, *pb.ContinueAsNewAction, error) {
+	if !set.WaitForCurrentRunToFinishAtEnd {
+		return nil, nil, nil
+	}
+	if set.Concurrent || len(set.Actions) != 1 {
+		return nil, nil, fmt.Errorf("ambiguous CAN client boundary")
+	}
+	signal := set.Actions[0].GetDoSignal().GetDoSignalActions()
+	if signal == nil {
+		return nil, nil, fmt.Errorf("boundary is not a signal")
+	}
+	actions := signal.GetDoActionsInMain()
+	if actions == nil || actions.Concurrent || len(actions.Actions) != 1 || actions.Actions[0].GetContinueAsNew() == nil {
+		return nil, nil, fmt.Errorf("boundary is not exactly one CAN action")
+	}
+	return signal, actions.Actions[0].GetContinueAsNew(), nil
+}
+func (n *normalizer) run(input *pb.WorkflowInput, start *pb.WithStartClientAction, sets []*pb.ClientActionSet) error {
+	if input.ExpectedSignalCount != 0 || len(input.ExpectedSignalIds) > 0 || len(input.ReceivedSignalIds) > 0 || len(input.OptionalSignalIds) > 0 {
+		return fmt.Errorf("input already has signal metadata")
+	}
+	for _, a := range input.InitialActions {
+		if err := n.walk(a.ProtoReflect(), input, true); err != nil {
+			return err
+		}
+	}
+	if start != nil {
+		if err := n.walk(start.ProtoReflect(), input, false); err != nil {
+			return err
+		}
+	}
+	for i, set := range sets {
+		signal, can, err := boundary(set)
+		if err != nil {
+			return err
+		}
+		if can != nil {
+			n.next++
+			signal.SignalId = n.next
+			input.ExpectedSignalIds = append(input.ExpectedSignalIds, n.next)
+			if len(can.Arguments) != 1 {
+				return fmt.Errorf("CAN argument count")
+			}
+			payload := can.Arguments[0]
+			if string(payload.Metadata["encoding"]) != "binary/protobuf" || string(payload.Metadata["messageType"]) != "temporal.omes.kitchen_sink.WorkflowInput" {
+				return fmt.Errorf("CAN encoding")
+			}
+			successor := new(pb.WorkflowInput)
+			if err := proto.Unmarshal(payload.Data, successor); err != nil {
+				return err
+			}
+			if err := n.run(successor, nil, sets[i+1:]); err != nil {
+				return err
+			}
+			payload.Data, err = proto.MarshalOptions{Deterministic: true}.Marshal(successor)
+			return err
+		}
+		if err := n.walk(set.ProtoReflect(), input, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func main() {
+	if len(os.Args) != 3 {
+		panic("normalize INPUT OUTPUT (new file)")
+	}
+	b, e := os.ReadFile(os.Args[1])
+	if e != nil {
+		panic(e)
+	}
+	x := new(pb.TestInput)
+	if e = proto.Unmarshal(b, x); e != nil {
+		panic(e)
+	}
+	original, e := actionBytes(x)
+	if e != nil {
+		panic(e)
+	}
+	if x.WorkflowInput == nil {
+		x.WorkflowInput = new(pb.WorkflowInput)
+	}
+	n := new(normalizer)
+	if e = n.run(x.WorkflowInput, x.WithStartAction, x.GetClientSequence().GetActionSets()); e != nil {
+		panic(e)
+	}
+	normalized, e := actionBytes(x)
+	if e != nil {
+		panic(e)
+	}
+	if !bytes.Equal(original, normalized) {
+		panic("action-tree equivalence failed")
+	}
+	b, e = proto.MarshalOptions{Deterministic: true}.Marshal(x)
+	if e != nil {
+		panic(e)
+	}
+	f, e := os.OpenFile(os.Args[2], os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		panic(e)
+	}
+	if _, e = f.Write(b); e != nil {
+		panic(e)
+	}
+	if e = f.Close(); e != nil {
+		panic(e)
+	}
+	fmt.Printf("normalized %d signal occurrences\n", n.next)
+}
