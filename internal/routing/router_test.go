@@ -49,7 +49,7 @@ func client(t *testing.T, address string) wire.ShardPersistenceClient {
 func TestForwardingReplayAndRefresh(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	req := &wire.ShardRequest{ProtocolVersion: 1, Partition: "history-17", OperationId: "fixed-id", CommandSha256: []byte{0, 255}, Command: &wire.ShardCommand{}}
+	req := &wire.ShardRequest{ProtocolVersion: 1, Partition: "history-17", OperationId: "fixed-id", CommandSha256: make([]byte, 32), Command: &wire.ShardCommand{}}
 	var mu sync.Mutex
 	calls, executions, refreshes := 0, 0, 0
 	var saved *wire.ShardResult
@@ -69,12 +69,12 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 		if saved == nil {
 			executions++
 			saved = &wire.ShardResult{}
-			return nil, status.Error(codes.Unavailable, "completed response loss")
+			return nil, UnknownOutcome()
 		}
 		return proto.Clone(saved), nil
 	}
-	// First route is stale and unreachable, explicit refresh finds b. Owner-side
-	// retry uses the unchanged invocation and its already recorded logical result.
+	// The destination loses its completed response. Only the origin retries,
+	// keeping the unchanged invocation and its already recorded logical result.
 	a := &Router{Node: "a", Local: func(context.Context, string, proto.Message) (proto.Message, error) {
 		t.Error("nonowner executed")
 		return nil, nil
@@ -89,7 +89,7 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 			mu.Unlock()
 			return Route{"b", baddr}, nil
 		}
-		return Route{"old", "127.0.0.1:1"}, nil
+		return Route{"b", baddr}, nil
 	})
 	aaddr := serve(t, a)
 	if _, e := client(t, aaddr).Execute(ctx, req); e != nil {

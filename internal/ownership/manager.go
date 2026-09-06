@@ -3,7 +3,6 @@ package ownership
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -283,7 +282,7 @@ func (m *Manager) Owner(id string) (*node.Owner, error) {
 	defer m.mu.Unlock()
 	o := m.owners[id]
 	if m.closed || o == nil || o.owner.Quarantined() {
-		return nil, status.Error(codes.Unavailable, fmt.Sprintf("partition %s not locally ready", id))
+		return nil, routing.StaleOwner()
 	}
 	return o.owner, nil
 }

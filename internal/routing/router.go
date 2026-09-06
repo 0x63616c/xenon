@@ -16,7 +16,8 @@ import (
 )
 
 const hopHeader = "x-xenon-forward-hops"
-const maxHops = 2
+const maxHops = 1
+const maxOwnerAttempts = 3
 
 type Route struct{ Node, Address string }
 
@@ -144,7 +145,11 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 				hops = n
 			}
 		}
-		for attempt := 0; attempt < 2; attempt++ {
+		attempts := maxOwnerAttempts
+		if hops != 0 {
+			attempts = 1
+		}
+		for attempt := 0; attempt < attempts; attempt++ {
 			if e := ctx.Err(); e != nil {
 				return nil, status.FromContextError(e).Err()
 			}
@@ -159,13 +164,13 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			if route.Node == r.Node {
 				response, e := r.Local(ctx, info.FullMethod, req)
 				r.emit("local", attempt, e)
-				if status.Code(e) == codes.Unavailable && attempt == 0 {
+				if hops == 0 && retryable(e, req) && attempt+1 < attempts {
 					continue
 				}
 				return response, e
 			}
 			if hops >= maxHops {
-				return nil, status.Error(codes.Unavailable, "forwarding hop limit")
+				return nil, StaleOwner()
 			}
 			response := reply(info.FullMethod)
 			if response == nil {
@@ -191,7 +196,7 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			if e == nil {
 				return response, nil
 			}
-			if status.Code(e) != codes.Unavailable || attempt == 1 {
+			if !retryable(e, req) || attempt+1 == attempts {
 				return nil, e
 			}
 		}
