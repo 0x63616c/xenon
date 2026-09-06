@@ -13,7 +13,7 @@ import (
 )
 
 func TestCASLossHTTP(t *testing.T) {
-	for _, mode := range []string{"success", "precondition_failure", "wrong_incarnation"} {
+	for _, mode := range []string{"success", "signed_query", "precondition_failure", "wrong_incarnation"} {
 		t.Run(mode, func(t *testing.T) {
 			var mu sync.Mutex
 			stored := []byte(`{}`)
@@ -22,7 +22,11 @@ func TestCASLossHTTP(t *testing.T) {
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				defer mu.Unlock()
-				if r.URL.RequestURI() != "/bucket/metadata/owners/686973746f72792d30.json" || r.Header.Get("Authorization") != "signed-control" {
+				uri := "/bucket/metadata/owners/686973746f72792d30.json"
+				if mode == "signed_query" {
+					uri += "?x-id=" + map[string]string{"GET": "GetObject", "PUT": "PutObject"}[r.Method]
+				}
+				if r.URL.RequestURI() != uri || r.Header.Get("Authorization") != "signed-control" {
 					t.Error("request path/signature modified")
 				}
 				if r.Method == "PUT" {
@@ -70,7 +74,12 @@ func TestCASLossHTTP(t *testing.T) {
 				record.Incarnation = "old"
 			}
 			send := func(method string, data []byte, match string) (*http.Response, error) {
-				r, _ := http.NewRequest(method, proxy.URL+selector.Path, bytes.NewReader(data))
+				r, _ := http.NewRequest(method, proxy.URL+selector.Path+func() string {
+					if mode == "signed_query" {
+						return "?x-id=" + map[string]string{"GET": "GetObject", "PUT": "PutObject"}[method]
+					}
+					return ""
+				}(), bytes.NewReader(data))
 				r.Header.Set("Authorization", "signed-control")
 				if match != "" {
 					r.Header.Set("If-Match", match)
@@ -79,7 +88,7 @@ func TestCASLossHTTP(t *testing.T) {
 			}
 			raw, _ := json.Marshal(record)
 			response, err := send("PUT", raw, `"old"`)
-			if mode != "success" {
+			if mode != "success" && mode != "signed_query" {
 				if err != nil {
 					t.Fatal(err)
 				}

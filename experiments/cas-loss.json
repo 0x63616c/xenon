@@ -39,6 +39,7 @@
       "exact": true,
       "expected_tests": [
         "TestCASLossHTTP/success",
+        "TestCASLossHTTP/signed_query",
         "TestCASLossHTTP/precondition_failure",
         "TestCASLossHTTP/wrong_incarnation",
         "TestCASLossHTTP"

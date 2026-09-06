@@ -110,7 +110,7 @@ func (p *Proxy) CASLossSnapshot() *CASReceipt {
 func (c *casLoss) prepare(r *http.Request) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.receipt.State != "armed" || r.Method != "PUT" || r.URL.EscapedPath() != c.receipt.Selector.Path || r.URL.RawQuery != "" || r.Header.Get("If-Match") == "" {
+	if c.receipt.State != "armed" || r.Method != "PUT" || r.URL.EscapedPath() != c.receipt.Selector.Path || (r.URL.RawQuery != "" && r.URL.RawQuery != "x-id=PutObject") || r.Header.Get("If-Match") == "" {
 		return false, nil
 	}
 	if time.Now().After(c.deadline) {
@@ -167,7 +167,7 @@ func (c *casLoss) after(r *http.Request, response *http.Response, selected bool)
 		_ = response.Body.Close()
 		panic(http.ErrAbortHandler)
 	}
-	if c.receipt.State != "successful_response_dropped" || r.Method != "GET" || r.URL.EscapedPath() != c.receipt.Selector.Path || r.URL.RawQuery != "" || response.StatusCode != 200 {
+	if c.receipt.State != "successful_response_dropped" || r.Method != "GET" || r.URL.EscapedPath() != c.receipt.Selector.Path || (r.URL.RawQuery != "" && r.URL.RawQuery != "x-id=GetObject") || response.StatusCode != 200 {
 		return nil
 	}
 	if response.ContentLength > casBodyLimit {
