@@ -82,19 +82,19 @@ func (s *ExecutionService) Execute(ctx context.Context, q *wire.ExecutionRequest
 			childDigest := sha256.Sum256(encoded)
 			// Private durable identities predate canonical public IDs. Keep these exact
 			// keys; public envelope validation must never be applied to child journals.
-			_, err = s.journal(ctx, operation, fmt.Sprintf("%s-h-%d", q.OperationId, index), childDigest[:], func(out *wire.StoredOutcome) bool { return out.GetHistoryResult() != nil }, func(tx ClusterTransaction) (*wire.StoredOutcome, error) { return ApplyHistory(ctx, tx, h) })
+			_, err = s.service.operationJournal(ctx, operation, fmt.Sprintf("%s-h-%d", q.OperationId, index), childDigest[:], func(out *wire.StoredOutcome) bool { return out.GetHistoryResult() != nil }, func(tx ClusterTransaction) (*wire.StoredOutcome, error) { return ApplyHistory(ctx, tx, h) })
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 	belongs := func(out *wire.StoredOutcome) bool { return out.GetExecutionResult() != nil }
-	outcome, err := s.journal(ctx, operation, q.OperationId, digest[:], belongs, func(tx ClusterTransaction) (*wire.StoredOutcome, error) { return ApplyExecution(ctx, tx, q.Command) })
+	outcome, err := s.service.operationJournal(ctx, operation, q.OperationId, digest[:], belongs, func(tx ClusterTransaction) (*wire.StoredOutcome, error) { return ApplyExecution(ctx, tx, q.Command) })
 	var logical *ExecutionFailure
 	if errors.As(err, &logical) {
 		// journal has aborted the root, including any staged tasks/current pointer.
 		// The logical failure is durable in a fresh transaction under the SAME scope.
-		outcome, err = s.journal(ctx, operation, q.OperationId, digest[:], belongs, func(ClusterTransaction) (*wire.StoredOutcome, error) { return executionOutcome(logical.Result), nil })
+		outcome, err = s.service.operationJournal(ctx, operation, q.OperationId, digest[:], belongs, func(ClusterTransaction) (*wire.StoredOutcome, error) { return executionOutcome(logical.Result), nil })
 	}
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (s *ExecutionService) Execute(ctx context.Context, q *wire.ExecutionRequest
 	}
 	return outcome.GetExecutionResult(), nil
 }
-func (s *ExecutionService) journal(ctx context.Context, operation partitions.Operation, id string, digest []byte, belongs func(*wire.StoredOutcome) bool, apply func(ClusterTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
+func (s *Service) operationJournal(ctx context.Context, operation partitions.Operation, id string, digest []byte, belongs func(*wire.StoredOutcome) bool, apply func(ClusterTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
 	tx, err := operation.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (s *ExecutionService) journal(ctx context.Context, operation partitions.Ope
 			if err != nil {
 				return err
 			}
-			return s.service.writer.AwaitDurable(ctx, receipt)
+			return s.writer.AwaitDurable(ctx, receipt)
 		},
-	}, id, digest, s.service.limit)
+	}, id, digest, s.limit)
 }
