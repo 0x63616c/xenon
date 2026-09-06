@@ -43,6 +43,7 @@ supplies the wordmark and banner lettering. All other files in that directory
 are derived by:
 
 ```sh
+python3 -m pip install fonttools==4.61.1
 python3 scripts/build-brand.py
 ```
 
