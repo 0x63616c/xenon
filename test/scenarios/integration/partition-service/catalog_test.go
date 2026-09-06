@@ -33,6 +33,9 @@ func TestPartitionNativeCatalogReplay(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			if err := s.ValidateLayout(f.layoutDigest); err != nil {
+				return err
+			}
 			current := s.Control().Partitions[partition]
 			if !current.Ready || current.Desired.Incarnation != attempt.Incarnation || current.AssignmentRevision != attempt.AssignmentRevision || current.Generation != attempt.Generation || current.Reservation != attempt.Reservation {
 				return cluster.ErrStaleControl
