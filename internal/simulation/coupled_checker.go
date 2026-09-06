@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 
 	"github.com/0x63616c/xenon/internal/cluster"
 	ids "github.com/0x63616c/xenon/internal/identity"
@@ -51,36 +53,37 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 	switch e.Input.Action {
 	case "open":
 		if e.Epoch != c.epochs[e.Open.Partition]+1 {
-			return fmt.Errorf("native_epoch: nonmonotonic native open")
+			return checkerFailure("native_epoch", "nonmonotonic_open", "nonmonotonic native open")
 		}
 		c.epochs[e.Open.Partition] = e.Epoch
 		c.handles[key] = e
 	case "close":
 		found := false
-		for id, opened := range c.handles {
+		for _, id := range slices.Sorted(maps.Keys(c.handles)) {
+			opened := c.handles[id]
 			if opened.Input.Actor == e.Input.Actor && opened.Epoch == e.Epoch && opened.Open == e.Open {
 				c.closed[id] = true
 				found = true
 			}
 		}
 		if !found {
-			return fmt.Errorf("native_close: unknown native handle")
+			return checkerFailure("native_close", "unknown_handle", "unknown native handle")
 		}
 	case "commit":
 		opened, exists := c.handles[key]
 		if e.Accepted && (!exists || c.closed[key] || e.Epoch != c.epochs[e.Open.Partition] || opened.Open != e.Open) {
-			return fmt.Errorf("post_fence_commit: obsolete native epoch committed")
+			return checkerFailure("post_fence_commit", "obsolete_epoch", "obsolete native epoch committed")
 		}
 		if e.Accepted {
 			c.commits[key] = e
 		}
 	case "publish":
 		if e.Before.Version != c.record.Version || !bytes.Equal(e.Before.Body, c.record.Body) {
-			return fmt.Errorf("registry_order: incorrect linearization predecessor")
+			return checkerFailure("registry_order", "wrong_predecessor", "incorrect linearization predecessor")
 		}
 		if !e.Accepted {
 			if !bytes.Equal(e.Before.Body, e.After.Body) || e.Before.Version != e.After.Version {
-				return fmt.Errorf("registry_conflict: failed CAS changed record")
+				return checkerFailure("registry_conflict", "rejected_cas_mutated", "failed CAS changed record")
 			}
 			if e.Input.Fault == "stale_plan" {
 				c.rejectedPlans++
@@ -100,16 +103,17 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 		}
 		actor := c.actors[e.Input.Actor]
 		if !reflect.DeepEqual(before.Layout, after.Layout) || before.Format != after.Format || before.Cluster != after.Cluster {
-			return fmt.Errorf("layout: immutable configuration changed")
+			return checkerFailure("layout", "configuration_changed", "immutable configuration changed")
 		}
 		if len(before.Partitions) != len(after.Partitions) {
-			return fmt.Errorf("layout: database set changed")
+			return checkerFailure("layout", "database_set_changed", "database set changed")
 		}
 		changed := 0
-		for id, old := range before.Partitions {
+		for _, id := range slices.Sorted(maps.Keys(before.Partitions)) {
+			old := before.Partitions[id]
 			next, exists := after.Partitions[id]
 			if !exists || next.Path != old.Path {
-				return fmt.Errorf("layout: stable database path changed")
+				return checkerFailure("layout", "database_path_changed", "stable database path changed")
 			}
 			if e.Expected == c.record.Version && next.Desired == old.Desired && (next.Generation != old.Generation || next.Reservation != old.Reservation) {
 				// A reservation is an owner-only mutation for this exact partition.
@@ -117,67 +121,68 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 				// fields and the persisted move budget. No production Reserve or
 				// eligibility helper participates in this independent check.
 				if actor.Kind != "partition" || actor.Partition != id || actor.Incarnation != old.Desired.Incarnation || next.AssignmentRevision != old.AssignmentRevision || next.Generation <= old.Generation || next.Generation-old.Generation != 1 || next.Reservation == "" || next.Reservation == old.Reservation || next.Ready || after.Cluster != before.Cluster || after.Format != before.Format || after.Coordinator != before.Coordinator || after.AssignmentRevision != before.AssignmentRevision || after.ActiveMove != before.ActiveMove {
-					return fmt.Errorf("reservation_authority: invalid owner reservation mutation")
+					return checkerFailure("reservation_authority", "invalid_reservation", "invalid owner reservation mutation")
 				}
 			}
 			if e.Expected == c.record.Version && next.Desired == old.Desired && next.AssignmentRevision != old.AssignmentRevision {
-				return fmt.Errorf("field_separation: owner changed assignment revision")
+				return checkerFailure("field_separation", "owner_changed_assignment", "owner changed assignment revision")
 			}
 			if e.Expected == c.record.Version && old.Ready && !next.Ready && next.Desired == old.Desired && next.Generation == old.Generation && next.Reservation == old.Reservation {
-				return fmt.Errorf("field_separation: readiness cleared without a reservation or assignment")
+				return checkerFailure("field_separation", "ready_cleared_without_authority", "readiness cleared without a reservation or assignment")
 			}
 			// Check ready authority before generic CAS, so the stale-ready negative
 			// control identifies the precise safety boundary it violates.
 			if next.Ready && next != old {
 				if actor.Kind != "partition" || actor.Partition != id || actor.Incarnation != old.Desired.Incarnation || next.Desired != old.Desired || next.AssignmentRevision != old.AssignmentRevision || next.Reservation != old.Reservation || next.Generation != old.Generation {
-					return fmt.Errorf("old_ready: obsolete assignment published ready")
+					return checkerFailure("old_ready", "obsolete_assignment", "obsolete assignment published ready")
 				}
 				live := false
-				for handle, opened := range c.handles {
+				for _, handle := range slices.Sorted(maps.Keys(c.handles)) {
+					opened := c.handles[handle]
 					a := opened.Open
 					if !c.closed[handle] && opened.Input.Actor == e.Input.Actor && opened.Epoch == c.epochs[id] && a.Partition == id && a.Incarnation == actor.Incarnation && a.AssignmentRevision == next.AssignmentRevision && a.Reservation == next.Reservation && a.Generation == next.Generation {
 						live = true
 					}
 				}
 				if !live {
-					return fmt.Errorf("old_ready: readiness lacks a current native open")
+					return checkerFailure("old_ready", "missing_current_open", "readiness lacks a current native open")
 				}
 			}
 			if next.Desired != old.Desired {
 				changed++
 				if before.ActiveMove != "" && before.ActiveMove != id {
-					return fmt.Errorf("move_budget: changed a second physical database")
+					return checkerFailure("move_budget", "second_database", "changed a second physical database")
 				}
 				if after.ActiveMove != id || next.Ready || next.Generation != old.Generation || next.Reservation != "" || next.AssignmentRevision <= old.AssignmentRevision || actor.Kind != "cluster" || actor.Incarnation != before.Coordinator.Incarnation {
-					return fmt.Errorf("stale_plan: assignment lacks current coordinator authority")
+					return checkerFailure("stale_plan", "missing_coordinator_authority", "assignment lacks current coordinator authority")
 				}
 			}
 		}
 		if changed > 1 {
-			return fmt.Errorf("move_budget: multiple physical moves")
+			return checkerFailure("move_budget", "multiple_moves", "multiple physical moves")
 		}
 		if e.Expected != c.record.Version {
-			return fmt.Errorf("stale_plan: publication ignored its original CAS condition")
+			return checkerFailure("stale_plan", "ignored_cas_condition", "publication ignored its original CAS condition")
 		}
 		if before.ActiveMove != "" && after.ActiveMove == "" && !after.Partitions[before.ActiveMove].Ready {
-			return fmt.Errorf("move_budget: cleared active move without ready publication")
+			return checkerFailure("move_budget", "cleared_before_ready", "cleared active move without ready publication")
 		}
 		if after.ActiveMove != "" {
 			p, exists := after.Partitions[after.ActiveMove]
 			if !exists || p.Ready {
-				return fmt.Errorf("move_budget: invalid persisted active move")
+				return checkerFailure("move_budget", "invalid_active_move", "invalid persisted active move")
 			}
 		}
 		if before.Coordinator != after.Coordinator {
 			if actor.Kind != "cluster" || after.Coordinator.Incarnation != actor.Incarnation {
-				return fmt.Errorf("coordinator: publication lacks actor authority")
+				return checkerFailure("coordinator", "wrong_actor", "publication lacks actor authority")
 			}
 			if before.Coordinator.Incarnation == after.Coordinator.Incarnation {
 				if after.Coordinator.Generation != before.Coordinator.Generation || after.Coordinator.Renewal != before.Coordinator.Renewal+1 {
-					return fmt.Errorf("coordinator: invalid renewal")
+					return checkerFailure("coordinator", "invalid_renewal", "invalid renewal")
 				}
 			} else if after.Coordinator.Generation != before.Coordinator.Generation+1 || after.Coordinator.Renewal != 0 {
-				return fmt.Errorf("coordinator: invalid takeover")
+				return checkerFailure("coordinator", "invalid_takeover", "invalid takeover")
 			}
 		}
 		c.record = e.After.Clone()
@@ -191,25 +196,37 @@ func (c *coupledChecker) settled() error {
 	}
 	p := final.Partitions[c.scenario.RequiredPartition]
 	if !p.Ready || p.Desired.Incarnation != c.scenario.RequiredOwner || final.ActiveMove != "" {
-		return fmt.Errorf("progress: required owner did not settle ready and commit within schedule")
+		return checkerFailure("progress", "owner_not_ready", "required owner did not settle ready and commit within schedule")
 	}
 	progress := false
-	for handle, commit := range c.commits {
+	for _, handle := range slices.Sorted(maps.Keys(c.commits)) {
+		commit := c.commits[handle]
 		a := commit.Open
 		if !c.closed[handle] && commit.Epoch == c.epochs[c.scenario.RequiredPartition] && a.Partition == c.scenario.RequiredPartition && a.Incarnation == c.scenario.RequiredOwner && a.AssignmentRevision == p.AssignmentRevision && a.Reservation == p.Reservation && a.Generation == p.Generation {
 			progress = true
 		}
 	}
 	if !progress {
-		return fmt.Errorf("progress: required final live owner has no successful commit in its current reservation and epoch")
+		return checkerFailure("progress", "missing_live_commit", "required final live owner has no successful commit in its current reservation and epoch")
 	}
-	for key, opened := range c.handles {
+	for _, key := range slices.Sorted(maps.Keys(c.handles)) {
+		opened := c.handles[key]
 		if opened.Epoch != c.epochs[opened.Open.Partition] && !c.closed[key] {
-			return fmt.Errorf("progress: obsolete native handle did not retire")
+			return checkerFailure("progress", "obsolete_handle_not_retired", "obsolete native handle did not retire")
 		}
 	}
 	if c.rejectedPlans != 1 || c.rejectedReady != 1 {
-		return fmt.Errorf("coverage: missing delayed stale plan/ready conflicts")
+		return checkerFailure("coverage", "missing_stale_conflicts", "missing delayed stale plan/ready conflicts")
 	}
 	return nil
+}
+
+// Each assertion supplies a stable mechanism explicitly; diagnostics never choose
+// reduction identity. Invalid constant names fail closed as ordinary errors.
+func checkerFailure(invariant, mechanism, diagnostic string) error {
+	failure, err := NewInvariantFailure(FailureFingerprint{Invariant: invariant, Mechanism: mechanism}, fmt.Errorf("%s", diagnostic))
+	if err != nil {
+		return err
+	}
+	return failure
 }

@@ -84,6 +84,15 @@ func TestCoupledNegativeControls(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), negative+":") {
 				t.Fatalf("same checker missed %s: %v", negative, err)
 			}
+			fingerprint, ok := FingerprintOf(err)
+			if !ok || fingerprint.Invariant != negative {
+				t.Fatalf("missing typed invariant: %v %v", fingerprint, err)
+			}
+			_, replayErr := RunCoupled(scenario, negative)
+			replayFingerprint, replayOK := FingerprintOf(replayErr)
+			if !replayOK || replayFingerprint != fingerprint {
+				t.Fatalf("failure identity changed: %v / %v", err, replayErr)
+			}
 			if len(result.Trace) == 0 || result.Trace[len(result.Trace)-1].Input.Fault != negative {
 				t.Fatal("did not fail at first injected violation")
 			}
