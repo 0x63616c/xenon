@@ -55,7 +55,7 @@ import { withBase } from "vitepress";
     </section>
     <section class="principles section-width">
       <div class="section-lead">
-        <span class="eyebrow">FAMILIAR ENGINE. DIFFERENT FOUNDATION.</span>
+        <span class="eyebrow">BUILT FOR TEMPORAL</span>
         <h2>Keep the workflow.<br />Rethink the storage.</h2>
       </div>
       <div class="principle-grid">
@@ -87,8 +87,8 @@ import { withBase } from "vitepress";
     </section>
     <section class="architecture-teaser section-width">
       <div>
-        <span class="eyebrow">LOOK INSIDE</span>
-        <h2>Simple to enter.<br />Careful at every commit.</h2>
+        <span class="eyebrow">ARCHITECTURE</span>
+        <h2>One request.<br />Every layer, explained.</h2>
         <p>
           Follow a request from the SDK to S3. Explore partition admission,
           durable replay, and what happens when an owner disappears.
@@ -106,8 +106,8 @@ import { withBase } from "vitepress";
     </section>
     <section class="status-section section-width">
       <div>
-        <span class="eyebrow">BUILT WITH EVIDENCE</span>
-        <h2>Work in progress.<br />Claims you can inspect.</h2>
+        <span class="eyebrow">ENGINEERING</span>
+        <h2>Correctness.<br />Put to the test.</h2>
       </div>
       <div>
         <p>
@@ -121,11 +121,10 @@ import { withBase } from "vitepress";
       </div>
     </section>
     <section class="cloud-section">
-      <span class="eyebrow">XENON CLOUD</span>
+      <span class="eyebrow">XENON CLOUD™</span>
       <h2>Coming soon.</h2>
-      <p>A future managed offering. No service is available today.</p>
       <a class="text-link" :href="withBase('/cloud.html')"
-        >About Xenon Cloud <span>→</span></a
+        >Discover Xenon Cloud <span>→</span></a
       >
     </section>
   </main>

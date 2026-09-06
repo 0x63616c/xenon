@@ -1,6 +1,11 @@
 <script setup>
 import { ref, computed } from "vue";
-const view = ref("path"),
+const props = defineProps({ initialView: { type: String, default: "path" } });
+const view = ref(
+    ["path", "node", "recovery"].includes(props.initialView)
+      ? props.initialView
+      : "path",
+  ),
   selected = ref(0);
 const views = {
   path: {
