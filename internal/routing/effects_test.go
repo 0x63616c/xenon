@@ -26,7 +26,7 @@ func (c logicalContext) Deadline() (time.Time, bool) { return c.deadline, true }
 
 func TestInjectedTransportLostResponseRefresh(t *testing.T) {
 	ctx := logicalContext{context.Background(), time.Unix(123, 0)}
-	req := &wire.ShardRequest{Partition: "p", OperationId: "same-operation", CommandSha256: []byte{1, 2, 3}}
+	req := &wire.ShardRequest{Partition: "p", OperationId: "same-operation", CommandSha256: make([]byte, 32)}
 	events := make(chan Event, 8)
 	calls := 0
 	refreshes := []bool{}
@@ -59,7 +59,7 @@ func TestInjectedTransportLostResponseRefresh(t *testing.T) {
 			if address != "old" {
 				t.Fatal(address)
 			}
-			return status.Error(codes.Unavailable, "response lost")
+			return UnknownOutcome()
 		}
 		if address != "new" {
 			t.Fatal(address)
@@ -106,5 +106,50 @@ func TestPoolEvictionIsStable(t *testing.T) {
 	}
 	if _, exists := r.connections["127.0.0.1:10000"]; exists || len(r.connections) != 64 {
 		t.Fatal("unstable eviction")
+	}
+}
+
+func TestForwardedReceiverNeverForwardsOrRetries(t *testing.T) {
+	ctx := metadata.NewIncomingContext(logicalContext{context.Background(), time.Unix(123, 0)}, metadata.Pairs(hopHeader, "1"))
+	calls := 0
+	r := &Router{Node: "receiver", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"other", "other"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { calls++; return nil, StaleOwner() }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error {
+		t.Fatal("recursive forwarding")
+		return nil
+	}}
+	invoke := r.Interceptor(func(string) proto.Message { return new(wire.ShardResult) })
+	req := &wire.ShardRequest{Partition: "p"}
+	_, err := invoke(ctx, req, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
+	if !retryable(err, req) || calls != 0 {
+		t.Fatalf("stale receiver: %v calls=%d", err, calls)
+	}
+	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"receiver", "receiver"}, nil })
+	_, err = invoke(ctx, req, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
+	if !retryable(err, req) || calls != 1 {
+		t.Fatalf("receiver retried: %v calls=%d", err, calls)
+	}
+}
+
+func TestOriginRetriesOnlyTypedSafeFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		failure error
+		id      string
+		digest  []byte
+		want    int
+	}{
+		{"untyped unavailable", status.Error(codes.Unavailable, "storage corruption"), "fixed-id", make([]byte, 32), 1},
+		{"typed stale bounded", StaleOwner(), "", nil, 3},
+		{"unknown protected", UnknownOutcome(), "fixed-id", make([]byte, 32), 3},
+		{"unknown missing identity", UnknownOutcome(), "", make([]byte, 32), 1},
+		{"unknown missing digest", UnknownOutcome(), "fixed-id", nil, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			r := &Router{Node: "origin", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"owner", "owner"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { t.Fatal("local"); return nil, nil }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error { calls++; return tc.failure }}
+			_, err := r.Interceptor(func(string) proto.Message { return new(wire.ShardResult) })(logicalContext{context.Background(), time.Unix(123, 0)}, &wire.ShardRequest{Partition: "p", OperationId: tc.id, CommandSha256: tc.digest}, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
+			if err != tc.failure || calls != tc.want {
+				t.Fatalf("error=%v calls=%d want=%d", err, calls, tc.want)
+			}
+		})
 	}
 }

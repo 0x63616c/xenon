@@ -1,0 +1,640 @@
+{
+  "version": 1,
+  "production_revision": "72e34eca55f77b3fab67e5cc4e5929cb22d278f1",
+  "toolchain": "go1.27.1",
+  "initial": {
+    "format": 1,
+    "cluster": "clu_0000000000000000000001",
+    "coordinator": {
+      "incarnation": "inc_0000000000000000000001",
+      "generation": 1,
+      "renewal": 0
+    },
+    "assignment_revision": 1,
+    "partitions": {
+      "prt_0000000000000000000001": {
+        "path": "data/1",
+        "desired": {
+          "node": "nod_0000000000000000000001",
+          "incarnation": "inc_0000000000000000000001",
+          "address": "node-1:8080"
+        },
+        "assignment_revision": 1,
+        "generation": 0,
+        "ready": false
+      },
+      "prt_0000000000000000000002": {
+        "path": "data/2",
+        "desired": {
+          "node": "nod_0000000000000000000001",
+          "incarnation": "inc_0000000000000000000001",
+          "address": "node-1:8080"
+        },
+        "assignment_revision": 1,
+        "generation": 0,
+        "ready": false
+      }
+    }
+  },
+  "slots": [
+    "prt_0000000000000000000001",
+    "prt_0000000000000000000002"
+  ],
+  "placement": {
+    "version": 1,
+    "hash": "sha256-first8-be",
+    "replicas": 20,
+    "load": 1.25
+  },
+  "actors": [
+    {
+      "name": "coordinator-old",
+      "kind": "cluster",
+      "incarnation": "inc_0000000000000000000001"
+    },
+    {
+      "name": "coordinator-new",
+      "kind": "cluster",
+      "incarnation": "inc_0000000000000000000004"
+    },
+    {
+      "name": "writer-old",
+      "kind": "partition",
+      "incarnation": "inc_0000000000000000000001",
+      "partition": "prt_0000000000000000000001"
+    },
+    {
+      "name": "writer-target",
+      "kind": "partition",
+      "incarnation": "inc_0000000000000000000002",
+      "partition": "prt_0000000000000000000001"
+    },
+    {
+      "name": "writer-current",
+      "kind": "partition",
+      "incarnation": "inc_0000000000000000000003",
+      "partition": "prt_0000000000000000000001"
+    }
+  ],
+  "required_partition": "prt_0000000000000000000001",
+  "required_owner": "inc_0000000000000000000003",
+  "steps": [
+    {
+      "action": "poll",
+      "actor": "writer-old",
+      "at": 0
+    },
+    {
+      "action": "read",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 1
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 1,
+      "transition": "trn_0000000000000000000101"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-old",
+      "at": 0,
+      "members": [
+        {
+          "node": "nod_0000000000000000000002",
+          "incarnation": "inc_0000000000000000000002",
+          "address": "node-2:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-old",
+      "at": 0,
+      "effect": 1
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 0,
+      "effect": 1,
+      "transition": "trn_0000000000000000000201"
+    },
+    {
+      "action": "publish",
+      "actor": "coordinator-old",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-old",
+      "at": 1,
+      "members": [
+        {
+          "node": "nod_0000000000000000000002",
+          "incarnation": "inc_0000000000000000000002",
+          "address": "node-2:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-old",
+      "at": 1,
+      "effect": 3
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 1,
+      "effect": 3,
+      "transition": "trn_0000000000000000000202"
+    },
+    {
+      "action": "publish",
+      "actor": "coordinator-old",
+      "at": 1,
+      "effect": 4
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 1,
+      "effect": 4
+    },
+    {
+      "action": "poll",
+      "actor": "writer-target",
+      "at": 0
+    },
+    {
+      "action": "read",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 1
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 1,
+      "transition": "trn_0000000000000000000301"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "open",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "read",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 4
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 4,
+      "transition": "trn_0000000000000000000302"
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-old",
+      "at": 2,
+      "members": [
+        {
+          "node": "nod_0000000000000000000003",
+          "incarnation": "inc_0000000000000000000003",
+          "address": "node-3:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-old",
+      "at": 2,
+      "effect": 5
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 2,
+      "effect": 5,
+      "transition": "trn_0000000000000000000203"
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-new",
+      "at": 0,
+      "members": [
+        {
+          "node": "nod_0000000000000000000003",
+          "incarnation": "inc_0000000000000000000003",
+          "address": "node-3:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-new",
+      "at": 0,
+      "effect": 1
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-new",
+      "at": 0,
+      "effect": 1,
+      "transition": "trn_0000000000000000000401"
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-new",
+      "at": 20,
+      "members": [
+        {
+          "node": "nod_0000000000000000000003",
+          "incarnation": "inc_0000000000000000000003",
+          "address": "node-3:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-new",
+      "at": 20,
+      "effect": 2
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-new",
+      "at": 20,
+      "effect": 2,
+      "transition": "trn_0000000000000000000402"
+    },
+    {
+      "action": "publish",
+      "actor": "coordinator-new",
+      "at": 20,
+      "effect": 3
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-new",
+      "at": 20,
+      "effect": 3
+    },
+    {
+      "action": "poll",
+      "actor": "coordinator-new",
+      "at": 21,
+      "members": [
+        {
+          "node": "nod_0000000000000000000003",
+          "incarnation": "inc_0000000000000000000003",
+          "address": "node-3:8080"
+        }
+      ]
+    },
+    {
+      "action": "read",
+      "actor": "coordinator-new",
+      "at": 21,
+      "effect": 4
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-new",
+      "at": 21,
+      "effect": 4,
+      "transition": "trn_0000000000000000000403"
+    },
+    {
+      "action": "publish",
+      "actor": "coordinator-new",
+      "at": 21,
+      "effect": 5
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-new",
+      "at": 21,
+      "effect": 5
+    },
+    {
+      "action": "poll",
+      "actor": "writer-current",
+      "at": 0
+    },
+    {
+      "action": "read",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 1
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 1,
+      "transition": "trn_0000000000000000000501"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 2
+    },
+    {
+      "action": "open",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "read",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 4
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 4,
+      "transition": "trn_0000000000000000000502"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 5
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 5
+    },
+    {
+      "action": "publish",
+      "actor": "coordinator-old",
+      "at": 2,
+      "effect": 6,
+      "fault": "stale_plan"
+    },
+    {
+      "action": "deliver",
+      "actor": "coordinator-old",
+      "at": 2,
+      "effect": 6
+    },
+    {
+      "action": "publish",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 5,
+      "fault": "old_ready"
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 5
+    },
+    {
+      "action": "read",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 6
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 6,
+      "transition": "trn_0000000000000000000303"
+    },
+    {
+      "action": "close",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 7
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 7
+    },
+    {
+      "action": "read",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 8
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-target",
+      "at": 0,
+      "effect": 8,
+      "transition": "trn_0000000000000000000304"
+    },
+    {
+      "action": "open",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "commit",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 3,
+      "fault": "post_fence_commit"
+    },
+    {
+      "action": "fence",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 3
+    },
+    {
+      "action": "close",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 6
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 6
+    },
+    {
+      "action": "read",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 7
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 7,
+      "transition": "trn_0000000000000000000503"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 8
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 8
+    },
+    {
+      "action": "open",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 9
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 9
+    },
+    {
+      "action": "read",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 10
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 10,
+      "transition": "trn_0000000000000000000504"
+    },
+    {
+      "action": "publish",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 11
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 11
+    },
+    {
+      "action": "read",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 4
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 4,
+      "transition": "trn_0000000000000000000102"
+    },
+    {
+      "action": "close",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 5
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 5
+    },
+    {
+      "action": "read",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 6
+    },
+    {
+      "action": "deliver",
+      "actor": "writer-old",
+      "at": 0,
+      "effect": 6,
+      "transition": "trn_0000000000000000000103"
+    },
+    {
+      "action": "commit",
+      "actor": "writer-current",
+      "at": 0,
+      "effect": 9
+    }
+  ]
+}

@@ -254,20 +254,29 @@ func (t *transaction) stage(key []byte, fn func() error) error {
 	return err
 }
 func (t *transaction) Scan(ctx context.Context, r p.ScanRequest) (p.ReadResult, error) {
-	if r.Limit <= 0 || r.Limit > 100000 || (r.Start != nil && r.End != nil && bytes.Compare(r.Start, r.End) >= 0) {
+	if r.Limit <= 0 || r.Limit > 100000 || (r.Start != nil && r.End != nil && bytes.Compare(r.Start, r.End) > 0) {
 		return p.ReadResult{}, p.ErrInvalid
 	}
 	r.Start = bytes.Clone(r.Start)
 	r.End = bytes.Clone(r.End)
 	v, err := invoke(ctx, t, func() (any, error) {
-		bounds := native.KeyRange{StartInclusive: true}
+		if r.Start != nil && r.End != nil && bytes.Equal(r.Start, r.End) && (r.StartExclusive || !r.EndInclusive) {
+			return p.ReadResult{}, nil
+		}
+		bounds := native.KeyRange{StartInclusive: !r.StartExclusive, EndInclusive: r.EndInclusive}
 		if r.Start != nil {
 			bounds.Start = &r.Start
 		}
 		if r.End != nil {
 			bounds.End = &r.End
 		}
-		it, err := t.tx.Scan(bounds)
+		order := native.IterationOrderAscending
+		if r.Reverse {
+			order = native.IterationOrderDescending
+		}
+		// Preserve native transaction scan defaults, changing only direction.
+		// Read one extra application row for More; never materialize the range.
+		it, err := t.tx.ScanWithOptions(bounds, native.ScanOptions{DurabilityFilter: native.DurabilityLevelMemory, ReadAheadBytes: 1, MaxFetchTasks: 1, Order: &order})
 		if err != nil {
 			return nil, t.w.failure(err)
 		}

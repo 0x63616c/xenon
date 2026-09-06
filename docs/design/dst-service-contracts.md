@@ -272,7 +272,7 @@ Start with `MaxInFlight=1` scenario, using bounded operation concurrency within 
 Inspected baseline: `fc4180d9b73c7d39dcdc0790f8d876ee10798ea1`, with existing uncommitted readiness work visible. Source evidence is not proof that proposed behavior exists:
 
 - `internal/ownership/membership.go`: Step already accepts explicit time; manager polling and native admission/close in `internal/ownership/manager.go` and `internal/node/shard.go` still use real timers.
-- `internal/routing/router.go`: current interceptor forwards recursively under two-hop/two-attempt bounds and broadly retries `Unavailable`; migrate to origin-only typed redirects.
+- Baseline `internal/routing/router.go` forwarded recursively under two-hop/two-attempt bounds and broadly retried `Unavailable`. The service batch below replaces this behavior; expected-owner wire metadata remains open.
 - `internal/replay/replay.go`: shared durable replay decisions, changed-digest rejection, nonempty replay barrier and bounded capacity are reuse points.
 - `internal/node/shard.go` and `internal/node/journal.go`: native commit waits on `AwaitDurable`; caller timeout quarantines the writer while native work retains its gate. Preserve and exercise these resource rules through the new seam.
 - `internal/simulation/README.md`: current coupled scenario excludes production Manager/native lifecycle and broader timer/effect scheduling. It is not this proposed full DST boundary.
@@ -285,3 +285,31 @@ Independent review must resolve control-record size/CAS contention and ownership
 Dedicated Astra spec author: `/root/spec_author`. Independent Astra reviewer: `/root/spec_review`. Coordinator adjudication: accept these service/DST contracts as the implementation target, subject to the explicit experimental gates above. No remaining blocking specification finding in the final review.
 
 Review corrections incorporated: bind coordinator authority and plan into conditional publication; assignment-revision ABA protection; one-shot native opening and displaced-writer recovery; aggregate SDK conditional-write ambiguity; explicit logical ticks/incarnations and transaction seam; stable filesystem lock plus read-side durability recovery after crash between rename and directory sync; first-failure preservation/cleanup and continuous search replay semantics. No native runtime, scale, remote filesystem qualification or full acceptance pass is implied. The separate implementation plan must retain those executed proof requirements.
+
+## Service implementation checkpoint — PR #122
+
+The batch at `87690e5` adds concrete cluster and partition Steps/drivers, bounded
+control CAS, persisted active-move tracking and native handle lifecycle ownership.
+The coupled saved simulation executes those production decisions with modeled
+registry/native effects; its independent observer checks stale plans, old readiness,
+reservation authority, post-fence commits and progress by the recovered owner.
+It is not a complete generated-fault search or full Temporal simulation.
+
+Shard and cluster metadata/membership semantics are shared by the existing node
+handlers and new opaque-writer persistence services. New adapter operation IDs
+are canonical; old replay references remain valid without rewriting keys. The
+Rust shard reference and process-cut harness accept the same reference grammar.
+
+The actual routing interceptor now forwards at most once. Only the origin can
+make up to three owner attempts, refreshing after typed stale or replay-protected
+unknown results. Bare transport Unavailable is returned to the caller; the saved
+legacy crash/move scenario exercises caller replay after recovery. Expected owner
+incarnation/generation, the specified transport Envelope, full deadline-wire
+validation and actual dropped-network-response classification remain unfinished.
+
+[Clean native batch evidence](../../test/scenarios/integration/partition-service/evidence/87690e5-minio/report.json)
+records four passing real SlateDB/MinIO cases, direct recovered shard-state checks,
+unchanged inputs and successful cleanup. These are service composition tests.
+`cmd/xenon` still activates the old ownership manager. Required persisted layout,
+enforced populated-state cutover, full family migration, new app activation and
+the ten-minute Omes/Nexus/churn gate remain open.

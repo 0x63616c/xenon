@@ -12,6 +12,35 @@ pub mod wire {
 }
 use wire::{shard_command::Kind, shard_result::Error as LogicalError, *};
 
+// Ingress compatibility only: preserve legacy journal keys and accept the Go
+// canonical 128-bit base62 operation IDs without changing stored semantics.
+fn valid_operation_reference(id: &str) -> bool {
+    if !id.is_empty()
+        && id.len() <= 128
+        && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
+        return true;
+    }
+    let Some(suffix) = id.strip_prefix("op_") else {
+        return false;
+    };
+    if suffix.len() != 22 {
+        return false;
+    }
+    suffix
+        .bytes()
+        .try_fold(0u128, |value, b| {
+            let digit = match b {
+                b'0'..=b'9' => b - b'0',
+                b'A'..=b'Z' => b - b'A' + 10,
+                b'a'..=b'z' => b - b'a' + 36,
+                _ => return None,
+            };
+            value.checked_mul(62)?.checked_add(u128::from(digit))
+        })
+        .is_some()
+}
+
 struct Partition {
     db: Db,
     quarantined: bool,
@@ -44,12 +73,7 @@ impl ShardService {
     async fn execute_owned(self, req: ShardRequest) -> Result<ShardResult, Status> {
         if req.protocol_version != 1
             || req.partition != self.name
-            || req.operation_id.is_empty()
-            || req.operation_id.len() > 128
-            || !req
-                .operation_id
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            || !valid_operation_reference(&req.operation_id)
         {
             return Err(Status::invalid_argument(
                 "invalid protocol, partition or operation identity",
@@ -296,6 +320,34 @@ mod tests {
             command: Some(command),
         }
     }
+    #[test]
+    fn operation_reference_compatibility() {
+        for id in [
+            "legacy-replay",
+            "723ef4ba-ea7b-4c25-8b7a-bf19074691f4",
+            "op_0000000000000000000000",
+            "op_7n42DGM5Tflk9n8mt7Fhc7",
+            &"a".repeat(128),
+        ] {
+            assert!(valid_operation_reference(id), "{id:?}");
+        }
+        for id in [
+            "",
+            "user_name",
+            "../path",
+            "a\nb",
+            "op_000000000000000000001",
+            "op_7n42DGM5Tflk9n8mt7Fhc8",
+            "op_zzzzzzzzzzzzzzzzzzzzzz",
+            "inc_0000000000000000000001",
+            "op_000000000000000000000-",
+            "é",
+            &"a".repeat(129),
+        ] {
+            assert!(!valid_operation_reference(id), "{id:?}");
+        }
+    }
+
     #[tokio::test]
     async fn outcome_and_shard_recover_together() {
         let objects = Arc::new(InMemory::new());
@@ -308,7 +360,7 @@ mod tests {
             100,
         );
         let create = request(
-            "create",
+            "op_0000000000000000000001",
             ShardCommand {
                 kind: Kind::CreateOrGet as i32,
                 shard_id: 1,

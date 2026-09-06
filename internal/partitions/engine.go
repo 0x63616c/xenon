@@ -43,11 +43,20 @@ type Transaction interface {
 // Even when Commit returns UnknownOutcome it can return a receipt to reconcile.
 type CommitReceipt interface{ MutationID() uint64 }
 
-// Scan bounds are inclusive Start and exclusive End; nil means unbounded.
-// Limit must be positive. More indicates additional entries in this snapshot.
+// Scan bounds are bytewise lower Start and upper End, independent of Reverse.
+// Defaults are [Start, End); nil means unbounded. Equal bounds are empty unless
+// both endpoints are inclusive; Start greater than End is invalid.
+// Reverse returns descending keys without changing the bounds. Resume an
+// ascending page with Start=last key, StartExclusive=true; resume a descending
+// page with End=last key, EndInclusive=false, retaining the other bound.
+// Limit is 1..100000. More means another application key exists in this same
+// transaction view and range after the returned page, in the requested order.
 type ScanRequest struct {
-	Start, End []byte
-	Limit      int
+	Start, End     []byte
+	StartExclusive bool
+	EndInclusive   bool
+	Reverse        bool
+	Limit          int
 }
 type ReadRequest struct {
 	Keys [][]byte

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,28 +45,7 @@ func readOutcomeAccounting(tx *native.DbTransaction) (map[string]OutcomeFamilyUs
 	return m, nil
 }
 func accountOutcome(tx *native.DbTransaction, outcome *wire.StoredOutcome, size int) error {
-	m, e := readOutcomeAccounting(tx)
-	if e != nil {
-		return e
-	}
-	ref := outcome.ProtoReflect()
-	field := ref.WhichOneof(ref.Descriptor().Oneofs().ByName("result"))
-	if field == nil {
-		return status.Error(codes.Unavailable, "outcome has no result family")
-	}
-	name := string(field.Name())
-	family := m[name]
-	if family.Entries == math.MaxUint64 || math.MaxUint64-family.EncodedOutcomeBytes < uint64(size) {
-		return status.Error(codes.ResourceExhausted, "outcome accounting overflow")
-	}
-	family.Entries++
-	family.EncodedOutcomeBytes += uint64(size)
-	m[name] = family
-	b, e := json.Marshal(m)
-	if e != nil {
-		return backend(e)
-	}
-	return put(tx, "v1/outcome_usage", b)
+	return persistence.AccountOutcome(context.Background(), legacyShardTransaction{tx}, outcome, size)
 }
 
 // OutcomeUsage reads bounded aggregate metadata under normal owner admission and

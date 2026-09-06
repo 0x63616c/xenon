@@ -21,6 +21,7 @@ import (
 
 // MetadataStore implements the pinned namespace catalog contract in one control partition.
 type MetadataStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.MetadataPersistenceClient
 	partition         string
@@ -29,12 +30,12 @@ type MetadataStore struct {
 
 var _ persistence.MetadataStore = (*MetadataStore)(nil)
 
-func NewMetadataStore(address, partition string) (*MetadataStore, error) {
+func NewMetadataStore(address, partition string, options ...StoreOption) (*MetadataStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
-	return &MetadataStore{connection: conn, client: wire.NewMetadataPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
+	return &MetadataStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewMetadataPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
 }
 func (s *MetadataStore) Close()          { _ = s.connection.Close() }
 func (s *MetadataStore) GetName() string { return "xenon" }
@@ -59,7 +60,11 @@ func (s *MetadataStore) invokeMetadata(ctx context.Context, command *wire.Metada
 		return nil, err
 	}
 	digest := sha256.Sum256(data)
-	request := &wire.MetadataRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	request := &wire.MetadataRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: operation, CommandSha256: digest[:], Command: command}
 	for attempt := 0; attempt < 3; attempt++ {
 		result, callErr := s.client.Execute(ctx, request)
 		if callErr == nil {

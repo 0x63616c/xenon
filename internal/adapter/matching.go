@@ -21,6 +21,7 @@ import (
 )
 
 type MatchingStore struct {
+	operations        *operationIDs
 	fair              bool
 	connection        *grpc.ClientConn
 	client            wire.MatchingPersistenceClient
@@ -30,15 +31,15 @@ type MatchingStore struct {
 
 // Implements the pinned legacy TaskStore, including namespace-wide user data.
 
-func NewMatchingStore(address, partition string) (*MatchingStore, error) {
+func NewMatchingStore(address, partition string, options ...StoreOption) (*MatchingStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
-	return &MatchingStore{connection: conn, client: wire.NewMatchingPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
+	return &MatchingStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewMatchingPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
 }
-func NewFairMatchingStore(address, partition string) (*MatchingStore, error) {
-	s, e := NewMatchingStore(address, partition)
+func NewFairMatchingStore(address, partition string, options ...StoreOption) (*MatchingStore, error) {
+	s, e := NewMatchingStore(address, partition, options...)
 	if e == nil {
 		s.fair = true
 	}
@@ -68,7 +69,11 @@ func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingComm
 	if c.Fair {
 		version = 2
 	}
-	req := &wire.MatchingRequest{ProtocolVersion: version, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: hash[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	req := &wire.MatchingRequest{ProtocolVersion: version, Partition: s.partition, OperationId: operation, CommandSha256: hash[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, req)
 		if e == nil {

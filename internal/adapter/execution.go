@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/rpctrace"
-	"github.com/google/uuid"
 	"go.temporal.io/api/serviceerror"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	p "go.temporal.io/server/common/persistence"
@@ -20,6 +19,7 @@ import (
 // WorkflowStore implements the mutable-state component; history task retrieval
 // and the complete ExecutionStore composition are separate delivery gates.
 type WorkflowStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.ExecutionPersistenceClient
 	partition         string
@@ -27,12 +27,12 @@ type WorkflowStore struct {
 	historyPartitions []string
 }
 
-func NewWorkflowStore(address, partition string) (*WorkflowStore, error) {
+func NewWorkflowStore(address, partition string, options ...StoreOption) (*WorkflowStore, error) {
 	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
-	return &WorkflowStore{c, wire.NewExecutionPersistenceClient(c), partition, 30 * time.Second, nil}, nil
+	return &WorkflowStore{newOperationIDs(options...), c, wire.NewExecutionPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *WorkflowStore) Close() {
 	if s.connection != nil {
@@ -57,7 +57,11 @@ func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCo
 	if routeErr != nil {
 		return nil, routeErr
 	}
-	q := &wire.ExecutionRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	q := &wire.ExecutionRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

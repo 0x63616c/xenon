@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/rpctrace"
-	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
@@ -19,6 +18,7 @@ import (
 )
 
 type Queue struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.QueuePersistenceClient
 	partition         string
@@ -28,12 +28,12 @@ type Queue struct {
 
 var _ p.Queue = (*Queue)(nil)
 
-func NewQueue(address, partition string, queueType p.QueueType) (*Queue, error) {
+func NewQueue(address, partition string, queueType p.QueueType, options ...StoreOption) (*Queue, error) {
 	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
-	return &Queue{connection: conn, client: wire.NewQueuePersistenceClient(conn), partition: partition, queueType: queueType, invocationTimeout: 30 * time.Second}, nil
+	return &Queue{operations: newOperationIDs(options...), connection: conn, client: wire.NewQueuePersistenceClient(conn), partition: partition, queueType: queueType, invocationTimeout: 30 * time.Second}, nil
 }
 func (q *Queue) Close() {
 	if q.connection != nil {
@@ -54,7 +54,11 @@ func (q *Queue) invokeQueue(ctx context.Context, c *wire.QueueCommand) (traceRes
 		return nil, e
 	}
 	digest := sha256.Sum256(raw)
-	req := &wire.QueueRequest{ProtocolVersion: 1, Partition: q.partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: c}
+	operation, operationErr := q.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	req := &wire.QueueRequest{ProtocolVersion: 1, Partition: q.partition, OperationId: operation, CommandSha256: digest[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := q.client.Execute(ctx, req)
 		if e == nil {

@@ -19,6 +19,7 @@ import (
 )
 
 type NexusStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.NexusPersistenceClient
 	partition         string
@@ -27,12 +28,12 @@ type NexusStore struct {
 
 var _ persistence.NexusEndpointStore = (*NexusStore)(nil)
 
-func NewNexusStore(address, partition string) (*NexusStore, error) {
+func NewNexusStore(address, partition string, options ...StoreOption) (*NexusStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
-	return &NexusStore{connection: conn, client: wire.NewNexusPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
+	return &NexusStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewNexusPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
 }
 func (s *NexusStore) Close()          { _ = s.connection.Close() }
 func (s *NexusStore) GetName() string { return "xenon" }
@@ -135,7 +136,11 @@ func (s *NexusStore) invokeNexus(ctx context.Context, command *wire.NexusCommand
 		return nil, err
 	}
 	digest := sha256.Sum256(data)
-	request := &wire.NexusRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	request := &wire.NexusRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: operation, CommandSha256: digest[:], Command: command}
 	for attempt := 0; attempt < 3; attempt++ {
 		result, callErr := s.client.Execute(ctx, request)
 		if callErr == nil {
