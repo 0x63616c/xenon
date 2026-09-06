@@ -80,8 +80,9 @@ def main():
         if not listed:raise RuntimeError('temporal HTTP namespaces payload was empty')
         if agent_case['namespace'] not in listed:raise RuntimeError('expected namespace missing from temporal HTTP namespaces')
         workflows=http_json('http://127.0.0.1:17243/api/v1/namespaces/{}/workflows?pageSize=5'.format(quote_plus(agent_case['namespace'])))
-        if 'executions' not in workflows:raise RuntimeError('temporal HTTP workflow list payload missing executions')
-        return {'namespaces_count':len(listed),'workflow_page_size':len(workflows['executions'])}
+        if not isinstance(workflows,dict):raise RuntimeError('temporal HTTP workflow list payload is not an object')
+        # Proto JSON omits an empty repeated field before the first workflow exists.
+        return {'namespaces_count':len(listed),'workflow_page_size':len(workflows.get('executions',[]))}
     def probe_ui_api():
         base='http://127.0.0.1:'+str(agent_case['ui_port'])
         namespaces=http_json(base+'/api/v1/namespaces')
