@@ -155,6 +155,8 @@ Layout gate verifies actual package/import boundaries and named required directo
 
 ## 8. Shared scenario search, CLI and real Nexus release profile
 
+Issue #119 closes only against the [machine-checkable acceptance criteria](issue-119-acceptance.md), including concurrent fresh workflows, independent oracles, bounded cleanup and replay/minimization. Gate names there are required deliverables, not claims of current implementation.
+
 Dependencies: steps 4–7. Requirements: [continuous search](dst-service-contracts.md#continuous-failure-search-and-replay), [CLI](architecture-spec-in-progress.md#cli-design-follow-up), [release](architecture-spec-in-progress.md#release-and-benchmark-loop).
 
 Own `internal/simulation` generator/search/replay/minimization, common scenario fixtures under `test/scenarios/{simulation,integration}/`, existing `scripts/{prove,ministack-runtime,corrected_fuzz,omes_workloads}.py` integration, thin CLI commands/tests in `cmd/xenon`, and `docs/operations/testing.md`. Reuse existing pinned Omes overlay/corpus/oracles and retain original failures. Implement a shared scenario envelope, bounded queue and `MaxInFlight=1` case driver; generate fresh supported expanded inputs, separate workload/fault RNG streams, and require settle/recovery checks per case. Record generator capability/version/hash and unsupported combinations as generation errors, never passing cases. Replay loads saved bytes, not regenerated inputs. DST replay is exact event order; real-stack replay preserves workload/fault intent and labels OS scheduling differences.
