@@ -39,3 +39,39 @@ index 873e0be..0e3d806 100644
  	// Remove the signal ID from the expected slice
  	for i, id := range params.ExpectedSignalIds {
  		if id == signalID {
+diff --git a/workers/go/workerlib/kitchensink/kitchen_sink.go b/workers/go/workerlib/kitchensink/kitchen_sink.go
+--- a/workers/go/workerlib/kitchensink/kitchen_sink.go
++++ b/workers/go/workerlib/kitchensink/kitchen_sink.go
+@@ -36,9 +36,31 @@
+ 			TaskQueue: info.TaskQueue,
+ 		},
+ 		WorkflowType:  "kitchenSink",
+-		WorkflowInput: &kitchensink.WorkflowInput{},
++		WorkflowInput: activitySignalFallback(clientActivity.ClientSequence),
+ 	}
+ 	return executor.ExecuteClientSequence(ctx, clientActivity.ClientSequence)
++}
++
++// activitySignalFallback declares every numbered signal this activity may send
++// to its fallback execution, including signals after the first WithStart.
++// The original sequence and actions are never changed; IDs remain optional.
++func activitySignalFallback(sequence *kitchensink.ClientSequence) *kitchensink.WorkflowInput {
++	input := &kitchensink.WorkflowInput{}
++	var visit func(*kitchensink.ClientActionSet)
++	visit = func(set *kitchensink.ClientActionSet) {
++		for _, action := range set.GetActions() {
++			if signal := action.GetDoSignal().GetDoSignalActions(); signal != nil && signal.SignalId > 0 && !slices.Contains(input.OptionalSignalIds, signal.SignalId) {
++				input.OptionalSignalIds = append(input.OptionalSignalIds, signal.SignalId)
++			}
++			if nested := action.GetNestedActions(); nested != nil {
++				visit(nested)
++			}
++		}
++	}
++	for _, set := range sequence.GetActionSets() {
++		visit(set)
++	}
++	return input
+ }
+ 
+ type KSWorkflowState struct {

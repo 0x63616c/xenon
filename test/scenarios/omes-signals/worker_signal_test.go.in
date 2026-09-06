@@ -1,12 +1,14 @@
 package kitchensink
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/temporalio/omes/clioptions"
 	pb "github.com/temporalio/omes/loadgen/kitchensink"
 	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -213,5 +215,58 @@ func requireDeclaredTimeout(t *testing.T, err error) {
 	var timeout *temporal.TimeoutError
 	if !errors.As(err, &timeout) || timeout.TimeoutType() != enums.TIMEOUT_TYPE_SCHEDULE_TO_CLOSE {
 		t.Fatalf("unexpected negative control error: %v", err)
+	}
+}
+
+// Capture the exact SDK SignalWithStart arguments, then execute that fallback
+// with the real worker. The server's existing-vs-new-run choice is not simulated
+// as a live Temporal proof here.
+type fallbackCapture struct {
+	client.Client
+	input  *pb.WorkflowInput
+	signal *pb.DoSignal_DoSignalActions
+}
+
+func (c *fallbackCapture) SignalWithStartWorkflow(ctx context.Context, id, name string, arg interface{}, options client.StartWorkflowOptions, kind interface{}, args ...interface{}) (client.WorkflowRun, error) {
+	c.input = proto.Clone(args[0].(*pb.WorkflowInput)).(*pb.WorkflowInput)
+	c.signal = proto.Clone(arg.(*pb.DoSignal_DoSignalActions)).(*pb.DoSignal_DoSignalActions)
+	return nil, nil
+}
+func TestXenonLateSignalWithStartFallback(t *testing.T) {
+	first := &pb.DoSignal_DoSignalActions{SignalId: 10, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_SetWorkflowState{SetWorkflowState: &pb.WorkflowState{Kvs: map[string]string{"first": "seen"}}}}}}}}
+	second := returnSignal(13, "late-actions-executed")
+	second.GetDoActionsInMain().Actions = append([]*pb.Action{{Variant: &pb.Action_AwaitWorkflowState{AwaitWorkflowState: &pb.AwaitWorkflowState{Key: "first", Value: "seen"}}}}, second.GetDoActionsInMain().Actions...)
+	action := func(signal *pb.DoSignal_DoSignalActions) *pb.ClientAction {
+		return &pb.ClientAction{Variant: &pb.ClientAction_DoSignal{DoSignal: &pb.DoSignal{WithStart: true, Variant: &pb.DoSignal_DoSignalActions_{DoSignalActions: signal}}}}
+	}
+	seq := &pb.ClientSequence{ActionSets: []*pb.ClientActionSet{{Actions: []*pb.ClientAction{action(first), {Variant: &pb.ClientAction_NestedActions{NestedActions: &pb.ClientActionSet{Actions: []*pb.ClientAction{action(second), action(first)}}}}}}}}
+	original := proto.Clone(seq)
+	input := activitySignalFallback(seq)
+	if !proto.Equal(input, &pb.WorkflowInput{OptionalSignalIds: []int32{10, 13}}) || !proto.Equal(original, seq) {
+		t.Fatal("sequence metadata or actions changed", input)
+	}
+	capture := &fallbackCapture{}
+	executor := &pb.ClientActionsExecutor{Client: capture, WorkflowInput: input}
+	if err := executor.ExecuteClientSequence(context.Background(), seq); err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(capture.input, input) || !proto.Equal(original, seq) {
+		t.Fatal("fallback forwarding changed")
+	}
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowRunTimeout(6 * time.Second)
+	env.SetDataConverter(clioptions.OmesDataConverter())
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow("do_actions_signal", first)
+		env.SignalWorkflow("do_actions_signal", second)
+	}, time.Millisecond)
+	env.ExecuteWorkflow(KitchenSinkWorkflow, capture.input)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	var result string
+	if err := env.GetWorkflowResult(&result); err != nil || result != "late-actions-executed" {
+		t.Fatal(result, err)
 	}
 }

@@ -5,7 +5,7 @@
   "api_source": "d96bd55e87799e9f6a33a1c40a56cfa932566bdf",
   "protoc": "36.0",
   "protoc_gen_go": "v1.31.0",
-  "overlay_sha256": "9759c6554fb2dcb56b401afe8ae9619e406e9e33d86561dc85e1026222813f11",
+  "overlay_sha256": "cdb70939ac3a6f0449534421dd13579984c69fcb1c5b737c72d744a63b47bc09",
   "normalizer_sha256": "529a56005dafde138773d420cec66a631bb4caadef50427ba575d388f87f7a32",
   "original_corpus_manifest_sha256": "c6c08a316c6f13ec768595787599a5b6fe645e4ab771a9f7dec40d0e491a373a",
   "corrected_corpus_version": "corrected-v1",
