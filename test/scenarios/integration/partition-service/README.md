@@ -14,7 +14,7 @@ budgets. Go and Rust versions come from `tools/slatedb-native.json`. A fresh
 checkout needs those declared toolchains, Docker, Python 3, and network access to
 the pinned sources/images; unavailable tools fail the run.
 
-Two tests call the production partition `Service`, `Step`, S3 registry adapter,
+Four tests call the production partition `Service`, `Step`, S3 registry adapter,
 cluster control mutation functions, and native SlateDB engine:
 
 1. Owner A reserves, opens and becomes ready. A native transaction atomically
@@ -30,6 +30,13 @@ cluster control mutation functions, and native SlateDB engine:
    acknowledged values intact. The wrapper delays only completion delivery;
    registry, database, transactions and fencing are real implementations.
 
+3. The production shard persistence executor commits and acknowledges a shard,
+   moves ownership, and replays the same operation through the new owner. Changed
+   digests and exhausted outcome capacity must retain their typed errors.
+4. A native Open is delayed before it executes, then released after B acknowledges
+   a write. The obsolete opener fences B; A retires without becoming ready, and B
+   reserves and opens again to recover its acknowledged data.
+
 Each test has separate registry/database prefixes in a fresh run-owned bucket.
 The runner saves the source revision, dirty status, input/config hashes, native
 build and library hashes, complete Go test JSON output, and cleanup result under
@@ -44,5 +51,5 @@ budgets; the controller receives explicit Poll events. This is not deterministic
 simulation, real AWS qualification, multiple OS processes, a coordinator election
 failure-detector test, `cmd/xenon` acceptance, Temporal replay validation, or a
 capacity claim. Coordinator loss is represented by a replacement control CAS,
-not by killing a process. The application/outcome pair tests atomic native
-storage and recovery, not the production persistence replay API.
+not by killing a process. The shard case exercises the production persistence replay API; other persistence
+families and the complete Temporal runtime remain separate acceptance gates.

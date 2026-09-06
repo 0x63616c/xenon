@@ -2,6 +2,8 @@ package partitionservice_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,22 +13,105 @@ import (
 	"testing"
 	"time"
 
+	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
 	p "github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/partitions/slatedb"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/registry"
 	registrys3 "github.com/0x63616c/xenon/internal/registry/s3"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const ownerA identity.IncarnationID = "inc_0000000000000000000001"
 const ownerB identity.IncarnationID = "inc_0000000000000000000002"
 const partition identity.PartitionID = "prt_0000000000000000000001"
 const key registry.Key = "cluster/control"
+
+func TestPartitionNativeShardReplay(t *testing.T) {
+	f := newFixture(t)
+	a := f.service(ownerA, f.engine)
+	bind := func(service *p.Service) *persistence.Service {
+		f.ready(service)
+		writer, attempt, handle, ready := service.Writer()
+		if !ready {
+			t.Fatal("missing borrowed writer")
+		}
+		check := func(ctx context.Context) error {
+			r, err := f.store.Read(ctx, key)
+			if err != nil {
+				return err
+			}
+			s, err := cluster.DecodeControl(key, r, 1<<20)
+			if err != nil {
+				return err
+			}
+			current := s.Control().Partitions[partition]
+			if !current.Ready || current.Desired.Incarnation != attempt.Incarnation || current.AssignmentRevision != attempt.AssignmentRevision || current.Generation != attempt.Generation || current.Reservation != attempt.Reservation {
+				return cluster.ErrStaleControl
+			}
+			return nil
+		}
+		result, err := persistence.NewService(writer, partition, 1, check, func(err error) { service.ObserveFailure(handle, err) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	request := func(id string, data string) *wire.ShardRequest {
+		command := &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: 7, RangeId: 11, Data: []byte(data), Encoding: 1}
+		raw, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(raw)
+		return &wire.ShardRequest{ProtocolVersion: 1, Partition: string(partition), OperationId: id, CommandSha256: digest[:], Command: command}
+	}
+	call := func(service *persistence.Service, req *wire.ShardRequest) (*wire.ShardResult, error) {
+		ctx, cancel := context.WithTimeout(f.ctx, time.Duration(f.config.PhaseTimeout)*time.Second)
+		defer cancel()
+		return service.Execute(ctx, req)
+	}
+	q := request("op_0000000000000000000001", "acknowledged shard")
+	before, err := call(bind(a), q)
+	if err != nil || before.GetRangeId() != 11 {
+		t.Fatalf("initial shard: %+v %v", before, err)
+	}
+	s := f.snapshot()
+	w, err := s.Assign(ownerA, f.ids.transition(), map[identity.PartitionID]cluster.Owner{partition: owner(ownerB)})
+	f.replace(s, w, err)
+	b := f.service(ownerB, f.engine)
+	a.Poll()
+	current := bind(b)
+	after, err := call(current, q)
+	if err != nil || !proto.Equal(before, after) {
+		t.Fatalf("new-owner replay: %+v %v", after, err)
+	}
+	if _, err = call(current, request(q.OperationId, "changed digest")); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("changed ID digest accepted: %v", err)
+	}
+	if _, err = call(current, request("op_0000000000000000000002", "second mutation")); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("replay capacity bypassed: %v", err)
+	}
+	written := f.ready(b)
+	ctx, cancel := context.WithTimeout(f.ctx, time.Duration(f.config.PhaseTimeout)*time.Second)
+	defer cancel()
+	data, err := written.ReadDurable(ctx, p.ReadRequest{Keys: [][]byte{[]byte("v1/outcome_count"), []byte("v1/outcome/" + q.OperationId), []byte("v1/outcome_usage")}})
+	if err != nil || len(data.Entries) != 3 {
+		t.Fatalf("journal recovery: %+v %v", data, err)
+	}
+	if len(data.Entries[0].Value) != 8 || binary.BigEndian.Uint64(data.Entries[0].Value) != 1 || len(data.Entries[1].Value) == 0 || !strings.Contains(string(data.Entries[2].Value), `"entries":1`) {
+		t.Fatalf("replay/accounting changed: %+v", data)
+	}
+	t.Log("real shard outcome replayed after ownership movement without duplicate application; changed digest and capacity rejected")
+}
 
 type config struct {
 	PhaseTimeout   int    `json:"phase_timeout_seconds"`
@@ -327,4 +412,51 @@ func TestPartitionNativeObsoleteOpenCompletion(t *testing.T) {
 		t.Fatal("obsolete completion replaced current readiness")
 	}
 	t.Log("late old completion closed without losing current owner acknowledgments")
+}
+
+// delayStart schedules the real Open after a replacement writer has committed.
+// This is distinct from holding delivery of an already-opened native handle.
+type delayStart struct {
+	p.Engine
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (e *delayStart) unblock() { e.once.Do(func() { close(e.release) }) }
+func (e *delayStart) Open(ctx context.Context, request p.OpenRequest) (p.Writer, error) {
+	close(e.entered)
+	<-e.release
+	return e.Engine.Open(ctx, request)
+}
+func TestPartitionNativeLateOpenFencesCurrent(t *testing.T) {
+	f := newFixture(t)
+	delayed := &delayStart{Engine: f.engine, entered: make(chan struct{}), release: make(chan struct{})}
+	a := f.service(ownerA, delayed)
+	t.Cleanup(delayed.unblock)
+	a.Poll()
+	select {
+	case <-delayed.entered:
+	case <-time.After(time.Duration(f.config.PhaseTimeout) * time.Second):
+		t.Fatal("old open was not dispatched")
+	}
+	f.move()
+	b := f.service(ownerB, f.engine)
+	oldB := f.ready(b)
+	f.write(oldB)
+	delayed.unblock()
+	f.wait(a, "obsolete actual open closed after fencing replacement", func(state p.State) bool { return state.Phase == p.Idle && state.Handle() == 0 })
+	ctx, cancel := context.WithTimeout(f.ctx, time.Duration(f.config.PhaseTimeout)*time.Second)
+	defer cancel()
+	_, err := oldB.ReadDurable(ctx, p.ReadRequest{Keys: [][]byte{[]byte(f.config.StateKey)}})
+	if !errors.Is(err, p.ErrFenced) && !errors.Is(err, p.ErrRetired) {
+		t.Fatalf("late open did not retire former B writer: %v", err)
+	}
+	oldB.report(err)
+	f.read(f.ready(b))
+	current := f.snapshot().Control().Partitions[partition]
+	if !current.Ready || current.Desired.Incarnation != ownerB || current.Generation < 3 {
+		t.Fatalf("current owner did not recover after finite obsolete open: %+v", current)
+	}
+	t.Log("late actual native open fenced replacement; obsolete opener retired and current owner recovered acknowledged state")
 }

@@ -159,3 +159,34 @@ func TestShardChecksAuthorityAndPreservesNativeFailure(t *testing.T) {
 		t.Fatal("uncertain failure acknowledged")
 	}
 }
+
+func TestLegacyOperationReferenceReplaysWithoutRewriting(t *testing.T) {
+	w := &testWriter{durable: map[string][]byte{}}
+	s, err := NewService(w, "prt_0000000000000000000001", 1, func(context.Context) error { return nil }, func(error) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := shardRequest()
+	r.OperationId = "550e8400-e29b-41d4-a716-446655440000"
+	before, err := s.Execute(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered := &testWriter{durable: maps.Clone(w.durable)}
+	s, err = NewService(recovered, s.partition, 1, func(context.Context) error { return nil }, func(error) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.Execute(context.Background(), r)
+	if err != nil || !proto.Equal(before, after) {
+		t.Fatalf("legacy replay: %v %v", after, err)
+	}
+	if binary.BigEndian.Uint64(recovered.durable["v1/outcome_count"]) != 1 {
+		t.Fatal("legacy operation duplicated")
+	}
+	for key := range w.durable {
+		if _, ok := recovered.durable[key]; !ok {
+			t.Fatalf("legacy key rewritten: %s", key)
+		}
+	}
+}

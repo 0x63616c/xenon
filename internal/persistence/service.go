@@ -38,7 +38,7 @@ func NewService(writer partitions.Writer, partition identity.PartitionID, limit 
 }
 
 func (s *Service) Execute(ctx context.Context, request *wire.ShardRequest) (result *wire.ShardResult, err error) {
-	if request == nil || request.ProtocolVersion != 1 || request.Partition != string(s.partition) || identity.OperationID(request.OperationId).Validate() != nil || request.Command == nil || len(request.Command.Data) > 1024*1024 {
+	if request == nil || request.ProtocolVersion != 1 || request.Partition != string(s.partition) || identity.ValidateOperationReference(request.OperationId) != nil || request.Command == nil || len(request.Command.Data) > 1024*1024 {
 		return nil, status.Error(codes.InvalidArgument, "invalid shard request")
 	}
 	request = proto.Clone(request).(*wire.ShardRequest)

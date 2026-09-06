@@ -19,6 +19,12 @@
     "assign_b_drain_a_open_b_read_acknowledged_state_and_outcome",
     "separate_case_delay_actual_a_open_completion",
     "replace_coordinator_assign_b_native_write_durable",
-    "release_old_a_completion_assert_no_ready_and_b_data_unchanged"
+    "release_old_a_completion_assert_no_ready_and_b_data_unchanged",
+    "third_case_real_shard_service_create_and_durable_outcome",
+    "move_native_writer_replay_same_shard_operation",
+    "reject_changed_digest_and_exhausted_capacity_verify_one_outcome",
+    "fourth_case_delay_a_before_native_open",
+    "b_ready_and_acknowledged_then_old_a_actually_opens",
+    "old_a_retired_b_observes_fence_reopens_and_recovers"
   ]
 }
