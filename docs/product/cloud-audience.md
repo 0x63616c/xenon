@@ -65,7 +65,7 @@ Conduct six to eight interviews across independent teams, starting with existing
 
 Record observed behavior separately from expressed interest. A compliment about the headline is not buying evidence. Quote a concrete service scope and price only after understanding operating costs and support obligations; do not fabricate a price or infer willingness to pay.
 
-Proposed discovery gate: at least three independent teams describe both a hard account constraint and recurring operational pain; at least two identify a buyer and agree to scope a representative pilot. These are internal learning gates, not market-size statistics. A pilot starts only after the necessary runtime, access and security requirements pass. Stop or revise the hypothesis if existing alternatives satisfy policy, acceptable management access cannot be agreed, or adopting a new engine adds more risk than the operational benefit removes.
+Proposed discovery gate: at least three independent teams describe both a hard account constraint and recurring operational pain; at least two identify a buyer and agree to scope a representative pilot. These are internal learning gates, not market-size statistics. A pilot starts only after the necessary runtime, access and security requirements pass. Explicitly scope it to new namespaces/workloads, or prove migration of existing histories and rollback; SDK compatibility alone does not establish migration safety. Stop or revise the hypothesis if existing alternatives satisfy policy, acceptable management access cannot be agreed, or adopting a new engine adds more risk than the operational benefit removes.
 
 ## Website draft
 
