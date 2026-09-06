@@ -27,7 +27,7 @@ The original-corpus fuzz attempt at `90327c9` passed real Nexus readiness across
 
 The real mixed run at `50d12aa` failed during the workload: a retrying heartbeat activity exhausted its attempts, before the history oracle ran. The reviewed execution-durability change passed the integrated storage checks; its effect on that workload still needs a rerun. The oracle accounts for 240 baseline parent/child runs and 480 Nexus handler runs.
 
-The visibility-movement attempt at `ed7cd1e` reached its existing deadline while seeding the frozen dataset, before any movement. Bounded seeding across the four independent partitions is now implemented and race-tested; a new live run is in progress at this checkpoint. Remaining native cut stages and complete measurement scenarios are not implied by the passing smoke.
+The visibility-movement attempt at `ed7cd1e` reached its existing deadline while seeding the frozen dataset, before any movement. Bounded seeding across the four independent partitions is implemented and race-tested. Its live rerun at `ec92f15` still reached the unchanged seed deadline, retaining exactly448 acknowledged records per partition (1792 total); movement did not execute. The remaining per-operation cost is under investigation. Remaining native cut stages and complete measurement scenarios are not implied by the passing smoke.
 
 The repository's `docs/design/verification-matrix.md` retains exact component receipts and the integration ledger.
 

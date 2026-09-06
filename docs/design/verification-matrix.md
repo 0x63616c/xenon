@@ -98,3 +98,6 @@ Reviewed execution change `e760cea`, with recovery controls `dff9322` and `67ff6
 The expanded site at `32a8ba9` passed39 responsive page checks. Independently reviewed Temporal deep-dive article `a077d96` passed42 page checks and precise source-link review. These are site/source-tour results, not storage acceptance. Public deployment remains disabled.
 
 The integrated visibility-movement controls also passed all three race commands at `a9246e0` (`20260906T013547Z-visibility-movement-c4cc87ed/result.json`). The corrected-fuzz runner passed its controls; see exact receipt `20260906T013342Z-corrected-fuzz-controls-d8809c0c/result.json` for the source binding.
+
+
+The parallel-seed rerun at `ec92f15`, `20260906T013631Z-xenon-ministack-65f9430e5756/result.json`, is FAILED before movement. Its retained `visibility-before-movement.json` records448 acknowledged inserts in each partition (1792 total) before the unchanged15-minute context expired. This narrows the remaining issue to per-operation cost; it does not prove a particular flush or scheduling cause. The frozen mixed workload is now rerunning on that same reviewed execution source.
