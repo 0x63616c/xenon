@@ -358,17 +358,20 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		}
 		return err
 	}
-	defer func() { mu.Lock(); sealed = true; primary = errors.Join(primary, trace.Close()); mu.Unlock() }()
+	// Observe the same latch at every phase boundary. Drivers may emit recovery
+	// observations until Cleanup has drained; ignoring emit's error cannot pass.
+	traceError := func() error { mu.Lock(); defer mu.Unlock(); return traceFailure }
 	phase := "run"
 	primary, pending := bounded(operation, r.Clock, end.Sub(r.Clock.Now()), func(c context.Context) error { return r.Driver.Run(c, cloneScenario(s), emit) })
-	mu.Lock()
-	if traceFailure != nil {
-		primary = traceFailure
+	if err := traceError(); err != nil {
+		primary = err
 	}
-	mu.Unlock()
 	if primary == nil {
 		phase = "settle"
-		primary, pending = bounded(ctx, r.Clock, min(cfg.SettleBudget, end.Sub(r.Clock.Now())), r.Driver.Settle)
+		primary, pending = bounded(operation, r.Clock, min(cfg.SettleBudget, end.Sub(r.Clock.Now())), r.Driver.Settle)
+		if err := traceError(); err != nil {
+			primary = err
+		}
 		detail.Settled = primary == nil
 	}
 	if primary != nil {
@@ -379,6 +382,9 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	}
 	cleanupEnd := r.Clock.Now().Add(cfg.CleanupBudget)
 	cleanup, cleanupPending := bounded(context.Background(), r.Clock, cfg.CleanupBudget, r.Driver.Cleanup)
+	if err := traceError(); err != nil && primary == nil {
+		cleanup = errors.Join(err, cleanup)
+	}
 	detail.Cleaned = cleanup == nil
 	if cleanup != nil {
 		detail.Secondary = append(detail.Secondary, cleanup.Error())
@@ -393,6 +399,26 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		if done != nil && joinPending(r.Clock, done, cleanupEnd.Sub(r.Clock.Now())) != nil {
 			detail.Secondary = append(detail.Secondary, ErrPending.Error())
 			primary = errors.Join(primary, ErrPending)
+		}
+	}
+	// Seal under the same lock used by emit, after all bounded drain attempts.
+	// No observation can race the final latch check or alter a finished trace.
+	mu.Lock()
+	sealed = true
+	finalTraceError, closeErr := traceFailure, trace.Close()
+	mu.Unlock()
+	if primary == nil && (finalTraceError != nil || closeErr != nil) {
+		primary = errors.Join(finalTraceError, closeErr)
+		detail.FailurePhase = "cleanup"
+		detail.FirstFailure = primary.Error()
+		detail.Cleaned = false
+		primary = errors.Join(primary, save(filepath.Join(dir, "failure.json"), detail))
+	} else {
+		for _, secondary := range []error{finalTraceError, closeErr} {
+			if secondary != nil && !errors.Is(primary, secondary) {
+				detail.Secondary = append(detail.Secondary, secondary.Error())
+				primary = errors.Join(primary, secondary)
+			}
 		}
 	}
 	return detail, primary

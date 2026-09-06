@@ -87,7 +87,9 @@ honor cancellation. Cleanup must safely stop/drain outstanding Run/Settle work.
 Each run saves configuration and provenance, then each request and the exact
 expanded scenario with its hash before driver launch. Evidence files are
 create-only; directories/files are synced, and observations append to a bounded
-synced JSON-lines trace. The first observed run/settle failure is synced before
+synced JSON-lines trace. Observations remain valid through settling and cleanup;
+the error latch is checked after every phase and atomically when sealing the
+trace, so ignored observation errors cannot count as a passing case. The first observed run/settle failure is synced before
 cleanup starts. Cleanup errors are secondary and cannot turn a failure into a
 pass. Unresolved goroutines report `ErrPending` (process exit required), with no
 new case launched and late trace writes refused. The runner cannot safely kill

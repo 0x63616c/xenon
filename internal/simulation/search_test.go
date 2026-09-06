@@ -382,3 +382,49 @@ func TestCoupledFailureReplaysExactSavedBadEffect(t *testing.T) {
 		t.Fatal("failure changed", firstErr, replayErr)
 	}
 }
+
+func TestRecoveryTraceFailuresCannotPass(t *testing.T) {
+	for _, phase := range []string{"settle", "cleanup"} {
+		t.Run(phase, func(t *testing.T) {
+			var emit func(json.RawMessage) error
+			var r *Runner
+			driver := testDriver{run: func(_ context.Context, _ Scenario, observe func(json.RawMessage) error) error {
+				emit = observe
+				return nil
+			}}
+			fail := func(context.Context) error { _ = emit(json.RawMessage(`invalid`)); return nil }
+			if phase == "settle" {
+				driver.settle = fail
+				driver.cleanup = func(context.Context) error {
+					// Settling failure must be durable before cleanup is allowed to begin.
+					if _, err := os.Stat(filepath.Join(r.Directory, "case-00000000000000000000", "failure.json")); err != nil {
+						return err
+					}
+					return nil
+				}
+			} else {
+				driver.cleanup = fail
+			}
+			r = testRunner(t, driver)
+			result, err := Search(context.Background(), searchConfig(), &testGenerator{}, r)
+			if err == nil || result.Completed != 0 || result.StopReason != "first_failure" {
+				t.Fatal("invalid recovery trace passed", result, err)
+			}
+			raw, _ := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", "result.json"))
+			var detail caseResult
+			_ = json.Unmarshal(raw, &detail)
+			if detail.FailurePhase != phase || detail.FirstFailure == "" {
+				t.Fatal(string(raw))
+			}
+			if phase == "settle" && detail.Settled {
+				t.Fatal("failed trace marked settled")
+			}
+			if phase == "cleanup" && detail.Cleaned {
+				t.Fatal("failed trace marked cleaned")
+			}
+			if err := emit(json.RawMessage(`{"late":true}`)); err == nil {
+				t.Fatal("finished trace still writable")
+			}
+		})
+	}
+}
