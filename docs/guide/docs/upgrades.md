@@ -38,4 +38,6 @@ Keep adaptation concentrated in the existing seams. Do not add placeholder succe
 
 An empty prefix is not an upgrade test. A fresh-install pass cannot promote existing-state compatibility. Rollback and mixed-version operation require their own explicit policy and evidence.
 
-The current tool provides source-impact inventory and orchestration guidance. An automated old-build/target-build migration fixture runner is not yet supplied, and no new Temporal version is proven by the tooling itself.
+The repository includes an automated old-build/target-build workflow component runner. At Xenon commit `5678ef8dfa687beb2c22b41771d614c2bb2257e4`, [hosted run 34017104608](https://github.com/0x63616c/xenon/actions/runs/34017104608) passed the component for Temporal Server `v1.31.1` to `v1.31.2`. It preserved completed history hashes and continued the original active RunID after a cold target start against the same MinIO objects.
+
+That receipt covers one existing-state workflow component for that exact version pair. It does not prove fresh install, full fixture coverage, mixed-version operation, rollback, unified-agent upgrade or real S3. See the [full upgrade runbook on GitHub](https://github.com/0x63616c/xenon/blob/main/docs/temporal-upgrades.md) for the commands, retained artifact and remaining gates.

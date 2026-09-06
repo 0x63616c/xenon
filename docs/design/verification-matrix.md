@@ -59,20 +59,21 @@ The saved twenty inputs and one-hour/two-round soak contract remain unchanged.
 
 Temporal upgrade impact tooling and a project-local skill are integrated. Fixture
 controls passed; path classification is a review inventory, not upgrade
-compatibility. No new Temporal version has been adopted or verified.
+compatibility. The later pinned `v1.31.1` to `v1.31.2` workflow component result
+below does not adopt a new default Temporal version or establish full upgrade
+compatibility.
 
-Duplicate component PRs are being closed only after ancestry/patch accounting
-against #66. #55 then #66 retain the merge path; `main` is still `457fad9`, not the
-integration branch. CI billing and authorized real-AWS access remain external
-gates. The website/docs are now explicitly in user-authorized scope (#78); Xenon
-is currently private/proprietary with no open-source release commitment.
+At that checkpoint, duplicate component PRs were being closed only after
+ancestry/patch accounting against #66, with #55 then #66 retaining the merge path.
+The website/docs were explicitly in user-authorized scope (#78); Xenon remained
+private/proprietary with no open-source release commitment.
 
 
 ### Integrated verification checkpoint: original fuzz corpus incompatibility
 
 At `90327c9`, clean runtime `20260905T233427Z-xenon-ministack-71ee471f700a` passed pinned Node/build/startup and real Nexus readiness on all four history shards. The first original saved fuzz input (`2026090501.proto`) then reached its unchanged 900-second timeout; the soak and runtime receipts remain **FAILED**, with successful cleanup. No corpus round completed. Read-only history diagnosis observed three signals, the upsert and fired timers, but no child/Nexus actions or workflow completion. Pinned Omes generator/Go-worker inspection identified missing signal-acceptance metadata: numbered signals carrying actions and the final return were skipped. This is not an S3 durability failure receipt. Original corpus bytes remain unchanged; a separately versioned correction is pending actual worker controls and runtime verification.
 
-Next integration `51e5e79` adds the reviewed external recorder lifecycle, upgrade-state runner and candidate mixed history oracle. The combined Python harness passes 63 controls. Clean recorder proof `20260905T235019Z-recorder-lifecycle-e7720697` passes all six commands; mixed baseline oracle proof `20260905T234716Z-mixed-oracle-bc31b7c9` passes synthetic controls. Independent source review found that Nexus handler runs must be included separately from the 240 baseline parent/child runs; that correction remains pending, so these controls do not establish mixed runtime acceptance. The upgrade runner has ten passing controls but no actual old/target version pair has been executed. CI billing and authorized real-AWS resources remain external gates.
+Next integration `51e5e79` adds the reviewed external recorder lifecycle, upgrade-state runner and candidate mixed history oracle. The combined Python harness passes 63 controls. Clean recorder proof `20260905T235019Z-recorder-lifecycle-e7720697` passes all six commands; mixed baseline oracle proof `20260905T234716Z-mixed-oracle-bc31b7c9` passes synthetic controls. Independent source review found that Nexus handler runs must be included separately from the 240 baseline parent/child runs; that correction remains pending, so these controls do not establish mixed runtime acceptance. At `5678ef8`, [hosted run 34017104608](https://github.com/0x63616c/xenon/actions/runs/34017104608) passed the pinned Temporal Server `v1.31.1` to `v1.31.2` existing-state workflow component. Artifact `temporal-upgrade-v1.31.1-v1.31.2` (`9984374814`) records matching completed histories and continuation of the original active RunID after a cold target start. Fresh install, queue/cursor fixtures, tombstones, journal replay identities, mixed versions, rollback, unified-agent upgrade and real S3 remain **NOT_TESTED**. This component result does not establish full upgrade acceptance. Authorized real-AWS access remains an external gate.
 
 
 ### Passing real workflow durability cut and cold smoke
