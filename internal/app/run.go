@@ -12,7 +12,7 @@ import (
 	"github.com/0x63616c/xenon/internal/buildinfo"
 	"github.com/0x63616c/xenon/internal/observability"
 	"github.com/0x63616c/xenon/internal/storage"
-	"github.com/0x63616c/xenon/internal/temporalruntime"
+	"github.com/0x63616c/xenon/internal/temporal"
 )
 
 // Run starts one foreground Xenon instance under the caller's cancellation.
@@ -21,7 +21,7 @@ func Run(ctx context.Context, c agent.Config) error {
 	if err := ValidateServiceLayout(c); err != nil {
 		return err
 	}
-	t, err := temporalruntime.New(c)
+	t, err := temporal.New(c)
 	if err != nil {
 		return err
 	}

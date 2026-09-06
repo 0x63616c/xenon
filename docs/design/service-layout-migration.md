@@ -21,9 +21,20 @@ Active experiment inputs and the native composition runner reference the sole
 implementation in `internal/persistence`; historical evidence retains its
 original source hashes.
 
+The upstream Temporal embedding boundary now lives in
+`internal/temporal/service.go`, with `service_test.go` and the byte-identical
+embedded `default.json` beside it. Both production consumers (`internal/app` and
+`cmd/xenon` configuration validation) import the new package directly. The old
+`internal/temporalruntime` package has no forwarding shim. Runtime construction,
+startup, readiness, shutdown and generated settings are unchanged. Adapter and
+factory packages remain a separate migration. Agent profile receipts hash every
+tracked source and asset, so they automatically include these new paths; no active
+manifest enumerated the former runtime paths. Historical receipt hashes are
+unchanged. The Temporal upgrade impact inventory now includes this boundary.
+
 This is not completion of the required repository layout. Remaining concrete
 moves include `internal/adapter` and `internal/temporalstore` into
-`internal/temporal/adapter`, `internal/temporalruntime` into `internal/temporal`,
+`internal/temporal/adapter`,
 agent/storage assembly into `internal/app`, protobuf source/generated bindings
 into `api/xenon/v1`, and retirement or relocation of the old native node and
 ownership compatibility runtime with its native tests. The node operation-family
@@ -48,3 +59,11 @@ python3 scripts/check-layout.py
 
 Use the pinned native loader environment when linking simulation's historical
 owner dependencies; these focused tests open no native engine or external service.
+
+The Temporal embedding relocation runs the existing configuration/index-consistency,
+app layout, and CLI suites with `go test -race ./internal/temporal ./internal/app
+./cmd/xenon -count=1` under the same native loader environment. The embedded
+configuration and test bodies are byte-identical after the package-name change;
+service code differs only in package and upstream import naming. Manifest checks
+and the Temporal upgrade inventory test cover the operational references. This
+component validation does not rerun an embedded Temporal cluster.

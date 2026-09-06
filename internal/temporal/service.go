@@ -1,5 +1,5 @@
-// Package temporalruntime is the version-sensitive embedding boundary.
-package temporalruntime
+// Package temporal is the version-sensitive embedding boundary.
+package temporal
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/0x63616c/xenon/internal/temporalstore"
 	"go.temporal.io/server/common/cluster"
 	"go.temporal.io/server/common/config"
-	"go.temporal.io/server/temporal"
+	temporalserver "go.temporal.io/server/temporal"
 	"go.yaml.in/yaml/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -55,7 +55,7 @@ func Configuration(c agent.Config) (*config.Config, error) {
 }
 
 type Runtime struct {
-	server     temporal.Server
+	server     temporalserver.Server
 	address    string
 	connection *grpc.ClientConn
 	config     *config.Config
@@ -72,7 +72,7 @@ func New(c agent.Config) (*Runtime, error) {
 func (r *Runtime) Start(context.Context) error {
 	// Fx construction can access persistence. It belongs inside the agent's
 	// bounded startup, after storage readiness, rather than in the constructor.
-	s, err := temporal.NewServer(temporal.WithConfig(r.config), temporal.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporal.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporal.ForServices(temporal.DefaultServices))
+	s, err := temporalserver.NewServer(temporalserver.WithConfig(r.config), temporalserver.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporalserver.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporalserver.ForServices(temporalserver.DefaultServices))
 	if err != nil {
 		return err
 	}

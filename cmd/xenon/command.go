@@ -11,7 +11,7 @@ import (
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
 	"github.com/0x63616c/xenon/internal/simulation"
-	"github.com/0x63616c/xenon/internal/temporalruntime"
+	"github.com/0x63616c/xenon/internal/temporal"
 	"github.com/spf13/cobra"
 )
 
@@ -65,7 +65,7 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 			if err = app.ValidateServiceLayout(c); err != nil {
 				return err
 			}
-			if _, err = temporalruntime.Configuration(c); err != nil {
+			if _, err = temporal.Configuration(c); err != nil {
 				return err
 			}
 			if name == "check-config" {

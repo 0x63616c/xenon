@@ -1,4 +1,4 @@
-package temporalruntime
+package temporal
 
 import (
 	"github.com/0x63616c/xenon/internal/agent"

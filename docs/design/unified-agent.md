@@ -61,7 +61,7 @@ an internal readiness flag.
 ## Small integration boundaries
 
 - `internal/agent` assembles lifecycle and customer configuration.
-- `internal/temporalruntime` owns upstream configuration and server embedding.
+- `internal/temporal` owns upstream configuration and server embedding.
 - `internal/temporalstore` and `internal/adapter` adapt persistence contracts.
 - `internal/storage` assembles ownership, routing and the current embedded engine.
 - `internal/node` still implements operation semantics using native transactions.
