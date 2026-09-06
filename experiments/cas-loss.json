@@ -19,7 +19,9 @@
     "cmd/xenon-s3-meter/main.go",
     "deploy/s3-meter.compose.yaml",
     "proof/s3-meter/case.json",
-    "proof/s3-meter/cas-loss.md"
+    "proof/s3-meter/cas-loss.md",
+    "scripts/ministack-runtime.py",
+    "test/scenarios/ministack/lost-directory-cas.json"
   ],
   "fault_schedule": "Arm one exact directory partition/node/incarnation conditional PUT. Observe real upstream2xx+ETag, Sync receipt, abort downstream beforeheaders, observe exactGETbytes and matchingREADY transition.",
   "assertions": [

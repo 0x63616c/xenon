@@ -25,6 +25,8 @@ type CASSelector struct {
 	Incarnation string `json:"incarnation"`
 }
 type CASReceipt struct {
+	SuccessUnixNano      int64       `json:"success_unix_nano,omitempty"`
+	AbortUnixNano        int64       `json:"abort_unix_nano,omitempty"`
 	Schema               int         `json:"schema"`
 	Selector             CASSelector `json:"selector"`
 	State                string      `json:"state"`
@@ -117,7 +119,7 @@ func (c *casLoss) prepare(r *http.Request) (bool, error) {
 		_ = c.save()
 		return false, nil
 	}
-	if r.ContentLength < 0 || r.ContentLength > casBodyLimit || r.Header.Get("Content-Encoding") != "" {
+	if len(r.Header.Get("If-Match")) > 256 || r.ContentLength < 0 || r.ContentLength > casBodyLimit || r.Header.Get("Content-Encoding") != "" {
 		c.receipt.State = "failed"
 		c.receipt.Error = "unsupported_directory_body_framing"
 		_ = c.save()
@@ -152,10 +154,11 @@ func (c *casLoss) after(r *http.Request, response *http.Response, selected bool)
 	if selected {
 		c.receipt.UpstreamStatus = response.StatusCode
 		c.receipt.ETag = response.Header.Get("ETag")
-		if response.StatusCode < 200 || response.StatusCode >= 300 || c.receipt.ETag == "" {
+		if response.StatusCode < 200 || response.StatusCode >= 300 || (c.receipt.ETag == "" || len(c.receipt.ETag) > 256) {
 			c.receipt.Error = "selected_CAS_not_successful"
 			return c.save()
 		}
+		c.receipt.SuccessUnixNano = time.Now().UnixNano()
 		c.receipt.State = "successful_response_dropped"
 		// Sync the real upstream success before closing the downstream connection.
 		if e := c.save(); e != nil {
@@ -257,6 +260,7 @@ func (c *casLoss) observeAbort() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.receipt.State == "successful_response_dropped" && !c.receipt.HandlerAbortObserved {
+		c.receipt.AbortUnixNano = time.Now().UnixNano()
 		c.receipt.HandlerAbortObserved = true
 		_ = c.save()
 	}
