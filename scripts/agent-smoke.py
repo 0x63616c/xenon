@@ -89,7 +89,7 @@ def main():
     sdk=ROOT/'.local/bin/xenon-sdk-probe';agent=ROOT/'.local/bin/xenon'
     def topology(name):
         path=receipt/name
-        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key','agent/metadata/registry/cluster/control',str(path)])
+        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key',agent_case['control_key'],str(path)])
         try:return decode_control(path.read_bytes(),json.loads((SCENARIO/'a.json').read_text()))
         except (ValueError,KeyError,TypeError) as e:raise ScenarioInvariant('invalid control: '+str(e)) from e
     def probe(mode,*flags):
@@ -249,6 +249,7 @@ def main():
         report['events'].append({'event':'omes-visibility-and-ui-recovered-after-cold-restart','ui':report['ui_api_after_cold']})
         if run(['git','rev-parse','HEAD']).strip()!=report['revision']:raise RuntimeError('source revision changed')
         if not args.development and run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('source changed')
+        check_children(children,expected_stops,child_names)
         report['status']='development-passed' if args.development else 'component-passed'
     except BaseException as e:report['error']=type(e).__name__+': '+str(e)
     finally:
