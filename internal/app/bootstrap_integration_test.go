@@ -1,6 +1,6 @@
 //go:build integration_s3
 
-package storage
+package app
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/ownership"
@@ -64,8 +63,8 @@ func (f *bootstrapTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 func bootstrapClient(endpoint string, transport http.RoundTripper) *s3.Client {
 	return s3.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("xenon-local", "xenon-local-test-only", ""), HTTPClient: &http.Client{Transport: transport}, RetryMaxAttempts: 1}, func(o *s3.Options) { o.BaseEndpoint = aws.String(endpoint); o.UsePathStyle = true })
 }
-func bootstrapConfig(bucket, prefix string) agent.Config {
-	return agent.Config{Cluster: "cluster", Node: "display-node", Bucket: bucket, Prefix: prefix, BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: 17230, PublicAddress: "localhost:17233", PublicHTTPAddress: "localhost:18233", HistoryShards: 4, Bootstrap: true, ServiceStorage: &agent.ServiceStorageConfig{Format: 2, ClusterID: "clu_0000000000000000000001", NodeID: "nod_0000000000000000000001", Layout: cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: []cluster.PhysicalPartition{{LogicalName: "global", ID: "prt_0000000000000000000001", Path: prefix + "/data/global"}, {LogicalName: "history-0", ID: "prt_0000000000000000000002", Path: prefix + "/data/history-0"}}}, FreshNamespace: true, PollInterval: "100ms", HeartbeatInterval: "1s", DiscoveryInterval: "100ms", RegistryTimeout: "10s", RenewalInterval: "1s", SuspectAfter: "5s", MembershipFailureAfter: "5s", MaxControlBytes: 1 << 20, MaxMembershipBytes: 1 << 20, MaxMembershipEntries: 10, MembershipReadBatch: 2, MaxOutcomes: 1000}}
+func bootstrapConfig(bucket, prefix string) Config {
+	return Config{Cluster: "cluster", Node: "display-node", Bucket: bucket, Prefix: prefix, BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: 17230, PublicAddress: "localhost:17233", PublicHTTPAddress: "localhost:18233", HistoryShards: 4, Bootstrap: true, ServiceStorage: &ServiceStorageConfig{Format: 2, ClusterID: "clu_0000000000000000000001", NodeID: "nod_0000000000000000000001", Layout: cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: []cluster.PhysicalPartition{{LogicalName: "global", ID: "prt_0000000000000000000001", Path: prefix + "/data/global"}, {LogicalName: "history-0", ID: "prt_0000000000000000000002", Path: prefix + "/data/history-0"}}}, FreshNamespace: true, PollInterval: "100ms", HeartbeatInterval: "1s", DiscoveryInterval: "100ms", RegistryTimeout: "10s", RenewalInterval: "1s", SuspectAfter: "5s", MembershipFailureAfter: "5s", MaxControlBytes: 1 << 20, MaxMembershipBytes: 1 << 20, MaxMembershipEntries: 10, MembershipReadBatch: 2, MaxOutcomes: 1000}}
 }
 func TestS3FreshBootstrap(t *testing.T) {
 	var fixture struct {
@@ -87,10 +86,10 @@ func TestS3FreshBootstrap(t *testing.T) {
 	if _, err = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(fixture.Bucket)}); err != nil {
 		t.Fatal(err)
 	}
-	run := func(name string, fn func(*testing.T, agent.Config)) {
+	run := func(name string, fn func(*testing.T, Config)) {
 		t.Run(name, func(t *testing.T) { fn(t, bootstrapConfig(fixture.Bucket, "fresh/"+name)) })
 	}
-	run("fresh_and_restart", func(t *testing.T, c agent.Config) {
+	run("fresh_and_restart", func(t *testing.T, c Config) {
 		p, err := PrepareServiceStorage(ctx, c, client, identity.Generator{})
 		if err != nil {
 			t.Fatal(err)
@@ -126,7 +125,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("legacy runtime accepted new marker")
 		}
 	})
-	run("old_marker", func(t *testing.T, c agent.Config) {
+	run("old_marker", func(t *testing.T, c Config) {
 		old, _ := ownership.NewTopologyStore(client, c.Bucket, c.Prefix+"/metadata")
 		if err := ownership.EnsureCluster(ctx, old, ownership.ClusterManifest{Format: 1, Cluster: c.Cluster, HistoryShards: c.HistoryShards, LayoutVersion: 1, WireVersion: 1}, true); err != nil {
 			t.Fatal(err)
@@ -136,7 +135,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 		}
 	})
 	for _, kind := range []string{"data", "topology"} {
-		run("occupied_"+kind, func(t *testing.T, c agent.Config) {
+		run("occupied_"+kind, func(t *testing.T, c Config) {
 			key := c.Prefix + "/data/global/existing"
 			if kind == "topology" {
 				key = c.Prefix + "/metadata/topology.json"
@@ -152,7 +151,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			}
 		})
 	}
-	run("lost_manifest_response", func(t *testing.T, c agent.Config) {
+	run("lost_manifest_response", func(t *testing.T, c Config) {
 		fault := &bootstrapTransport{base: http.DefaultTransport, after: func() {}}
 		p, err := PrepareServiceStorage(ctx, c, bootstrapClient(fixture.Endpoint, fault), identity.Generator{})
 		if err != nil || p == nil {
@@ -162,7 +161,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("hidden manifest retries")
 		}
 	})
-	run("interrupted_initialization", func(t *testing.T, c agent.Config) {
+	run("interrupted_initialization", func(t *testing.T, c Config) {
 		cut, stop := context.WithCancel(ctx)
 		defer stop()
 		fault := &bootstrapTransport{base: http.DefaultTransport, after: stop}
@@ -173,7 +172,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("restart repaired missing control", err)
 		}
 	})
-	run("deleted_control", func(t *testing.T, c agent.Config) {
+	run("deleted_control", func(t *testing.T, c Config) {
 		if _, err := PrepareServiceStorage(ctx, c, client, identity.Generator{}); err != nil {
 			t.Fatal(err)
 		}
@@ -185,7 +184,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("persisted bootstrap flags recreated authority", err)
 		}
 	})
-	run("metadata_mismatch", func(t *testing.T, c agent.Config) {
+	run("metadata_mismatch", func(t *testing.T, c Config) {
 		if _, err := PrepareServiceStorage(ctx, c, client, identity.Generator{}); err != nil {
 			t.Fatal(err)
 		}
@@ -194,7 +193,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("history count mismatch accepted", err)
 		}
 	})
-	run("old_new_concurrent", func(t *testing.T, c agent.Config) {
+	run("old_new_concurrent", func(t *testing.T, c Config) {
 		fault := &bootstrapTransport{base: http.DefaultTransport, barrier: true, release: make(chan struct{})}
 		racing := bootstrapClient(fixture.Endpoint, fault)
 		old, _ := ownership.NewTopologyStore(racing, c.Bucket, c.Prefix+"/metadata")
@@ -212,7 +211,7 @@ func TestS3FreshBootstrap(t *testing.T) {
 			t.Fatal("did not race both conditional claims")
 		}
 	})
-	run("new_new_concurrent", func(t *testing.T, c agent.Config) {
+	run("new_new_concurrent", func(t *testing.T, c Config) {
 		fault := &bootstrapTransport{base: http.DefaultTransport, barrier: true, release: make(chan struct{})}
 		racing := bootstrapClient(fixture.Endpoint, fault)
 		type result struct {

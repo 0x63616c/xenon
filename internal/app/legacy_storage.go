@@ -1,6 +1,6 @@
-// Package storage owns the embedded storage runtime. Native engine resources do
+// LegacyStorageRuntime retains the historical ownership-manager composition. Native engine resources do
 // not escape this boundary. Closing admission never frees an active native call.
-package storage
+package app
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
@@ -20,8 +19,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Runtime struct {
-	config   agent.Config
+type LegacyStorageRuntime struct {
+	config   Config
 	manager  *ownership.Manager
 	server   *grpc.Server
 	router   *routing.Router
@@ -33,15 +32,15 @@ type Runtime struct {
 	fatalErr error
 }
 
-func New(c agent.Config, events ...chan<- routing.Event) *Runtime {
-	r := &Runtime{config: c, serveErr: make(chan error, 1)}
+func NewLegacyStorageRuntime(c Config, events ...chan<- routing.Event) *LegacyStorageRuntime {
+	r := &LegacyStorageRuntime{config: c, serveErr: make(chan error, 1)}
 	if len(events) > 0 {
 		r.events = events[0]
 	}
 	return r
 }
 
-func (r *Runtime) Start(parent context.Context) error {
+func (r *LegacyStorageRuntime) Start(parent context.Context) error {
 	c := r.config
 	if c.ServiceStorage != nil {
 		return ErrServiceRuntimeUnavailable
@@ -93,16 +92,16 @@ func (r *Runtime) Start(parent context.Context) error {
 	return nil
 }
 
-func (r *Runtime) Ready(ctx context.Context) error {
+func (r *LegacyStorageRuntime) Ready(ctx context.Context) error {
 	r.errMu.Lock()
 	fatal := r.fatalErr
 	r.errMu.Unlock()
 	if fatal != nil {
-		return agent.Permanent(fatal)
+		return Permanent(fatal)
 	}
 	select {
 	case err := <-r.serveErr:
-		return agent.Permanent(fmt.Errorf("storage listener stopped: %w", err))
+		return Permanent(fmt.Errorf("storage listener stopped: %w", err))
 	default:
 	}
 	if r.manager == nil {
@@ -130,7 +129,7 @@ func (r *Runtime) Ready(ctx context.Context) error {
 	}
 }
 
-func (r *Runtime) runMembership(ctx context.Context, membership *ownership.Membership) {
+func (r *LegacyStorageRuntime) runMembership(ctx context.Context, membership *ownership.Membership) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -153,7 +152,7 @@ func (r *Runtime) runMembership(ctx context.Context, membership *ownership.Membe
 	}
 }
 
-func (r *Runtime) Stop(ctx context.Context) error {
+func (r *LegacyStorageRuntime) Stop(ctx context.Context) error {
 	r.stop.Do(func() {
 		if r.server != nil {
 			r.server.Stop()

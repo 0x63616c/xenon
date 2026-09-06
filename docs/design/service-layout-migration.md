@@ -41,8 +41,33 @@ packages. Relative fixture and fallback-binary paths in the moved tests account
 for the extra directory level. Proof runners, expected Go test package names and
 active manifests use the new paths; historical evidence is untouched.
 
+The application now owns configuration, lifecycle and storage composition:
+
+| Former path | Consumed target |
+| --- | --- |
+| `internal/agent/config.go`, `service_config.go` and tests | `internal/app/` with unchanged JSON/defaults/validation |
+| `internal/agent/lifecycle.go` and tests | `internal/app/lifecycle.go`, retaining `Runtime` |
+| `internal/storage/bootstrap.go` and tests | `internal/app/bootstrap.go` and colocated tests |
+| `internal/storage/service_runtime.go` and tests | `internal/app/service_runtime.go`, retaining `ServiceRuntime` |
+| `internal/storage/runtime.go` | `internal/app/legacy_storage.go`, explicitly named `LegacyStorageRuntime` / `NewLegacyStorageRuntime` |
+| `internal/app/run.go` and test | `internal/app/app.go` and test |
+
+The old packages have no forwarding shims. The historical manager composition is
+retained, including its explicit refusal of service-mode configuration. Native
+pending calls, shutdown ordering, observation deadlines, bootstrap exclusion and
+cloned flush settings retain their existing tests and behavior.
+
+A narrow `internal/temporal.Config` owns only embedding settings. Both CLI
+validation and application startup call `app.Config.TemporalConfig()` to validate
+the complete application configuration before conversion. Temporal validates its
+own addresses/ports and no longer imports application configuration, avoiding an
+app-to-Temporal-to-app cycle. Baseline JSON hashes captured before the move at
+`810c489` cover complete generated upstream config for IPv4, IPv6 and maximum-port
+cases. The native default JSON is untouched. The bootstrap proof runner now
+executes the moved `internal/app` test; profiles still hash all tracked inputs.
+
 This is not completion of the required repository layout. Remaining concrete
-moves include agent/storage assembly into `internal/app`, protobuf source/generated bindings
+moves include protobuf source/generated bindings
 into `api/xenon/v1`, and retirement or relocation of the old native node and
 ownership compatibility runtime with its native tests. The node operation-family
 files already delegate semantics to persistence; they still bind the historical
@@ -85,3 +110,11 @@ cover Temporal configuration, storage, app, CLI and SDK probe. The native
 legacy `cmd/xenon-temporal` still compiles under its `ministack` build tag. Proof
 runner and upgrade-inventory tests verify the relocated runner package filters.
 No S3 or full-stack acceptance is inferred from these component checks.
+
+Application consolidation validation runs `go test -race ./internal/app
+./internal/temporal ./cmd/xenon` with the pinned native loader environment. This
+includes baseline configuration bytes, strict full-config conversion refusal,
+Temporal-owned validation, lifecycle pending-effect retention, service readiness,
+bootstrap exclusion and CLI packaged-config checks. The tagged S3 bootstrap suite
+is compiled in its new package; actual emulator/bootstrap reruns remain a separate
+integration proof.

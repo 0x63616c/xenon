@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/0x63616c/xenon/internal/agent"
+	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
 )
 
@@ -47,7 +47,7 @@ func TestLightweightCommandsNeverStartBackend(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			var out, diagnostics bytes.Buffer
 			code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics,
-				func(context.Context, agent.Config) error { t.Fatal("backend started"); return nil })
+				func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 			if code != 0 || diagnostics.Len() != 0 || out.Len() == 0 {
 				t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
 			}
@@ -95,7 +95,7 @@ func TestCommandErrorsUseOnlyStderrAndDoNotStart(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			var out, diagnostics bytes.Buffer
 			code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics,
-				func(context.Context, agent.Config) error { t.Fatal("backend started"); return nil })
+				func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 			if code != 1 || out.Len() != 0 || diagnostics.Len() == 0 || strings.Contains(diagnostics.String(), "Usage:") {
 				t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
 			}
@@ -110,7 +110,7 @@ func TestStartReceivesValidatedConfigAndCallerCancellation(t *testing.T) {
 		var out, diagnostics bytes.Buffer
 		called := 0
 		code := execute(ctx, []string{"start", "--config", path}, forbiddenInput{t}, &out, &diagnostics,
-			func(actual context.Context, c agent.Config) error {
+			func(actual context.Context, c app.Config) error {
 				called++
 				if actual != ctx || c.ServiceStorage == nil || c.ServiceStorage.ClusterID == "" {
 					t.Fatal("lost context/config")
@@ -140,7 +140,7 @@ func TestCanceledInvocationCannotStart(t *testing.T) {
 	cancel()
 	var out, diagnostics bytes.Buffer
 	code := execute(ctx, []string{"start", "--config", configPath(t)}, forbiddenInput{t}, &out, &diagnostics,
-		func(context.Context, agent.Config) error { t.Fatal("canceled invocation started"); return nil })
+		func(context.Context, app.Config) error { t.Fatal("canceled invocation started"); return nil })
 	if code != 1 || out.Len() != 0 || diagnostics.String() != "context canceled\n" {
 		t.Fatal(code, &out, &diagnostics)
 	}
@@ -152,7 +152,7 @@ func (brokenOutput) Write([]byte) (int, error) { return 0, errors.New("output un
 func TestOutputFailureCannotStart(t *testing.T) {
 	var diagnostics bytes.Buffer
 	code := execute(context.Background(), []string{"start", "--config", configPath(t)}, forbiddenInput{t}, brokenOutput{}, &diagnostics,
-		func(context.Context, agent.Config) error { t.Fatal("started without startup output"); return nil })
+		func(context.Context, app.Config) error { t.Fatal("started without startup output"); return nil })
 	if code != 1 || diagnostics.String() != "output unavailable\n" {
 		t.Fatal(code, &diagnostics)
 	}
@@ -163,7 +163,7 @@ func TestOutputFailureCannotStart(t *testing.T) {
 func TestPackagedExamplePassesCLIValidation(t *testing.T) {
 	var out, diagnostics bytes.Buffer
 	code := execute(context.Background(), []string{"check-config", "--config", "../../deploy/agent.example.json"}, forbiddenInput{t}, &out, &diagnostics,
-		func(context.Context, agent.Config) error { t.Fatal("validation started backend"); return nil })
+		func(context.Context, app.Config) error { t.Fatal("validation started backend"); return nil })
 	if code != 0 || out.String() != "XENON_CONFIG_VALID\n" || diagnostics.Len() != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
 	}

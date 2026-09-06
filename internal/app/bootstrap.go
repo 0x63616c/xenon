@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/partitions"
@@ -52,7 +51,7 @@ func (m serviceManifest) matches(want serviceManifest) bool {
 // readback. It contains no reusable permission to create missing live authority.
 // Its accessors return owned copies; callers create all drivers from one capsule.
 type Prepared struct {
-	config   agent.Config
+	config   Config
 	owner    cluster.Owner
 	digest   [32]byte
 	store    *registrys3.Store
@@ -62,7 +61,7 @@ type Prepared struct {
 func (p *Prepared) Owner() cluster.Owner     { return p.owner }
 func (p *Prepared) Registry() registry.Store { return p.store }
 func (p *Prepared) Control() cluster.Control { return p.snapshot.Control() }
-func (p *Prepared) Config() agent.Config {
+func (p *Prepared) Config() Config {
 	c := p.config
 	s := c.ServiceStorage.Clone()
 	c.ServiceStorage = &s
@@ -122,7 +121,7 @@ func missingObject(err error) bool {
 // existing exact format2 manifest with valid control. It never overwrites a
 // legacy manifest or repairs missing control. This boundary does not open native
 // data, publish readiness, or install an RPC service.
-func PrepareServiceStorage(ctx context.Context, c agent.Config, client *s3.Client, ids identity.Source) (*Prepared, error) {
+func PrepareServiceStorage(ctx context.Context, c Config, client *s3.Client, ids identity.Source) (*Prepared, error) {
 	if ctx == nil || client == nil || ids == nil || c.ServiceStorage == nil {
 		return nil, ErrBootstrap
 	}

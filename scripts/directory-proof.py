@@ -48,7 +48,7 @@ def main():
             except OSError:
                 if time.monotonic()>=deadline: raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
-        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s",("./internal/storage" if bootstrap else ("./internal/registry/s3" if registry else "./internal/directory")),"-run",("^TestS3FreshBootstrap$" if bootstrap else ("^TestS3Registry$" if registry else "^TestS3Directory$"))],cwd=ROOT,env=env,timeout=200)
+        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s",("./internal/app" if bootstrap else ("./internal/registry/s3" if registry else "./internal/directory")),"-run",("^TestS3FreshBootstrap$" if bootstrap else ("^TestS3Registry$" if registry else "^TestS3Directory$"))],cwd=ROOT,env=env,timeout=200)
         if completed.returncode: raise RuntimeError("cross-language directory assertion failed")
     finally:
         execute([*compose,"down","--volumes"],env)

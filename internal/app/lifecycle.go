@@ -1,5 +1,5 @@
-// Package agent assembles the runtimes without depending on either engine.
-package agent
+// Application lifecycle retains component effects until completion.
+package app
 
 import (
 	"context"

@@ -60,10 +60,10 @@ an internal readiness flag.
 
 ## Small integration boundaries
 
-- `internal/agent` assembles lifecycle and customer configuration.
+- `internal/app` assembles lifecycle and customer configuration.
 - `internal/temporal` owns upstream configuration and server embedding.
 - `internal/temporal/adapter` adapts persistence contracts and supplies upstream factories.
-- `internal/storage` assembles ownership, routing and the current embedded engine.
+- `internal/app` also assembles ownership, routing and the current embedded engine.
 - `internal/node` still implements operation semantics using native transactions.
 - `internal/persistence` shares journal decisions with a controlled replay test.
 

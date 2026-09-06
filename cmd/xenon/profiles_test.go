@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
+	"github.com/0x63616c/xenon/internal/app"
 	"github.com/spf13/cobra"
 )
 
@@ -52,7 +52,7 @@ func TestRealProfileCommandsUseTypedExecutorAndCleanStreams(t *testing.T) {
 func TestRealProfileHelpNeverInitializesBackend(t *testing.T) {
 	for _, name := range []string{"smoke", "local-release-ten-minute"} {
 		var out, diagnostics bytes.Buffer
-		code := execute(context.Background(), []string{"test", name, "--help"}, forbiddenInput{t}, &out, &diagnostics, func(context.Context, agent.Config) error { t.Fatal("backend started"); return nil })
+		code := execute(context.Background(), []string{"test", name, "--help"}, forbiddenInput{t}, &out, &diagnostics, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 		if code != 0 || diagnostics.Len() != 0 || !strings.Contains(out.String(), "--repository") || !strings.Contains(out.String(), "Docker") {
 			t.Fatal(code, &out, &diagnostics)
 		}

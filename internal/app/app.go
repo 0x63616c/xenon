@@ -8,26 +8,28 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/buildinfo"
 	"github.com/0x63616c/xenon/internal/observability"
-	"github.com/0x63616c/xenon/internal/storage"
 	"github.com/0x63616c/xenon/internal/temporal"
 )
 
 // Run starts one foreground Xenon instance under the caller's cancellation.
 // Service storage is explicit; legacy namespaces require offline cutover.
-func Run(ctx context.Context, c agent.Config) error {
+func Run(ctx context.Context, c Config) error {
 	if err := ValidateServiceLayout(c); err != nil {
 		return err
 	}
-	t, err := temporal.New(c)
+	tc, err := c.TemporalConfig()
+	if err != nil {
+		return err
+	}
+	t, err := temporal.New(tc)
 	if err != nil {
 		return err
 	}
 	metrics := observability.New()
-	s := storage.NewServiceRuntime(c, metrics.Events)
-	r := &agent.Runtime{Storage: s, Temporal: t, StartupTimeout: 120 * time.Second, ShutdownTimeout: 30 * time.Second}
+	s := NewServiceRuntime(c, metrics.Events)
+	r := &Runtime{Storage: s, Temporal: t, StartupTimeout: 120 * time.Second, ShutdownTimeout: 30 * time.Second}
 	go metrics.Run(ctx)
 	var diagnostics *http.Server
 	if c.DiagnosticsAddress != "" {
@@ -49,9 +51,9 @@ func Run(ctx context.Context, c agent.Config) error {
 
 // ValidateServiceLayout checks the existing Temporal adapter domain contract
 // before any namespace claim. It never invents paths, IDs, ordering or a count.
-func ValidateServiceLayout(c agent.Config) error {
+func ValidateServiceLayout(c Config) error {
 	if c.ServiceStorage == nil {
-		return fmt.Errorf("%w: explicit service_storage format2 required", storage.ErrLegacyPrefix)
+		return fmt.Errorf("%w: explicit service_storage format2 required", ErrLegacyPrefix)
 	}
 	if err := c.Validate(); err != nil {
 		return err

@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/partitions"
@@ -17,7 +16,7 @@ import (
 )
 
 func TestServiceRuntimeRefusesLegacyAndStopIsIdempotent(t *testing.T) {
-	r := NewServiceRuntime(agent.Config{})
+	r := NewServiceRuntime(Config{})
 	if err := r.Start(context.Background()); !errors.Is(err, ErrLegacyPrefix) {
 		t.Fatal(err)
 	}
@@ -122,7 +121,7 @@ func TestHostStopRetainsPendingOpenAndReportsProcessExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := NewServiceRuntime(agent.Config{ServiceStorage: &agent.ServiceStorageConfig{Layout: layout}})
+	r := NewServiceRuntime(Config{ServiceStorage: &ServiceStorageConfig{Layout: layout}})
 	r.started = true
 	r.startAttempt = true
 	r.coordinator = coordinator
@@ -132,7 +131,7 @@ func TestHostStopRetainsPendingOpenAndReportsProcessExit(t *testing.T) {
 	stop, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	err = r.Stop(stop)
 	cancel()
-	if !errors.Is(err, agent.ErrProcessExitRequired) || len(driver.Snapshot().Pending()) == 0 || engine.calls.Load() != 1 {
+	if !errors.Is(err, ErrProcessExitRequired) || len(driver.Snapshot().Pending()) == 0 || engine.calls.Load() != 1 {
 		t.Fatal("pending open was freed or forgotten", err)
 	}
 	close(engine.release)
@@ -188,7 +187,7 @@ func TestReadinessPreservesParentBudgetAndPermanentFailure(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) || calls < 2 {
 		t.Fatal(err, calls)
 	}
-	for _, permanent := range []error{serviceerror.NewInvalidArgument("layout mismatch"), agent.Permanent(serviceerror.NewUnavailable("listener stopped")), context.Canceled} {
+	for _, permanent := range []error{serviceerror.NewInvalidArgument("layout mismatch"), Permanent(serviceerror.NewUnavailable("listener stopped")), context.Canceled} {
 		calls = 0
 		err = waitForReadiness(context.Background(), time.Millisecond, func(context.Context) error { calls++; return permanent })
 		if !errors.Is(err, permanent) || calls != 1 {
@@ -227,13 +226,13 @@ func TestReadinessRejectsSuccessAfterParentEnds(t *testing.T) {
 
 func TestServiceRuntimeFlushDiagnosticsOwnConfiguration(t *testing.T) {
 	ms := 10
-	config := agent.Config{ServiceStorage: &agent.ServiceStorageConfig{WALFlushIntervalMS: &ms}}
+	config := Config{ServiceStorage: &ServiceStorageConfig{WALFlushIntervalMS: &ms}}
 	runtime := NewServiceRuntime(config)
 	ms = 1000
 	if got := runtime.Diagnostics().WALFlushIntervalMS; got != 10 {
 		t.Fatal("configuration aliased", got)
 	}
-	if got := NewServiceRuntime(agent.Config{ServiceStorage: &agent.ServiceStorageConfig{}}).Diagnostics().WALFlushIntervalMS; got != 100 {
+	if got := NewServiceRuntime(Config{ServiceStorage: &ServiceStorageConfig{}}).Diagnostics().WALFlushIntervalMS; got != 100 {
 		t.Fatal("default changed", got)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/server/common/cluster"
 	"go.temporal.io/server/common/config"
@@ -22,7 +21,7 @@ import (
 var defaults []byte
 
 // Configuration is generated from Xenon settings; upstream config stays private.
-func Configuration(c agent.Config) (*config.Config, error) {
+func Configuration(c Config) (*config.Config, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -32,7 +31,7 @@ func Configuration(c agent.Config) (*config.Config, error) {
 	}
 	out.Persistence.NumHistoryShards = c.HistoryShards
 	for name, store := range out.Persistence.DataStores {
-		store.CustomDataStoreConfig.Options["address"] = c.Address(8)
+		store.CustomDataStoreConfig.Options["address"] = c.StorageAddress
 		out.Persistence.DataStores[name] = store
 	}
 	out.Global.Membership.BroadcastAddress = c.AdvertiseIP
@@ -61,12 +60,12 @@ type Runtime struct {
 	config     *config.Config
 }
 
-func New(c agent.Config) (*Runtime, error) {
+func New(c Config) (*Runtime, error) {
 	cfg, err := Configuration(c)
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{config: cfg, address: c.Address(0)}, nil
+	return &Runtime{config: cfg, address: c.Address()}, nil
 }
 
 func (r *Runtime) Start(context.Context) error {

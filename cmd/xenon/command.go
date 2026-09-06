@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
 	"github.com/0x63616c/xenon/internal/simulation"
@@ -17,7 +16,7 @@ import (
 
 // execute owns CLI diagnostics and the existing 0/1 exit convention. The runtime
 // owns bounded shutdown; a successful foreground shutdown remains exit 0.
-func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics io.Writer, start func(context.Context, agent.Config) error) int {
+func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics io.Writer, start func(context.Context, app.Config) error) int {
 	command := newCommand(in, out, diagnostics, start)
 	command.SetArgs(args)
 	if err := command.ExecuteContext(ctx); err != nil {
@@ -31,7 +30,7 @@ func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics 
 	return 0
 }
 
-func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Context, agent.Config) error) *cobra.Command {
+func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Context, app.Config) error) *cobra.Command {
 	root := &cobra.Command{
 		Use: "xenon", Short: "Run Temporal with S3-backed Xenon persistence",
 		SilenceErrors: true, SilenceUsage: true,
@@ -58,14 +57,18 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 			if path == "" {
 				return fmt.Errorf("--config FILE required")
 			}
-			c, err := agent.Load(path)
+			c, err := app.Load(path)
 			if err != nil {
 				return err
 			}
 			if err = app.ValidateServiceLayout(c); err != nil {
 				return err
 			}
-			if _, err = temporal.Configuration(c); err != nil {
+			tc, err := c.TemporalConfig()
+			if err != nil {
+				return err
+			}
+			if _, err = temporal.Configuration(tc); err != nil {
 				return err
 			}
 			if name == "check-config" {

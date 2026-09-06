@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/partitions"
@@ -30,7 +29,7 @@ import (
 // lifetimes, but delegates all routing, borrowing and authority checks to routing.
 // Start does not claim readiness: Ready executes a real routed durable operation.
 type ServiceRuntime struct {
-	config                                   agent.Config
+	config                                   Config
 	events                                   chan<- routing.Event
 	mu                                       sync.Mutex
 	startAttempt, started, stopping, stopped bool
@@ -51,7 +50,7 @@ type ServiceRuntime struct {
 	client *s3.Client
 }
 
-func NewServiceRuntime(c agent.Config, events ...chan<- routing.Event) *ServiceRuntime {
+func NewServiceRuntime(c Config, events ...chan<- routing.Event) *ServiceRuntime {
 	if c.ServiceStorage != nil {
 		copy := c.ServiceStorage.Clone()
 		c.ServiceStorage = &copy
@@ -292,7 +291,7 @@ func waitForReadiness(ctx context.Context, interval time.Duration, observe func(
 			return nil
 		}
 		last = err
-		var permanent *agent.PermanentError
+		var permanent *PermanentError
 		if errors.As(err, &permanent) {
 			return err
 		}
@@ -327,7 +326,7 @@ func (r *ServiceRuntime) readyOnce(ctx context.Context) error {
 	probe := r.probe
 	r.mu.Unlock()
 	if serveErr != nil {
-		return agent.Permanent(serveErr)
+		return Permanent(serveErr)
 	}
 	if err != nil {
 		return fmt.Errorf("membership registration: %w", err)
@@ -402,7 +401,7 @@ func (r *ServiceRuntime) Stop(ctx context.Context) error {
 		r.mu.Unlock()
 		return nil
 	}
-	incomplete := func(err error) error { return errors.Join(agent.ErrProcessExitRequired, err) }
+	incomplete := func(err error) error { return errors.Join(ErrProcessExitRequired, err) }
 	select {
 	case <-r.startDone:
 	case <-ctx.Done():

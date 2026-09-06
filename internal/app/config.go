@@ -1,4 +1,4 @@
-package agent
+package app
 
 import (
 	"bytes"
@@ -11,7 +11,25 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/0x63616c/xenon/internal/temporal"
 )
+
+// TemporalConfig validates the full application configuration before projecting
+// the immutable values consumed by Temporal. CLI validation and Run share this seam.
+func (c Config) TemporalConfig() (temporal.Config, error) {
+	if c.ServiceStorage != nil {
+		copy := c.ServiceStorage.Clone()
+		c.ServiceStorage = &copy
+	}
+	if err := c.Validate(); err != nil {
+		return temporal.Config{}, err
+	}
+	return temporal.Config{Cluster: c.Cluster, HistoryShards: c.HistoryShards,
+		BindIP: c.BindIP, AdvertiseIP: c.AdvertiseIP, BasePort: c.BasePort,
+		PublicAddress: c.PublicAddress, PublicHTTPAddress: c.PublicHTTPAddress,
+		StorageAddress: c.Address(8)}, nil
+}
 
 // Config contains customer configuration only. Credentials remain external.
 // Ports BasePort..BasePort+9 must be reachable between agents on a trusted network.

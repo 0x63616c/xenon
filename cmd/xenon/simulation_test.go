@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/0x63616c/xenon/internal/agent"
+	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/simulation"
 )
 
@@ -18,7 +18,7 @@ const coupledInput = "../../test/scenarios/simulation/coordinator-move.json"
 func runSimulationCLI(t *testing.T, ctx context.Context, args ...string) (int, simulationOutput, string) {
 	t.Helper()
 	var out, diagnostics bytes.Buffer
-	code := execute(ctx, args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, agent.Config) error {
+	code := execute(ctx, args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, app.Config) error {
 		t.Fatal("simulation command started server backend")
 		return nil
 	})
@@ -103,7 +103,7 @@ func TestSimulationCanceledAndBudgetAreNotPasses(t *testing.T) {
 func TestSimulationHelpDoesNotReadInputsOrStartBackend(t *testing.T) {
 	for _, args := range [][]string{{"test", "--help"}, {"test", "simulation", "--help"}, {"search", "--help"}, {"replay", "--help"}, {"generate", "workflow", "--help"}} {
 		var out, diagnostics bytes.Buffer
-		code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, agent.Config) error { t.Fatal("backend started"); return nil })
+		code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 		if code != 0 || diagnostics.Len() != 0 || !strings.Contains(out.String(), "Usage:") {
 			t.Fatal(code, &out, &diagnostics)
 		}

@@ -1,14 +1,13 @@
 package temporal
 
 import (
-	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/server/common/searchattribute"
 	"testing"
 )
 
 func TestGeneratedConfigurationKeepsTemporalBehindAgent(t *testing.T) {
-	c := agent.Config{Cluster: "example", Node: "node-a", Bucket: "bucket", Prefix: "cluster", BindIP: "0.0.0.0", AdvertiseIP: "10.0.0.1", BasePort: 17233, PublicAddress: "example:7233", PublicHTTPAddress: "example:7242", HistoryShards: 16}
+	c := Config{Cluster: "example", StorageAddress: "10.0.0.1:17241", BindIP: "0.0.0.0", AdvertiseIP: "10.0.0.1", BasePort: 17233, PublicAddress: "example:7233", PublicHTTPAddress: "example:7242", HistoryShards: 16}
 	cfg, err := Configuration(c)
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +25,7 @@ func TestGeneratedConfigurationKeepsTemporalBehindAgent(t *testing.T) {
 		}
 	}
 	for _, s := range cfg.Persistence.DataStores {
-		if s.CustomDataStoreConfig == nil || s.CustomDataStoreConfig.Options["address"] != c.Address(8) {
+		if s.CustomDataStoreConfig == nil || s.CustomDataStoreConfig.Options["address"] != c.StorageAddress {
 			t.Fatal("persistence bypasses local Xenon router")
 		}
 	}
@@ -47,7 +46,7 @@ func TestGeneratedConfigurationKeepsTemporalBehindAgent(t *testing.T) {
 // workflow validation uses the visibility store's index. They must be identical
 // before the first process starts, without relying on a later probe seed.
 func TestStartupSearchAttributeIndexMatchesVisibilityStore(t *testing.T) {
-	c := agent.Config{Cluster: "example", Node: "a", Bucket: "bucket", Prefix: "example", BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: 17233, PublicAddress: "127.0.0.1:17233", PublicHTTPAddress: "127.0.0.1:17242", HistoryShards: 4}
+	c := Config{Cluster: "example", StorageAddress: "127.0.0.1:17241", BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: 17233, PublicAddress: "127.0.0.1:17233", PublicHTTPAddress: "127.0.0.1:17242", HistoryShards: 4}
 	cfg, err := Configuration(c)
 	if err != nil {
 		t.Fatal(err)
