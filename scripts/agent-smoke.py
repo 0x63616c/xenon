@@ -28,6 +28,15 @@ def kill_and_collect(process):
     return process.communicate(timeout=10)
 
 
+def agent_ready(config, probe):
+    # Frontend health may precede completion of embedded Temporal startup.
+    # Require the app's storage + Temporal lifecycle readiness in the same wait.
+    with urllib.request.urlopen('http://'+config['diagnostics_address']+'/readyz',timeout=2) as response:
+        if response.status != 200 or response.read(64) != b'ready\n':
+            return False
+    return bool(probe('health','--address','127.0.0.1:'+str(config['base_port'])))
+
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');args=parser.parse_args()
     receipt=ROOT/'.local/evidence'/('agent-'+time.strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:6]);receipt.mkdir(parents=True)
@@ -141,9 +150,9 @@ def main():
         return {'port':ui_port}
     def start(name,label=None,wait_health=True):
         p=launch(label or name,[str(agent),'start','--config',str(SCENARIO/(name+'.json'))])
-        base=json.loads((SCENARIO/(name+'.json')).read_text())['base_port']
+        config=json.loads((SCENARIO/(name+'.json')).read_text())
         if wait_health:
-            wait(lambda:probe('health','--address','127.0.0.1:'+str(base)),120)
+            wait(lambda:agent_ready(config,probe),120)
             if p.poll() is not None:raise RuntimeError('agent exited '+name)
             report['events'].append({'event':'agent-healthy','node':name,'pid':p.pid})
         return p
@@ -240,8 +249,9 @@ def main():
         stop(worker)
         for p in [a,b,c]:stop(p)
         a=start('a','a-cold',False);b=start('b','b-cold',False);c=start('c','c-cold',False)
-        for name,base,p in [('a',18233,a),('b',19233,b),('c',21233,c)]:
-            wait(lambda base=base:probe('health','--address','127.0.0.1:'+str(base)),120)
+        for name,p in [('a',a),('b',b),('c',c)]:
+            config=json.loads((SCENARIO/(name+'.json')).read_text())
+            wait(lambda:agent_ready(config,probe),120)
             if p.poll() is not None:raise RuntimeError('cold agent exited '+name)
             report['events'].append({'event':'cold-agent-healthy','node':name,'pid':p.pid})
         after=receipt/'history-after';after.mkdir()

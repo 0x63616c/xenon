@@ -7,7 +7,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from types import SimpleNamespace
 import unittest
 
@@ -63,6 +63,21 @@ class AgentControlTests(unittest.TestCase):
         child.poll=lambda:0
         smoke.check_children([child],set(),{1:'omes'})
         with self.assertRaises(smoke.ScenarioInvariant):smoke.check_children([child],set(),{1:'worker'})
+
+    def test_frontend_health_alone_does_not_establish_agent_readiness(self):
+        response=MagicMock()
+        response.__enter__.return_value=response
+        probe=MagicMock(return_value=True)
+        with patch.object(smoke.urllib.request,'urlopen',return_value=response) as get:
+            response.status=503;response.read.return_value=b'not ready\n'
+            self.assertFalse(smoke.agent_ready(self.config,probe))
+            probe.assert_not_called()
+            response.status=200;response.read.return_value=b'ready\n'
+            self.assertTrue(smoke.agent_ready(self.config,probe))
+            get.assert_called_with('http://'+self.config['diagnostics_address']+'/readyz',timeout=2)
+            probe.assert_called_once_with('health','--address','127.0.0.1:'+str(self.config['base_port']))
+            probe.return_value=False
+            self.assertFalse(smoke.agent_ready(self.config,probe))
 
     def test_exit_between_poll_and_kill_still_reaps_and_keeps_output(self):
         child=subprocess.Popen([sys.executable,'-c',
