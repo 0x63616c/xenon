@@ -12,28 +12,45 @@
 
 # Xenon
 
-Experimental S3-backed persistence for Temporal.
+> ⚠️ **UNDER CONSTRUCTION** ⚠️
+> Xenon is experimental software in active development. It is not production-ready.
 
-The goal is an end-to-end proof with existing Temporal SDKs, Omes, visibility and Temporal UI, including dynamic storage-node scale-out and crash recovery with disposable local disks.
+Xenon is an experiment in running Temporal persistence on object storage. It keeps Temporal's workflow engine, SDKs, and UI, while exploring S3 as the sole durable application-storage layer.
 
-We are retaining Temporal Server and investigating a gRPC persistence adapter with partitioned storage nodes. SlateDB is a candidate, not a final choice. No working server or production-readiness claim exists yet.
+The project is building toward an end-to-end proof with existing Temporal SDKs, Omes, visibility, dynamic storage-node scale-out, and crash recovery from disposable local disks. The current design uses a gRPC persistence adapter, partitioned Go storage nodes, and SlateDB backed directly by S3.
 
-Start with [the autonomous delivery handoff](docs/handoff-autonomous.md). Calum has delegated architecture and implementation decisions to coordinated agents using an advocate/reviewer debate and evidence-based validation. Progress is tracked through the [Wayfinder map](https://github.com/0x63616c/xenon/issues/1); see `docs/agents/issue-tracker.md` for tracker limitations.
+## Status
 
-Future direction: a professional open-source release; possible BYOC service. This repository is private during investigation.
+Xenon has implemented persistence components and an ownership controller, with integration and end-to-end acceptance still in progress. Passing component tests and a bounded smoke scenario are useful evidence, but they do not make Xenon a supported Temporal backend.
 
-## Executable checkpoint
+See the [verification matrix](docs/design/verification-matrix.md) for the evidence ledger and open gates. The [Wayfinder map](https://github.com/0x63616c/xenon/issues/1) tracks the delivery work.
 
-The initial direct-S3 SlateDB primitive harness is implemented. This is **not yet a working Temporal backend**. Four engine tests and an S3-emulator write/reopen probe have passed; [evidence and limits](docs/evidence/primitive/README.md) distinguish these from the open shipping gates.
+## What Xenon is testing
 
-Requirements: Rust 1.94.0 (rustup reads the toolchain file); Docker Compose and AWS CLI for the local S3 probe.
+- Durable application records and ownership metadata in S3.
+- A stable Xenon endpoint that forwards work to the current partition owner.
+- Node movement and recovery without relying on local disks.
+- Compatibility with Temporal execution, visibility, SDKs, and UI.
+
+## Run the component proofs
+
+Requirements: Go 1.27.1, Rust 1.94.0 through `rustup`, Python 3, Git, platform C/C++ build tools, and Docker Compose for S3-emulator proofs.
 
 ```sh
-make test
-make probe-local
-make stop
+python3 scripts/prove.py go-runtime-stores
+python3 scripts/prove.py owner-manager
+python3 scripts/prove.py go-visibility
 ```
 
-`make probe-local` starts a loopback-only MinIO instance with local test credentials and a retained Docker volume. `make stop` stops services while preserving object data. It neither uses nor validates a real AWS bucket.
+These proofs use pinned local dependencies and write evidence under `.local/evidence/`. They do not validate real AWS S3 or establish full Temporal compatibility.
 
-Follow the [product specification](docs/design/product.md), [technical specification](docs/design/technical.md), and [requirement matrix](docs/design/verification-matrix.md) for implementation status. The repository remains private pending separate public-release authorization.
+## Learn more
+
+- [Architecture](docs/design/technical.md)
+- [Operations and recovery](docs/operations.md)
+- [Verification status](docs/design/verification-matrix.md)
+- [Development handoff](docs/handoff-autonomous.md)
+
+## License
+
+Xenon is available under the [MIT License](LICENSE), matching Temporal's license.

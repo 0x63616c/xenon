@@ -31,4 +31,4 @@ Read [verification status](./status.md) before interpreting a feature list or ru
 - [Read the code tour](./code-tour.md) to find the relevant implementation.
 - [Understand recovery](./operations.md) before changing topology or investigating a failure.
 
-Xenon is private, proprietary software in development. No public source release or hosted service is available today.
+Xenon is public experimental software under the MIT License. No hosted Xenon service is available today.

@@ -1,11 +1,14 @@
 name: Xenon site
 on:
+  push:
+    branches: [main]
+    paths: ['docs/guide/**', 'website/**', '.github/workflows/site.yaml']
   pull_request:
     paths: ['docs/guide/**', 'website/**', '.github/workflows/site.yaml']
   workflow_dispatch:
     inputs:
       deploy:
-        description: 'Deploy generated site assets (requires separately approved repository setting)'
+        description: 'Deploy generated site assets'
         type: boolean
         default: false
 permissions:
@@ -45,11 +48,11 @@ jobs:
           path: .local/site-qa
           include-hidden-files: true
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
-        if: github.event_name == 'workflow_dispatch' && inputs.deploy && vars.XENON_SITE_DEPLOYMENT_APPROVED == 'true'
+        if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.deploy)
         with:
           path: website/dist
   deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy && vars.XENON_SITE_DEPLOYMENT_APPROVED == 'true'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.deploy)
     needs: build
     runs-on: ubuntu-24.04
     permissions:

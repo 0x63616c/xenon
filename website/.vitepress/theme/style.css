@@ -52,6 +52,29 @@
 .x-home {
   color: #1d1d1f;
 }
+.construction-banner {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 24px;
+  overflow: hidden;
+  color: #141414;
+  background-color: #f5c518;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 18px,
+    rgba(0, 0, 0, 0.12) 18px 36px
+  );
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.construction-banner strong {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
 .hero {
   padding: 75px 24px 92px;
   text-align: center;
@@ -109,6 +132,39 @@
   gap: 28px;
   margin-top: 28px;
 }
+.start-here {
+  width: 610px;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 40px auto 0;
+  text-align: left;
+}
+.start-here a {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid #e0e5ec;
+  border-radius: 14px;
+  background: #ffffffc9;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.start-here a:hover {
+  border-color: #9dc8f0;
+  box-shadow: 0 8px 20px #36619712;
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+.start-here span {
+  color: #0069cc;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+.start-here strong { font-size: 14px; }
+.start-here small { color: #707780; font-size: 11px; line-height: 1.35; }
 .primary {
   display: inline-flex;
   align-items: center;
@@ -542,6 +598,19 @@ button:focus-visible {
   }
 }
 @media (max-width: 640px) {
+  .construction-banner {
+    gap: 8px;
+    font-size: 10px;
+  }
+  .construction-banner strong {
+    font-size: 10px;
+  }
+  .start-here {
+    grid-template-columns: 1fr;
+    width: 320px;
+    gap: 6px;
+    margin-top: 30px;
+  }
   .hero {
     padding: 45px 20px 60px;
   }

@@ -49,7 +49,7 @@ const groups = [
       </nav>
     </div>
     <div class="footer-bottom">
-      <span>© 2026 Xenon. All rights reserved.</span
+      <span>© 2026 Xenon · MIT licensed</span
       ><a :href="withBase('/docs/')">Temporal persistence. Object storage.</a>
     </div>
   </footer>

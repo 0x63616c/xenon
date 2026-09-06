@@ -55,4 +55,4 @@ The saved corpus and workload helpers are committed. Their existence is not evid
 
 Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI remains blocked: checks on integration PRs #55 and #66 report that jobs did not start because of account payments or the spending limit. This was checked against the `90327c9` candidate on September 5, 2026; local checks do not waive required hosted checks. At that checkpoint both PRs were open and `main` remained at `457fad9`. The integrated code and this site therefore describe a delivery candidate, not a release already merged to main.
 
-There is no published performance benchmark, production availability commitment, automatic rebalancer, public source release or available Xenon Cloud service.
+There is no published performance benchmark, production availability commitment, automatic rebalancer, or available Xenon Cloud service.

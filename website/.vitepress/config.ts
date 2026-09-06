@@ -8,8 +8,7 @@ export default defineConfig({
   cleanUrls: false,
   appearance: false,
   head: [
-    ["meta", { name: "theme-color", content: "#f5f5f7" }],
-    ["meta", { name: "robots", content: "noindex,nofollow" }],
+    ["meta", { name: "theme-color", content: "#f5c518" }],
   ],
   themeConfig: {
     logo: "/xenon.svg",

@@ -3,6 +3,12 @@ import { withBase } from "vitepress";
 </script>
 <template>
   <main class="x-home">
+    <aside class="construction-banner" aria-label="Xenon is in active development">
+      <span aria-hidden="true">⚠</span>
+      <strong>UNDER CONSTRUCTION</strong>
+      <span>Experimental software — follow the build as it takes shape.</span>
+      <span aria-hidden="true">⚠</span>
+    </aside>
     <section class="hero">
       <div class="eyebrow"><span class="status-dot"></span> IN DEVELOPMENT</div>
       <h1>Temporal.<br /><span>Object storage.</span></h1>
@@ -16,6 +22,17 @@ import { withBase } from "vitepress";
           >Read the docs <span>→</span></a
         >
       </div>
+      <nav class="start-here" aria-label="Start here">
+        <a :href="withBase('/docs/')">
+          <span>01</span><strong>Understand</strong><small>Architecture and constraints</small>
+        </a>
+        <a :href="withBase('/docs/status.html')">
+          <span>02</span><strong>Verify</strong><small>Evidence and open gates</small>
+        </a>
+        <a href="https://github.com/0x63616c/xenon">
+          <span>03</span><strong>Follow</strong><small>Source and roadmap</small>
+        </a>
+      </nav>
       <div
         class="hero-system"
         aria-label="Temporal connects through one Xenon endpoint to Go nodes, with durable state in S3"
