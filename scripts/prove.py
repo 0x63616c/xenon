@@ -69,7 +69,7 @@ def command(spec):
     tests = spec["expected_tests"]
     if not isinstance(tests, list) or not tests or len(set(tests)) != len(tests):
         raise ValueError("expected_tests must be a nonempty unique list")
-    if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
+    if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/-]+", t) for t in tests):
         raise ValueError("invalid expected test name")
     if runner == "go-test-process-cut":
         if spec["filter"] not in ("TestCutIdentityAndOneShot", "TestDiscoveryExactCandidate", "TestDiscoveryLateArmRejected") or not spec["exact"]:
@@ -107,7 +107,10 @@ def command(spec):
             raise ValueError("unregistered owner manager test")
         return [sys.executable, "scripts/owner-manager-proof.py"]
     if runner == "go-test-registry":
-        if spec["filter"] != "registry" or spec["exact"]: raise ValueError("unregistered registry contract tests")
+        if spec["filter"] not in ("registry", "filesystem") or spec["exact"]: raise ValueError("unregistered registry contract tests")
+        if spec["filter"] == "filesystem":
+            # Participant is a subprocess entrypoint, not a standalone test.
+            return ["go", "test", "-race", "-json", "-count=1", "-timeout=90s", "-run", "^Test(Contract|RecoveryErrorsAndProtocol|ContainmentCorruptionCancellation|ProcessCrashRecoveryAndCAS|SyncSyscallBoundaries|CancellationAfterRenameAndSyncFailure)$", "./internal/registry/filesystem"]
         return ["go", "test", "-race", "-json", "-count=1", "./internal/registry/s3"]
     if runner == "s3-directory":
         if spec["filter"] not in ("TestS3Directory", "TestS3Registry") or not spec["exact"]:
@@ -382,7 +385,7 @@ def main():
             elif runner in ("go-test-meter", "go-test-cas-loss", "s3-meter"):
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/s3meter")
             elif runner == "go-test-registry":
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/registry/s3")
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/" + argv[-1].removeprefix("./"))
             elif runner == "go-test-engine":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/partitions/slatedb")
             elif runner == "s3-directory":
