@@ -97,3 +97,17 @@ func TestCoupledReplayRejectsChangedEffectPrecondition(t *testing.T) {
 		t.Fatal("changed precondition silently adapted", err)
 	}
 }
+
+func TestCoupledSettleRejectsPreRecoveryCommitOnly(t *testing.T) {
+	scenario, _ := loadCoupled(t)
+	// The original current writer commits before the delayed old open fences it.
+	// Remove the post-recovery commit: old success must not satisfy healthy settle.
+	earlier := CoupledInput{Action: "commit", Actor: "writer-current", Effect: 3, At: 0}
+	steps := append([]CoupledInput{}, scenario.Steps[:51]...)
+	steps = append(steps, earlier)
+	steps = append(steps, scenario.Steps[51:len(scenario.Steps)-1]...)
+	scenario.Steps = steps
+	if _, err := RunCoupled(scenario, ""); err == nil || !strings.Contains(err.Error(), "required final live owner") {
+		t.Fatalf("pre-fault success satisfied recovered progress: %v", err)
+	}
+}

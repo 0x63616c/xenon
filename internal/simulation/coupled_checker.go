@@ -20,13 +20,13 @@ type coupledChecker struct {
 	epochs        map[ids.PartitionID]uint64
 	handles       map[string]CoupledTrace
 	closed        map[string]bool
-	commits       int
+	commits       map[string]CoupledTrace
 	rejectedPlans int
 	rejectedReady int
 }
 
 func newCoupledChecker(s CoupledScenario, initial registry.Record) *coupledChecker {
-	c := &coupledChecker{scenario: s, record: initial.Clone(), actors: map[string]CoupledActor{}, epochs: map[ids.PartitionID]uint64{}, handles: map[string]CoupledTrace{}, closed: map[string]bool{}}
+	c := &coupledChecker{scenario: s, record: initial.Clone(), actors: map[string]CoupledActor{}, epochs: map[ids.PartitionID]uint64{}, handles: map[string]CoupledTrace{}, closed: map[string]bool{}, commits: map[string]CoupledTrace{}}
 	for _, actor := range s.Actors {
 		c.actors[actor.Name] = actor
 	}
@@ -71,7 +71,7 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 			return fmt.Errorf("post_fence_commit: obsolete native epoch committed")
 		}
 		if e.Accepted {
-			c.commits++
+			c.commits[key] = e
 		}
 	case "publish":
 		if e.Before.Version != c.record.Version || !bytes.Equal(e.Before.Body, c.record.Body) {
@@ -171,8 +171,18 @@ func (c *coupledChecker) settled() error {
 		return err
 	}
 	p := final.Partitions[c.scenario.RequiredPartition]
-	if !p.Ready || p.Desired.Incarnation != c.scenario.RequiredOwner || final.ActiveMove != "" || c.commits == 0 {
+	if !p.Ready || p.Desired.Incarnation != c.scenario.RequiredOwner || final.ActiveMove != "" {
 		return fmt.Errorf("progress: required owner did not settle ready and commit within schedule")
+	}
+	progress := false
+	for handle, commit := range c.commits {
+		a := commit.Open
+		if !c.closed[handle] && commit.Epoch == c.epochs[c.scenario.RequiredPartition] && a.Partition == c.scenario.RequiredPartition && a.Incarnation == c.scenario.RequiredOwner && a.AssignmentRevision == p.AssignmentRevision && a.Reservation == p.Reservation && a.Generation == p.Generation {
+			progress = true
+		}
+	}
+	if !progress {
+		return fmt.Errorf("progress: required final live owner has no successful commit in its current reservation and epoch")
 	}
 	for key, opened := range c.handles {
 		if opened.Epoch != c.epochs[opened.Open.Partition] && !c.closed[key] {

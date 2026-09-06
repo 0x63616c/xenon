@@ -371,3 +371,82 @@ func TestControllerSlowPollsCannotStarvePlacementOrRenewal(t *testing.T) {
 		}
 	}
 }
+
+func TestControllerUnknownRenewalRetainedTupleGrantsPlacement(t *testing.T) {
+	s := controllerState(t, leader)
+	current := controlRecord(t, fixtureControl(), "v1", 1)
+	member := Owner{Node: "nod_0000000000000000000002", Incarnation: contender, Address: "b:8080"}
+	s, read := pollController(t, s, 0, member)
+	s, effects := completeRead(s, read, current, 200)
+	for cycle := 0; cycle < 4; cycle++ {
+		renewal := onlyPublication(t, effects)
+		current = effectRecord(t, renewal, fmt.Sprintf("renew%d", cycle))
+		applied, err := DecodeControl(controlKey, current, controlLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if applied.Control().Coordinator.Renewal != uint64(cycle+1) || applied.Control().ActiveMove != "" {
+			t.Fatal("renewal did not progress", cycle)
+		}
+		s, _ = completePublish(s, renewal, registry.Record{}, &registry.UnknownOutcome{Key: controlKey, Transition: renewal.Write.Transition})
+		// A different owner changes only its reservation before our reconciliation
+		// read. The renewal envelope is gone, but its authority tuple remains.
+		unrelated, err := applied.Reserve(leader, partitionB, 1, transition(300+cycle))
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := registry.Encode(controlKey, current.Version, unrelated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		current = registry.Record{Body: body, Version: registry.Version(fmt.Sprintf("owner%d", cycle))}
+		s, read = pollController(t, s, Tick(cycle*20+10), member)
+		s, effects = completeRead(s, read, current, 400+cycle)
+		move := onlyPublication(t, effects)
+		plan, err := DecodeControl(controlKey, effectRecord(t, move, "planned"), controlLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.Control().ActiveMove != partitionA || plan.Control().Coordinator != applied.Control().Coordinator {
+			t.Fatal("retained renewal starved placement", cycle)
+		}
+		if s.LastUnknown == nil || s.LastUnknown.Effect.Write.Transition != renewal.Write.Transition {
+			t.Fatal("invented historical renewal success")
+		}
+		// A competing CAS defeats this placement. Its consumed credit must still
+		// permit the next renewal rather than repeatedly submitting assignments.
+		s, _ = completePublish(s, move, registry.Record{}, &registry.Conflict{Key: controlKey})
+		s, read = pollController(t, s, Tick(cycle*20+20), member)
+		s, effects = completeRead(s, read, current, 500+cycle)
+	}
+}
+
+func TestControllerUnknownRenewalCannotCreditAnotherCoordinator(t *testing.T) {
+	s := controllerState(t, leader)
+	s, read := pollController(t, s, 0)
+	s, effects := completeRead(s, read, controlRecord(t, fixtureControl(), "v1", 1), 600)
+	renewal := onlyPublication(t, effects)
+	current := effectRecord(t, renewal, "renewed")
+	s, _ = completePublish(s, renewal, registry.Record{}, &registry.UnknownOutcome{Key: controlKey, Transition: renewal.Write.Transition})
+	applied, err := DecodeControl(controlKey, current, controlLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := applied.ChangeCoordinator(transition(601), CoordinatorChange{Expected: current.Version, Incarnation: contender, Generation: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := registry.Encode(controlKey, current.Version, replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current = registry.Record{Body: body, Version: "replacement"}
+	s, read = pollController(t, s, 10)
+	s, effects = completeRead(s, read, current, 602)
+	if s.renewed || s.moveCredit || len(effects) != 0 {
+		t.Fatal("another coordinator granted our renewal credit")
+	}
+	if s.LastUnknown == nil || s.LastUnknown.Effect.Write.Transition != renewal.Write.Transition {
+		t.Fatal("lost historical ambiguity after replacement")
+	}
+}

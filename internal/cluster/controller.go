@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"slices"
@@ -74,11 +75,14 @@ func Step(previous State, event Event) (State, []Effect) {
 	}
 	pending := s.pending.clone()
 	s.pending = nil
+	recordRenewal := func() {
+		s.lastRenew = s.at
+		s.renewed = true
+		s.moveCredit = true
+	}
 	confirm := func(transition identity.TransitionID) {
 		if s.publication != nil && s.publication.renewal {
-			s.lastRenew = s.at
-			s.renewed = true
-			s.moveCredit = true
+			recordRenewal()
 		}
 		if s.LastUnknown != nil && s.LastUnknown.Effect.Write.Transition == transition {
 			s.LastUnknown = nil
@@ -143,6 +147,15 @@ func Step(previous State, event Event) (State, []Effect) {
 		} else if event.Err == nil {
 			// A coherent newer record allows a NEW decision. It says nothing about
 			// the historical attempt retained in LastUnknown.
+			if p.renewal {
+				var proposed Control
+				// Owner publications can replace the envelope while retaining this
+				// coordinator tuple. It proves CURRENT renewal progress, not the
+				// historical publication receipt; preserve LastUnknown below.
+				if json.Unmarshal(p.Effect.Write.Body, &proposed) == nil && proposed.Coordinator.Incarnation == s.config.Incarnation && proposed.Coordinator == snap.Control().Coordinator {
+					recordRenewal()
+				}
+			}
 			s.publication = nil
 		}
 	}
