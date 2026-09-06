@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "partitions": [64, 256, 1024, 4096],
+  "benchmark_nodes": [1, 10, 100],
+  "replication_factor": 20,
+  "load_factor": 1.25,
+  "hash": "SHA256 first 8 bytes big endian",
+  "weights": ["uniform", "single_hot_1000", "one_percent_hot_100"],
+  "scenarios": [
+    {"name": "one", "initial_nodes": 1, "changes": [
+      {"add": true, "first": 1, "count": 1}, {"add": false, "first": 1, "count": 1},
+      {"add": true, "first": 1, "count": 1}, {"add": false, "first": 1, "count": 1}
+    ]},
+    {"name": "ten", "initial_nodes": 10, "changes": [
+      {"add": true, "first": 10, "count": 1}, {"add": false, "first": 10, "count": 1},
+      {"add": true, "first": 10, "count": 10}, {"add": false, "first": 10, "count": 10},
+      {"add": true, "first": 10, "count": 10}, {"add": false, "first": 10, "count": 10}
+    ]},
+    {"name": "hundred", "initial_nodes": 100, "changes": [
+      {"add": true, "first": 100, "count": 1}, {"add": false, "first": 100, "count": 1},
+      {"add": true, "first": 100, "count": 10}, {"add": false, "first": 100, "count": 10},
+      {"add": false, "first": 45, "count": 10}, {"add": true, "first": 45, "count": 10},
+      {"add": true, "first": 100, "count": 100}, {"add": false, "first": 100, "count": 100},
+      {"add": true, "first": 100, "count": 100}, {"add": false, "first": 100, "count": 100}
+    ]}
+  ]
+}
