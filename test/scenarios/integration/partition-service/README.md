@@ -69,3 +69,9 @@ cases at clean revision `87690e5`, after renewal/checker fixes, canonical-ID
 compatibility fixes, cluster metadata extraction and origin-only routing changes.
 All cases and cleanup passed with unchanged inputs. The cases still exercise the
 shard family and partition services; they do not establish complete runtime routing.
+
+The [five-case catalog receipt](evidence/5c196b8-minio/report.json) records all five
+cases passed at clean revision `5c196b8`. Cluster, Nexus and namespace services
+share a native writer/journal, replay across ownership movement without duplicate
+outcomes, and recover application data through fresh read operations. Cleanup and
+input-hash checks passed. This remains a service composition proof.
