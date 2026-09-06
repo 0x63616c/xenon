@@ -26,7 +26,7 @@ npm run test:ui -- http://localhost:4178/ ../.local/site-qa
 
 The test uses new isolated browser contexts at 1440×1000, 820×1180 and 390×844. It checks
 ten pages, overflow, script/network errors and the three interactive architecture
-views, image loading and browser icons, and retains full-page screenshots. This is website QA, not Xenon runtime
+views, image loading, the loaded Space Grotesk font and browser icons, and retains full-page screenshots. This is website QA, not Xenon runtime
 acceptance. Review the screenshots in addition to checking the JSON receipt.
 
 For a GitHub Pages project path, build and preview with `SITE_BASE=/xenon/` and pass

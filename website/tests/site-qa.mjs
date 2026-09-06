@@ -73,6 +73,24 @@ try {
         )
       )
         throw new Error(`horizontal overflow ${name}/${path}`);
+      await page.evaluate(() => document.fonts.ready);
+      const typography = await page.evaluate(() => ({
+        loaded: [...document.fonts].some(
+          (font) =>
+            font.family.replaceAll('"', "") === "Space Grotesk" &&
+            font.status === "loaded",
+        ),
+        heading: getComputedStyle(document.querySelector("h1")).fontFamily,
+        body: getComputedStyle(document.body).fontFamily,
+      }));
+      if (
+        !typography.loaded ||
+        !typography.heading.includes("Space Grotesk") ||
+        !typography.body.includes("Space Grotesk")
+      )
+        throw new Error(
+          `brand font not loaded ${name}/${path}: ${JSON.stringify(typography)}`,
+        );
       const brokenImages = await page
         .locator("img")
         .evaluateAll((images) =>
