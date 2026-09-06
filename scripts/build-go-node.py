@@ -37,6 +37,8 @@ output=ROOT/'.local/bin/xenon-go-node';output.parent.mkdir(exist_ok=True)
 run(['go','build','-o',str(output),'./cmd/xenon-go-node'])
 agent=ROOT/'.local/bin/xenon'
 ldflags=' '.join(['-X','github.com/0x63616c/xenon/internal/buildinfo.NativeCommit='+pins['source_commit'],'-X','github.com/0x63616c/xenon/internal/buildinfo.NativeSHA256='+native_sha])
+if env.get('XENON_SOURCE_REVISION'):
+    ldflags+=' -X github.com/0x63616c/xenon/internal/buildinfo.SourceRevision='+env['XENON_SOURCE_REVISION']
 run(['go','build','-ldflags',ldflags,'-o',str(agent),'./cmd/xenon'])
 verify_source()
 report={'source_commit':pins['source_commit'],'source_clean':True,'source_cargo_lock_sha256':prove.digest(source/'Cargo.lock'),'binding_module':pins['go_module'],'binding_version':module['Version'],'binding_sum':module['Sum'],'shared_library':str(library.relative_to(ROOT)),'shared_library_sha256':native_sha,'node_binary':str(output.relative_to(ROOT)),'node_binary_sha256':prove.digest(output),'agent_binary':str(agent.relative_to(ROOT)),'agent_binary_sha256':prove.digest(agent),'rustc':run(['rustc','+'+pins['rust_toolchain'],'-vV'],capture=True),'go':run(['go','version'],capture=True),'cc':run(['cc','--version'],capture=True)}

@@ -37,3 +37,12 @@ func TestNativeIdentityRequiresCompleteAttestation(t *testing.T) {
 		t.Fatalf("missing attestation: %s", got)
 	}
 }
+
+func TestExplicitSourceRevisionOverridesUnavailableVCSMetadata(t *testing.T) {
+	old := SourceRevision
+	defer func() { SourceRevision = old }()
+	SourceRevision = "container-source"
+	if got := fromBuild(nil).Revision; got != "container-source" {
+		t.Fatalf("source revision = %q", got)
+	}
+}

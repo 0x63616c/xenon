@@ -9,6 +9,64 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  unified-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.94.0'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Verify agent proof dependencies
+        run: |
+          aws --version
+          docker version
+          docker compose version
+      - name: Run declared three-agent movement, eviction, and cold-recovery proof
+        run: |
+          docker compose -f test/scenarios/agent/compose.json pull
+          python3 scripts/agent-smoke.py
+      - name: Retain unified-agent evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unified-agent-evidence
+          path: .local/evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  unified-container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build and inspect the declared unified image
+        run: |
+          set -o pipefail
+          mkdir -p .local/evidence/container
+          git rev-parse HEAD > .local/evidence/container/source-revision.txt
+          sha256sum Dockerfile.unified-agent .dockerignore deploy/agent.example.json tools/slatedb-native.json > .local/evidence/container/input-sha256.txt
+          docker build --progress=plain --build-arg XENON_SOURCE_REVISION="$(cat .local/evidence/container/source-revision.txt)" --iidfile .local/evidence/container/image-id.txt -f Dockerfile.unified-agent -t xenon-unified-agent:ci . 2>&1 | tee .local/evidence/container/build.log
+          docker run --rm xenon-unified-agent:ci version | tee .local/evidence/container/version.json
+          python3 -m json.tool .local/evidence/container/version.json > /dev/null
+          test "$(python3 -c 'import json; print(json.load(open(".local/evidence/container/version.json"))["revision"])')" = "$(cat .local/evidence/container/source-revision.txt)"
+          docker run --rm xenon-unified-agent:ci check-config --config /etc/xenon/agent.example.json | tee .local/evidence/container/check-config.log
+          docker image inspect xenon-unified-agent:ci > .local/evidence/container/image-inspect.json
+          test "$(docker image inspect xenon-unified-agent:ci --format '{{.Config.User}}')" = 65532:65532
+          test "$(cat .local/evidence/container/check-config.log)" = XENON_CONFIG_VALID
+      - name: Retain unified-container evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unified-container-evidence
+          path: .local/evidence/container/
+          include-hidden-files: true
+          if-no-files-found: error
+
   proof:
     runs-on: ubuntu-24.04
     steps:

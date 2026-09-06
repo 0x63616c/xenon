@@ -2,12 +2,14 @@
 
 ARG RUST_TOOLCHAIN=1.94.0
 ARG RUNTIME_THREADS=2
+ARG XENON_SOURCE_REVISION
 
-FROM golang:1.27.1-bullseye AS builder
+FROM golang:1.27.1-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b AS builder
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG RUST_TOOLCHAIN
 ARG RUNTIME_THREADS
+ARG XENON_SOURCE_REVISION
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -21,6 +23,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LD_LIBRARY_PATH=/workspace/.local/slatedb-native-target/debug \
     DYLD_LIBRARY_PATH=/workspace/.local/slatedb-native-target/debug \
     SLATEDB_UNIFFI_RUNTIME_THREADS=${RUNTIME_THREADS}
+
+ENV XENON_SOURCE_REVISION=${XENON_SOURCE_REVISION}
 
 WORKDIR /workspace
 
@@ -43,7 +47,7 @@ COPY . .
 
 RUN python3 scripts/build-go-node.py
 
-FROM debian:12-slim AS runtime
+FROM debian:12-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS runtime
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -64,6 +68,6 @@ COPY --from=builder /workspace/deploy/agent.example.json /etc/xenon/agent.exampl
 RUN /usr/local/bin/xenon version \
     && /usr/local/bin/xenon check-config --config /etc/xenon/agent.example.json
 
-USER xenon
+USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/xenon"]
 CMD ["start", "--config", "/etc/xenon/agent.example.json"]

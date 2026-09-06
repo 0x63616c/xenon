@@ -8,9 +8,10 @@ import "runtime/debug"
 // builder AFTER verifying its artifacts. Empty values are reported as unknown.
 // A native build attestation is not runtime verification of a dynamic loader.
 var (
-	Release      string
-	NativeCommit string
-	NativeSHA256 string
+	Release        string
+	SourceRevision string
+	NativeCommit   string
+	NativeSHA256   string
 )
 
 type Module struct {
@@ -63,6 +64,9 @@ func fromBuild(b *debug.BuildInfo) Info {
 		Temporal:      Module{Path: "go.temporal.io/server", Version: "unknown"},
 		SlateDBGo:     Module{Path: "slatedb.io/slatedb-go", Version: "unknown"},
 		SlateDBNative: Native{SourceCommit: known(NativeCommit), ArtifactSHA256: known(NativeSHA256), IdentitySource: "unknown"}}
+	if SourceRevision != "" {
+		i.Revision = SourceRevision
+	}
 	if NativeCommit != "" && NativeSHA256 != "" {
 		i.SlateDBNative.IdentitySource = "build-attestation"
 	}
