@@ -1,0 +1,46 @@
+{
+  "source": "c879d0d512056f4958ace633ce41a04b4e928a4c",
+  "modified": "false",
+  "go": "go1.27.1",
+  "binary_sha256": "1fa09dd1b87d092e7c252795d51559c2960fb1309c52de53210b4ec29efdf226",
+  "input_sha256": "6c02896b8e9bf97149a6b46dc63c296089ef23d1a5b14300e55d821de678a2d0",
+  "harness_sha256": "931100fc04695550d90a17b1fce7647d95871f26b109eecb51c73245df60bd4a",
+  "trace_sha256": "4ae29b2d8d9c7e31dce132f7ab424c1371a7b8698305e9be2c4b9493656bd8d9",
+  "results": [
+    {
+      "schema": 1,
+      "mode": "finite-coupled-corpus",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-cluster-control-20260906/.local/cli-proof-c879d0d/test"
+      }
+    },
+    {
+      "schema": 1,
+      "mode": "finite-coupled-corpus",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-cluster-control-20260906/.local/cli-proof-c879d0d/search"
+      }
+    },
+    {
+      "schema": 1,
+      "mode": "exact-coupled-replay",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-cluster-control-20260906/.local/cli-proof-c879d0d/replay"
+      }
+    }
+  ],
+  "controls": [
+    "budget exit 2",
+    "bad effect exit 1"
+  ],
+  "scope": "finite coupled component; no native resources opened"
+}
