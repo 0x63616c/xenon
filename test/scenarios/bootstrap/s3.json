@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "endpoint": "http://127.0.0.1:19003",
+  "bucket": "fresh-bootstrap-proof",
+  "schedule": [
+    "fresh_and_restart",
+    "old_marker",
+    "occupied_data",
+    "occupied_topology",
+    "lost_manifest_response",
+    "interrupted_initialization",
+    "deleted_control",
+    "metadata_mismatch",
+    "old_new_concurrent",
+    "new_new_concurrent"
+  ],
+  "docker": "29.4.0",
+  "compose": "5.1.2"
+}
