@@ -57,6 +57,9 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	// Exercise successful writes, logical aborts, history prewrites and replay
+	// through the managed authority path rather than only unmanaged storage.
+	o.config.Authority = func(context.Context) error { return nil }
 	image := func(run string, version int64) *wire.ExecutionImage {
 		state, _ := proto.Marshal(&persistencespb.WorkflowExecutionState{RunId: run, State: enumsspb.WORKFLOW_EXECUTION_STATE_COMPLETED, Status: enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED})
 		return &wire.ExecutionImage{NamespaceId: fixture.Namespace, WorkflowId: "w", RunId: run, ExecutionStateProto: state, ExecutionInfoBlob: &wire.HistoryBlob{Data: []byte{0, 255}, Encoding: 2}, ExecutionStateBlob: &wire.HistoryBlob{Data: state, Encoding: int32(enumspb.ENCODING_TYPE_PROTO3)}, NextEventId: 11, LastWriteVersion: 9100, DbRecordVersion: version}
@@ -87,6 +90,9 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	r := call("create", create)
 	if r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r)
+	}
+	if value, err := o.db.Get([]byte("v1/ownership/read-barrier")); err != nil || value != nil {
+		t.Fatal("execution added a redundant post-root barrier", err)
 	}
 	// Both scheduled IDs persist separately; PostgreSQL microsecond truncation
 	// also applies for negative Unix seconds rather than rounding toward epoch.
