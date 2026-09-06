@@ -14,7 +14,7 @@ budgets. Go and Rust versions come from `tools/slatedb-native.json`. A fresh
 checkout needs those declared toolchains, Docker, Python 3, and network access to
 the pinned sources/images; unavailable tools fail the run.
 
-Four tests call the production partition `Service`, `Step`, S3 registry adapter,
+Five tests call the production partition `Service`, `Step`, S3 registry adapter,
 cluster control mutation functions, and native SlateDB engine:
 
 1. Owner A reserves, opens and becomes ready. A native transaction atomically
@@ -36,6 +36,10 @@ cluster control mutation functions, and native SlateDB engine:
 4. A native Open is delayed before it executes, then released after B acknowledges
    a write. The obsolete opener fences B; A retires without becoming ready, and B
    reserves and opens again to recover its acknowledged data.
+
+5. Cluster metadata, Nexus and namespace services share one native writer and
+   journal. After movement, all three outcomes replay unchanged, the journal still
+   contains three operations, and fresh read operations recover all catalog data.
 
 Each test has separate registry/database prefixes in a fresh run-owned bucket.
 The runner saves the source revision, dirty status, input/config hashes, native

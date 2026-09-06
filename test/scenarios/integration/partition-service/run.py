@@ -17,7 +17,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[4]
 HERE = Path(__file__).resolve().parent
 COMPOSE = "test/scenarios/integration/native-engine/compose.yaml"
-TESTS = {"TestPartitionNativeAcknowledgedMovement", "TestPartitionNativeObsoleteOpenCompletion", "TestPartitionNativeShardReplay", "TestPartitionNativeLateOpenFencesCurrent"}
+TESTS = {"TestPartitionNativeCatalogReplay", "TestPartitionNativeAcknowledgedMovement", "TestPartitionNativeObsoleteOpenCompletion", "TestPartitionNativeShardReplay", "TestPartitionNativeLateOpenFencesCurrent"}
 
 
 def digest(path):
@@ -164,7 +164,7 @@ def main():
     compose = ["docker", "compose", "--project-name", project, "-f", COMPOSE]
     report = {"schema": 1, "backend": cfg["backend"], "project": project, "result": "failed",
               "primary_failure": None, "cleanup_failures": [], "schedule": cfg["schedule"],
-              "limitations": ["MinIO is not real AWS qualification", "Two partition services in one test process, not cmd/xenon or embedded Temporal acceptance", "Coordinator replacement is an explicit production control CAS; no election failure detector or process crash is simulated", "Real Rust/OS/S3 timing, not deterministic simulation", "The first two cases exercise atomic native bytes; the third covers production shard-family replay only, not all Temporal persistence families or SDK/runtime acceptance"]}
+              "limitations": ["MinIO is not real AWS qualification", "Two partition services in one test process, not cmd/xenon or embedded Temporal acceptance", "Coordinator replacement is an explicit production control CAS; no election failure detector or process crash is simulated", "Real Rust/OS/S3 timing, not deterministic simulation", "Native cases cover shard, cluster, Nexus and namespace persistence families; not all persistence families or SDK/runtime acceptance"]}
     report_path = evidence / "report.json"
     def primary_failure(error):
         if report["primary_failure"] is None:
