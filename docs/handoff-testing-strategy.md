@@ -2,6 +2,8 @@
 
 ## Next session
 
+See [the architecture and testing spec in progress](design/architecture-spec-in-progress.md) for the subsequent interview decisions, required folder structure, open questions, and failure cases. The latest user authorization resumes delivery through spec, plan and implementation stages, each using Astra agents and independent review.
+
 Start by agreeing the smallest testing and development loop that can get Xenon to a solid first release. Do not resume broad implementation until this strategy is clear enough to remove redundant proofs and focus the remaining engineering.
 
 Read [AGENTS.md](../AGENTS.md), [CONTEXT.md](../CONTEXT.md), [the autonomous delivery handoff](handoff-autonomous.md), [the current simulation boundary](../internal/simulation/README.md), and the [live GitHub map](https://github.com/0x63616c/xenon/issues/1). Treat the live repository and tracker as authoritative where older documents have drifted.
@@ -92,3 +94,15 @@ Reconcile the live tracker after the testing strategy is agreed. Do not recreate
 - `code-review` before committing the existing readiness patch.
 - `xenon-temporal-upgrade` only when broad upgrade compatibility returns to active scope.
 
+
+## Interview follow-up: measured workflow cost and website metrics
+
+Calum explicitly requested retaining this work for the benchmark/metrics phase:
+
+- Run reproducible benchmarks for representative named workflow profiles; do not imply one universal average workflow.
+- Measure durable persistence latency and end-to-end workflow/API latency separately, with p50/p95/p99 (interpretation of "P value": latency percentiles, to confirm).
+- Report object-storage PUT/GET/LIST/HEAD/DELETE counts and bytes per completed workflow, distinguishing workflow activity from idle coordination, compaction and maintenance overhead. Declare concurrency, batching, retention, partition/database count and cache conditions.
+- Derive S3 cost per workflow and per representative workload volume using dated region/storage-class pricing. Include requests, storage and applicable transfer/replication costs; distinguish marginal from amortized total cost and S3-only from whole-system cost.
+- Publish measured workload cost and latency percentiles on the website after metrics are verified. Link pinned source, configuration, raw results and benchmark commands; no invented performance claims.
+
+Database-layout spike remains pending: compare one database per Temporal history shard against grouped shards, measuring resource cost, durable latency, throughput and recovery. Multi-region architecture is being discussed, not selected or implemented.
