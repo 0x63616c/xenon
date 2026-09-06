@@ -10,6 +10,10 @@ For decision tickets, use two independent agents: a user-priority advocate groun
 
 This project adapts Matt Pocock's Wayfinder: execution is in scope, agent debate replaces live-human grilling, and multiple tickets may be resolved per session. Continue beyond charting until the delivery gates pass or a concrete external blocker remains. Keep research, implementation, review and test tasks bounded; isolate concurrent edits in branches/worktrees.
 
+## Review batching preference
+
+Calum explicitly prefers batching reviews for throughput. Implement and test related small changes as a cohesive batch, then obtain independent review before integrating that batch. Do not serialize every micro-ticket behind a fresh review cycle. Separate spec, plan and implementation review stages remain; implementation batches may span several bounded tickets. Review safety-critical architecture decisions before dependent work when they would invalidate the batch.
+
 ## Latest engine constraint
 
 Calum clarified during autonomous execution that the system must use S3 directly unless demonstrated impossible. Continue with SlateDB backed by S3; the exploratory SQLite snapshot alternative was dropped before acceptance. Do not reintroduce it as a shortcut. No evidence establishes impossibility.
