@@ -51,9 +51,15 @@ type Generator interface {
 }
 
 // Driver owns all per-case work. Cleanup must stop and drain Run/Settle even when
-// they are still returning after cancellation. Cleanup never deletes evidence.
+// they are still returning after cancellation, before destructive scoped teardown.
+// Cleanup never deletes evidence.
 // A runner with unresolved work is not reusable. Real-stack drivers must supply
 // observed recovery assertions in Settle; successful submission is insufficient.
+// FailureReportingDriver accepts a per-case runner-owned first-failure latch.
+// Report before beginning failure cleanup. Reports after cancellation/deadline
+// cannot supersede that earlier stop; cleanup errors must never be reported.
+type FailureReportingDriver interface{ SetFailureReporter(func(error)) }
+
 type Driver interface {
 	Validate(Scenario, WorkloadLimits) error
 	Run(context.Context, Scenario, func(json.RawMessage) error) error
@@ -332,6 +338,11 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	sealed := false
 	size := 0
 	var traceFailure error
+	tracePrimary := false
+	var reportedFailure error
+	reportOpen := false
+	phaseGeneration := uint64(0)
+	phaseEnd := end
 	operation, cancel := context.WithCancel(ctx)
 	defer cancel()
 	emit := func(raw json.RawMessage) error {
@@ -344,6 +355,7 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 			return traceFailure
 		}
 		if !json.Valid(raw) || len(raw)+size+1 > cfg.MaxTraceBytes {
+			tracePrimary = operation.Err() == nil && r.Clock.Now().Before(phaseEnd)
 			traceFailure = errors.New("invalid observation or trace budget exceeded")
 			cancel()
 			return traceFailure
@@ -354,6 +366,7 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		}
 		size += len(raw) + 1
 		if err != nil {
+			tracePrimary = operation.Err() == nil && r.Clock.Now().Before(phaseEnd)
 			traceFailure = err
 			cancel()
 		}
@@ -362,17 +375,62 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	// Observe the same latch at every phase boundary. Drivers may emit recovery
 	// observations until Cleanup has drained; ignoring emit's error cannot pass.
 	traceError := func() error { mu.Lock(); defer mu.Unlock(); return traceFailure }
-	phase := "run"
-	primary, pending := bounded(operation, r.Clock, end.Sub(r.Clock.Now()), func(c context.Context) error { return r.Driver.Run(c, cloneScenario(s), emit) })
-	if err := traceError(); err != nil {
-		primary = err
+	// Each phase owns a reporting generation and deadline. A late callback or
+	// returned error cannot supersede an earlier stop, nor enter a later phase.
+	runPhase := func(budget time.Duration, fn func(context.Context) error) (error, <-chan error) {
+		mu.Lock()
+		phaseGeneration++
+		generation := phaseGeneration
+		phaseEnd = minTime(end, r.Clock.Now().Add(budget))
+		deadline := phaseEnd
+		reportOpen = true
+		mu.Unlock()
+		report := func(e error) {
+			if e == nil {
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if sealed || !reportOpen || generation != phaseGeneration || traceFailure != nil || reportedFailure != nil || operation.Err() != nil || !r.Clock.Now().Before(deadline) {
+				return
+			}
+			reportedFailure = e
+			cancel()
+		}
+		var result error
+		if reporting, ok := r.Driver.(FailureReportingDriver); ok {
+			result = guarded(func() error { reporting.SetFailureReporter(report); return nil })
+			report(result)
+		}
+		var pending <-chan error
+		if result == nil {
+			result, pending = bounded(operation, r.Clock, deadline.Sub(r.Clock.Now()), func(c context.Context) error {
+				e := guarded(func() error { return fn(c) })
+				report(e)
+				return e
+			})
+		}
+		mu.Lock()
+		reportOpen = false
+		reported, observedTrace, earlierTrace := reportedFailure, traceFailure, tracePrimary
+		mu.Unlock()
+		switch {
+		case earlierTrace:
+			result = observedTrace
+		case reported != nil:
+			result = reported
+		case ctx.Err() != nil:
+			result = ctx.Err()
+		case !r.Clock.Now().Before(deadline):
+			result = context.DeadlineExceeded
+		}
+		return result, pending
 	}
+	phase := "run"
+	primary, pending := runPhase(end.Sub(r.Clock.Now()), func(c context.Context) error { return r.Driver.Run(c, cloneScenario(s), emit) })
 	if primary == nil {
 		phase = "settle"
-		primary, pending = bounded(operation, r.Clock, min(cfg.SettleBudget, end.Sub(r.Clock.Now())), r.Driver.Settle)
-		if err := traceError(); err != nil {
-			primary = err
-		}
+		primary, pending = runPhase(min(cfg.SettleBudget, end.Sub(r.Clock.Now())), r.Driver.Settle)
 		detail.Settled = primary == nil
 	}
 	if primary != nil {
@@ -385,6 +443,7 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		primary = errors.Join(primary, save(filepath.Join(dir, "failure.json"), detail))
 	}
 	cleanupEnd := r.Clock.Now().Add(cfg.CleanupBudget)
+	cancel()
 	cleanup, cleanupPending := bounded(context.Background(), r.Clock, cfg.CleanupBudget, r.Driver.Cleanup)
 	if err := traceError(); err != nil && primary == nil {
 		cleanup = errors.Join(err, cleanup)
@@ -513,4 +572,11 @@ func guarded(fn func() error) (err error) {
 		}
 	}()
 	return fn()
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }

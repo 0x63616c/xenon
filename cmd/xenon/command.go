@@ -112,6 +112,7 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 	for _, command := range simulation {
 		if command.Name() == "test" {
 			command.AddCommand(realProfileCommands(runRealProfile)...)
+			command.AddCommand(workflowCommand())
 		}
 	}
 	root.AddCommand(simulation...)

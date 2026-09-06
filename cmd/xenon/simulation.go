@@ -93,6 +93,8 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	var artifact, evidence string
 	var development bool
 	replay := &cobra.Command{Use: "replay", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.NoArgs, PersistentPreRunE: recordCancellation}
+	var resident residentFlags
+	resident.add(replay)
 	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json artifact")
 	replay.Flags().StringVar(&evidence, "evidence", "", "New replay evidence directory (must not exist)")
 	replay.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
@@ -104,8 +106,15 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		if err != nil {
 			return err
 		}
+		mode := "exact-component-artifact-replay"
+		if resident.build != "" {
+			if _, err = resident.bind(runner); err != nil {
+				return err
+			}
+			mode = "exact-resident-workflow-replay"
+		}
 		result, err := simulation.Replay(cmd.Context(), artifact, runner)
-		return simulationResult(cmd, development, "exact-component-artifact-replay", result, err)
+		return simulationResult(cmd, development, mode, result, err)
 	}
 	return []*cobra.Command{test, search, replay}
 }

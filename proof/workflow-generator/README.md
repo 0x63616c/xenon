@@ -64,3 +64,59 @@ XENON_WORKFLOW_GENERATOR_BUNDLE=/tmp/xenon-workflow-generator \
 Run with the repository's pinned Go/native link environment. This checks fresh
 seeds and deterministic normalized outputs from the actual Rust/Go tools and
 records generator identity, not real-stack correctness or continuous exploration.
+
+## Resident execution adapter (execution qualification requires an actual run)
+
+`xenon test workflow` uses the same expanded Scenario/Search envelope and a
+separate `omes-resident-workflow-v1` driver. It runs the exact normalized protobuf
+through the pinned corrected Omes command and compatible worker, then invokes the
+independent history oracle. The default `generate workflow` and generic artifact
+driver cannot silently substitute preparation for this execution.
+
+The caller must own an externally supervised, exclusive fixture with the normal
+schema and namespace ready, plus the `xenon-fuzz` endpoint targeting a compatible
+resident worker at `omes-xenon-ministack-fuzz`. This driver does not start agents,
+provision S3, create endpoints, or claim cold recovery. The fixture file pins these
+bindings, with `run_id` and `fixture_sha256` empty (the latter is computed over the
+exact file bytes):
+
+```json
+{"version":1,"address":"127.0.0.1:17233","namespace":"xenon-ministack","run_id":"","nexus_endpoint":"xenon-fuzz","nexus_task_queue":"omes-xenon-ministack-fuzz","fixture_sha256":""}
+```
+
+Use a clean CLI build and a prepared corrected worker `build.json` produced by
+`prepare-corrected-omes.py` (also included in the generator bundle's `worker/`).
+Build `./cmd/xenon-omes-oracle` from the same reviewed source and supply its exact
+SHA256. Example after the external supervisor has made the fixture ready:
+
+```sh
+xenon test workflow --bundle "$GENERATOR_BUNDLE" \
+  --runtime-build "$GENERATOR_BUNDLE/worker/build.json" \
+  --resident-fixture "$FIXTURE_JSON" --history-oracle "$HISTORY_ORACLE" \
+  --history-oracle-sha256 "$ORACLE_SHA256" --workload-seed 42 --max-cases 1 \
+  --evidence "$NEW_SCENARIO_DIRECTORY" --runtime-evidence "$NEW_RUNTIME_DIRECTORY"
+```
+
+Replay uses `xenon replay --artifact CASE/scenario.json --evidence NEW` with the
+same five runtime flags. It does not load a generator or normalize bytes again.
+The saved topology and case run ID must match. Recreate/reset the externally owned
+fixture before replay; an occupied case queue is rejected rather than reusing old
+results. Empty visibility is an observation under this explicit exclusive/fresh
+fixture contract, not distributed exclusion against another writer.
+
+Before launch the shared envelope and raw input are retained. Tool manifests,
+prepared source/worker files and binaries are hashed before/after execution.
+Omes terminal iteration errors are latched before bounded process-group shutdown;
+logs remain on disk. The independent oracle checks list/count agreement,
+contiguous complete terminal histories and successor relationships, and preserves
+result bytes. Omes supplies its own semantic result checks. This is not a complete
+expected child-execution census or independently derived semantic oracle.
+
+Successful cleanup verifies no visible running case executions after the history
+check. On failure it makes bounded scoped termination requests and records
+unfinished-history diagnostic pages, but reports remote cleanup **unverified**:
+visibility absence alone cannot prove that delayed executions do not exist.
+The external supervisor must retire/reset that fixture. No failed case permits
+continuous reuse. This bounded adapter has no fault scheduling, throughput/100-node
+qualification, cold recovery, or full Temporal/Nexus acceptance claim. Fake-driver
+and child-process tests verify the adapter contract; they are not runtime evidence.

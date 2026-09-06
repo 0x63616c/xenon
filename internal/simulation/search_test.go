@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -455,5 +456,186 @@ func TestSearchRecordsPrimaryFingerprintBeforeCleanup(t *testing.T) {
 		if detail.FailureFingerprint == nil || *detail.FailureFingerprint != fingerprint || detail.FirstFailure != primary.Error() {
 			t.Fatalf("%s: %+v", name, detail)
 		}
+	}
+}
+
+type reportingDriver struct {
+	testDriver
+	report func(error)
+}
+
+func (d *reportingDriver) SetFailureReporter(report func(error)) { d.report = report }
+func TestReportedFailureOrderedAgainstBudgetAndTrace(t *testing.T) {
+	for _, order := range []string{"failure-first", "budget-first", "cancel-first", "budget-first-returned", "cancel-first-returned", "trace-first", "failure-before-trace"} {
+		t.Run(order, func(t *testing.T) {
+			clock := &manualClock{}
+			parent, stop := context.WithCancel(context.Background())
+			defer stop()
+			entered := make(chan struct{})
+			continueRun := make(chan struct{})
+			drained := make(chan struct{})
+			primary := errors.New("observed workflow invariant")
+			d := &reportingDriver{}
+			d.run = func(ctx context.Context, _ Scenario, emit func(json.RawMessage) error) error {
+				close(entered)
+				<-continueRun
+				switch order {
+				case "trace-first":
+					_ = emit(json.RawMessage("invalid"))
+					d.report(primary)
+				case "failure-before-trace":
+					d.report(primary)
+					_ = emit(json.RawMessage("invalid"))
+				default:
+					d.report(primary)
+				}
+				<-ctx.Done()
+				close(drained)
+				if strings.HasSuffix(order, "-returned") {
+					return primary
+				}
+				return ctx.Err()
+			}
+			d.cleanup = func(ctx context.Context) error {
+				select {
+				case <-drained:
+					return nil
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			r := testRunner(t, d)
+			r.Clock = clock
+			done := make(chan error, 1)
+			go func() { _, e := Search(parent, searchConfig(), &testGenerator{}, r); done <- e }()
+			<-entered
+			if strings.HasPrefix(order, "budget-first") {
+				clock.advance(time.Minute)
+			}
+			if strings.HasPrefix(order, "cancel-first") {
+				stop()
+			}
+			close(continueRun)
+			select {
+			case e := <-done:
+				if e == nil {
+					t.Fatal("false pass")
+				}
+				raw, re := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", "failure.json"))
+				if re != nil {
+					t.Fatal(re)
+				}
+				switch order {
+				case "budget-first", "budget-first-returned":
+					if errors.Is(e, primary) || !errors.Is(e, context.DeadlineExceeded) {
+						t.Fatalf("late error replaced deadline: %v %s", e, raw)
+					}
+				case "cancel-first", "cancel-first-returned":
+					if errors.Is(e, primary) || !errors.Is(e, context.Canceled) {
+						t.Fatalf("late error replaced cancel: %v %s", e, raw)
+					}
+				case "trace-first":
+					if errors.Is(e, primary) || !strings.Contains(string(raw), "invalid observation") {
+						t.Fatalf("trace replaced: %v %s", e, raw)
+					}
+				default:
+					if !errors.Is(e, primary) {
+						t.Fatalf("primary replaced: %v %s", e, raw)
+					}
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("did not drain")
+			}
+		})
+	}
+}
+func TestReportingBoundaryRaceKeepsOnePrimary(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		clock := &manualClock{}
+		entered := make(chan struct{})
+		start := make(chan struct{})
+		reported := make(chan struct{})
+		d := &reportingDriver{}
+		invariant := errors.New("racing invariant")
+		d.run = func(ctx context.Context, _ Scenario, _ func(json.RawMessage) error) error {
+			close(entered)
+			<-start
+			d.report(invariant)
+			close(reported)
+			<-ctx.Done()
+			return ctx.Err()
+		}
+		d.cleanup = func(ctx context.Context) error {
+			select {
+			case <-reported:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		r := testRunner(t, d)
+		r.Clock = clock
+		done := make(chan error, 1)
+		go func() { _, e := Search(context.Background(), searchConfig(), &testGenerator{}, r); done <- e }()
+		<-entered
+		advanced := make(chan struct{})
+		go func() { clock.advance(time.Minute); close(advanced) }()
+		close(start)
+		select {
+		case e := <-done:
+			if !errors.Is(e, invariant) && !errors.Is(e, context.DeadlineExceeded) {
+				t.Fatalf("lost cause %v", e)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("race failed to drain")
+		}
+		<-advanced
+	}
+}
+
+func TestSettleReportingPreservesFailureAndRejectsRunCallback(t *testing.T) {
+	clock := &manualClock{}
+	auditFailure := errors.New("audit invariant before shutdown")
+	lateRunFailure := errors.New("late run callback")
+	d := &reportingDriver{}
+	var oldReport func(error)
+	drained := make(chan struct{})
+	d.run = func(context.Context, Scenario, func(json.RawMessage) error) error { oldReport = d.report; return nil }
+	d.settle = func(ctx context.Context) error {
+		oldReport(lateRunFailure)
+		if ctx.Err() != nil {
+			close(drained)
+			return lateRunFailure
+		}
+		d.report(auditFailure)
+		clock.advance(time.Second)
+		<-ctx.Done()
+		close(drained)
+		return ctx.Err()
+	}
+	d.cleanup = func(ctx context.Context) error {
+		select {
+		case <-drained:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	r := testRunner(t, d)
+	r.Clock = clock
+	result, err := Search(context.Background(), searchConfig(), &testGenerator{}, r)
+	if result.Completed != 0 || !errors.Is(err, auditFailure) || errors.Is(err, lateRunFailure) {
+		t.Fatalf("wrong first failure: %+v %v", result, err)
+	}
+	raw, e := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", "failure.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var detail caseResult
+	if e = json.Unmarshal(raw, &detail); e != nil {
+		t.Fatal(e)
+	}
+	if detail.FailurePhase != "settle" || detail.FirstFailure != auditFailure.Error() {
+		t.Fatalf("wrong receipt: %+v", detail)
 	}
 }

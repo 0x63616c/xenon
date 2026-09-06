@@ -117,15 +117,17 @@ func TestActualPreparedWorkflowGenerator(t *testing.T) {
 }
 
 func TestGeneratedWorkflowUsesSharedEnvelopeAndReplayWithoutTools(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	directory := workflowTestBundle(t)
 	generator, err := NewWorkflowGenerator(directory)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := filepath.Join(t.TempDir(), "generation")
-	runner := &Runner{Driver: &WorkflowPreparationDriver{}, Clock: WallClock{}, Directory: evidence, Provenance: Provenance{Source: "test-source", Versions: map[string]string{"toolchain": "test", "native": "not-executed", "images": "none"}}}
+	runner := &Runner{Driver: &WorkflowPreparationDriver{}, Clock: &manualClock{}, Directory: evidence, Provenance: Provenance{Source: "test-source", Versions: map[string]string{"toolchain": "test", "native": "not-executed", "images": "none"}}}
 	config := SearchConfig{MaxCases: 2, MaxDuration: time.Second, MaxInFlight: 1, SettleBudget: time.Second, CleanupBudget: time.Second, MaxTraceBytes: 1 << 20, Limits: workflowLimits(), WorkloadSeed: 42, FaultSeed: 99}
-	result, err := Search(context.Background(), config, generator, runner)
+	result, err := Search(ctx, config, generator, runner)
 	if err != nil || result.Completed != 2 {
 		t.Fatal(result, err)
 	}
@@ -137,7 +139,7 @@ func TestGeneratedWorkflowUsesSharedEnvelopeAndReplayWithoutTools(t *testing.T) 
 	runner.Directory = replay
 	runner.Driver = &ArtifactDriver{}
 	casePath := "case-00000000000000000000"
-	result, err = Replay(context.Background(), filepath.Join(evidence, casePath, "scenario.json"), runner)
+	result, err = Replay(ctx, filepath.Join(evidence, casePath, "scenario.json"), runner)
 	if err != nil || result.Completed != 1 {
 		t.Fatal(result, err)
 	}
