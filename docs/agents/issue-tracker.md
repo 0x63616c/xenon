@@ -1,5 +1,7 @@
 # Issue tracker
 
+Current board: [Xenon Architecture & Testing Delivery](https://github.com/users/0x63616c/projects/8). Keep tracking lightweight: two delivery milestones (**Build and harden**, **Release proof and polish**), broad tickets, Todo/In Progress/Done, and batched reviews. Earlier boards and milestone descriptions are historical context; they do not override the reviewed spec or latest user priorities.
+
 Canonical map: [Prove S3-backed Temporal with dynamically scalable Xenon storage](https://github.com/0x63616c/xenon/issues/1).
 
 ## Wayfinding operations

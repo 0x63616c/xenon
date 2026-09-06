@@ -8,9 +8,20 @@ Authoring baseline: `fc4180d9b73c7d39dcdc0790f8d876ee10798ea1` on `codex/release
 
 Implement the [architecture checkpoint](architecture-spec-in-progress.md) and [service contracts](dst-service-contracts.md). In particular retain one identical Go executable embedding Temporal, direct S3 SlateDB application durability, SDK/UI/Nexus compatibility, stable database paths and transaction domains, the exact required service folders, approximately 100-instance validation target, and the ten-minute local release profile. Native/real-stack behavior is not deterministic merely because its simulated counterpart passes. Real AWS, broad upgrades and managed services remain outside this first-release task; report qualification separately.
 
-Claim linked bounded implementation tickets under the live map before edits. Public GitHub publication is authorized by the recorded user decision at `6235200`; do not reinstate the former publication hold. Each step has a separate implementation agent and independent review; decision spikes use the required advocate/adversarial review, with the coordinator recording delegated decisions. Use isolated worktrees for concurrent edits. Commit and review each usable slice, push and integrate in dependency order, then run its gates on the integrated revision. Do not accumulate a replacement service tree that production never calls. No unrelated deletion or mechanical empty scaffolding.
+Claim linked bounded implementation tickets under the live map before edits. Public GitHub publication is authorized by the recorded user decision at `6235200`; do not reinstate the former publication hold. Use separate implementation agents and independent review of cohesive batches; small tickets may be implemented and tested together before that review. Do not pause for a separate review of every micro-change; decision spikes use the required advocate/adversarial review, with the coordinator recording delegated decisions. Use isolated worktrees for concurrent edits. Commit usable slices as work progresses; review, push and integrate cohesive batches in dependency order, then run their gates on the integrated revision. Do not accumulate a replacement service tree that production never calls. No unrelated deletion or mechanical empty scaffolding.
 
 The gate names below that do not exist at the baseline are **deliverables of their step**, registered in the existing `scripts/prove.py` runner with committed manifests, exact expected tests and input hashes. A missing gate is a failure. Existing commands must remain usable until a reviewed equivalent replaces them. Development evidence with a dirty patch hash is diagnostic; clean committed reruns are the acceptance evidence.
+
+## Implementation groupings (not separate milestones)
+
+GitHub uses only two delivery milestones: Build and harden, then Release proof and polish. The groupings and nine sections below describe dependencies and acceptance scope, not extra milestones or mandatory stop-and-review cycles. Implement related work together, keep focused tests running during development, and review the composed diff at the batch boundary. Small commits and ticket updates need not interrupt implementation.
+
+1. **Backend and feasibility foundation:** shared S3/filesystem registry contracts in parallel, time seams at their first consumers, plus independent native/layout/placement experiments. Review the composed backend work together; review safety-critical feasibility decisions before they constrain production integration.
+2. **Working distributed service:** production cluster/partition/persistence services, coupled DST and origin-only routing (sections 3–5), delivered in usable internal commits with a joint review of their interactions.
+3. **Complete migration and readiness:** remaining service families, persisted identity/authority compatibility and real lifecycle readiness (sections 6–7), reviewed together with populated-state evidence.
+4. **Developer and release experience:** one CLI, shared search/replay/minimize, real Omes/Nexus/churn profiles, capacity/benchmark evidence and clean-checkout packaging (sections 8–9), with independent final integration review.
+
+Parallel agents own disjoint files/worktrees. A shared API owner provides the common contract so backends or callers do not build incompatible versions. Do not start dependent unsafe production behavior before its required native/cutover gate; independent implementation and tests continue meanwhile. Batch boundaries can move when evidence shows a better grouping, without dropping any listed requirement.
 
 ## 1. Registry, identity and time foundation
 
@@ -20,7 +31,7 @@ Own `internal/registry/store.go`, `s3/`, `filesystem/`, `contracttest/`, `intern
 
 The filesystem adapter uses a stable lock inode plus durable publication and read-recovery protocol from the reviewed spec. Reuse an established lock library only after verifying its exact platform/shared-filesystem semantics. Deliver one contract suite, not separately weakened backends. Pin cross-process/cross-machine fixture configuration; local, NFS and SMB each get a qualification row. Without an actual mount/client/server environment, NFS/SMB are unqualified with an executable recipe, never silently excluded or counted as passed.
 
-First bounded implementation ticket: typed IDs plus the registry API/error/envelope semantics and deterministic unit tests only; extend the existing S3 adapter in the next ticket, then filesystem/time contracts. Do not create unconsumed service skeletons. Each ticket is reviewed and integrated before the next; all three complete this foundation step.
+First bounded implementation ticket: typed IDs plus the registry API/error/envelope semantics and deterministic unit tests only; extend the existing S3 adapter in the next ticket, then filesystem/time contracts. Do not create unconsumed service skeletons. Implement and test these related tickets as one foundation batch, then independently review and integrate the batch; do not wait for micro-reviews between tickets. All three complete this foundation step.
 
 Acceptance commands (registered in this step):
 

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "source_revision": "EXACT_CLEAN_COMMIT",
+  "step_timeout_seconds": 30,
+  "a": {
+    "ssh": "HOST_A",
+    "binary": "/absolute/path/xenon-fs-participant",
+    "binary_sha256": "ACTUAL_SHA256",
+    "directory": "/shared/test-parent",
+    "qualification": {
+      "filesystem": "EXACT_NFS_OR_SMB_PROTOCOL",
+      "mount_options": "ACTUAL_OPTIONS",
+      "client": "OS_KERNEL_CLIENT_VERSION",
+      "server": "SERVER_IMPLEMENTATION_VERSION",
+      "export": "SERVER_EXPORT_OR_SHARE"
+    }
+  },
+  "b": {
+    "ssh": "HOST_B",
+    "binary": "/absolute/path/xenon-fs-participant",
+    "binary_sha256": "ACTUAL_SHA256",
+    "directory": "/shared/test-parent",
+    "qualification": {
+      "filesystem": "EXACT_NFS_OR_SMB_PROTOCOL",
+      "mount_options": "ACTUAL_OPTIONS",
+      "client": "OS_KERNEL_CLIENT_VERSION",
+      "server": "SERVER_IMPLEMENTATION_VERSION",
+      "export": "SERVER_EXPORT_OR_SHARE"
+    }
+  }
+}
