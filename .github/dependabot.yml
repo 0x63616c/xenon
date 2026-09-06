@@ -12,3 +12,9 @@ updates:
       slatedb-bindings:
         patterns:
           - slatedb.io/slatedb-go
+    ignore:
+      # Temporal Server pins the API and SDK versions it compiles against.
+      # Upgrade those companions through a reviewed Server upgrade instead of
+      # letting Dependabot make an independently incompatible module graph.
+      - dependency-name: go.temporal.io/api
+      - dependency-name: go.temporal.io/sdk

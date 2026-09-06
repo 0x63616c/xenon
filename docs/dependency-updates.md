@@ -3,11 +3,14 @@
 Customers upgrade Xenon as a tested release. Embedded Temporal and the current
 SlateDB storage implementation do not independently update in a running agent.
 
-Dependabot proposes weekly Go dependency PRs. Temporal server, API and SDK updates
-form one group; SlateDB bindings form a separate group so engine changes are not
-mixed with workflow-engine changes. This configuration enables neither automatic
-merging nor production deployment. GitHub must run Dependabot and CI for those
-services to supply results; configuration alone is not execution evidence.
+Dependabot proposes weekly Go dependency PRs. Temporal Server updates form one
+critical-dependency lane; its API and SDK companions are ignored as independent
+updates because Server's own `go.mod` defines the versions it compiles against.
+A reviewed Server upgrade updates all three together. SlateDB bindings form a
+separate lane so engine changes are not mixed with workflow-engine changes. This
+configuration enables neither automatic merging nor production deployment.
+GitHub must run Dependabot and CI to supply results; configuration alone is not
+execution evidence.
 
 ## Review gates
 
