@@ -53,43 +53,49 @@ diff --git a/workers/go/workerlib/kitchensink/kitchen_sink.go b/workers/go/worke
 diff --git a/loadgen/kitchensink/client_action_executor.go b/loadgen/kitchensink/client_action_executor.go
 --- a/loadgen/kitchensink/client_action_executor.go
 +++ b/loadgen/kitchensink/client_action_executor.go
-@@ -11,9 +11,12 @@
+@@ -11,16 +11,19 @@
  	"go.temporal.io/sdk/client"
  	"go.temporal.io/sdk/workflow"
  	"golang.org/x/sync/errgroup"
-+ "google.golang.org/protobuf/proto"
++	"google.golang.org/protobuf/proto"
  )
  
  type ClientActionsExecutor struct {
-+ // Only the Go client activity uses an empty fallback for a late SignalWithStart.
-+ AllowEmptySignalWithStartFallback bool
- 	Client          client.Client
- 	Namespace       string
- 	WorkflowOptions client.StartWorkflowOptions
-@@ -29,7 +32,7 @@
- ) error {
- 	var err error
- 	if withStartAction == nil {
--		e.Handle, err = e.Client.ExecuteWorkflow(ctx, e.WorkflowOptions, e.WorkflowType, e.WorkflowInput)
-+		e.Handle, err = e.Client.ExecuteWorkflow(ctx, e.WorkflowOptions, e.WorkflowType, input)
- 	} else if sig := withStartAction.GetDoSignal(); sig != nil {
- 		e.Handle, err = e.executeSignalAction(ctx, sig)
- 	} else if upd := withStartAction.GetDoUpdate(); upd != nil {
-@@ -154,7 +157,16 @@
+-	Client          client.Client
+-	Namespace       string
+-	WorkflowOptions client.StartWorkflowOptions
+-	WorkflowType    string
+-	WorkflowInput   *WorkflowInput
+-	Handle          client.WorkflowRun
+-	runID           string
++	// Only the Go client activity uses an empty fallback for a late SignalWithStart.
++	AllowEmptySignalWithStartFallback bool
++	Client                            client.Client
++	Namespace                         string
++	WorkflowOptions                   client.StartWorkflowOptions
++	WorkflowType                      string
++	WorkflowInput                     *WorkflowInput
++	Handle                            client.WorkflowRun
++	runID                             string
+ }
+ 
+ func (e *ClientActionsExecutor) Start(
+@@ -154,8 +157,17 @@
  	}
  
  	if sig.WithStart {
--		return e.Client.SignalWithStartWorkflow(
-+        input := e.WorkflowInput
-+        // Existing executions ignore this start argument. For a new execution,
-+        // admit only this signal, without changing its actions or completion rules.
-+        if e.AllowEmptySignalWithStartFallback && input != nil && proto.Equal(input, &WorkflowInput{}) {
-+            if actions := sig.GetDoSignalActions(); actions != nil && actions.SignalId > 0 {
-+                input = proto.Clone(input).(*WorkflowInput)
-+                input.OptionalSignalIds = []int32{actions.SignalId}
-+            }
-+        }
-+        return e.Client.SignalWithStartWorkflow(
- 			ctx, e.WorkflowOptions.ID, signalName, signalArgs, e.WorkflowOptions, e.WorkflowType, e.WorkflowInput)
++		input := e.WorkflowInput
++		// Existing executions ignore this start argument. For a new execution,
++		// admit only this signal, without changing its actions or completion rules.
++		if e.AllowEmptySignalWithStartFallback && input != nil && proto.Equal(input, &WorkflowInput{}) {
++			if actions := sig.GetDoSignalActions(); actions != nil && actions.SignalId > 0 {
++				input = proto.Clone(input).(*WorkflowInput)
++				input.OptionalSignalIds = []int32{actions.SignalId}
++			}
++		}
+ 		return e.Client.SignalWithStartWorkflow(
+-			ctx, e.WorkflowOptions.ID, signalName, signalArgs, e.WorkflowOptions, e.WorkflowType, e.WorkflowInput)
++			ctx, e.WorkflowOptions.ID, signalName, signalArgs, e.WorkflowOptions, e.WorkflowType, input)
  	}
  	return nil, e.Client.SignalWorkflow(ctx, e.WorkflowOptions.ID, "", signalName, signalArgs)
+ }
