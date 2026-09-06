@@ -1,4 +1,5 @@
-import importlib.util,json,shutil,tempfile,unittest
+import importlib.util,json,shutil,tempfile,unittest,io
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 import corrected_fuzz as corrected
@@ -9,7 +10,7 @@ class CorrectedFuzzControls(unittest.TestCase):
   self.assertFalse(runtime.arguments([]).corrected_fuzz_soak)
   self.assertTrue(runtime.arguments(['--corrected-fuzz-soak']).corrected_fuzz_soak)
   for mode in ['--fuzz-soak','--smoke','--omes-mixed']:
-   with self.assertRaises(SystemExit):runtime.arguments(['--corrected-fuzz-soak',mode])
+   with redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):runtime.arguments(['--corrected-fuzz-soak',mode])
  def test_profile_rejects_reduced_limits_and_changed_actions(self):
   config,replay,_=corrected.configuration();self.assertEqual(len(replay['commands']),20)
   with tempfile.TemporaryDirectory() as d:
