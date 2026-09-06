@@ -1,5 +1,8 @@
 name: Xenon site
 on:
+  push:
+    branches: [main]
+    paths: ['docs/guide/**', 'website/**', '.github/workflows/site.yaml']
   pull_request:
     paths: ['docs/guide/**', 'website/**', '.github/workflows/site.yaml']
   workflow_dispatch:
@@ -25,6 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
       - run: npm ci --prefix website
+      - run: npm run format:check --prefix website
       - run: npm run build --prefix website
         env:
           SITE_BASE: /xenon/
@@ -36,13 +40,15 @@ jobs:
           SITE_BASE=/xenon/ npm run preview > ../.local/site-preview.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid" || true' EXIT
-          for i in $(seq 1 30); do curl --fail --silent http://localhost:4178/xenon/ > /dev/null && break; sleep 1; done
+          for attempt in $(seq 1 30); do curl --fail --silent http://localhost:4178/xenon/ > /dev/null && break; echo "Waiting for preview ($attempt/30)"; sleep 1; done
           npm run test:ui -- http://localhost:4178/xenon/ ../.local/site-qa
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: site-browser-qa
-          path: .local/site-qa
+          path: |
+            .local/site-qa
+            .local/site-preview.log
           include-hidden-files: true
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         if: github.event_name == 'workflow_dispatch' && inputs.deploy && vars.XENON_SITE_DEPLOYMENT_APPROVED == 'true'

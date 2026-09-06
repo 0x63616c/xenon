@@ -9,8 +9,18 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  harness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: make test-harness
+      - run: python3 -O scripts/omes-corpus.py verify
+      - run: python3 scripts/validate_acceptance.py
+
   proof:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
@@ -28,10 +38,9 @@ jobs:
           git diff --exit-code -- gen/
       - run: cargo fmt --manifest-path test/compatibility/rust/Cargo.toml --all -- --check
       - run: cargo clippy --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked --workspace --all-targets -- -D warnings
-      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - run: make check-layout
       - run: python3 scripts/prove.py runtime-measurements
-      - run: python3 -O scripts/omes-corpus.py verify
-      - run: python3 scripts/validate_acceptance.py
       - run: python3 scripts/prove.py primitive
       - run: python3 scripts/prove.py ownership
       - run: cargo run --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked -p slatedb-probe
@@ -42,6 +51,15 @@ jobs:
       - run: python3 scripts/prove.py go-visibility
       - run: python3 scripts/prove.py rpc-measurement
       - run: python3 scripts/prove.py external-recorder
+      - run: python3 scripts/prove.py recorder-adapter
+      - run: python3 scripts/prove.py recorder-lifecycle
+      - run: python3 scripts/prove.py mixed-oracle
+      - run: python3 scripts/prove.py visibility-fanout
+      - run: python3 scripts/prove.py visibility-movement
+      - run: python3 scripts/prove.py delayed-owner
+      - run: python3 scripts/prove.py nexus-http
+      - run: python3 scripts/prove.py nexus-readiness
+      - run: python3 scripts/prove.py corrected-fuzz-controls
       - run: python3 scripts/prove.py go-visibility-frozen
       - run: go test -race ./...
         env:
@@ -145,7 +163,7 @@ jobs:
 
   s3-directory:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
@@ -161,6 +179,7 @@ jobs:
           docker version
           docker compose version
       - run: python3 scripts/prove.py directory
+      - run: python3 scripts/prove.py cas-loss
       - name: Retain conditional directory proof evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -265,5 +284,36 @@ jobs:
         with:
           name: process-cut-evidence
           path: .local/evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  omes-worker-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Prepare exact upstream sources and protobuf compiler
+        run: |
+          mkdir -p .local/ci
+          exec > >(tee .local/ci/omes-setup.log) 2>&1
+          python3 scripts/install-protoc.py
+          git clone --filter=blob:none --no-checkout https://github.com/temporalio/omes.git .local/omes-original
+          git -C .local/omes-original checkout --detach c6978ba39aa03551ce28974117e8d7ecf983d2b3
+          git clone --filter=blob:none --no-checkout https://github.com/temporalio/api.git .local/omes-api
+          git -C .local/omes-api checkout --detach d96bd55e87799e9f6a33a1c40a56cfa932566bdf
+      - name: Prove original failure, corrected worker and all saved inputs
+        run: python3 scripts/omes-signal-proof.py --source .local/omes-original --api-source .local/omes-api --protoc .local/protoc/bin/protoc
+      - name: Retain original and corrected worker receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: omes-worker-compatibility
+          path: |
+            .local/evidence/
+            .local/ci/
           include-hidden-files: true
           if-no-files-found: error
