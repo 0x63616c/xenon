@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/0x63616c/xenon/internal/proof/s3meter"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +24,16 @@ type config struct {
 
 func run() error {
 	path := flag.String("config", "proof/s3-meter/local.json", "committed local proof config")
+	casEvidence := flag.String("cas-loss-evidence", "", "optional one-shot directory response-loss journal")
+	validateCAS := flag.String("validate-cas-loss", "", "validate saved CAS fault journal and exit")
 	flag.Parse()
+	if *validateCAS != "" {
+		receipt, err := s3meter.ValidateCASLossJournal(*validateCAS)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(receipt)
+	}
 	f, e := os.Open(*path)
 	if e != nil {
 		return e
@@ -45,6 +55,11 @@ func run() error {
 		return e
 	}
 	defer p.Close()
+	if *casEvidence != "" {
+		if e = p.EnableCASLoss(*casEvidence); e != nil {
+			return e
+		}
+	}
 	listener, e := net.Listen("tcp", c.Listen)
 	if e != nil {
 		return e
@@ -57,6 +72,25 @@ func run() error {
 	defer reports.Close()
 	server := &http.Server{Handler: p, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 1 << 20}
 	reportServer := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/cas-loss/arm" && *casEvidence != "" {
+			var selector s3meter.CASSelector
+			decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&selector); err != nil {
+				http.Error(w, "invalid selector", 400)
+				return
+			}
+			if decoder.Decode(&struct{}{}) != io.EOF {
+				http.Error(w, "trailing selector data", 400)
+				return
+			}
+			if err := p.ArmCASLoss(selector); err != nil {
+				http.Error(w, "arm rejected", 409)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if r.Method != "GET" || r.URL.Path != "/report" {
 			http.NotFound(w, r)
 			return

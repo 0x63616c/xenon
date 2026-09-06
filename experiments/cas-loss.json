@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "name": "cas-loss",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 240,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "scripts/s3-meter-proof.py",
+    "internal/proof/s3meter/proxy.go",
+    "internal/proof/s3meter/cas_loss.go",
+    "internal/proof/s3meter/cas_loss_test.go",
+    "internal/proof/s3meter/cas_loss_s3_test.go",
+    "internal/directory/directory.go",
+    "cmd/xenon-s3-meter/main.go",
+    "deploy/s3-meter.compose.yaml",
+    "proof/s3-meter/case.json",
+    "proof/s3-meter/cas-loss.md"
+  ],
+  "fault_schedule": "Arm one exact directory partition/node/incarnation conditional PUT. Observe real upstream2xx+ETag, Sync receipt, abort downstream beforeheaders, observe exactGETbytes and matchingREADY transition.",
+  "assertions": [
+    "Real HTTP connection abort occurs only after actual selected successful write.",
+    "Actual signed SDK Directory.Reserve reconciles lost response against MinIO without production hooks."
+  ],
+  "limitations": [
+    "Runtime movement/dispatch composition requires separate execution.",
+    "No AWS compatibility or billing claim; intentional abort is separate from normal completed HTTP counters."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-cas-loss",
+      "filter": "TestCASLossHTTP",
+      "exact": true,
+      "expected_tests": [
+        "TestCASLossHTTP/success",
+        "TestCASLossHTTP/precondition_failure",
+        "TestCASLossHTTP/wrong_incarnation",
+        "TestCASLossHTTP"
+      ]
+    },
+    {
+      "runner": "s3-meter",
+      "filter": "TestCASLossSignedS3",
+      "exact": true,
+      "expected_tests": [
+        "TestCASLossSignedS3"
+      ]
+    }
+  ]
+}
