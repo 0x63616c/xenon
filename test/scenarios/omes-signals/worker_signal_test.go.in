@@ -6,6 +6,8 @@ import (
 	"github.com/temporalio/omes/clioptions"
 	pb "github.com/temporalio/omes/loadgen/kitchensink"
 	common "go.temporal.io/api/common/v1"
+	enums "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/proto"
@@ -29,6 +31,7 @@ func TestXenonSignalMetadataContract(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
+			env.SetWorkflowExecutionTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			env.RegisterDelayedCallback(func() {
@@ -46,8 +49,8 @@ func TestXenonSignalMetadataContract(t *testing.T) {
 			if tc.completes && err != nil {
 				t.Fatal(err)
 			}
-			if !tc.completes && err == nil {
-				t.Fatal("undeclared numbered return unexpectedly executed")
+			if !tc.completes {
+				requireDeclaredTimeout(t, err)
 			}
 		})
 	}
@@ -62,6 +65,7 @@ func TestXenonOptionalSignalContract(t *testing.T) {
 		t.Run(fmt.Sprint(delivered), func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
+			env.SetWorkflowExecutionTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			env.RegisterDelayedCallback(func() {
@@ -89,14 +93,13 @@ func TestXenonOptionalSignalContract(t *testing.T) {
 func TestXenonRequiredSignalStillDrains(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowExecutionTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(2, "ok")) }, time.Second)
 	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 2*time.Second)
 	env.ExecuteWorkflow(KitchenSinkWorkflow, &pb.WorkflowInput{ExpectedSignalIds: []int32{1, 2}, OptionalSignalIds: []int32{3}})
-	if env.GetWorkflowError() == nil {
-		t.Fatal("missing required signal did not block")
-	}
+	requireDeclaredTimeout(t, env.GetWorkflowError())
 }
 func TestXenonCANSignalScope(t *testing.T) {
 	successor := &pb.WorkflowInput{ExpectedSignalIds: []int32{10}, OptionalSignalIds: []int32{11}}
@@ -109,6 +112,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 	signal := &pb.DoSignal_DoSignalActions{SignalId: 1, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_ContinueAsNew{ContinueAsNew: can}}}}}}
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowExecutionTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", signal) }, time.Second)
@@ -125,6 +129,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 		t.Fatal("CAN successor metadata changed")
 	}
 	env = suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowExecutionTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() {
@@ -147,6 +152,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 func TestXenonOptionalDeliveryExecutes(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowExecutionTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(3, "optional-executed")) }, time.Second)
@@ -169,6 +175,7 @@ func TestXenonOptionalCancellationAndNoHandlerDrain(t *testing.T) {
 		t.Run(fmt.Sprint(cancelled), func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
+			env.SetWorkflowExecutionTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			choice := &pb.AwaitableChoice{}
@@ -198,5 +205,13 @@ func TestXenonOptionalCancellationAndNoHandlerDrain(t *testing.T) {
 				t.Fatalf("result=%s late=%v", result, late)
 			}
 		})
+	}
+}
+
+func requireDeclaredTimeout(t *testing.T, err error) {
+	t.Helper()
+	var timeout *temporal.TimeoutError
+	if !errors.As(err, &timeout) || timeout.TimeoutType() != enums.TIMEOUT_TYPE_SCHEDULE_TO_CLOSE {
+		t.Fatalf("unexpected negative control error: %v", err)
 	}
 }
