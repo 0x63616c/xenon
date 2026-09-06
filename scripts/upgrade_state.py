@@ -143,9 +143,12 @@ class Runtime:
         worker=self.launch(phase+'-worker',[self.sdk,'--mode','worker','--address','127.0.0.1:17233','--namespace',self.namespace,'--task-queue',self.queue])
         worker.line('{',timeout=30);self.phase_processes.append(worker)
     def stop(self):
-        for p in reversed(self.phase_processes):
+        roles=['owner','server','worker'][:len(self.phase_processes)]
+        for role,p in reversed(list(zip(roles,self.phase_processes))):
             p.stop()
-            if p.process.returncode!=0:raise RuntimeError('old producer did not stop cleanly')
+            self.report.setdefault('phase_stops',[]).append({'role':role,'returncode':p.process.returncode})
+            expected=-signal.SIGTERM if role=='owner' else 0
+            if p.process.returncode!=expected:raise RuntimeError(role+' did not stop with the declared exit policy')
         self.phase_processes=[]
     def objects(self,label):
         raw=self.run(['aws','--endpoint-url',self.env['AWS_ENDPOINT'],'s3api','list-objects-v2','--bucket',self.env['XENON_BUCKET']])

@@ -31,6 +31,15 @@ class FakeRuntime:
     def cleanup(self):self.cleaned=True
 
 class UpgradeControls(unittest.TestCase):
+    def test_phase_stop_accepts_only_expected_owner_replacement(self):
+        class Process:
+            def __init__(self,code):self.process=type('P',(),{'returncode':code})()
+            def stop(self):pass
+        runtime=u.Runtime.__new__(u.Runtime);runtime.report={}
+        runtime.phase_processes=[Process(-15),Process(0),Process(0)]
+        runtime.stop()
+        self.assertEqual(runtime.report['phase_stops'],[{'role':'worker','returncode':0},{'role':'server','returncode':0},{'role':'owner','returncode':-15}])
+
     def test_real_state_flow_and_same_run_identity(self):
         fake=FakeRuntime({},None,{})
         result={};u.exercise(fake,result)
