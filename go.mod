@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.13
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.110.0
 	github.com/aws/smithy-go v1.28.1
+	github.com/buraksezer/consistent v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/nexus-rpc/sdk-go v0.6.0
 	github.com/stretchr/testify v1.12.1
