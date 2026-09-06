@@ -103,12 +103,16 @@ func TestPartitionNativeShardReplay(t *testing.T) {
 	written := f.ready(b)
 	ctx, cancel := context.WithTimeout(f.ctx, time.Duration(f.config.PhaseTimeout)*time.Second)
 	defer cancel()
-	data, err := written.ReadDurable(ctx, p.ReadRequest{Keys: [][]byte{[]byte("v1/outcome_count"), []byte("v1/outcome/" + q.OperationId), []byte("v1/outcome_usage")}})
-	if err != nil || len(data.Entries) != 3 {
+	data, err := written.ReadDurable(ctx, p.ReadRequest{Keys: [][]byte{[]byte("v1/outcome_count"), []byte("v1/outcome/" + q.OperationId), []byte("v1/outcome_usage"), []byte("v1/shard/0000000007")}})
+	if err != nil || len(data.Entries) != 4 {
 		t.Fatalf("journal recovery: %+v %v", data, err)
 	}
 	if len(data.Entries[0].Value) != 8 || binary.BigEndian.Uint64(data.Entries[0].Value) != 1 || len(data.Entries[1].Value) == 0 || !strings.Contains(string(data.Entries[2].Value), `"entries":1`) {
 		t.Fatalf("replay/accounting changed: %+v", data)
+	}
+	var recovered wire.StoredShard
+	if err := proto.Unmarshal(data.Entries[3].Value, &recovered); err != nil || recovered.RangeId != 11 || string(recovered.Data) != "acknowledged shard" || recovered.Encoding != 1 {
+		t.Fatalf("application shard recovery: %+v %v", &recovered, err)
 	}
 	t.Log("real shard outcome replayed after ownership movement without duplicate application; changed digest and capacity rejected")
 }
