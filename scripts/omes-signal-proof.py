@@ -71,6 +71,9 @@ def main():
   if len(report['corpus'])!=20:raise ValueError('corpus count changed')
   if run(['git','rev-parse','HEAD']).strip()!=report['git_sha'] or run(['git','status','--porcelain']).strip():raise ValueError('source changed')
   if any(sha(ROOT/k)!=v for k,v in report['inputs'].items()):raise ValueError('input changed')
+  for upstream,pin in [(a.source,OMES),(a.api_source,API)]:
+   if run(['git','rev-parse','HEAD'],upstream).strip()!=pin or run(['git','status','--porcelain'],upstream).strip():raise ValueError('upstream source changed')
+  if sha(a.protoc)!=report['protoc_sha256']:raise ValueError('protoc changed')
   report.update(proof_pass=True,result='passed')
  except Exception as error:report['error']=str(error)
  finally:
