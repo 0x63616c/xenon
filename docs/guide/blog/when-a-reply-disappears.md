@@ -26,7 +26,7 @@ The outcome also carries its result family. That matters when one dispatcher ser
 
 ## Durability before publication
 
-A result held in process memory is not yet the durable answer. Xenon waits for durability, and managed owners use a nonempty fencing barrier before publishing results. If an old handle loses authority, the request cannot treat its captured result as a successful response.
+A result held in process memory is not yet the durable answer. Xenon waits for durability. A durable transaction or fencing barrier verifies writer authority before publication. If an old handle loses authority, the request cannot treat its captured result as a successful response.
 
 The process-cut proof exercises concrete boundaries around transaction commit and durability. Its receipts bind the code and fault schedule; a conceptual diagram alone cannot establish recovery behavior.
 

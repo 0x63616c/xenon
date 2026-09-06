@@ -76,17 +76,24 @@ try {
         )
       )
         throw new Error(`horizontal overflow ${name}/${path}`);
+      if (
+        (path === "cloud.html" || path.startsWith("blog/")) &&
+        (await page.locator(".VPSidebar").isVisible())
+      )
+        throw new Error("marketing sidebar visible");
       if (path === "blog/one-address-many-owners.html") {
-        await page.getByLabel("Entry node", { exact: true }).selectOption("C");
         await page
-          .getByLabel("Partition owner", { exact: true })
+          .getByRole("combobox", { name: /Entry node/ })
+          .selectOption("C");
+        await page
+          .getByRole("combobox", { name: /Partition owner/ })
           .selectOption("C");
         await page.getByRole("button", { name: "Next step" }).click();
         await page
           .getByText("No forwarding hop is needed.", { exact: false })
           .waitFor();
         await page
-          .getByLabel("Partition owner", { exact: true })
+          .getByRole("combobox", { name: /Partition owner/ })
           .selectOption("A");
         await page.getByRole("button", { name: "Next step" }).click();
         await page

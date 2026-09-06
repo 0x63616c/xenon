@@ -26,7 +26,7 @@ Partition assignment is separate from the service address. Moving a partition ch
 
 A route can become stale between lookup and delivery. Inside the partition's admission gate, Xenon checks fresh topology activation and the READY ownership record. The process must match the activated incarnation, not merely reuse the same node name.
 
-The handler then works through its SlateDB handle. Before returning a result, a nonempty durable barrier checks for fencing. This separates routing convenience from the authority to publish a result.
+The handler then works through its SlateDB handle. Before returning a result, a durable transaction or fencing barrier verifies writer authority. This separates routing convenience from the authority to publish a result.
 
 ## Movement is a protocol
 
