@@ -46,5 +46,6 @@
     "scripts/agent-smoke.py"
   ],
   "timeout_seconds": 900,
-  "control_key": "agent/metadata/registry/cluster/control"
+  "control_key": "agent/metadata/registry/cluster/control",
+  "failure_diagnostics_seconds": 15
 }

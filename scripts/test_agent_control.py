@@ -79,6 +79,14 @@ class AgentControlTests(unittest.TestCase):
             probe.return_value=False
             self.assertFalse(smoke.agent_ready(self.config,probe))
 
+    def test_failed_diagnostics_do_not_prevent_other_snapshots(self):
+        run=MagicMock(side_effect=[TimeoutError('dead node'), 'control bytes'])
+        result=smoke.capture_failure_diagnostics(run,{'a':self.config},['aws','get-control'])
+        self.assertIn('dead node',result['a'])
+        self.assertEqual(result['control'],'captured')
+        self.assertEqual(run.call_count,2)
+        run.assert_called_with(['aws','get-control'],timeout=5)
+
     def test_exit_between_poll_and_kill_still_reaps_and_keeps_output(self):
         child=subprocess.Popen([sys.executable,'-c',
             'import sys; sys.stdin.read(1); print("preserved child output", flush=True)'],

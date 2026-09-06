@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Reproducible combined-agent component proof. No real AWS credentials accepted."""
-import argparse, hashlib, json, os, signal, socket, subprocess, time, urllib.request, uuid
+import argparse, hashlib, json, os, signal, socket, subprocess, sys, time, urllib.request, uuid
 from urllib.parse import quote_plus
 from pathlib import Path
 from omes_workloads import effective_sdk
@@ -35,6 +35,21 @@ def agent_ready(config, probe):
         if response.status != 200 or response.read(64) != b'ready\n':
             return False
     return bool(probe('health','--address','127.0.0.1:'+str(config['base_port'])))
+
+
+def capture_failure_diagnostics(run, configs, control_command):
+    results={}
+    commands={name: [sys.executable,'-c',
+        'import sys,urllib.request; print(urllib.request.urlopen(sys.argv[1],timeout=2).read(1048576).decode())',
+        'http://'+config['diagnostics_address']+'/version'] for name,config in configs.items()}
+    commands['control']=control_command
+    for name,command in commands.items():
+        try:
+            run(command,timeout=3 if name != 'control' else 5)
+            results[name]='captured'
+        except Exception as error:
+            results[name]=type(error).__name__+': '+str(error)
+    return results
 
 
 def main():
@@ -272,6 +287,17 @@ def main():
     finally:
         expected_stops.update(p.pid for p in children)
         cleanup=[]
+        if report.get('error') and started:
+            # A separate bounded diagnostic budget does not extend workload or
+            # recovery deadlines. Failure observations cannot replace first cause.
+            try:
+                deadline=time.monotonic()+agent_case['failure_diagnostics_seconds']
+                configs={name:json.loads((SCENARIO/(name+'.json')).read_text()) for name in agent_case['agents']}
+                report['failure_diagnostics']=capture_failure_diagnostics(run,configs,
+                    ['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof',
+                     '--key',agent_case['control_key'],str(receipt/'control-at-failure.json')])
+            except Exception as error:
+                report['failure_diagnostics_error']=type(error).__name__+': '+str(error)
         for p in reversed(children):
             try:stop(p)
             except Exception as e:cleanup.append(str(e))
