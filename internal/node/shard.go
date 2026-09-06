@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/google/uuid"
 	"regexp"
@@ -271,57 +272,7 @@ func commit(tx *native.DbTransaction) error {
 }
 func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
 	outcome, err := o.journal(request.OperationId, request.CommandSha256, shardFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
-		command := request.Command
-		shardKey := fmt.Sprintf("v1/shard/%010d", command.ShardId)
-		raw, err := get(tx, shardKey)
-		if err != nil {
-			return nil, err
-		}
-		var shard *wire.StoredShard
-		if raw != nil {
-			shard = &wire.StoredShard{}
-			if err = proto.Unmarshal(raw, shard); err != nil {
-				return nil, backend(err)
-			}
-		}
-		result := &wire.ShardResult{ShardId: command.ShardId}
-		save := false
-		switch command.Kind {
-		case wire.ShardCommand_GET, wire.ShardCommand_CREATE_OR_GET:
-			if shard == nil && command.Kind == wire.ShardCommand_CREATE_OR_GET {
-				shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
-				save = true
-			}
-			if shard == nil {
-				result.Error = wire.ShardResult_NOT_FOUND
-				result.Message = fmt.Sprintf("shard %d not found", command.ShardId)
-			} else {
-				copyShard(result, shard)
-			}
-		case wire.ShardCommand_UPDATE, wire.ShardCommand_ASSERT:
-			expected := command.RangeId
-			if command.Kind == wire.ShardCommand_UPDATE {
-				expected = command.PreviousRangeId
-			}
-			if shard == nil && command.Kind == wire.ShardCommand_UPDATE {
-				result.Error = wire.ShardResult_UNAVAILABLE
-				result.Message = fmt.Sprintf("Failed to lock shard %d: shard does not exist", command.ShardId)
-			} else if shard == nil || shard.RangeId != expected {
-				result.Error = wire.ShardResult_OWNERSHIP_LOST
-				result.Message = fmt.Sprintf("shard %d range mismatch: expected %d", command.ShardId, expected)
-			} else if command.Kind == wire.ShardCommand_UPDATE {
-				shard = &wire.StoredShard{RangeId: command.RangeId, Data: command.Data, Encoding: command.Encoding}
-				save = true
-				copyShard(result, shard)
-			}
-		}
-		if save {
-			data, _ := proto.Marshal(shard)
-			if err = put(tx, shardKey, data); err != nil {
-				return nil, err
-			}
-		}
-		return &wire.StoredOutcome{Result: &wire.StoredOutcome_ShardResult{ShardResult: result}}, nil
+		return persistence.ApplyShard(context.Background(), legacyShardTransaction{tx}, request.Command)
 	})
 	if err != nil {
 		return nil, err
@@ -329,11 +280,15 @@ func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
 	return outcome.GetShardResult(), nil
 }
 
-func copyShard(result *wire.ShardResult, shard *wire.StoredShard) {
-	result.RangeId = shard.RangeId
-	result.Data = shard.Data
-	result.Encoding = shard.Encoding
+// legacyShardTransaction keeps native types in the retiring handler while both
+// runtimes use identical conditional shard semantics. Owner.Run retains this
+// synchronous native call even if its external RPC context has expired.
+type legacyShardTransaction struct{ tx *native.DbTransaction }
+
+func (t legacyShardTransaction) Get(_ context.Context, key []byte) ([]byte, error) {
+	return get(t.tx, string(key))
 }
+func (t legacyShardTransaction) Put(key, value []byte) error { return put(t.tx, string(key), value) }
 
 // authorityBarrier overwrites one reserved key. Even read/replay-only operations
 // must touch the WAL and await durability to detect a delayed opener's fence.
