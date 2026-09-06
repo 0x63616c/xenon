@@ -13,6 +13,7 @@ import (
 	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/registry"
 	"github.com/0x63616c/xenon/internal/registry/filesystem"
+	"go.temporal.io/api/serviceerror"
 )
 
 func TestServiceRuntimeRefusesLegacyAndStopIsIdempotent(t *testing.T) {
@@ -142,5 +143,61 @@ func TestHostStopRetainsPendingOpenAndReportsProcessExit(t *testing.T) {
 	}
 	if len(driver.Snapshot().Pending()) != 0 {
 		t.Fatal("late completion not drained")
+	}
+}
+
+func TestReadinessRetriesChildBudgetWithinOriginalParentDeadline(t *testing.T) {
+	for _, transient := range []error{context.DeadlineExceeded, serviceerror.NewUnavailable("owner recovering"), serviceerror.NewDeadlineExceeded("child invocation expired")} {
+		t.Run(transient.Error(), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			deadline, _ := ctx.Deadline()
+			calls := 0
+			err := waitForReadiness(ctx, time.Millisecond, func(observed context.Context) error {
+				actual, _ := observed.Deadline()
+				if !actual.Equal(deadline) {
+					t.Fatal("extended parent deadline")
+				}
+				calls++
+				if calls == 1 {
+					if transient == context.DeadlineExceeded {
+						child, stop := context.WithTimeout(observed, time.Millisecond)
+						defer stop()
+						<-child.Done()
+						if observed.Err() != nil {
+							t.Fatal("parent expired with child")
+						}
+						return child.Err()
+					}
+					return transient
+				}
+				return nil
+			})
+			if err != nil || calls != 2 {
+				t.Fatal("completed child failure escaped readiness early", err, calls)
+			}
+		})
+	}
+}
+
+func TestReadinessPreservesParentBudgetAndPermanentFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	calls := 0
+	err := waitForReadiness(ctx, time.Millisecond, func(context.Context) error { calls++; return serviceerror.NewUnavailable("owner recovering") })
+	if !errors.Is(err, context.DeadlineExceeded) || calls < 2 {
+		t.Fatal(err, calls)
+	}
+	for _, permanent := range []error{serviceerror.NewInvalidArgument("layout mismatch"), agent.Permanent(serviceerror.NewUnavailable("listener stopped")), context.Canceled} {
+		calls = 0
+		err = waitForReadiness(context.Background(), time.Millisecond, func(context.Context) error { calls++; return permanent })
+		if !errors.Is(err, permanent) || calls != 1 {
+			t.Fatal("permanent failure retried", err, calls)
+		}
+	}
+	canceled, stop := context.WithCancel(context.Background())
+	stop()
+	if err = waitForReadiness(canceled, time.Millisecond, func(context.Context) error { t.Fatal("observed after cancellation"); return nil }); !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
 	}
 }

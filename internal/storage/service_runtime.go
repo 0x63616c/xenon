@@ -20,10 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"go.temporal.io/api/serviceerror"
 	persistence "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // ServiceRuntime composes the production drivers. It owns their native/effect
@@ -271,17 +271,33 @@ func (r *ServiceRuntime) Ready(ctx context.Context) error {
 	if err := r.config.Validate(); err != nil {
 		return err
 	}
-	tick := time.NewTicker(duration(r.config.ServiceStorage.PollInterval))
+	return waitForReadiness(ctx, duration(r.config.ServiceStorage.PollInterval), r.readyOnce)
+}
+
+// A child RPC budget may expire before the caller's readiness budget. Retry a
+// completed transient observation without extending either deadline.
+func waitForReadiness(ctx context.Context, interval time.Duration, observe func(context.Context) error) error {
+	tick := time.NewTicker(interval)
 	defer tick.Stop()
+	var last error
 	for {
-		err := r.readyOnce(ctx)
+		if err := ctx.Err(); err != nil {
+			return errors.Join(err, last)
+		}
+		err := observe(ctx)
 		if err == nil {
 			return nil
+		}
+		last = err
+		var permanent *agent.PermanentError
+		if errors.As(err, &permanent) {
+			return err
 		}
 		var unavailable *registry.Unavailable
 		var unknown *registry.UnknownOutcome
 		var conflict *registry.Conflict
-		retry := errors.Is(err, errRegistrationPending) || errors.Is(err, errHeartbeatOverdue) || errors.As(err, &unavailable) || errors.As(err, &unknown) || errors.As(err, &conflict) || status.Code(err) == codes.Unavailable || status.Code(err) == codes.DeadlineExceeded
+		code := serviceerror.ToStatus(err).Code()
+		retry := errors.Is(err, errRegistrationPending) || errors.Is(err, errHeartbeatOverdue) || errors.As(err, &unavailable) || errors.As(err, &unknown) || errors.As(err, &conflict) || errors.Is(err, context.DeadlineExceeded) || code == codes.Unavailable || code == codes.DeadlineExceeded
 		if !retry {
 			return err
 		}

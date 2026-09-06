@@ -94,3 +94,24 @@ readiness timeout or a claim that an expired probe succeeded.
 The focused agent race suite includes a gated cancellation-unwind regression and
 the existing shutdown-with-pending-probe safety regression. The real composed
 fault scenario remains the acceptance boundary for failover progress.
+
+### Cold readiness uses the caller's budget
+
+The clean `7df6453` run `agent-20260906T134326-ad453f` passed join, assigned
+service, B's crash/eviction/restart, 20 Omes workflows and UI/SDK checks. During
+all-cold restart A then returned `storage readiness: context deadline exceeded`.
+Its captured log creation and final-write timestamps span about 30.30 seconds,
+matching the adapter's 30-second child invocation budget, not the 120-second
+startup budget. B and C entered Temporal initialization shortly afterward, before
+harness cleanup canceled them. No cold control snapshot survived, so this does
+not establish which election, membership or native-open phase occupied that time.
+
+Readiness now recognizes completed child context deadlines and Temporal's typed
+Unavailable/DeadlineExceeded errors. It retries those observations within the
+unchanged parent budget; raw gRPC status conversion did not recognize these
+adapter return types. Caller cancellation, explicit permanent errors and invalid
+configuration remain terminal. It does not acknowledge an unknown operation or
+assume membership eligibility: success still requires a new successful routed
+probe. A regression expires an actual child context while the parent remains
+live, then confirms successful observation without changing its deadline; other
+controls exhaust the parent budget and reject permanent-error retries.
