@@ -10,6 +10,29 @@ import (
 )
 
 func TestVisibilityMovementBarrier(t *testing.T) {
+	t.Run("page_sizes", func(t *testing.T) {
+		for _, size := range []int{1, 7, 100} {
+			got, err := movementPageSizes("check", size)
+			if err != nil || len(got) != 1 || got[0] != size {
+				t.Fatalf("size %d: %v %v", size, got, err)
+			}
+		}
+		for _, size := range []int{-1, 2, 101} {
+			if _, err := movementPageSizes("check", size); err == nil {
+				t.Fatalf("accepted %d", size)
+			}
+		}
+		for _, mode := range []string{"seed", "mutate"} {
+			if _, err := movementPageSizes(mode, 7); err == nil {
+				t.Fatalf("accepted override for %s", mode)
+			}
+		}
+		got, err := movementPageSizes("seed", 0)
+		if err != nil || len(got) != 3 || got[0] != 1 || got[1] != 7 || got[2] != 100 {
+			t.Fatal(got, err)
+		}
+	})
+
 	t.Run("release", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "release")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
