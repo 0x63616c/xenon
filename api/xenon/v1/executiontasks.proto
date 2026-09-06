@@ -1,0 +1,16 @@
+syntax="proto3";
+package xenon.v1;
+import "xenon/v1/execution.proto";
+import "xenon/v1/history.proto";
+option go_package="github.com/0x63616c/xenon/api/xenon/v1;xenonv1";
+service ExecutionTasksPersistence {rpc Execute(ExecutionTasksRequest) returns(ExecutionTasksResult);}
+message ExecutionTasksRequest {uint32 protocol_version=1;string partition=2;string operation_id=3;bytes command_sha256=4;ExecutionTasksCommand command=5;}
+message ExecutionTasksCommand {
+ enum Kind{UNSPECIFIED=0;ADD=1;PUT_DLQ=2;READ_DLQ=3;DELETE_DLQ=4;RANGE_DELETE_DLQ=5;IS_EMPTY_DLQ=6;}
+ Kind kind=1;int32 shard_id=2;int64 range_id=3;string namespace_id=4;string workflow_id=5;uint32 archetype_id=6;repeated ExecutionTask tasks=7;
+ string source_cluster=8;int64 task_id=9;HistoryBlob task_info=10;int64 minimum_id=11;int64 maximum_id=12;int64 page_size=13;bytes next_page_token=14;
+}
+message ExecutionTasksResult {
+ enum Error{NONE=0;UNAVAILABLE=1;INTERNAL=2;OWNERSHIP_LOST=3;}
+ Error error=1;string message=2;int32 shard_id=3;repeated ExecutionTask tasks=4;bytes next_page_token=5;bool empty=6;
+}

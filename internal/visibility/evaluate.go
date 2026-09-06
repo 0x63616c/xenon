@@ -2,7 +2,7 @@ package visibility
 
 import (
 	"fmt"
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"math/big"
 	"strconv"

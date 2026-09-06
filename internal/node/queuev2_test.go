@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	upstream "go.temporal.io/server/common/persistence/tests"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	p "github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	persistencespb "go.temporal.io/server/api/persistence/v1"

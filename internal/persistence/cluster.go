@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/partitions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

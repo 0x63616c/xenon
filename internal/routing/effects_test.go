@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

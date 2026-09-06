@@ -63,7 +63,7 @@ def main():
         raise ValueError('wrong reference workspace')
     if {p['name'] for p in metadata['packages']} != {'slatedb-probe', 'xenon-node'}:
         raise ValueError('reference packages changed')
-    if not (expected / 'crates/xenon-node/../../../../../proto/xenon/v1/persistence.proto').resolve().is_file():
+    if not (expected / 'crates/xenon-node/../../../../../api/xenon/v1/persistence.proto').resolve().is_file():
         raise ValueError('reference protobuf source missing')
     print(f'{count} manifest input sets, scenario links/bytes and reference workspace verified; runtime not executed.')
 

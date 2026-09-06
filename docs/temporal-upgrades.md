@@ -16,7 +16,7 @@ Keep version-sensitive adaptation concentrated in these existing seams:
 | Temporal change | Xenon review boundary | Evidence to refresh |
 | --- | --- | --- |
 | Persistence interfaces, internal requests, manager behavior | `internal/temporal/adapter`,  typed RPC contracts | Interface composition, typed errors, callbacks, transaction guards and upstream suites |
-| Persistence protobufs and opaque encodings | `internal/temporal/adapter/execution_codec.go`, `proto/xenon/v1`, `internal/node` | Oneofs, unknown fields, enums, UUID/time/byte round trips and stored outcome decoding |
+| Persistence protobufs and opaque encodings | `internal/temporal/adapter/execution_codec.go`, `api/xenon/v1`, `internal/node` | Oneofs, unknown fields, enums, UUID/time/byte round trips and stored outcome decoding |
 | SQL schema or persistence SQL behavior | `internal/node`, `docs/research` | Intended conditions, ordering, conflict/version semantics, documented SQL deviations; SQL is an oracle, never Xenon durable storage |
 | Visibility/search attributes/query conversion | `internal/query`, `internal/visibility`, visibility adapter | Raw values versus generated comparisons, nulls, aliases, pagination, CHASM, PostgreSQL oracle fixtures |
 | Server configuration, launch wiring and dependencies | `internal/temporal/adapter`, `cmd`, `tools`, `test/scenarios/ministack` | Both factories, native binding pin, multiple Temporal processes, actual SDK/UI/Omes runtime |

@@ -3,7 +3,7 @@ package adapter
 import (
 	"context"
 	"errors"
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
 	"testing"

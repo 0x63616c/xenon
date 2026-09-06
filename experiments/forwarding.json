@@ -11,9 +11,9 @@
     "go.sum",
     "internal/routing/router.go",
     "internal/routing/router_test.go",
-    "proto/xenon/v1/persistence.proto",
-    "gen/xenon/v1/persistence.pb.go",
-    "gen/xenon/v1/persistence_grpc.pb.go",
+    "api/xenon/v1/persistence.proto",
+    "api/xenon/v1/persistence.pb.go",
+    "api/xenon/v1/persistence_grpc.pb.go",
     "scripts/test_prove.py",
     ".github/workflows/ci.yaml",
     "proof/forwarding/README.md"

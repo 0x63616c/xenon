@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/proof/recorder"
 	"github.com/0x63616c/xenon/internal/rpctrace"
 	"google.golang.org/grpc"

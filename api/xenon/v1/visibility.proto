@@ -1,0 +1,30 @@
+syntax="proto3";
+package xenon.v1;
+import "xenon/v1/query.proto";
+import "xenon/v1/history.proto";
+option go_package="github.com/0x63616c/xenon/api/xenon/v1;xenonv1";
+service VisibilityPersistence { rpc Execute(VisibilityRequest) returns(VisibilityResult); }
+message VisibilityRequest { uint32 protocol_version=1;string partition=2;string operation_id=3;bytes command_sha256=4;VisibilityCommand command=5; }
+message VisibilityTime {int64 seconds=1;int32 nanos=2;}
+// Payload bytes preserve Temporal protobuf unknown fields; typed fields drive queries.
+message VisibilityAttribute {int32 value_type=1;repeated QueryValue values=2;bool missing=3;}
+message VisibilityDocument {
+ string namespace_id=1;string workflow_id=2;string run_id=3;string workflow_type=4;
+ VisibilityTime start_time=5;VisibilityTime execution_time=6;VisibilityTime close_time=7;
+ int32 status=8;int64 task_id=9;int32 shard_id=10;HistoryBlob memo=11;string task_queue=12;
+ bytes search_attributes=13;optional string parent_workflow_id=14;optional string parent_run_id=15;
+ string root_workflow_id=16;string root_run_id=17;int64 history_length=18;int64 history_size_bytes=19;
+ int64 execution_duration=20;int64 state_transition_count=21;
+ map<string,VisibilityAttribute> attributes=22;bool tombstone=23;
+}
+message VisibilityCommand {
+ enum Kind {UNSPECIFIED=0;START=1;CLOSE=2;UPSERT=3;DELETE=4;GET=5;LIST=6;COUNT=7;ADD_ATTRIBUTES=8;GET_SCHEMA=9;}
+ Kind kind=1;VisibilityDocument document=2;string namespace_id=3;string run_id=4;
+ VisibilityQuery query=5;int64 page_size=6;bytes next_page_token=7;map<string,int32> search_attribute_types=8;
+}
+message VisibilityGroup {repeated VisibilityAttribute values=1;int64 count=2;}
+message VisibilityResult {
+ enum Error {NONE=0;INVALID_ARGUMENT=1;NOT_FOUND=2;UNAVAILABLE=3;INTERNAL=4;RESOURCE_EXHAUSTED=5;}
+ Error error=1;string message=2;repeated VisibilityDocument documents=3;bytes next_page_token=4;
+ int64 count=5;repeated VisibilityGroup groups=6;uint64 schema_version=7;map<string,int32> search_attribute_types=8;
+}

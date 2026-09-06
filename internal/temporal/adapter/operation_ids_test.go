@@ -8,7 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/identity"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
