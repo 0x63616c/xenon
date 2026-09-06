@@ -51,9 +51,23 @@ and read/close exclusion. The existing native lifecycle suite remains applicable
 to implicit operations. These tests qualify this adapter lifecycle against the
 pinned binding; they are not full multi-node or real-S3 acceptance evidence.
 
-The execution/history extraction is a subsequent batch. It must preserve the
-private persisted child journal identities `root-h-index`, without applying
-public canonical operation-ID validation to those historic keys. It must also
-preserve history's explicit remote-durability scan semantics; the current opaque
-scan default is memory durability. No journal namespace or scan behavior is
-changed by this admission capability.
+`persistence.NewHistoryService` and `persistence.NewExecutionService` now wrap
+an existing `persistence.Service`, borrowing its writer, authority check, failure
+callback and replay capacity. They do not open a writer. The existing node
+handlers delegate validation and mutation semantics to the same package, keeping
+the legacy Owner gate, journal and process-cut hooks.
+
+The execution service retains one explicit operation across root lookup, history
+child journals and the final root journal. It preserves private persisted child
+identities `root-h-index`, without public canonical operation-ID validation on
+those historic keys. A logical root failure aborts all its staged effects before
+a fresh transaction journals that result; already durable history remains. Root
+replay skips children. `ScanRequest.RemoteDurable` preserves the existing remote
+history and execution-list scan policy while other families keep the memory
+visibility default.
+
+Portable tests inspect independent recovered maps for task rollback, durable
+history and exact private journal identities. Native service tests additionally
+pause after actual child durability, verify exclusion of ordinary reads/writes,
+and reopen storage to check the same boundaries. These wrappers are ready for
+routing integration; this batch does not wire the application endpoint.

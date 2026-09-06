@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Config contains customer configuration only. Credentials remain external.
@@ -26,7 +28,8 @@ type Config struct {
 	DiagnosticsAddress string `json:"diagnostics_address,omitempty"`
 	HistoryShards      int32  `json:"history_shards"`
 	// Bootstrap is explicit: an empty/mistyped prefix must not silently create a cluster.
-	Bootstrap bool `json:"bootstrap"`
+	Bootstrap      bool                  `json:"bootstrap"`
+	ServiceStorage *ServiceStorageConfig `json:"service_storage,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -42,6 +45,12 @@ func Load(path string) (Config, error) {
 	}
 	if len(data) > 65536 {
 		return c, fmt.Errorf("oversized agent configuration")
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) == nil {
+		if value, exists := fields["service_storage"]; exists && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return c, fmt.Errorf("service_storage must be an explicit configuration, not null")
+		}
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
@@ -91,6 +100,15 @@ func (c Config) Validate() error {
 		if err != nil || host == "" || numberErr != nil || number < 1 || number > 65535 {
 			return fmt.Errorf("diagnostics_address must be host:port with port 1..65535")
 		}
+	}
+	if c.ServiceStorage != nil {
+		if !utf8.ValidString(c.Cluster) || strings.TrimSpace(c.Cluster) != c.Cluster || strings.IndexFunc(c.Cluster, unicode.IsControl) >= 0 {
+			return fmt.Errorf("invalid cluster manifest name")
+		}
+		if len(c.Prefix+"/metadata/registry/cluster/control") > 1024 {
+			return fmt.Errorf("service namespace exceeds S3 key limit")
+		}
+		return c.ServiceStorage.Validate(c.Prefix)
 	}
 	return nil
 }

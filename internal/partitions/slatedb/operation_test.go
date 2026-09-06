@@ -242,3 +242,49 @@ func TestNativeOperationUnknownRetiresUnreleasedScope(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A pending native WAL batch distinguishes the two scan policies. The fixture
+// stages it directly solely to observe the opaque reader before manual flush.
+func TestNativeTransactionRemoteScan(t *testing.T) {
+	_, open := setup(t)
+	w := open("db", true)
+	raw, err := w.db.Begin(native.IsolationLevelSerializableSnapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = raw.Put([]byte("history/key"), []byte("pending")); err != nil {
+		t.Fatal(err)
+	}
+	handle, err := raw.Commit()
+	raw.Destroy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := begin(t, w)
+	memory, err := tx.Scan(context.Background(), p.ScanRequest{Start: []byte("history/"), End: []byte("history0"), Limit: 1})
+	if err != nil || len(memory.Entries) != 1 {
+		t.Fatal("memory scan missing staged WAL", memory, err)
+	}
+	remote, err := tx.Scan(context.Background(), p.ScanRequest{Start: []byte("history/"), End: []byte("history0"), Limit: 1, RemoteDurable: true})
+	if err != nil || len(remote.Entries) != 0 {
+		t.Fatal("remote scan exposed pending WAL", remote, err)
+	}
+	if err = tx.Abort(); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.db.FlushWithOptions(native.FlushOptions{FlushType: native.FlushTypeWal}); err != nil {
+		t.Fatal(err)
+	}
+	if err = (*handle).AwaitDurable(); err != nil {
+		t.Fatal(err)
+	}
+	(*handle).Destroy()
+	tx = begin(t, w)
+	remote, err = tx.Scan(context.Background(), p.ScanRequest{Start: []byte("history/"), End: []byte("history0"), Limit: 1, RemoteDurable: true})
+	if err != nil || len(remote.Entries) != 1 {
+		t.Fatal("remote scan lost durable WAL", remote, err)
+	}
+	if err = tx.Abort(); err != nil {
+		t.Fatal(err)
+	}
+}

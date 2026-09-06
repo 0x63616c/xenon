@@ -1,15 +1,16 @@
-package node
+package persistence
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"math"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 func fairLevel(pass, id int64) []byte {
@@ -25,7 +26,7 @@ func fairQuery(c *wire.MatchingCommand) []byte {
 	h := sha256.Sum256(b)
 	return h[:]
 }
-func applyFairTasks(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+func applyFairTasks(ctx context.Context, tx ClusterTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
 	if c.Kind == wire.MatchingCommand_GET_TASKS && (c.MinPass < 1 || c.MaxId != math.MaxInt64) {
 		return nil, status.Error(codes.Internal, "invalid fair task read bounds")
 	}
@@ -43,20 +44,20 @@ func applyFairTasks(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Ma
 		after = c.Token[33:]
 	}
 	min, max := fairLevel(c.MinPass, c.MinId), fairLevel(c.MaxPass, c.MaxId)
-	bounds := native.KeyRange{}
+	bounds := partitions.ScanRequest{}
 	if c.Kind == wire.MatchingCommand_GET_TASKS {
-		bounds.Start = &min
-		bounds.StartInclusive = true
+		bounds.Start = min
+		bounds.StartExclusive = false
 		if after != nil && bytes.Compare(after, min) >= 0 {
-			bounds.Start = &after
-			bounds.StartInclusive = false
+			bounds.Start = after
+			bounds.StartExclusive = true
 		}
 	} else {
-		bounds.End = &max
+		bounds.End = max
 	}
 	var remove [][]byte
 	truncated := false
-	e := scanClusterRange(tx, prefix, bounds, func(key, value []byte) (bool, error) {
+	e := scanMatchingRange(ctx, tx, prefix, bounds, func(key, value []byte) (bool, error) {
 		if len(key) != 16 {
 			return false, status.Error(codes.Unavailable, "corrupt fair task key")
 		}
@@ -76,7 +77,7 @@ func applyFairTasks(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Ma
 		}
 		v := new(wire.MatchingTask)
 		if e := proto.Unmarshal(value, v); e != nil {
-			return false, backend(e)
+			return false, clusterEncodingError(e)
 		}
 		if !bytes.Equal(key, fairLevel(v.Pass, v.Id)) {
 			return false, status.Error(codes.Unavailable, "corrupt fair task identity")
@@ -97,7 +98,7 @@ func applyFairTasks(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.Ma
 	}
 	for _, key := range remove {
 		if e := tx.Delete(key); e != nil {
-			return nil, backend(e)
+			return nil, e
 		}
 	}
 	if !truncated {

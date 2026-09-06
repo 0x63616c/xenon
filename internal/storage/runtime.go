@@ -43,6 +43,9 @@ func New(c agent.Config, events ...chan<- routing.Event) *Runtime {
 
 func (r *Runtime) Start(parent context.Context) error {
 	c := r.config
+	if c.ServiceStorage != nil {
+		return ErrServiceRuntimeUnavailable
+	}
 	topology, err := ownership.FromEnvironment(c.Bucket, c.Prefix+"/metadata")
 	if err != nil {
 		return err
