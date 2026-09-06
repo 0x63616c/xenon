@@ -94,7 +94,7 @@ def main():
     ministack_pins=json.loads((ROOT/'test/scenarios/ministack/pins.json').read_text())
     omes_run_id=agent_case['omes_command'][agent_case['omes_command'].index('--run-id')+1]
     omes_queue='omes-'+omes_run_id
-    report={'schema':1,'scope':agent_case['scope'],'status':'failed','full_acceptance':False,'development':args.development,'commands':[],'events':[]}
+    report={'schema':1,'scope':agent_case['scope'],'status':'running','full_acceptance':False,'development':args.development,'commands':[],'events':[]}
     monitors=[]
     children=[];expected_stops=set();child_names={};logs=[];deadline=time.monotonic()+(expanded['profile']['setup_seconds'] if expanded else 900);started=False
     def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -400,8 +400,9 @@ def main():
         check_children(children,expected_stops,child_names)
         report['status']='development-passed' if args.development else 'component-passed'
     except BaseException as e:
+        report['status']='failed'
         report['error']=type(e).__name__+': '+str(e)
-        save('first-failure.json',{'error':report['error'],'events':report['events']})
+        save('first-failure.json',{'status':report['status'],'error':report['error'],'events':report['events']})
     finally:
         expected_stops.update(p.pid for p in children)
         cleanup=[]

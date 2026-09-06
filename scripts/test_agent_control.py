@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import struct
 import subprocess
+import tempfile
+import shutil
 import sys
 from unittest.mock import patch, MagicMock
 from types import SimpleNamespace
@@ -35,6 +37,24 @@ class AgentControlTests(unittest.TestCase):
             digest.update(struct.pack('>Q',len(field)));digest.update(field)
         return json.dumps({'format':1,'key':'cluster/control','expected':None,
                            'body':base64.b64encode(body).decode(),'digest':digest.hexdigest()})
+
+    def test_live_progress_is_running_until_first_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            pins=root/'test/scenarios/ministack/pins.json'
+            pins.parent.mkdir(parents=True)
+            shutil.copyfile(ROOT/'test/scenarios/ministack/pins.json',pins)
+            def fail_launch(*args,**kwargs):
+                progress=next((root/'.local/evidence').glob('*/progress.json'))
+                self.assertEqual(json.loads(progress.read_text())['status'],'running')
+                raise RuntimeError('injected launch failure')
+            with patch.object(smoke,'ROOT',root), patch.object(sys,'argv',['agent-smoke.py']), patch.object(smoke.subprocess,'Popen',side_effect=fail_launch):
+                self.assertEqual(smoke.main(),1)
+            receipt=next((root/'.local/evidence').iterdir())
+            for name in ['first-failure.json','result.json']:
+                report=json.loads((receipt/name).read_text())
+                self.assertEqual(report['status'],'failed')
+                self.assertIn('injected launch failure',report['error'])
 
     def test_dynamic_assignment_and_aba(self):
         control=decode_control(self.envelope(self.control),self.config)
