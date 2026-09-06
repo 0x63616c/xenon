@@ -446,7 +446,8 @@ def main():
             except Exception as error:
                 report["cleanup"] = {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
-                report.update(result="failed", proof_pass=False, error="compatibility Compose cleanup failed")
+                report.update(result="failed", proof_pass=False)
+                report.setdefault("error", "compatibility Compose cleanup failed")
         if args.name in ("directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut"):
             env_key = {"directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT", "s3-meter":"XENON_S3_METER_PROJECT", "cas-loss":"XENON_S3_METER_PROJECT", "process-cut":"XENON_PROCESS_CUT_PROJECT"}[args.name]
             compose_path = "deploy/" + ("s3-meter" if args.name=="cas-loss" else args.name) + ".compose.yaml"
@@ -456,12 +457,18 @@ def main():
             except Exception as error:
                 report["cleanup"] = {"exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
-                report.update(result="failed", proof_pass=False, error="directory cleanup failed")
+                report.update(result="failed", proof_pass=False)
+                report.setdefault("error", "directory cleanup failed")
         if args.name == "crash":
             # Out-of-process cleanup also handles a controller killed before finally.
-            report["cleanup"] = cleanup_crash(env["XENON_PROOF_PROJECT"], env, ROOT)
+            project = env["XENON_PROOF_PROJECT"]
+            try:
+                report["cleanup"] = cleanup_crash(project, env, ROOT)
+            except Exception as error:
+                report["cleanup"] = {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
-                report.update(result="failed", proof_pass=False, error="scoped Compose cleanup failed")
+                report.update(result="failed", proof_pass=False)
+                report.setdefault("error", "scoped Compose cleanup failed")
         (evidence / "result.json").write_text(json.dumps(report, indent=2) + "\n")
         print(f"{report['result'].upper()}: {evidence / 'result.json'}", flush=True)
     return 0 if report["result"] in ("passed", "development-passed") else 1
