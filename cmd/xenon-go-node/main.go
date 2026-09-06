@@ -9,6 +9,7 @@ import (
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
 	"github.com/0x63616c/xenon/internal/processcut"
+	"github.com/0x63616c/xenon/internal/proof/openpause"
 	"google.golang.org/grpc"
 	"io"
 	"log"
@@ -127,6 +128,13 @@ func managedMain(cut *processcut.Controller) {
 	manager, err := ownership.NewManager(topology, os.Getenv("XENON_NODE"), address, "s3://"+os.Getenv("XENON_BUCKET"), outcomeLimit())
 	if err != nil {
 		log.Fatal(err)
+	}
+	if dir := os.Getenv("XENON_OPEN_PAUSE_DIR"); dir != "" {
+		pause, e := openpause.New(dir, "matching", os.Getenv("XENON_OPEN_PAUSE_SESSION"))
+		if e != nil {
+			log.Fatal(e)
+		}
+		manager.SetOpenPause(pause)
 	}
 
 	if address := os.Getenv("XENON_METRICS_LISTEN"); address != "" {

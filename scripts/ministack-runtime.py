@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Actual local runtime controller. Missing factories/builds are failures, not skips."""
+import delayed_owner
 import argparse
 import hashlib
 import json
@@ -77,6 +78,7 @@ def arguments(argv=None):
     modes.add_argument('--visibility-movement',action='store_true',help='run frozen public visibility traversal across two real ownership moves')
     modes.add_argument('--omes-mixed',action='store_true',help='run the frozen 40-iteration Omes mixed component instead of smoke')
     modes.add_argument('--lost-directory-cas',action='store_true',help='lose one actual matching-owner conditional S3 response during smoke scale-out')
+    modes.add_argument('--delayed-owner',action='store_true',help='pause one real reserved opener until superseded, then prove recovery')
     modes.add_argument('--smoke',action='store_true',help='run the default smoke explicitly')
     return parser.parse_args(argv)
 
@@ -202,8 +204,11 @@ def main():
             env['AWS_ENDPOINT']='http://'+meter_config['listen']
         run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket',env['XENON_BUCKET']])
         nodes={};members={};assignments={};metrics_ports={};cut_controls={}
+        delayed_session=str(uuid.uuid4())
         def node(name,port,ready_timeout=30):
             cut_env={}
+            if args.delayed_owner and name=='c':
+                cut_env={'XENON_OPEN_PAUSE_DIR':str(evidence/'delayed-open'),'XENON_OPEN_PAUSE_SESSION':delayed_session}
             if args.process_cut_stage:
                 plan={'schema':1,'session':str(uuid.uuid4()),'listen':f'127.0.0.1:{port+200}','discovery':True,'selector':{},'stage':args.process_cut_stage,'timeout_ms':5000}
                 path=evidence/(name+'-cut-plan.json');path.write_text(json.dumps(plan))
@@ -470,6 +475,8 @@ def main():
             if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
             event('omes-work-observed-before-addition')
             node('c',17353);before_c=wait(lambda:metrics('c'))
+            if args.delayed_owner:
+                report['delayed_owner']=delayed_owner.exercise(evidence/'delayed-open',delayed_session,members,assignments,publish,metrics,successful,wait,event,omes_process)
             if args.lost_directory_cas:
                 cas_deadline=time.monotonic()+120
                 def cas_remaining():

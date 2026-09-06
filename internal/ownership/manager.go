@@ -9,6 +9,7 @@ import (
 
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
+	"github.com/0x63616c/xenon/internal/proof/openpause"
 	"github.com/0x63616c/xenon/internal/routing"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -35,6 +36,7 @@ type Manager struct {
 	directories    map[string]*directory.Directory
 	closed         bool
 	// Tests pause real opens at exact declared fault points; nil in the binary.
+	openPause   *openpause.Control
 	beforeOpen  func(directory.Record)
 	beforeReady func(directory.Record)
 }
@@ -45,6 +47,10 @@ func NewManager(topology *TopologyStore, nodeID, address, objectURL string, maxO
 	}
 	return &Manager{topology: topology, identity: directory.Identity{Node: nodeID, Address: address, Incarnation: uuid.NewString()}, objectURL: objectURL, maxOutcomes: maxOutcomes, dispatchCounts: map[string]LocalDispatch{}, owners: map[string]*managed{}, workers: map[string]bool{}, directories: map[string]*directory.Directory{}}, nil
 }
+
+// SetOpenPause installs a proof control before Run; nil is the production default.
+func (m *Manager) SetOpenPause(p *openpause.Control) { m.openPause = p }
+
 func (m *Manager) Identity() directory.Identity { return m.identity }
 func (m *Manager) desired(t Topology, id string) bool {
 	a, ok := t.Partitions[id]
@@ -190,6 +196,11 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 		return e
 	}
 	record := reservation.Record()
+	if m.openPause != nil {
+		if e = m.openPause.Before(ctx, record); e != nil {
+			return e
+		}
+	}
 	if m.beforeOpen != nil {
 		m.beforeOpen(record)
 	}
@@ -229,12 +240,23 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 		m.mu.Unlock()
 		return err
 	}
+	if m.openPause != nil {
+		if e = m.openPause.Observe(record, "build-succeeded"); e != nil {
+			return retire(e)
+		}
+	}
 	fresh, e := m.topology.Read(ctx)
 	if e != nil {
 		return retire(e)
 	}
 	if !m.desired(fresh.data, id) {
-		return retire(directory.ErrConflict)
+		err := retire(directory.ErrConflict)
+		if m.openPause != nil && errors.Is(err, directory.ErrConflict) {
+			if observeErr := m.openPause.Observe(record, "superseded-before-ready-retired"); observeErr != nil {
+				return observeErr
+			}
+		}
+		return err
 	}
 	if m.beforeReady != nil {
 		m.beforeReady(record)
