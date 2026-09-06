@@ -18,6 +18,7 @@ export default defineConfig({
       { text: "Documentation", link: "/docs/" },
       { text: "Blog", link: "/blog/" },
       { text: "Cloud", link: "/cloud" },
+      { text: "GitHub ↗", link: "https://github.com/0x63616c/xenon" },
     ],
     sidebar: [
       {
