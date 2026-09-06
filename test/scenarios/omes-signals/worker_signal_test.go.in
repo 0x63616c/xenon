@@ -268,9 +268,9 @@ func TestXenonLateSignalWithStartFallback(t *testing.T) {
 				if err := env.GetWorkflowError(); err != nil {
 					t.Fatal(err)
 				}
-				var result common.Payload
-				if err := env.GetWorkflowResult(&result); err != nil || string(result.Data) != `"late-actions-executed"` {
-					t.Fatal(&result, err)
+				var result string
+				if err := env.GetWorkflowResult(&result); err != nil || result != "late-actions-executed" {
+					t.Fatal(result, err)
 				}
 			} else if !proto.Equal(original, capture.input) {
 				t.Fatal("non-fallback policy changed")
