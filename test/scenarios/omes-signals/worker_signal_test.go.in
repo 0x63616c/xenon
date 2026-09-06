@@ -40,7 +40,7 @@ func TestXenonSignalMetadataContract(t *testing.T) {
 				actions := &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_ReturnResult{ReturnResult: result}}}}
 				env.SignalWorkflow("do_actions_signal", &pb.DoSignal_DoSignalActions{SignalId: 2, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: actions}})
 			}, time.Second)
-			env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 2*time.Second)
+
 			env.ExecuteWorkflow(KitchenSinkWorkflow, tc.input)
 			if !env.IsWorkflowCompleted() {
 				t.Fatal("test did not terminate")
@@ -97,7 +97,7 @@ func TestXenonRequiredSignalStillDrains(t *testing.T) {
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(2, "ok")) }, time.Second)
-	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 2*time.Second)
+
 	env.ExecuteWorkflow(KitchenSinkWorkflow, &pb.WorkflowInput{ExpectedSignalIds: []int32{1, 2}, OptionalSignalIds: []int32{3}})
 	requireDeclaredTimeout(t, env.GetWorkflowError())
 }
@@ -156,7 +156,7 @@ func TestXenonOptionalDeliveryExecutes(t *testing.T) {
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(3, "optional-executed")) }, time.Second)
-	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 2*time.Second)
+
 	env.ExecuteWorkflow(KitchenSinkWorkflow, &pb.WorkflowInput{OptionalSignalIds: []int32{3}})
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)
