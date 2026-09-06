@@ -24,11 +24,24 @@ type Engine interface {
 	Open(context.Context, OpenRequest) (Writer, error)
 }
 type Writer interface {
+	BeginOperation(context.Context) (Operation, error)
 	Begin(context.Context) (Transaction, error)
 	AwaitDurable(context.Context, CommitReceipt) error
 	ReadDurable(context.Context, ReadRequest) (ReadResult, error)
 	Close(context.Context) error
 }
+
+// Operation retains whole-operation exclusion across multiple transactions.
+// Begin returns ErrBusy while a transaction or native durability receipt remains
+// active. Successful Abort/AwaitDurable permits another Begin without reacquiring
+// writer admission. Release is idempotent, rejects future Begin immediately and
+// aborts an idle transaction; busy native work retains admission until completion.
+// Ordinary Writer.Begin is an implicit operation released with its transaction.
+type Operation interface {
+	Begin(context.Context) (Transaction, error)
+	Release()
+}
+
 type Transaction interface {
 	Get(context.Context, []byte) ([]byte, error) // nil means absent.
 	Scan(context.Context, ScanRequest) (ReadResult, error)
@@ -69,6 +82,7 @@ type ReadResult struct {
 }
 
 var (
+	ErrOperationDone   = errors.New("operation admission released")
 	ErrBusy            = errors.New("transaction native call active")
 	ErrInvalid         = errors.New("invalid engine request")
 	ErrRetired         = errors.New("writer retired")

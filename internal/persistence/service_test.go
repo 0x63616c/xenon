@@ -36,6 +36,10 @@ type testTx struct {
 	data   map[string][]byte
 }
 
+// This single-transaction fixture does not model operation admission.
+func (*testWriter) BeginOperation(context.Context) (partitions.Operation, error) {
+	return nil, partitions.ErrInvalid
+}
 func (w *testWriter) Begin(context.Context) (partitions.Transaction, error) {
 	return &testTx{w, maps.Clone(w.durable)}, nil
 }

@@ -119,34 +119,26 @@ func (w *writer) failure(err error) error {
 	return err
 }
 func (w *writer) Begin(ctx context.Context) (p.Transaction, error) {
-	if w.retired.Load() {
-		return nil, p.ErrRetired
-	}
-	if err := acquire(ctx, w.gate); err != nil {
-		return nil, err
-	}
-	if w.retired.Load() {
-		<-w.gate
-		return nil, p.ErrRetired
-	}
-	t := &transaction{w: w, gate: make(chan struct{}, 1)}
-	_, err := invoke(ctx, t, func() (any, error) {
-		var err error
-		t.tx, err = w.db.Begin(native.IsolationLevelSerializableSnapshot)
-		return nil, w.failure(err)
-	})
+	scope, err := w.BeginOperation(ctx)
 	if err != nil {
-		_ = t.Abort()
 		return nil, err
 	}
-	return t, nil
+	op := scope.(*operation)
+	op.implicit = true
+	tx, err := op.Begin(ctx)
+	if err != nil {
+		op.Release()
+		return nil, err
+	}
+	return tx, nil
 }
 
 type transaction struct {
-	w        *writer
-	tx       *native.DbTransaction
-	gate     chan struct{}
-	finished bool
+	w         *writer
+	operation *operation
+	tx        *native.DbTransaction
+	gate      chan struct{}
+	finished  bool
 }
 
 func (t *transaction) dispose() {
@@ -155,7 +147,7 @@ func (t *transaction) dispose() {
 		if t.tx != nil {
 			t.tx.Destroy()
 		}
-		<-t.w.gate
+		t.operation.finished(t)
 	}
 }
 
@@ -168,6 +160,11 @@ func invoke(ctx context.Context, t *transaction, fn func() (any, error)) (any, e
 	if t.finished {
 		<-t.gate
 		return nil, p.ErrTransactionDone
+	}
+	if t.operation.isReleased() {
+		t.dispose()
+		<-t.gate
+		return nil, p.ErrOperationDone
 	}
 	if t.w.retired.Load() {
 		t.dispose()
@@ -185,10 +182,15 @@ func invoke(ctx context.Context, t *transaction, fn func() (any, error)) (any, e
 		value, err := fn()
 		done <- result{value, err}
 		canceled := <-decision
-		if canceled || err != nil {
+		if canceled || err != nil || t.operation.isReleased() {
 			t.dispose()
 		}
 		<-t.gate
+		// Close the race where Release observed the native call as busy after
+		// the worker checked invalidation but before it dropped the inner gate.
+		if t.operation.isReleased() {
+			_ = t.Abort()
+		}
 		close(released)
 	}()
 	select {
@@ -200,6 +202,9 @@ func invoke(ctx context.Context, t *transaction, fn func() (any, error)) (any, e
 		}
 		decision <- false
 		<-released
+		if t.operation.isReleased() && !t.operation.implicit && v.err == nil {
+			return nil, p.ErrOperationDone
+		}
 		return v.value, v.err
 	case <-ctx.Done():
 		t.w.retired.Store(true)
@@ -239,15 +244,27 @@ func (t *transaction) stage(key []byte, fn func() error) error {
 		return p.ErrInvalid
 	}
 	t.gate <- struct{}{}
-	defer func() { <-t.gate }()
+	defer func() {
+		<-t.gate
+		if t.operation.isReleased() {
+			_ = t.Abort()
+		}
+	}()
 	if t.finished {
 		return p.ErrTransactionDone
+	}
+	if t.operation.isReleased() {
+		t.dispose()
+		return p.ErrOperationDone
 	}
 	if t.w.retired.Load() {
 		t.dispose()
 		return p.ErrRetired
 	}
 	err := t.w.failure(fn())
+	if t.operation.isReleased() && err == nil {
+		err = p.ErrOperationDone
+	}
 	if err != nil {
 		t.dispose()
 	}
@@ -323,6 +340,11 @@ func (t *transaction) Commit(ctx context.Context) (p.CommitReceipt, error) {
 		<-t.gate
 		return nil, p.ErrTransactionDone
 	}
+	if t.operation.isReleased() {
+		t.dispose()
+		<-t.gate
+		return nil, p.ErrOperationDone
+	}
 	if t.w.retired.Load() {
 		t.dispose()
 		<-t.gate
@@ -352,10 +374,13 @@ func (t *transaction) Commit(ctx context.Context) (p.CommitReceipt, error) {
 			err = t.w.failure((*h).AwaitDurable())
 			(*h).Destroy()
 		}
+		if err != nil {
+			t.w.retired.Store(true)
+		}
 		r.err = err
-		close(r.done)
 		<-decision
-		<-t.w.gate
+		t.operation.finished(t)
+		close(r.done)
 	}()
 	select {
 	case err := <-committed:
@@ -393,6 +418,7 @@ func (w *writer) AwaitDurable(ctx context.Context, cap p.CommitReceipt) error {
 	select {
 	case <-r.done:
 		if err := ctx.Err(); err != nil {
+			w.retired.Store(true)
 			return &p.UnknownOutcome{Cause: err}
 		}
 		if r.err != nil {
