@@ -218,7 +218,7 @@ jobs:
 
   s3-maintenance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
