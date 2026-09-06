@@ -4,9 +4,21 @@ import argparse, hashlib, json, os, signal, socket, subprocess, time, urllib.req
 from urllib.parse import quote_plus
 from pathlib import Path
 from omes_workloads import effective_sdk
+from agent_control import decode_control, ready_assignments, absent_owner, same_authority
 
 ROOT=Path(__file__).resolve().parents[1]
 SCENARIO=ROOT/'test/scenarios/agent'
+
+class ScenarioInvariant(RuntimeError):
+    pass
+
+
+def check_children(children, expected_stops, names):
+    for child in children:
+        code=child.poll()
+        name=names[child.pid]
+        if code is not None and child.pid not in expected_stops and (name != 'omes' or code != 0):
+            raise ScenarioInvariant('background process exited unexpectedly: '+name+' ('+str(code)+')')
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');args=parser.parse_args()
@@ -23,27 +35,42 @@ def main():
     omes_run_id=agent_case['omes_command'][agent_case['omes_command'].index('--run-id')+1]
     omes_queue='omes-'+omes_run_id
     report={'schema':1,'scope':agent_case['scope'],'status':'failed','full_acceptance':False,'development':args.development,'commands':[],'events':[]}
-    children=[];logs=[];deadline=time.monotonic()+900;started=False
+    children=[];expected_stops=set();child_names={};logs=[];deadline=time.monotonic()+900;started=False
     def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
     def tree(path):return {str(p.relative_to(path)):sha(p) for p in sorted(path.rglob('*')) if p.is_file()}
     def run(command,timeout=60,cwd=ROOT):
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError('scenario deadline')
         p=subprocess.Popen(command,cwd=cwd,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
-        timed_out=False
-        try:output,_=p.communicate(timeout=min(timeout,remaining))
-        except subprocess.TimeoutExpired:
-            timed_out=True;os.killpg(p.pid,signal.SIGKILL);tail,_=p.communicate()
-            output=tail
+        timed_out=False;interrupted=None
+        end=time.monotonic()+min(timeout,remaining)
+        try:
+            while True:
+                check_children(children,expected_stops,child_names)
+                left=end-time.monotonic()
+                if left<=0:
+                    timed_out=True;os.killpg(p.pid,signal.SIGKILL);output,_=p.communicate(timeout=10);break
+                try:output,_=p.communicate(timeout=min(1,left));break
+                except subprocess.TimeoutExpired:pass
+        except BaseException as error:
+            interrupted=error
+            output=''
+            try:
+                if p.poll() is None:os.killpg(p.pid,signal.SIGKILL)
+                output,_=p.communicate(timeout=10)
+            except Exception as cleanup_error:
+                report.setdefault('command_cleanup_errors',[]).append(str(cleanup_error))
         path=receipt/('command-'+str(len(report['commands']))+'.log');path.write_text(output)
         report['commands'].append({'argv':list(map(str,command)),'returncode':p.returncode,'timed_out':timed_out,'output_sha256':sha(path)})
+        if interrupted is not None:raise interrupted
         if timed_out or p.returncode:raise RuntimeError('command failed: '+str(command)+'; see '+str(path))
         return output
     def launch(name,command,cwd=receipt):
         log=(receipt/(name+'.log')).open('w');logs.append(log)
         p=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-        children.append(p);return p
+        children.append(p);child_names[p.pid]=name;return p
     def stop(p,kill=False):
+        expected_stops.add(p.pid)
         if p.poll() is not None:return
         os.killpg(p.pid,signal.SIGKILL if kill else signal.SIGTERM)
         try:p.wait(timeout=35)
@@ -51,17 +78,20 @@ def main():
     def wait(fn,timeout=120):
         end=min(deadline,time.monotonic()+timeout);last=None
         while time.monotonic()<end:
+            check_children(children,expected_stops,child_names)
             try:
                 v=fn()
                 if v:return v
+            except ScenarioInvariant:raise
             except Exception as e:last=e
             time.sleep(.5)
         raise TimeoutError(str(last))
     sdk=ROOT/'.local/bin/xenon-sdk-probe';agent=ROOT/'.local/bin/xenon'
     def topology(name):
         path=receipt/name
-        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key','agent/metadata/topology.json',str(path)])
-        return json.loads(path.read_text())
+        run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof','--key','agent/metadata/registry/cluster/control',str(path)])
+        try:return decode_control(path.read_bytes(),json.loads((SCENARIO/'a.json').read_text()))
+        except (ValueError,KeyError,TypeError) as e:raise ScenarioInvariant('invalid control: '+str(e)) from e
     def probe(mode,*flags):
         out=run([str(sdk),'--mode',mode,'--cluster','xenon','--storage-address','127.0.0.1:17935',*flags],timeout=125)
         return json.loads(next(line for line in reversed(out.splitlines()) if line.startswith('{')))
@@ -114,6 +144,7 @@ def main():
         report['revision']=run(['git','rev-parse','HEAD']).strip()
         report['dirty']=bool(run(['git','status','--porcelain=v1','--untracked-files=all']).strip())
         if report['dirty'] and not args.development:raise RuntimeError('clean committed checkout required')
+        report['harness_hashes']={name:sha(ROOT/'scripts'/name) for name in ['agent-smoke.py','agent_control.py','omes_workloads.py']}
         report['scenario_hashes']={p.name:sha(p) for p in sorted(SCENARIO.iterdir()) if p.is_file()}
         report['reused_ministack_input_hashes']={'pins.json':sha(ROOT/'test/scenarios/ministack/pins.json')}
         if ministack_pins['ui']['image']!=json.loads((SCENARIO/'compose.json').read_text())['services']['ui']['image']:raise RuntimeError('agent UI image pin differs from ministack pin')
@@ -163,20 +194,32 @@ def main():
         wait(lambda:probe('visibility-count','--query',"TaskQueue = '"+omes_queue+"'").get('count',0)>0,90)
         join_runs=wait(omes_running_ids,90)
         report['events'].append({'event':'omes-running-observed-before-join','workflow_ids':join_runs})
+        before_join=topology('control-before-c.json')
         c=start('c');report['events'].append({'event':'join-started-during-active-sdk-and-omes-workflows'})
-        joined=topology('topology-after-c.json')
-        if joined['partitions']['history-1']['node']!='c':raise RuntimeError('joined agent did not receive history-1')
-        probe('partition-ready','--storage-address','127.0.0.1:21241','--storage-partition','history-1','--readiness-timeout','60s')
-        report['events'].append({'event':'joined-agent-served-assigned-partition','node':'c','partition':'history-1'})
+        c_id=json.loads((SCENARIO/'c.json').read_text())['service_storage']['node_id']
+        def verify_joined_owner():
+            joined=topology('control-after-c.json')
+            owned=ready_assignments(joined,c_id)
+            if not owned:return False
+            logical=sorted(owned)[0]
+            physical=next(p['id'] for p in joined['layout']['partitions'] if p['logical_name']==logical)
+            if owned[logical]['assignment_revision']<=before_join['partitions'][physical]['assignment_revision']:
+                raise ScenarioInvariant('join did not advance ownership assignment')
+            probe('partition-ready','--storage-address','127.0.0.1:21241','--storage-partition',logical,'--readiness-timeout','60s')
+            after=topology('control-after-c-probe.json')
+            if not same_authority(owned[logical],after['partitions'][physical]):return False
+            return {'node':c_id,'partition':logical,'physical_partition':physical,'generation':owned[logical]['generation']}
+        report['events'].append({'event':'joined-agent-served-assigned-partition',**wait(verify_joined_owner,90)})
         fault_runs=wait(omes_running_ids,90)
         stop(b,kill=True);report['events'].append({'event':'SIGKILL-during-running-omes-execution','node':'b','workflow_ids':fault_runs})
         if omes.poll() is not None:raise RuntimeError('Omes runner stopped before agent failure and recovery')
-        wait(lambda:'b' not in topology('topology-after-eviction.json')['members'],45)
-        evicted=topology('topology-after-eviction-final.json')
-        if any(a['node']=='b' for a in evicted['partitions'].values()):raise RuntimeError('evicted member retains partition')
+        b_id=json.loads((SCENARIO/'b.json').read_text())['service_storage']['node_id']
+        wait(lambda:absent_owner(topology('control-after-eviction.json'),b_id),45)
+        evicted=topology('control-after-eviction-final.json')
+        if not absent_owner(evicted,b_id):raise RuntimeError('failed member retains partition')
         report['events'].append({'event':'failed-member-evicted-and-rebalanced','node':'b'})
         b=start('b','b-restarted')
-        omes.wait(timeout=min(360,max(1,deadline-time.monotonic())))
+        wait(lambda:omes.poll() is not None,360)
         if omes.returncode:raise RuntimeError('Omes workload failed')
         probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
         for workflow_id in sorted(set(join_runs+fault_runs)):
@@ -207,8 +250,9 @@ def main():
         if run(['git','rev-parse','HEAD']).strip()!=report['revision']:raise RuntimeError('source revision changed')
         if not args.development and run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('source changed')
         report['status']='development-passed' if args.development else 'component-passed'
-    except Exception as e:report['error']=str(e)
+    except BaseException as e:report['error']=type(e).__name__+': '+str(e)
     finally:
+        expected_stops.update(p.pid for p in children)
         cleanup=[]
         for p in reversed(children):
             try:stop(p)

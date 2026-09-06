@@ -10,5 +10,84 @@
   "public_http_address": "127.0.0.1:17243",
   "diagnostics_address": "127.0.0.1:21250",
   "history_shards": 4,
-  "bootstrap": false
+  "bootstrap": false,
+  "service_storage": {
+    "format": 2,
+    "cluster_id": "clu_0000000000000000000001",
+    "node_id": "nod_0000000000000000000003",
+    "layout": {
+      "version": 1,
+      "placement": {
+        "version": 1,
+        "hash": "sha256-first8-be",
+        "replicas": 20,
+        "load": 1.25
+      },
+      "partitions": [
+        {
+          "logical_name": "global",
+          "id": "prt_0000000000000000000001",
+          "path": "agent/data/global"
+        },
+        {
+          "logical_name": "matching",
+          "id": "prt_0000000000000000000002",
+          "path": "agent/data/matching"
+        },
+        {
+          "logical_name": "history-0",
+          "id": "prt_0000000000000000000003",
+          "path": "agent/data/history-0"
+        },
+        {
+          "logical_name": "history-1",
+          "id": "prt_0000000000000000000004",
+          "path": "agent/data/history-1"
+        },
+        {
+          "logical_name": "history-2",
+          "id": "prt_0000000000000000000005",
+          "path": "agent/data/history-2"
+        },
+        {
+          "logical_name": "history-3",
+          "id": "prt_0000000000000000000006",
+          "path": "agent/data/history-3"
+        },
+        {
+          "logical_name": "vis-v1-0",
+          "id": "prt_0000000000000000000007",
+          "path": "agent/data/vis-v1-0"
+        },
+        {
+          "logical_name": "vis-v1-1",
+          "id": "prt_0000000000000000000008",
+          "path": "agent/data/vis-v1-1"
+        },
+        {
+          "logical_name": "vis-v1-2",
+          "id": "prt_0000000000000000000009",
+          "path": "agent/data/vis-v1-2"
+        },
+        {
+          "logical_name": "vis-v1-3",
+          "id": "prt_0000000000000000000010",
+          "path": "agent/data/vis-v1-3"
+        }
+      ]
+    },
+    "fresh_namespace": false,
+    "poll_interval": "50ms",
+    "heartbeat_interval": "1s",
+    "discovery_interval": "100ms",
+    "registry_timeout": "5s",
+    "renewal_interval": "1s",
+    "suspect_after": "8s",
+    "membership_failure_after": "8s",
+    "max_control_bytes": 1048576,
+    "max_membership_bytes": 1048576,
+    "max_membership_entries": 100,
+    "membership_read_batch": 4,
+    "max_outcomes": 1000000
+  }
 }
