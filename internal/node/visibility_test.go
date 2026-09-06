@@ -45,6 +45,7 @@ func TestGoOwnerVisibilityRecovery(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		o.config.Authority = func(context.Context) error { return nil }
 		t.Cleanup(func() { _ = o.Close(context.Background()) })
 		return o
 	}
@@ -60,6 +61,9 @@ func TestGoOwnerVisibilityRecovery(t *testing.T) {
 		r, e := s.Execute(ctx, request(id, c))
 		if e != nil {
 			t.Fatal(e)
+		}
+		if b, err := o.db.Get([]byte("v1/ownership/read-barrier")); err != nil || b != nil {
+			t.Fatal("redundant visibility barrier", err)
 		}
 		return r
 	}

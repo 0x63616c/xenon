@@ -106,7 +106,9 @@
     "scripts/test_prove.py",
     "scripts/visibility-oracle.py",
     "tools/protoc.json",
-    "tools/slatedb-native.json"
+    "tools/slatedb-native.json",
+    "internal/node/journal_barrier_test.go",
+    "proof/visibility/managed-barrier.md"
   ],
   "fault_schedule": "Five real memory-backed Go processes: drop completed START response, retry exact identity; one unavailable partition; native competing owner after close/reopen; terminal deletion and byte-capped global merge.",
   "assertions": [
@@ -217,6 +219,14 @@
       "exact": true,
       "expected_tests": [
         "TestGoOwnerVisibilitySchemaBudget"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilitySchemaBarrier",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilitySchemaBarrier"
       ]
     }
   ]
