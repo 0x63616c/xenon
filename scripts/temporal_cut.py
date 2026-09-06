@@ -8,6 +8,20 @@ import uuid
 
 STAGES=('commit_before_await','after_await','before_result_publication')
 
+def valid_operation_reference(value):
+    """Accept canonical Go IDs and the exact legacy ingress alphabet."""
+    if not isinstance(value, str):
+        return False
+    if re.fullmatch(r'[a-zA-Z0-9-]{1,128}', value):
+        return True
+    if not re.fullmatch(r'op_[0-9A-Za-z]{22}', value):
+        return False
+    alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    number = 0
+    for character in value[3:]:
+        number = number * 62 + alphabet.index(character)
+    return number < 1 << 128
+
 def validate_state(state, control, pid, expected_state, watch=None, selector=None):
     if state.get('schema')!=1 or state.get('session')!=control['session'] or state.get('pid')!=pid or state.get('stage')!=control['stage'] or state.get('state')!=expected_state:
         raise ValueError('wrong process-cut state identity')
@@ -18,7 +32,7 @@ def validate_state(state, control, pid, expected_state, watch=None, selector=Non
         raise ValueError('process-cut workflow identity changed')
     if expected_state in ('candidate','paused'):
         selected=state.get('selector',{})
-        if selected.get('family')!='execution' or selected.get('mutation_kind')!='UPDATE' or selected.get('partition')!=control['partition'] or not re.fullmatch('[a-zA-Z0-9-]{1,128}',selected.get('operation_id','')) or not re.fullmatch('[0-9a-f]{64}',selected.get('command_sha256','')):
+        if selected.get('family')!='execution' or selected.get('mutation_kind')!='UPDATE' or selected.get('partition')!=control['partition'] or not valid_operation_reference(selected.get('operation_id','')) or not re.fullmatch('[0-9a-f]{64}',selected.get('command_sha256','')):
             raise ValueError('invalid actual execution selector')
         if selector is not None and selected!=selector:raise ValueError('candidate selector changed')
     if expected_state=='paused':

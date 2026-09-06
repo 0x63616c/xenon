@@ -16,6 +16,14 @@ class TemporalCutTests(unittest.TestCase):
   control={'session':str(uuid.uuid4()),'incarnation':str(uuid.uuid4()),'stage':'after_await','partition':'history-0','url':'http://127.0.0.1:17551'}
   state={'schema':1,**{k:control[k] for k in ['session','incarnation','stage']},'pid':123,'state':'paused','watch':identity,'selector':{'partition':'history-0','operation_id':str(uuid.uuid4()),'family':'execution','mutation_kind':'UPDATE','command_sha256':'ab'*32},'hit_utc':datetime.now(timezone.utc).isoformat()}
   return control,identity,state
+ def test_operation_reference_compatibility(self):
+  for value in ['legacy-replay',str(uuid.uuid4()),'a'*128,'op_'+'0'*22,'op_7n42DGM5Tflk9n8mt7Fhc7']:
+   c,w,s=self.fixture();s['selector']['operation_id']=value
+   cut.validate_state(s,c,123,'paused',w,s['selector'])
+  for value in ['',None,1,'a'*129,'user_name','../path','a\nb','é','op_'+'0'*21,'op_'+'0'*23,'op_7n42DGM5Tflk9n8mt7Fhc8','op_'+'z'*22,'inc_'+'0'*22,'op_'+'0'*21+'-']:
+   c,w,s=self.fixture();s['selector']['operation_id']=value
+   with self.assertRaises(ValueError,msg=repr(value)):
+    cut.validate_state(s,c,123,'paused',w,s['selector'])
  def test_exact_live_hit_required(self):
   c,w,s=self.fixture();cut.validate_state(s,c,123,'paused',w,s['selector'])
   for field,value in [('pid',124),('session',str(uuid.uuid4())),('incarnation',str(uuid.uuid4())),('hit_utc',(datetime.now(timezone.utc)-timedelta(seconds=6)).isoformat()),('watch',{})]:

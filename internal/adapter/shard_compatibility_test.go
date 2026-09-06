@@ -136,7 +136,7 @@ func TestShardStoredCompatibility(t *testing.T) {
 	}
 	create := request("compat-rust-create", &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: cfg.ShardID, RangeId: cfg.InitialRange, Data: cfg.InitialData, Encoding: cfg.Encoding})
 	rustUpdate := request("compat-rust-update", &wire.ShardCommand{Kind: wire.ShardCommand_UPDATE, ShardId: cfg.ShardID, PreviousRangeId: cfg.InitialRange, RangeId: cfg.RustUpdatedRange, Data: cfg.RustUpdatedData, Encoding: cfg.Encoding})
-	goUpdate := request("compat-go-update", &wire.ShardCommand{Kind: wire.ShardCommand_UPDATE, ShardId: cfg.ShardID, PreviousRangeId: cfg.RustUpdatedRange, RangeId: cfg.GoUpdatedRange, Data: cfg.GoUpdatedData, Encoding: cfg.Encoding})
+	goUpdate := request("op_0000000000000000000001", &wire.ShardCommand{Kind: wire.ShardCommand_UPDATE, ShardId: cfg.ShardID, PreviousRangeId: cfg.RustUpdatedRange, RangeId: cfg.GoUpdatedRange, Data: cfg.GoUpdatedData, Encoding: cfg.Encoding})
 	var initialResult, rustResult, goResult *wire.ShardResult
 	if !t.Run("RustWrites", func(t *testing.T) {
 		client, stop := compatibilityNode(t, os.Getenv("XENON_COMPAT_RUST_BINARY"), cfg)
