@@ -1042,3 +1042,29 @@ button:focus-visible {
     padding: 9px 12px;
   }
 }
+
+.routing-map > span {
+  padding: 8px 5px;
+  border-radius: 7px;
+}
+.routing-map > :is(span, b) {
+  transition:
+    background 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+}
+.routing-map > .active {
+  color: #0069cc;
+}
+.routing-map > :is(span, b).active {
+  background: #dcecff;
+  color: #064e97;
+  box-shadow: 0 0 0 2px #7cb6f2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .routing-map > :is(span, b),
+  .blog-card,
+  .primary {
+    transition: none;
+  }
+}
