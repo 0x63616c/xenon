@@ -18,36 +18,7 @@ import (
 
 func TestPartitionNativeCatalogReplay(t *testing.T) {
 	f := newFixture(t)
-	bind := func(service *p.Service) *persistence.Service {
-		f.ready(service)
-		writer, attempt, handle, ok := service.Writer()
-		if !ok {
-			t.Fatal("missing writer")
-		}
-		check := func(ctx context.Context) error {
-			r, err := f.store.Read(ctx, key)
-			if err != nil {
-				return err
-			}
-			s, err := cluster.DecodeControl(key, r, 1<<20)
-			if err != nil {
-				return err
-			}
-			if err := s.ValidateLayout(f.layoutDigest); err != nil {
-				return err
-			}
-			current := s.Control().Partitions[partition]
-			if !current.Ready || current.Desired.Incarnation != attempt.Incarnation || current.AssignmentRevision != attempt.AssignmentRevision || current.Generation != attempt.Generation || current.Reservation != attempt.Reservation {
-				return cluster.ErrStaleControl
-			}
-			return nil
-		}
-		s, err := persistence.NewService(writer, partition, 100, check, func(err error) { service.ObserveFailure(handle, err) })
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
-	}
+
 	digest := func(c proto.Message) []byte {
 		raw, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 		if err != nil {
@@ -91,13 +62,13 @@ func TestPartitionNativeCatalogReplay(t *testing.T) {
 		return []proto.Message{c, n, m}
 	}
 	a := f.service(ownerA, f.engine)
-	before := run(bind(a))
+	before := run(bindPersistence(t, f, a))
 	s := f.snapshot()
 	w, err := s.Assign(ownerA, f.ids.transition(), map[identity.PartitionID]cluster.Owner{partition: owner(ownerB)})
 	f.replace(s, w, err)
 	b := f.service(ownerB, f.engine)
 	a.Poll()
-	base := bind(b)
+	base := bindPersistence(t, f, b)
 	after := run(base)
 	for i := range before {
 		if !proto.Equal(before[i], after[i]) {
@@ -124,4 +95,35 @@ func TestPartitionNativeCatalogReplay(t *testing.T) {
 		t.Fatalf("catalog state missing: %+v %+v %+v", c, n, m)
 	}
 	t.Log("cluster, Nexus and namespace writes and replay survived native ownership movement")
+}
+
+func bindPersistence(t *testing.T, f *fixture, service *p.Service) *persistence.Service {
+	f.ready(service)
+	writer, attempt, handle, ok := service.Writer()
+	if !ok {
+		t.Fatal("missing writer")
+	}
+	check := func(ctx context.Context) error {
+		r, err := f.store.Read(ctx, key)
+		if err != nil {
+			return err
+		}
+		s, err := cluster.DecodeControl(key, r, 1<<20)
+		if err != nil {
+			return err
+		}
+		if err := s.ValidateLayout(f.layoutDigest); err != nil {
+			return err
+		}
+		current := s.Control().Partitions[partition]
+		if !current.Ready || current.Desired.Incarnation != attempt.Incarnation || current.AssignmentRevision != attempt.AssignmentRevision || current.Generation != attempt.Generation || current.Reservation != attempt.Reservation {
+			return cluster.ErrStaleControl
+		}
+		return nil
+	}
+	s, err := persistence.NewService(writer, partition, 100, check, func(err error) { service.ObserveFailure(handle, err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }

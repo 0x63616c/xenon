@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "production_revision": "469b42a6b63fc640507f85b26b0a482f0dc81a5d",
+  "production_revision": "bc9ba6e24d94ef9fad8aa616ac357ccc5d2876cb",
   "toolchain": "go1.27.1",
   "initial": {
     "format": 2,
@@ -124,13 +124,18 @@
       "action": "poll",
       "actor": "coordinator-old",
       "at": 0,
-      "members": [
-        {
-          "node": "nod_0000000000000000000002",
-          "incarnation": "inc_0000000000000000000002",
-          "address": "node-2:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000001",
+        "generation": 1,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000002",
+            "incarnation": "inc_0000000000000000000002",
+            "address": "node-2:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",
@@ -161,13 +166,18 @@
       "action": "poll",
       "actor": "coordinator-old",
       "at": 1,
-      "members": [
-        {
-          "node": "nod_0000000000000000000002",
-          "incarnation": "inc_0000000000000000000002",
-          "address": "node-2:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000001",
+        "generation": 1,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000002",
+            "incarnation": "inc_0000000000000000000002",
+            "address": "node-2:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",
@@ -253,13 +263,18 @@
       "action": "poll",
       "actor": "coordinator-old",
       "at": 2,
-      "members": [
-        {
-          "node": "nod_0000000000000000000003",
-          "incarnation": "inc_0000000000000000000003",
-          "address": "node-3:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000001",
+        "generation": 1,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000003",
+            "incarnation": "inc_0000000000000000000003",
+            "address": "node-3:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",
@@ -278,13 +293,18 @@
       "action": "poll",
       "actor": "coordinator-new",
       "at": 0,
-      "members": [
-        {
-          "node": "nod_0000000000000000000003",
-          "incarnation": "inc_0000000000000000000003",
-          "address": "node-3:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000001",
+        "generation": 1,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000003",
+            "incarnation": "inc_0000000000000000000003",
+            "address": "node-3:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",
@@ -303,13 +323,18 @@
       "action": "poll",
       "actor": "coordinator-new",
       "at": 20,
-      "members": [
-        {
-          "node": "nod_0000000000000000000003",
-          "incarnation": "inc_0000000000000000000003",
-          "address": "node-3:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000001",
+        "generation": 1,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000003",
+            "incarnation": "inc_0000000000000000000003",
+            "address": "node-3:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",
@@ -340,13 +365,18 @@
       "action": "poll",
       "actor": "coordinator-new",
       "at": 21,
-      "members": [
-        {
-          "node": "nod_0000000000000000000003",
-          "incarnation": "inc_0000000000000000000003",
-          "address": "node-3:8080"
-        }
-      ]
+      "membership": {
+        "coordinator": "inc_0000000000000000000004",
+        "generation": 2,
+        "ready": true,
+        "members": [
+          {
+            "node": "nod_0000000000000000000003",
+            "incarnation": "inc_0000000000000000000003",
+            "address": "node-3:8080"
+          }
+        ]
+      }
     },
     {
       "action": "read",

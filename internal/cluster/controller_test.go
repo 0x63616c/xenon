@@ -46,7 +46,7 @@ func effectRecord(t *testing.T, e Effect, version string) registry.Record {
 }
 func pollController(t *testing.T, s State, at Tick, members ...Owner) (State, Effect) {
 	t.Helper()
-	next, effects := Step(s, Event{Kind: Poll, At: at, Incarnation: s.config.Incarnation, Members: members})
+	next, effects := Step(s, Event{Kind: Poll, At: at, Incarnation: s.config.Incarnation, Membership: testMembership(s, members)})
 	if len(effects) != 1 || effects[0].Kind != ReadControl {
 		t.Fatal("expected fresh read", effects, next.LastError)
 	}
@@ -450,4 +450,12 @@ func TestControllerUnknownRenewalCannotCreditAnotherCoordinator(t *testing.T) {
 	if s.LastUnknown == nil || s.LastUnknown.Effect.Write.Transition != renewal.Write.Transition {
 		t.Fatal("lost historical ambiguity after replacement")
 	}
+}
+
+func testMembership(s State, members []Owner) MembershipView {
+	c := fixtureControl().Coordinator
+	if current, ok := s.Control(); ok {
+		c = current.Coordinator
+	}
+	return MembershipView{Coordinator: c.Incarnation, Generation: c.Generation, Ready: true, Members: members}
 }

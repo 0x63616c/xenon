@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"slices"
 
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/registry"
@@ -62,11 +61,11 @@ func Step(previous State, event Event) (State, []Effect) {
 		if s.stopping {
 			return s, nil
 		}
-		if !validMembers(event.Members) {
+		if !event.Membership.valid() {
 			s.LastError = ErrInvalidController
 			return s, nil
 		}
-		s.members = slices.Clone(event.Members)
+		s.membership = event.Membership.clone()
 		if s.pending == nil {
 			effects := emit(Effect{Kind: ReadControl})
 			return s, effects
@@ -146,8 +145,14 @@ func Step(previous State, event Event) (State, []Effect) {
 	if p := s.publication; p != nil {
 		resolution, _ := registry.Reconcile(p.Effect.Key, p.Effect.Expected, p.Effect.Write, event.Record, event.Err)
 		if resolution == registry.RetrySameWrite {
-			effects := emit(p.Effect.clone()) // original bytes, transition and condition
-			return s, effects
+			if p.renewal || s.membership.matches(snap.Control().Coordinator) {
+				effects := emit(p.Effect.clone()) // original bytes, transition and condition
+				return s, effects
+			}
+			// An unready view cancels placement intent, not historical ambiguity.
+			// A fresh renewal may compete at this same version; either CAS can
+			// win, but uncertainty about the old assignment cannot starve renewal.
+			s.publication = nil
 		}
 		if resolution == registry.Published {
 			confirm(p.Effect.Write.Transition)
@@ -191,6 +196,9 @@ func Step(previous State, event Event) (State, []Effect) {
 	if err != nil {
 		s.LastError = err
 		return s, nil
+	}
+	if !s.membership.matches(snap.Control().Coordinator) {
+		s.membership = MembershipView{}
 	}
 	s.snapshot, s.haveSnapshot = snap, true
 	s.LastError = nil
@@ -237,11 +245,11 @@ func Step(previous State, event Event) (State, []Effect) {
 
 // plan uses the same fresh snapshot as election; no cached authority is rebased.
 func (s State) plan(snap Snapshot, transition identity.TransitionID) (registry.Write, bool, error) {
-	if len(s.members) == 0 {
+	if !s.membership.matches(snap.Control().Coordinator) || len(s.membership.Members) == 0 {
 		return registry.Write{}, false, nil
 	}
-	nodes := make([]identity.NodeID, len(s.members))
-	for i, member := range s.members {
+	nodes := make([]identity.NodeID, len(s.membership.Members))
+	for i, member := range s.membership.Members {
 		nodes[i] = member.Node
 	}
 	layout := snap.Control().Layout
@@ -249,7 +257,7 @@ func (s State) plan(snap Snapshot, transition identity.TransitionID) (registry.W
 	if err != nil {
 		return registry.Write{}, false, err
 	}
-	move, ok, err := SelectPlacementMove(layout.slots(), snap.Control(), plan, s.members)
+	move, ok, err := SelectPlacementMove(layout.slots(), snap.Control(), plan, s.membership.Members)
 	if err != nil || !ok {
 		return registry.Write{}, false, err
 	}
@@ -275,11 +283,11 @@ func validEvent(e Event) bool {
 	case Poll:
 		return e.Effect == 0 && e.Transition == "" && e.Record.Version == "" && len(e.Record.Body) == 0 && e.Err == nil
 	case Stop:
-		return e.Effect == 0 && len(e.Members) == 0 && e.Transition == "" && e.Record.Version == "" && len(e.Record.Body) == 0 && e.Err == nil
+		return e.Effect == 0 && !e.Membership.Ready && len(e.Membership.Members) == 0 && e.Transition == "" && e.Record.Version == "" && len(e.Record.Body) == 0 && e.Err == nil
 	case ReadCompleted:
-		return e.Effect != 0 && len(e.Members) == 0
+		return e.Effect != 0 && !e.Membership.Ready && len(e.Membership.Members) == 0
 	case PublishCompleted:
-		return e.Effect != 0 && len(e.Members) == 0 && e.Transition == ""
+		return e.Effect != 0 && !e.Membership.Ready && len(e.Membership.Members) == 0 && e.Transition == ""
 	default:
 		return false
 	}

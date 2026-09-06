@@ -28,6 +28,9 @@
     "old_a_retired_b_observes_fence_reopens_and_recovers",
     "fifth_case_cluster_nexus_namespace_share_native_writer_and_journal",
     "move_owner_replay_three_operations_check_outcome_count_three",
-    "new_operations_read_each_recovered_catalog_state"
+    "new_operations_read_each_recovered_catalog_state",
+    "sixth_case_queue_and_queuev2_enqueue_then_delete_with_shared_outcomes",
+    "move_owner_replay_deleted_enqueues_and_delete_check_seven_outcomes",
+    "read_empty_queues_and_isolated_dlq_verify_next_ids_do_not_reset"
   ]
 }

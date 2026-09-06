@@ -35,13 +35,13 @@ type CoupledActor struct {
 	Partition   ids.PartitionID   `json:"partition,omitempty"`
 }
 type CoupledInput struct {
-	Action     string           `json:"action"`
-	Actor      string           `json:"actor"`
-	At         cluster.Tick     `json:"at"`
-	Effect     uint64           `json:"effect,omitempty"`
-	Transition ids.TransitionID `json:"transition,omitempty"`
-	Members    []cluster.Owner  `json:"members,omitempty"`
-	Fault      string           `json:"fault,omitempty"` // named injection point for negative controls
+	Action     string                  `json:"action"`
+	Actor      string                  `json:"actor"`
+	At         cluster.Tick            `json:"at"`
+	Effect     uint64                  `json:"effect,omitempty"`
+	Transition ids.TransitionID        `json:"transition,omitempty"`
+	Membership *cluster.MembershipView `json:"membership,omitempty"`
+	Fault      string                  `json:"fault,omitempty"` // named injection point for negative controls
 }
 type CoupledTrace struct {
 	Input            CoupledInput           `json:"input"`
@@ -179,7 +179,11 @@ func RunCoupled(scenario CoupledScenario, negative string) (CoupledResult, error
 				return fail(fmt.Errorf("poll contains effect"))
 			}
 			if machine.spec.Kind == "cluster" {
-				emitCluster(cluster.Event{Kind: cluster.Poll, Members: input.Members})
+				view := cluster.MembershipView{}
+				if input.Membership != nil {
+					view = *input.Membership
+				}
+				emitCluster(cluster.Event{Kind: cluster.Poll, Membership: view})
 			} else {
 				emitPartition(partitions.Event{Kind: partitions.Poll})
 			}
