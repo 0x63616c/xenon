@@ -71,3 +71,26 @@ membership recovery past the former three-attempt ceiling, unchanged request and
 deadline, caller cancellation, terminal status precedence, and unknown outcome
 preservation through Temporal's serviceerror conversion. This is a focused
 regression; the composed scenario must be rerun before claiming startup proof.
+
+### Health deadline and retained completion
+
+The clean `495819c` run `agent-20260906T122650-8e58ea` reached C's healthy
+state and observed C serve matching generation 3. After the scheduled SIGKILL of
+B, A exited with `agent health: context deadline exceeded` and
+`process exit required`. The lifecycle used the same five-second context both to
+cancel Ready and to decide its call had not completed. A normal cancellation
+unwind can lose that scheduling race; the error alone does not establish a hung
+native effect.
+
+Health expiry now revokes readiness while retaining the single pending probe.
+Only observed completion permits another probe. No work overlaps and no
+cancellation is treated as proof of completed resource use. A permanently stuck
+probe leaves the process unready; external shutdown while it remains pending
+still requires process exit without component teardown. Startup and shutdown
+bounds, native driver drain rules, and the health observation deadline remain
+unchanged. This is a delegated lifecycle correction, not an extension of the
+readiness timeout or a claim that an expired probe succeeded.
+
+The focused agent race suite includes a gated cancellation-unwind regression and
+the existing shutdown-with-pending-probe safety regression. The real composed
+fault scenario remains the acceptance boundary for failover progress.

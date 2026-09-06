@@ -214,3 +214,51 @@ func TestPermanentHealthFailureStopsProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHealthDeadlineRetainsCallUntilObservedCompletion(t *testing.T) {
+	lifetime, stop := context.WithCancel(context.Background())
+	defer stop()
+	probe, cancel := context.WithTimeout(lifetime, 20*time.Millisecond)
+	defer cancel()
+	r := Runtime{}
+	r.ready.Store(true)
+	entered, release := make(chan struct{}), make(chan struct{})
+	done := make(chan struct{})
+	var err error
+	var completed bool
+	go func() {
+		err, completed = r.healthProbe(lifetime, probe, func() error {
+			close(entered)
+			<-probe.Done()
+			<-release // cancellation has occurred, but resource use has not completed.
+			return probe.Err()
+		})
+		close(done)
+	}()
+	<-entered
+	<-probe.Done()
+	deadline := time.After(time.Second)
+	for r.Ready() {
+		select {
+		case <-deadline:
+			t.Fatal("expired probe remained ready")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	select {
+	case <-done:
+		t.Fatal("deadline was mistaken for completed resource use")
+	default:
+	}
+	close(release)
+	<-done
+	if !completed || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal(err, completed)
+	}
+	fresh, freshCancel := context.WithCancel(lifetime)
+	defer freshCancel()
+	if err, completed = r.healthProbe(lifetime, fresh, func() error { return nil }); err != nil || !completed {
+		t.Fatal("completed probe prevented recovery", err, completed)
+	}
+}

@@ -106,17 +106,25 @@ func (r *Runtime) Run(ctx context.Context) (result error) {
 			return nil
 		case <-ticker.C:
 			probe, cancel := context.WithTimeout(ctx, 5*time.Second)
-			err := call(probe, func() error { return r.Storage.Ready(probe) })
+			err, completed := r.healthProbe(ctx, probe, func() error { return r.Storage.Ready(probe) })
+			if !completed {
+				unsafeTeardown = true
+				err = errors.Join(err, ErrProcessExitRequired)
+			}
 			if err == nil {
-				err = call(probe, func() error { return r.Temporal.Ready(probe) })
+				err, completed = r.healthProbe(ctx, probe, func() error { return r.Temporal.Ready(probe) })
+				if !completed {
+					unsafeTeardown = true
+					err = errors.Join(err, ErrProcessExitRequired)
+				}
 			}
 			cancel()
 			if err != nil {
 				r.ready.Store(false)
 				// Ownership movement can make routed persistence briefly unavailable.
 				// A completed negative probe changes readiness, but does not make the
-				// process unsafe. A probe that outlives its bound still requires exit:
-				// teardown could otherwise race work using native resources.
+				// process unsafe. Shutdown with an outstanding probe still requires
+				// process exit; teardown cannot race retained work.
 				if errors.Is(err, ErrProcessExitRequired) {
 					return fmt.Errorf("agent health: %w", err)
 				}
@@ -149,5 +157,38 @@ func bounded(ctx context.Context, fn func() error) (err error, completed bool) {
 		default:
 		}
 		return ctx.Err(), false
+	}
+}
+
+// healthProbe separates a negative observation deadline from process shutdown.
+// Expiry revokes readiness immediately but retains the one pending call until
+// completion. Cancellation alone cannot prove a native/resource user finished.
+// No replacement probe or teardown runs while this call remains outstanding.
+func (r *Runtime) healthProbe(lifetime, probe context.Context, fn func() error) (error, bool) {
+	if err := probe.Err(); err != nil {
+		return err, true
+	}
+	done := make(chan error, 1)
+	go func() { done <- fn() }()
+	select {
+	case err := <-done:
+		if probe.Err() != nil {
+			r.ready.Store(false)
+			return errors.Join(probe.Err(), err), true
+		}
+		return err, true
+	case <-probe.Done():
+		r.ready.Store(false)
+	}
+	select {
+	case err := <-done:
+		return errors.Join(probe.Err(), err), true
+	case <-lifetime.Done():
+		select {
+		case err := <-done:
+			return errors.Join(probe.Err(), err), true
+		default:
+			return lifetime.Err(), false
+		}
 	}
 }
