@@ -12,7 +12,7 @@ import (
 )
 
 func TestExecutionTasksUpstream(t *testing.T) {
-	raw, e := os.ReadFile("../../proof/executiontasks/case.json")
+	raw, e := os.ReadFile("../../../proof/executiontasks/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

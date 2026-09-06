@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/adapter"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/server/common/log"
 	p "go.temporal.io/server/common/persistence"

@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/0x63616c/xenon/internal/adapter"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/serviceerror"

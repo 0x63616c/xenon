@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/adapter"
 	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
 	"github.com/0x63616c/xenon/internal/routing"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
 )

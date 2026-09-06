@@ -77,7 +77,7 @@ func (p *visibilityProxy) Execute(ctx context.Context, q *wire.VisibilityRequest
 }
 func visibilityProcesses(t *testing.T) (string, *visibilityProxy) {
 	t.Helper()
-	raw, e := os.ReadFile("../../proof/visibility/case.json")
+	raw, e := os.ReadFile("../../../proof/visibility/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

@@ -35,7 +35,7 @@ type executionFixture struct {
 
 func executionCase(t *testing.T) executionFixture {
 	t.Helper()
-	raw, e := os.ReadFile("../../proof/execution/case.json")
+	raw, e := os.ReadFile("../../../proof/execution/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

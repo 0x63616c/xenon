@@ -26,16 +26,23 @@ The upstream Temporal embedding boundary now lives in
 embedded `default.json` beside it. Both production consumers (`internal/app` and
 `cmd/xenon` configuration validation) import the new package directly. The old
 `internal/temporalruntime` package has no forwarding shim. Runtime construction,
-startup, readiness, shutdown and generated settings are unchanged. Adapter and
-factory packages remain a separate migration. Agent profile receipts hash every
+startup, readiness, shutdown and generated settings are unchanged. The adapter/factory migration is recorded below. Agent profile receipts hash every
 tracked source and asset, so they automatically include these new paths; no active
 manifest enumerated the former runtime paths. Historical receipt hashes are
 unchanged. The Temporal upgrade impact inventory now includes this boundary.
 
+The 35 files formerly in `internal/adapter` and three in `internal/temporalstore`
+now share `internal/temporal/adapter`, with their original filenames and colocated
+tests. Factory constructors call the same adapter constructors directly after
+removing the former inter-package qualification; exported APIs and behavior are
+unchanged. Production storage, Temporal embedding, probe commands and native
+compatibility tests import the merged package directly. There are no forwarding
+packages. Relative fixture and fallback-binary paths in the moved tests account
+for the extra directory level. Proof runners, expected Go test package names and
+active manifests use the new paths; historical evidence is untouched.
+
 This is not completion of the required repository layout. Remaining concrete
-moves include `internal/adapter` and `internal/temporalstore` into
-`internal/temporal/adapter`,
-agent/storage assembly into `internal/app`, protobuf source/generated bindings
+moves include agent/storage assembly into `internal/app`, protobuf source/generated bindings
 into `api/xenon/v1`, and retirement or relocation of the old native node and
 ownership compatibility runtime with its native tests. The node operation-family
 files already delegate semantics to persistence; they still bind the historical
@@ -67,3 +74,14 @@ configuration and test bodies are byte-identical after the package-name change;
 service code differs only in package and upstream import naming. Manifest checks
 and the Temporal upgrade inventory test cover the operational references. This
 component validation does not rerun an embedded Temporal cluster.
+
+Adapter/factory validation uses the full `go test -race
+./internal/temporal/adapter -count=1` suite with the pinned Go compatibility node
+in `XENON_NODE_BINARY` and native loader environment; the declarative experiment
+runner supplies those same dependencies. It includes upstream execution-task and
+visibility suites and existing lost-response/replay regressions. Consumer suites
+cover Temporal configuration, storage, app, CLI and SDK probe. The native
+`TestGoOwnerTemporalFactory` regression checks factory-created stores, and the
+legacy `cmd/xenon-temporal` still compiles under its `ministack` build tag. Proof
+runner and upgrade-inventory tests verify the relocated runner package filters.
+No S3 or full-stack acceptance is inferred from these component checks.

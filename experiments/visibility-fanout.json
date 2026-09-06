@@ -7,13 +7,15 @@
     "go": "go version go1.27.1 "
   },
   "inputs": [
+    "internal/temporal/adapter/visibility_factory.go",
+    "internal/temporal/adapter/factory.go",
     "go.mod",
     "go.sum",
     "scripts/prove.py",
-    "internal/adapter/visibility.go",
-    "internal/adapter/retry.go",
+    "internal/temporal/adapter/visibility.go",
+    "internal/temporal/adapter/retry.go",
     "internal/rpctrace/observer.go",
-    "internal/adapter/visibility_fanout_test.go",
+    "internal/temporal/adapter/visibility_fanout_test.go",
     "cmd/xenon-sdk-probe/main.go",
     "proof/visibility/fanout.md"
   ],

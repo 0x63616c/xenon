@@ -35,7 +35,7 @@ type historyFixture struct {
 
 func historyCase(t *testing.T) historyFixture {
 	t.Helper()
-	raw, e := os.ReadFile("../../proof/history/case.json")
+	raw, e := os.ReadFile("../../../proof/history/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

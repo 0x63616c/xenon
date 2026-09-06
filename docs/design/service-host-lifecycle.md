@@ -66,7 +66,7 @@ plain admission failure does not override a permanent terminal status. A valid
 ClusterResult resolves ambiguity because ClusterService returns it only after
 replay and AwaitDurable, including persisted logical errors.
 
-`go test -race ./internal/adapter -run TestCluster -count=1` exercises startup
+`go test -race ./internal/temporal/adapter -run TestCluster -count=1` exercises startup
 membership recovery past the former three-attempt ceiling, unchanged request and
 deadline, caller cancellation, terminal status precedence, and unknown outcome
 preservation through Temporal's serviceerror conversion. This is a focused

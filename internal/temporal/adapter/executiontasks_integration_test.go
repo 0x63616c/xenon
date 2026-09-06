@@ -50,7 +50,7 @@ func (s *executionTasksProxy) Execute(ctx context.Context, q *wire.ExecutionTask
 	return r, nil
 }
 func TestExecutionTasksRPC(t *testing.T) {
-	raw, e := os.ReadFile("../../proof/executiontasks/case.json")
+	raw, e := os.ReadFile("../../../proof/executiontasks/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

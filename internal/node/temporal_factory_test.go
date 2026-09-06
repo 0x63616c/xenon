@@ -7,7 +7,7 @@ import (
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/0x63616c/xenon/internal/temporalstore"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/server/common/config"
@@ -39,7 +39,7 @@ func TestGoOwnerTemporalFactory(t *testing.T) {
 	t.Cleanup(server.Stop)
 	cfg := config.CustomDatastoreConfig{Name: "xenon", Options: map[string]any{"address": listener.Addr().String(), "historyPartitions": []string{"history"}, "matchingPartition": "matching", "globalPartition": "global"}}
 	factory := func() p.DataStoreFactory {
-		return (temporalstore.AbstractFactory{}).NewFactory(cfg, nil, "cluster", nil, nil, nil)
+		return (adapter.AbstractFactory{}).NewFactory(cfg, nil, "cluster", nil, nil, nil)
 	}
 	f := factory()
 	t.Cleanup(f.Close)

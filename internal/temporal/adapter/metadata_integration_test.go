@@ -47,7 +47,7 @@ type namespaceCase struct {
 
 func startNamespaceNode(t *testing.T, cfg namespaceCase) string {
 	t.Helper()
-	binary, err := filepath.Abs("../../target/debug/xenon-node")
+	binary, err := filepath.Abs("../../../target/debug/xenon-node")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func startNamespaceNode(t *testing.T, cfg namespaceCase) string {
 	return ""
 }
 func TestNamespaceRPC(t *testing.T) {
-	fixture, err := os.ReadFile("../../proof/namespace/case.json")
+	fixture, err := os.ReadFile("../../../proof/namespace/case.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestNamespaceRPC(t *testing.T) {
 
 // This tests the default Go receive limit, not a raised transport allowance.
 func TestNamespaceByteBoundedPagination(t *testing.T) {
-	fixture, err := os.ReadFile("../../proof/namespace/case.json")
+	fixture, err := os.ReadFile("../../../proof/namespace/case.json")
 	if err != nil {
 		t.Fatal(err)
 	}

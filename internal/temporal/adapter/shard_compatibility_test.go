@@ -98,7 +98,7 @@ func compatibilityNode(t *testing.T, binary string, cfg compatibilityCase) (wire
 }
 
 func TestShardStoredCompatibility(t *testing.T) {
-	data, err := os.ReadFile("../../proof/go-shard-compat/case.json")
+	data, err := os.ReadFile("../../../proof/go-shard-compat/case.json")
 	if err != nil {
 		t.Fatal(err)
 	}

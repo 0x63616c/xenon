@@ -1,4 +1,4 @@
-package temporalstore
+package adapter
 
 import (
 	"go.temporal.io/server/common/config"

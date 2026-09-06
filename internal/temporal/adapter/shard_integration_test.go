@@ -43,7 +43,7 @@ type shardCase struct {
 }
 
 func TestShardRPC(t *testing.T) {
-	data, err := os.ReadFile("../../proof/shard/case.json")
+	data, err := os.ReadFile("../../../proof/shard/case.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestShardRPC(t *testing.T) {
 	if cfg.SchemaVersion != 1 {
 		t.Fatal("unknown fixture version")
 	}
-	binary, err := filepath.Abs("../../target/debug/xenon-node")
+	binary, err := filepath.Abs("../../../target/debug/xenon-node")
 	if err != nil {
 		t.Fatal(err)
 	}

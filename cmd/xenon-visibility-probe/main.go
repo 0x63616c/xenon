@@ -12,7 +12,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/adapter"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	model "github.com/0x63616c/xenon/internal/visibility"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"

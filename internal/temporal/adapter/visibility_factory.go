@@ -1,8 +1,7 @@
-package temporalstore
+package adapter
 
 import (
 	"fmt"
-	"github.com/0x63616c/xenon/internal/adapter"
 	"go.temporal.io/server/chasm"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
@@ -44,5 +43,5 @@ func (VisibilityFactory) NewVisibilityStore(c config.CustomDatastoreConfig, prov
 		return nil, fmt.Errorf("visibility indexName must match index option")
 	}
 
-	return adapter.NewVisibilityStore(address, index, schema, provider, mappers, registry)
+	return NewVisibilityStore(address, index, schema, provider, mappers, registry)
 }

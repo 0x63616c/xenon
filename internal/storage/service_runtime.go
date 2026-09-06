@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/adapter"
 	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
@@ -17,6 +16,7 @@ import (
 	"github.com/0x63616c/xenon/internal/partitions/slatedb"
 	"github.com/0x63616c/xenon/internal/registry"
 	"github.com/0x63616c/xenon/internal/routing"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

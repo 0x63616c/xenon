@@ -52,7 +52,7 @@ func (s *queueDropProxy) Execute(ctx context.Context, q *wire.QueueRequest) (*wi
 }
 func queueFixture(t *testing.T) namespaceCase {
 	t.Helper()
-	raw, e := os.ReadFile("../../proof/queue/case.json")
+	raw, e := os.ReadFile("../../../proof/queue/case.json")
 	if e != nil {
 		t.Fatal(e)
 	}

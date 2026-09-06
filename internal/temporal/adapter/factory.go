@@ -1,11 +1,10 @@
-// Package temporalstore connects the pinned Temporal persistence factory to Xenon.
-package temporalstore
+// Package adapter connects the pinned Temporal persistence factory to Xenon.
+package adapter
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/0x63616c/xenon/internal/adapter"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/metrics"
@@ -115,33 +114,33 @@ func (f *Factory) Close() {
 	f.stores = nil
 }
 func (f *Factory) NewTaskStore() (p.TaskStore, error) {
-	return create(f, func() (*adapter.MatchingStore, error) { return adapter.NewMatchingStore(f.address, f.matching) })
+	return create(f, func() (*MatchingStore, error) { return NewMatchingStore(f.address, f.matching) })
 }
 func (f *Factory) NewFairTaskStore() (p.TaskStore, error) {
-	return create(f, func() (*adapter.MatchingStore, error) { return adapter.NewFairMatchingStore(f.address, f.matching) })
+	return create(f, func() (*MatchingStore, error) { return NewFairMatchingStore(f.address, f.matching) })
 }
 func (f *Factory) NewShardStore() (p.ShardStore, error) {
-	return create(f, func() (*adapter.ShardStore, error) {
-		return adapter.NewPartitionedShardStore(f.address, f.history, f.cluster)
+	return create(f, func() (*ShardStore, error) {
+		return NewPartitionedShardStore(f.address, f.history, f.cluster)
 	})
 }
 func (f *Factory) NewMetadataStore() (p.MetadataStore, error) {
-	return create(f, func() (*adapter.MetadataStore, error) { return adapter.NewMetadataStore(f.address, f.global) })
+	return create(f, func() (*MetadataStore, error) { return NewMetadataStore(f.address, f.global) })
 }
 func (f *Factory) NewExecutionStore() (p.ExecutionStore, error) {
-	return create(f, func() (*adapter.ExecutionStore, error) {
-		return adapter.NewPartitionedExecutionStore(f.address, f.history)
+	return create(f, func() (*ExecutionStore, error) {
+		return NewPartitionedExecutionStore(f.address, f.history)
 	})
 }
 func (f *Factory) NewQueue(t p.QueueType) (p.Queue, error) {
-	return create(f, func() (*adapter.Queue, error) { return adapter.NewQueue(f.address, f.global, t) })
+	return create(f, func() (*Queue, error) { return NewQueue(f.address, f.global, t) })
 }
 func (f *Factory) NewQueueV2() (p.QueueV2, error) {
-	return create(f, func() (*adapter.QueueV2, error) { return adapter.NewQueueV2(f.address, f.global) })
+	return create(f, func() (*QueueV2, error) { return NewQueueV2(f.address, f.global) })
 }
 func (f *Factory) NewClusterMetadataStore() (p.ClusterMetadataStore, error) {
-	return create(f, func() (*adapter.ClusterStore, error) { return adapter.NewClusterStore(f.address, f.global) })
+	return create(f, func() (*ClusterStore, error) { return NewClusterStore(f.address, f.global) })
 }
 func (f *Factory) NewNexusEndpointStore() (p.NexusEndpointStore, error) {
-	return create(f, func() (*adapter.NexusStore, error) { return adapter.NewNexusStore(f.address, f.global) })
+	return create(f, func() (*NexusStore, error) { return NewNexusStore(f.address, f.global) })
 }

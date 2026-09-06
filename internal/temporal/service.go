@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/0x63616c/xenon/internal/agent"
-	"github.com/0x63616c/xenon/internal/temporalstore"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/server/common/cluster"
 	"go.temporal.io/server/common/config"
 	temporalserver "go.temporal.io/server/temporal"
@@ -72,7 +72,7 @@ func New(c agent.Config) (*Runtime, error) {
 func (r *Runtime) Start(context.Context) error {
 	// Fx construction can access persistence. It belongs inside the agent's
 	// bounded startup, after storage readiness, rather than in the constructor.
-	s, err := temporalserver.NewServer(temporalserver.WithConfig(r.config), temporalserver.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporalserver.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporalserver.ForServices(temporalserver.DefaultServices))
+	s, err := temporalserver.NewServer(temporalserver.WithConfig(r.config), temporalserver.WithCustomDataStoreFactory(adapter.AbstractFactory{}), temporalserver.WithCustomVisibilityStoreFactory(adapter.VisibilityFactory{}), temporalserver.ForServices(temporalserver.DefaultServices))
 	if err != nil {
 		return err
 	}

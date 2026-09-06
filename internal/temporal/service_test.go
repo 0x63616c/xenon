@@ -2,7 +2,7 @@ package temporal
 
 import (
 	"github.com/0x63616c/xenon/internal/agent"
-	"github.com/0x63616c/xenon/internal/temporalstore"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/server/common/searchattribute"
 	"testing"
 )
@@ -53,7 +53,7 @@ func TestStartupSearchAttributeIndexMatchesVisibilityStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	ds := cfg.Persistence.GetVisibilityStoreConfig()
-	visibility, err := (temporalstore.VisibilityFactory{}).NewVisibilityStore(*ds.CustomDataStoreConfig, searchattribute.NewTestProvider(), nil, nil, nil, nil, nil, nil)
+	visibility, err := (adapter.VisibilityFactory{}).NewVisibilityStore(*ds.CustomDataStoreConfig, searchattribute.NewTestProvider(), nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
