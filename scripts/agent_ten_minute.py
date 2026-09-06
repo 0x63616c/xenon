@@ -73,6 +73,7 @@ def exercise(schedule, commands, launch, poll_health, fault, record, *, finish=l
                     if current >= end:
                         raise RuntimeError('fault trigger missing before workload end')
                 else:
+                    record({'event':'fault-started','action':item['action'],'elapsed_seconds':current-started})
                     fault(item['action'])
                     elapsed = now() - started
                     if elapsed > item['complete_by_seconds']:
