@@ -20,8 +20,12 @@ func tid(n int) identity.TransitionID { return identity.TransitionID(fmt.Sprintf
 func testOwner(i identity.IncarnationID) cluster.Owner {
 	return cluster.Owner{Node: "nod_0000000000000000000001", Incarnation: i, Address: "localhost:8080"}
 }
+func testLayout() cluster.Layout {
+	return cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: []cluster.PhysicalPartition{{LogicalName: "partition-a", ID: testPart, Path: "data/a"}}}
+}
 func testConfig() ControllerConfig {
-	return ControllerConfig{Key: testKey, Partition: testPart, Incarnation: testInc, MaxControlBytes: 1 << 20}
+	digest, _ := testLayout().Digest()
+	return ControllerConfig{ExpectedLayoutDigest: digest, Key: testKey, Partition: testPart, Incarnation: testInc, MaxControlBytes: 1 << 20}
 }
 func encoded(t *testing.T, v registry.Version, w registry.Write) registry.Record {
 	t.Helper()
@@ -33,7 +37,8 @@ func encoded(t *testing.T, v registry.Version, w registry.Write) registry.Record
 }
 func fixture(t *testing.T) registry.Record {
 	t.Helper()
-	w, e := cluster.BootstrapWrite(testKey, tid(1), cluster.Control{Format: 1, Cluster: "clu_0000000000000000000001", Coordinator: cluster.Coordinator{Incarnation: testInc, Generation: 1}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]cluster.PartitionControl{testPart: {Path: "data/a", Desired: testOwner(testInc), AssignmentRevision: 1}}}, 1<<20)
+	layout := testLayout()
+	w, e := cluster.BootstrapWrite(testKey, tid(1), cluster.Control{Format: cluster.ControlFormat, Layout: &layout, Cluster: "clu_0000000000000000000001", Coordinator: cluster.Coordinator{Incarnation: testInc, Generation: 1}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]cluster.PartitionControl{testPart: {Path: "data/a", Desired: testOwner(testInc), AssignmentRevision: 1}}}, 1<<20)
 	if e != nil {
 		t.Fatal(e)
 	}

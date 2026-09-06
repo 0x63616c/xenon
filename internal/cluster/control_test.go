@@ -21,8 +21,12 @@ func transition(n int) identity.TransitionID {
 func owner(inc identity.IncarnationID) Owner {
 	return Owner{Node: "nod_0000000000000000000001", Incarnation: inc, Address: "localhost:8080"}
 }
+func fixtureLayout() Layout {
+	return Layout{Version: 1, Placement: DefaultPlacementConfig(), Partitions: []PhysicalPartition{{LogicalName: "partition-a", ID: partitionA, Path: "data/a"}, {LogicalName: "partition-b", ID: partitionB, Path: "data/b"}}}
+}
 func fixtureControl() Control {
-	return Control{Format: 1, Cluster: "clu_0000000000000000000001", Coordinator: Coordinator{leader, 1, 0}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]PartitionControl{
+	layout := fixtureLayout()
+	return Control{Format: ControlFormat, Layout: &layout, Cluster: "clu_0000000000000000000001", Coordinator: Coordinator{leader, 1, 0}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]PartitionControl{
 		partitionA: {Path: "data/a", Desired: owner(leader), AssignmentRevision: 1},
 		partitionB: {Path: "data/b", Desired: owner(leader), AssignmentRevision: 1},
 	}}

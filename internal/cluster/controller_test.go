@@ -13,7 +13,8 @@ import (
 )
 
 func controllerConfig(self identity.IncarnationID) ControllerConfig {
-	return ControllerConfig{Key: controlKey, Incarnation: self, MaxControlBytes: controlLimit, RenewalInterval: 5 * time.Nanosecond, SuspectAfter: 20 * time.Nanosecond, Placement: DefaultPlacementConfig(), Slots: []identity.PartitionID{partitionA, partitionB}}
+	digest, _ := fixtureLayout().Digest()
+	return ControllerConfig{ExpectedLayoutDigest: digest, Key: controlKey, Incarnation: self, MaxControlBytes: controlLimit, RenewalInterval: 5 * time.Nanosecond, SuspectAfter: 20 * time.Nanosecond}
 }
 func controllerState(t *testing.T, self identity.IncarnationID) State {
 	t.Helper()
@@ -307,8 +308,8 @@ func TestControllerMalformedReadRetainsAmbiguousAttemptAndInputOwnership(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.Slots[0] = partitionB
-	if s.Config().Slots[0] != partitionA {
+	config.ExpectedLayoutDigest[0] ^= 1
+	if s.Config().ExpectedLayoutDigest == config.ExpectedLayoutDigest {
 		t.Fatal("configuration alias")
 	}
 	s, read := pollController(t, s, 0)

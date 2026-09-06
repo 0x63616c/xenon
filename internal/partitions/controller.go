@@ -192,6 +192,9 @@ func Step(previous State, event Event) (State, []Effect) {
 		resolution, reconcileErr := registry.Reconcile(s.config.Key, p.expected, p.write, event.Record, event.Err)
 		if event.Err == nil && resolution == registry.Published {
 			snap, err := cluster.DecodeControl(s.config.Key, event.Record, s.config.MaxControlBytes)
+			if err == nil {
+				err = snap.ValidateLayout(s.config.ExpectedLayoutDigest)
+			}
 			if err != nil {
 				s.LastError = err
 				p.unknown = true
@@ -231,9 +234,17 @@ func Step(previous State, event Event) (State, []Effect) {
 		return s, nil
 	}
 	snap, err := cluster.DecodeControl(s.config.Key, event.Record, s.config.MaxControlBytes)
+	if err == nil {
+		err = snap.ValidateLayout(s.config.ExpectedLayoutDigest)
+	}
 	if err != nil {
 		s.LastError = err
-		return s, nil
+		s.publication = nil
+		s.obsolete = true
+		if s.handle != 0 {
+			closeHandle()
+		}
+		return s, effects
 	}
 	s.snapshot = snap
 	s.haveSnapshot = true

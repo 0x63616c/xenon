@@ -3,7 +3,7 @@
   "production_revision": "72e34eca55f77b3fab67e5cc4e5929cb22d278f1",
   "toolchain": "go1.27.1",
   "initial": {
-    "format": 1,
+    "format": 2,
     "cluster": "clu_0000000000000000000001",
     "coordinator": {
       "incarnation": "inc_0000000000000000000001",
@@ -34,17 +34,28 @@
         "generation": 0,
         "ready": false
       }
+    },
+    "layout": {
+      "version": 1,
+      "placement": {
+        "version": 1,
+        "hash": "sha256-first8-be",
+        "replicas": 20,
+        "load": 1.25
+      },
+      "partitions": [
+        {
+          "logical_name": "partition-a",
+          "id": "prt_0000000000000000000001",
+          "path": "data/1"
+        },
+        {
+          "logical_name": "partition-b",
+          "id": "prt_0000000000000000000002",
+          "path": "data/2"
+        }
+      ]
     }
-  },
-  "slots": [
-    "prt_0000000000000000000001",
-    "prt_0000000000000000000002"
-  ],
-  "placement": {
-    "version": 1,
-    "hash": "sha256-first8-be",
-    "replicas": 20,
-    "load": 1.25
   },
   "actors": [
     {
@@ -636,5 +647,39 @@
       "at": 0,
       "effect": 9
     }
+  ],
+  "expected_layout_digest": [
+    1,
+    91,
+    115,
+    245,
+    111,
+    44,
+    33,
+    82,
+    72,
+    40,
+    104,
+    103,
+    82,
+    243,
+    225,
+    6,
+    159,
+    86,
+    207,
+    29,
+    45,
+    91,
+    136,
+    109,
+    41,
+    98,
+    75,
+    202,
+    104,
+    70,
+    206,
+    183
   ]
 }

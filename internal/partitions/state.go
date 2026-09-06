@@ -46,10 +46,11 @@ const (
 )
 
 type ControllerConfig struct {
-	Key             registry.Key
-	Partition       identity.PartitionID
-	Incarnation     identity.IncarnationID
-	MaxControlBytes int
+	ExpectedLayoutDigest [32]byte
+	Key                  registry.Key
+	Partition            identity.PartitionID
+	Incarnation          identity.IncarnationID
+	MaxControlBytes      int
 }
 
 // Completion payloads are chosen by Kind. Native handles never enter pure state;
@@ -107,7 +108,7 @@ type State struct {
 }
 
 func NewState(c ControllerConfig) (State, error) {
-	if registry.ValidateKey(c.Key) != nil || c.Partition.Validate() != nil || c.Incarnation.Validate() != nil || c.MaxControlBytes <= 0 {
+	if c.ExpectedLayoutDigest == ([32]byte{}) || registry.ValidateKey(c.Key) != nil || c.Partition.Validate() != nil || c.Incarnation.Validate() != nil || c.MaxControlBytes <= 0 {
 		return State{}, ErrInvalid
 	}
 	return State{config: c, pending: map[EffectID]Effect{}}, nil

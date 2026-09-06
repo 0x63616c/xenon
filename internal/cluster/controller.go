@@ -94,6 +94,9 @@ func Step(previous State, event Event) (State, []Effect) {
 	if event.Kind == ReadCompleted && event.Err == nil && !s.stopping {
 		var err error
 		snap, err = DecodeControl(s.config.Key, event.Record, s.config.MaxControlBytes)
+		if err == nil {
+			err = snap.ValidateLayout(s.config.ExpectedLayoutDigest)
+		}
 		if err != nil {
 			s.LastError = err
 			return s, nil
@@ -110,7 +113,11 @@ func Step(previous State, event Event) (State, []Effect) {
 		}
 		if event.Err == nil && resolution == registry.Published {
 			// Decoding also enforces the configured record bound and control schema.
-			if _, err := DecodeControl(pending.Key, event.Record, s.config.MaxControlBytes); err == nil {
+			published, err := DecodeControl(pending.Key, event.Record, s.config.MaxControlBytes)
+			if err == nil {
+				err = published.ValidateLayout(s.config.ExpectedLayoutDigest)
+			}
+			if err == nil {
 				confirm(pending.Write.Transition)
 				s.seenControl = true
 
@@ -174,17 +181,6 @@ func Step(previous State, event Event) (State, []Effect) {
 		return s, nil
 	}
 	s.seenControl = true
-	c := snap.Control()
-	if len(c.Partitions) != len(s.config.Slots) {
-		s.LastError = ErrInvalidPlacement
-		return s, nil
-	}
-	for _, id := range s.config.Slots {
-		if _, ok := c.Partitions[id]; !ok {
-			s.LastError = ErrInvalidPlacement
-			return s, nil
-		}
-	}
 	authority := snap.Authority()
 	change, takeover, err := s.election.Propose(s.at, s.config.SuspectAfter, s.config.Incarnation, authority)
 	if err != nil {
@@ -248,11 +244,12 @@ func (s State) plan(snap Snapshot, transition identity.TransitionID) (registry.W
 	for i, member := range s.members {
 		nodes[i] = member.Node
 	}
-	plan, err := PlanPlacement(s.config.Placement, s.config.Slots, nodes)
+	layout := snap.Control().Layout
+	plan, err := PlanPlacement(layout.Placement, layout.slots(), nodes)
 	if err != nil {
 		return registry.Write{}, false, err
 	}
-	move, ok, err := SelectPlacementMove(s.config.Slots, snap.Control(), plan, s.members)
+	move, ok, err := SelectPlacementMove(layout.slots(), snap.Control(), plan, s.members)
 	if err != nil || !ok {
 		return registry.Write{}, false, err
 	}
