@@ -35,7 +35,7 @@ type Partition struct {
 // Exact concepts from dst-service-contracts.md, with explicit synthetic JSON
 // field names/representation. Heartbeats are separate advisory records. Desired,
 // reservation and ready are all populated (including old ready during movement).
-// This is NOT the final production format and excludes retained historical receipts.
+// This is NOT the final production format. It adds one bounded last-attempt receipt per actor.
 type Receipt struct {
 	Transition   identity.TransitionID `json:"transition"`
 	IntentDigest string                `json:"intent_digest"`
