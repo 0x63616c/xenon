@@ -24,17 +24,18 @@ import (
 )
 
 type config struct {
-	Schema     int    `json:"schema"`
-	Endpoint   string `json:"endpoint"`
-	Bucket     string `json:"bucket"`
-	Partitions []int  `json:"partition_counts"`
-	Contenders []int  `json:"contenders"`
-	Updates    int    `json:"updates_per_contender"`
-	Renewals   int    `json:"renewals"`
-	RenewalMS  int    `json:"renewal_interval_ms"`
-	RetryMS    int    `json:"retry_cap_ms"`
-	Deadline   int    `json:"case_deadline_seconds"`
-	Base       uint64 `json:"counter_base"`
+	DisableKeepAlives bool   `json:"disable_keep_alives"`
+	Schema            int    `json:"schema"`
+	Endpoint          string `json:"endpoint"`
+	Bucket            string `json:"bucket"`
+	Partitions        []int  `json:"partition_counts"`
+	Contenders        []int  `json:"contenders"`
+	Updates           int    `json:"updates_per_contender"`
+	Renewals          int    `json:"renewals"`
+	RenewalMS         int    `json:"renewal_interval_ms"`
+	RetryMS           int    `json:"retry_cap_ms"`
+	Deadline          int    `json:"case_deadline_seconds"`
+	Base              uint64 `json:"counter_base"`
 }
 type meter struct {
 	base           http.RoundTripper
@@ -151,7 +152,10 @@ func pause(ctx context.Context, d time.Duration) error {
 func runCase(c config, partitions, contenders int, out string) (summary, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.Deadline)*time.Second)
 	defer cancel()
-	m := &meter{base: http.DefaultTransport, Counts: map[string]int{}}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = c.DisableKeepAlives
+	defer transport.CloseIdleConnections()
+	m := &meter{base: transport, Counts: map[string]int{}}
 	client := sdk.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("xenon-local", "xenon-local-test-only", ""), HTTPClient: &http.Client{Transport: m}, RetryMaxAttempts: 1}, func(o *sdk.Options) { o.BaseEndpoint = aws.String(c.Endpoint); o.UsePathStyle = true })
 	s, e := regS3.New(client, c.Bucket, fmt.Sprintf("p%d-n%d", partitions, contenders))
 	if e != nil {
