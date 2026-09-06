@@ -1,0 +1,12 @@
+ Network xenon-contention-99112_default Creating 
+ Network xenon-contention-99112_default Created 
+ Volume xenon-contention-99112_objects Creating 
+ Volume xenon-contention-99112_objects Created 
+ Container xenon-contention-99112-s3-1 Creating 
+ Container xenon-contention-99112-s3-1 Created 
+ Container xenon-contention-99112-s3-1 Starting 
+ Container xenon-contention-99112-s3-1 Started 
+partitions=256 contenders=1 attempts=14 conflicts=1 renewal_max_gap_ms=57.7 verified=true
+partitions=256 contenders=10 attempts=85 conflicts=45 renewal_max_gap_ms=260.0 verified=true
+partitions=256 contenders=100 attempts=111 conflicts=38 renewal_max_gap_ms=0.0 verified=false
+worker 64 update 0: registry publication outcome unknown: control transition trn_0000000000000000000105

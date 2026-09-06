@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,16 +84,17 @@ func (m *meter) snapshot() map[string]any {
 }
 
 type event struct {
-	Worker     int                   `json:"worker"`
-	Update     int                   `json:"update"`
-	Attempt    int                   `json:"attempt"`
-	Start      int64                 `json:"start_ns"`
-	End        int64                 `json:"end_ns"`
-	Expected   registry.Version      `json:"expected"`
-	Version    registry.Version      `json:"version,omitempty"`
-	Transition identity.TransitionID `json:"transition"`
-	Digest     string                `json:"digest"`
-	Outcome    string                `json:"outcome"`
+	Reconciliation []string              `json:"reconciliation,omitempty"`
+	Worker         int                   `json:"worker"`
+	Update         int                   `json:"update"`
+	Attempt        int                   `json:"attempt"`
+	Start          int64                 `json:"start_ns"`
+	End            int64                 `json:"end_ns"`
+	Expected       registry.Version      `json:"expected"`
+	Version        registry.Version      `json:"version,omitempty"`
+	Transition     identity.TransitionID `json:"transition"`
+	Digest         string                `json:"digest"`
+	Outcome        string                `json:"outcome"`
 }
 type summary struct {
 	Partitions, Contenders, Updates, Renewals, Attempts, Conflicts, Successes, EnvelopeBytes int
@@ -181,6 +183,7 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 	go func() { reads.Wait(); close(gate) }()
 	var mu sync.Mutex
 	var events []event
+	completedReceipts := make(map[int]Receipt)
 	var firstErr error
 	fail := func(e error) {
 		mu.Lock()
@@ -219,6 +222,7 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 						fail(fmt.Errorf("worker %d read: %w", worker, e))
 						return
 					}
+					originalReceipt := control.Receipts[worker]
 					if worker == 0 {
 						control.Coordinator.RenewalSequence++
 					} else {
@@ -227,13 +231,17 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 						p.Ready.Generation++
 						control.Partitions[id] = p
 					}
-					w, e := write(key, r.Version, ids.Add(1), control)
+					transition := ids.Add(1)
+					intent := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%d", key, worker, update)))
+					ownReceipt := Receipt{identity.TransitionID(fmt.Sprintf("trn_%022d", transition)), fmt.Sprintf("%x", intent)}
+					control.Receipts[worker] = ownReceipt
+					w, e := write(key, r.Version, transition, control)
 					if e != nil {
 						fail(e)
 						return
 					}
-					updated, e := s.Replace(ctx, key, r.Version, w)
-					ev := event{Worker: worker, Update: update, Attempt: attempt, Start: began, End: time.Since(start).Nanoseconds(), Expected: r.Version, Version: updated.Version, Transition: w.Transition, Digest: fmt.Sprintf("%x", w.Digest), Outcome: "success"}
+					updated, reconciliation, e := publish(ctx, s, key, r.Version, w, worker, originalReceipt, ownReceipt)
+					ev := event{Reconciliation: reconciliation, Worker: worker, Update: update, Attempt: attempt, Start: began, End: time.Since(start).Nanoseconds(), Expected: r.Version, Version: updated.Version, Transition: w.Transition, Digest: fmt.Sprintf("%x", w.Digest), Outcome: "success"}
 					var conflict *registry.Conflict
 					if e != nil {
 						ev.Outcome = "unexpected: " + detail(e)
@@ -243,6 +251,9 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 					}
 					mu.Lock()
 					events = append(events, ev)
+					if e == nil {
+						completedReceipts[worker] = ownReceipt
+					}
 					mu.Unlock()
 					if e == nil {
 						break
@@ -271,6 +282,9 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 		} else {
 			want := fixture(partitions, shapeConfig{100, c.Base})
 			want.Coordinator.RenewalSequence += uint64(c.Renewals)
+			for worker, receipt := range completedReceipts {
+				want.Receipts[worker] = receipt
+			}
 			for worker := 1; worker <= contenders; worker++ {
 				id := identity.PartitionID(fmt.Sprintf("prt_%022d", worker))
 				p := want.Partitions[id]
@@ -354,6 +368,9 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, e = client.CreateBucket(ctx, &sdk.CreateBucketInput{Bucket: aws.String(c.Bucket)}); e != nil {
+		return e
+	}
+	if e := receiptCases(c, os.Args[2]); e != nil {
 		return e
 	}
 	f, e := os.Create(os.Args[2] + "/summary.jsonl")

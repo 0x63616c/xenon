@@ -36,7 +36,12 @@ type Partition struct {
 // field names/representation. Heartbeats are separate advisory records. Desired,
 // reservation and ready are all populated (including old ready during movement).
 // This is NOT the final production format and excludes retained historical receipts.
+type Receipt struct {
+	Transition   identity.TransitionID `json:"transition"`
+	IntentDigest string                `json:"intent_digest"`
+}
 type Control struct {
+	Receipts           map[int]Receipt                    `json:"receipts"`
 	Format             uint32                             `json:"format"`
 	Cluster            identity.ClusterID                 `json:"cluster"`
 	Coordinator        Coordinator                        `json:"coordinator"`
@@ -52,7 +57,10 @@ func fixture(count int, c shapeConfig) Control {
 	owner := func(i int) Owner {
 		return Owner{identity.NodeID(fmt.Sprintf("nod_%022d", i+1)), identity.IncarnationID(fmt.Sprintf("inc_%022d", i+1))}
 	}
-	out := Control{Format: 1, Cluster: "clu_0000000000000000000001", Coordinator: Coordinator{owner(0), c.Counter, c.Counter}, AssignmentRevision: c.Counter, Partitions: make(map[identity.PartitionID]Partition, count)}
+	out := Control{Receipts: make(map[int]Receipt), Format: 1, Cluster: "clu_0000000000000000000001", Coordinator: Coordinator{owner(0), c.Counter, c.Counter}, AssignmentRevision: c.Counter, Partitions: make(map[identity.PartitionID]Partition, count)}
+	for i := 0; i <= c.Instances; i++ {
+		out.Receipts[i] = Receipt{identity.TransitionID(fmt.Sprintf("trn_%022d", 100000+i)), fmt.Sprintf("%064d", 0)}
+	}
 	for i := 0; i < count; i++ {
 		id := identity.PartitionID(fmt.Sprintf("prt_%022d", i+1))
 		desired := owner(i % c.Instances)
