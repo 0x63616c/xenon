@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build an explicitly overlaid Omes CLI/worker from a clean pinned source archive."""
-import argparse,json,os,subprocess,tarfile
+import argparse,json,os,subprocess,tarfile,signal
 from pathlib import Path
 from omes_workloads import ROOT,OMES,sha,tree,effective_sdk,command,output
 from corrected_fuzz import source_tree
@@ -46,6 +46,11 @@ def prepare(base,destination):
  except Exception as error:report['error']=str(error)
  finally:(destination/'build.json').write_text(json.dumps(report,indent=2)+'\n')
  return report
+def install_signal_handlers():
+ def interrupted(signum,frame):raise RuntimeError('overlay preparation interrupted')
+ for sig in [signal.SIGINT,signal.SIGTERM]:signal.signal(sig,interrupted)
+
 if __name__=='__main__':
+ install_signal_handlers()
  p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
  r=prepare(a.source.resolve(),a.output.resolve());print(json.dumps({'prepared':r['prepared'],'manifest':str(a.output/'build.json')}));raise SystemExit(0 if r['prepared'] else 1)

@@ -64,7 +64,8 @@
       "expected_tests": [
         "test_modes_are_exclusive_and_default_unchanged",
         "test_profile_rejects_reduced_limits_and_changed_actions",
-        "test_overlay_artifact_tamper_rejected"
+        "test_overlay_artifact_tamper_rejected",
+        "test_preparation_interruption_retains_failed_manifest_and_kills_child"
       ]
     }
   ]

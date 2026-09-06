@@ -29,4 +29,41 @@ class CorrectedFuzzControls(unittest.TestCase):
     before=path.read_bytes();path.write_bytes(before+b'changed')
     with self.assertRaises(ValueError):corrected.check_build(manifest,bundle/'build.json')
     path.write_bytes(before)
+
+class PreparationInterruptionControl(unittest.TestCase):
+ def test_preparation_interruption_retains_failed_manifest_and_kills_child(self):
+  import os,signal,subprocess,sys,time
+  with tempfile.TemporaryDirectory() as d:
+   directory=Path(d);ready=directory/'child.pid'
+   code=r'''
+import importlib.util,json,sys,subprocess,tarfile
+from pathlib import Path
+from unittest.mock import patch
+from contextlib import nullcontext
+sys.path.insert(0,sys.argv[1]+"/scripts")
+spec=importlib.util.spec_from_file_location("preparation",sys.argv[1]+"/scripts/prepare-corrected-omes.py");m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);m.install_signal_handlers()
+from omes_workloads import command
+root=Path(sys.argv[2]);m.CASE=root
+(root/"overlay.patch").write_text("fixture")
+(root/"contract.json").write_text(json.dumps({"overlay_sha256":m.sha(root/"overlay.patch")}))
+class Archive:
+ def extractall(self,*args,**kwargs):pass
+child="import os,time;from pathlib import Path;Path("+repr(str(root/"child.pid"))+").write_text(str(os.getpid()));time.sleep(300)"
+def launch(argv,path,timeout,cwd,env):return command([sys.executable,"-c",child],path,timeout,cwd,env)
+with patch.object(m,"output",side_effect=lambda argv,cwd:m.OMES if "rev-parse" in argv else ""),patch.object(m.subprocess,"run"),patch.object(m.tarfile,"open",return_value=nullcontext(Archive())),patch.object(m,"command",side_effect=launch):
+ result=m.prepare(root,root/"bundle")
+sys.exit(0 if result["prepared"] else 1)
+'''
+   process=subprocess.Popen([sys.executable,'-c',code,str(ROOT),str(directory)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   try:
+    deadline=time.monotonic()+5
+    while not ready.exists() and time.monotonic()<deadline:time.sleep(.01)
+    self.assertTrue(ready.exists(),'fixture did not reach active build child')
+    pid=int(ready.read_text());process.terminate();stdout,stderr=process.communicate(timeout=5)
+    self.assertEqual(process.returncode,1,(stdout,stderr))
+    manifest=json.loads((directory/'bundle/build.json').read_text());self.assertFalse(manifest['prepared']);self.assertTrue(manifest['commands'][0]['interrupted']);self.assertEqual(manifest['commands'][0]['exit_code'],-signal.SIGKILL)
+    with self.assertRaises(ProcessLookupError):os.kill(pid,0)
+   finally:
+    if process.poll() is None:process.kill();process.wait(timeout=5)
+
 if __name__=='__main__':unittest.main()
