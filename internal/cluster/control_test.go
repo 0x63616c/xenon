@@ -158,3 +158,39 @@ func TestControlCodecAndBoundedPublication(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveBudgetSurvivesCoordinatorReplacement(t *testing.T) {
+	s := snapshotFixture(t)
+	w, err := s.Assign(leader, transition(2), map[identity.PartitionID]Owner{partitionA: owner(contender)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = publishFixture(t, s.version, w, "v2")
+	w, err = s.ChangeCoordinator(transition(3), CoordinatorChange{Expected: s.version, Incarnation: contender, Generation: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = publishFixture(t, s.version, w, "v3")
+	if s.Control().ActiveMove != partitionA {
+		t.Fatal("turnover forgot pending move")
+	}
+	if _, err := s.Assign(contender, transition(4), map[identity.PartitionID]Owner{partitionB: owner(contender)}); !errors.Is(err, ErrControlLimit) {
+		t.Fatal("new coordinator started second move")
+	}
+	w, err = s.Reserve(contender, partitionA, 2, transition(5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = publishFixture(t, s.version, w, "v5")
+	w, err = s.MarkReady(contender, partitionA, 2, 1, transition(5), transition(6))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s = publishFixture(t, s.version, w, "v6")
+	if s.Control().ActiveMove != "" {
+		t.Fatal("completed move retains budget")
+	}
+	if _, err := s.Assign(contender, transition(7), map[identity.PartitionID]Owner{partitionB: owner(contender)}); err != nil {
+		t.Fatalf("next move cannot progress: %v", err)
+	}
+}

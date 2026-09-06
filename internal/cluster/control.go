@@ -56,6 +56,7 @@ type Control struct {
 	Cluster            identity.ClusterID                        `json:"cluster"`
 	Coordinator        Coordinator                               `json:"coordinator"`
 	AssignmentRevision uint64                                    `json:"assignment_revision"`
+	ActiveMove         identity.PartitionID                      `json:"active_move,omitempty"`
 	Partitions         map[identity.PartitionID]PartitionControl `json:"partitions"`
 }
 
@@ -66,6 +67,12 @@ func (c Control) validate() error {
 		return ErrInvalidControl
 	}
 	paths := make(map[string]bool, len(c.Partitions))
+	if c.ActiveMove != "" {
+		p, exists := c.Partitions[c.ActiveMove]
+		if !exists || p.Ready {
+			return fmt.Errorf("%w: invalid active move", ErrInvalidControl)
+		}
+	}
 	for _, id := range slices.Sorted(maps.Keys(c.Partitions)) {
 		p := c.Partitions[id]
 		if id.Validate() != nil || registry.ValidateKey(registry.Key(p.Path)) != nil || paths[p.Path] || !p.Desired.valid() || p.AssignmentRevision == 0 || p.AssignmentRevision > c.AssignmentRevision {
@@ -201,6 +208,9 @@ func (s Snapshot) Assign(self identity.IncarnationID, id identity.TransitionID, 
 		if p.Desired == owner {
 			continue
 		}
+		if changed || (c.ActiveMove != "" && c.ActiveMove != partition) {
+			return registry.Write{}, fmt.Errorf("%w: another database move is pending", ErrControlLimit)
+		}
 		if c.AssignmentRevision == math.MaxUint64 {
 			return registry.Write{}, ErrControlLimit
 		}
@@ -208,6 +218,7 @@ func (s Snapshot) Assign(self identity.IncarnationID, id identity.TransitionID, 
 		p.Reservation, p.Ready = "", false
 		c.Partitions[partition] = p
 		changed = true
+		c.ActiveMove = partition
 	}
 	if !changed {
 		return registry.Write{}, fmt.Errorf("%w: empty assignment change", ErrInvalidControl)
@@ -248,5 +259,8 @@ func (s Snapshot) MarkReady(self identity.IncarnationID, partition identity.Part
 	p.Ready = true
 	c := s.control.clone()
 	c.Partitions[partition] = p
+	if c.ActiveMove == partition {
+		c.ActiveMove = ""
+	}
 	return controlWrite(s.key, s.version, transition, c, s.limit)
 }
