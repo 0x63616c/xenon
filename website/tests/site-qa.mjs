@@ -106,7 +106,7 @@ try {
           .waitFor();
       }
       if (path === "blog/one-mutation-then-a-queue.html") {
-        await page.getByRole("tab", { name: "2. Persist" }).click();
+        await page.getByRole("button", { name: "2. Persist" }).click();
         await page
           .getByRole("heading", {
             name: "Give persistence one complete update",
@@ -114,8 +114,8 @@ try {
           .waitFor();
         if (
           (await page
-            .getByRole("tab", { name: "2. Persist" })
-            .getAttribute("aria-selected")) !== "true"
+            .getByRole("button", { name: "2. Persist" })
+            .getAttribute("aria-pressed")) !== "true"
         )
           throw new Error("Temporal mutation stage did not select");
         await page.getByRole("button", { name: "Next stage" }).click();

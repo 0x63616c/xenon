@@ -5,7 +5,7 @@ const steps = [
   {
     label: "1. Assemble",
     title: "Close mutable state into one mutation",
-    copy: "The History service turns its in-memory changes into a WorkflowMutation: execution state, changed maps, event batches, task slices, and optimistic conditions travel together.",
+    copy: "The History service closes its in-memory changes into a WorkflowMutation and separate event batches. The mutation carries execution state, changed maps, tasks, and optimistic conditions.",
     records: [
       "history events",
       "mutable-state delta",
@@ -72,13 +72,12 @@ const advance = () => (selected.value = (selected.value + 1) % steps.length);
         Next stage <span>→</span>
       </button>
     </div>
-    <div class="temporal-stages" role="tablist" aria-label="Mutation stages">
+    <div class="temporal-stages" role="group" aria-label="Mutation stages">
       <button
         v-for="(item, index) in steps"
         :key="item.label"
         type="button"
-        role="tab"
-        :aria-selected="selected === index"
+        :aria-pressed="selected === index"
         :class="{ active: selected === index }"
         @click="selected = index"
       >
