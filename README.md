@@ -4,6 +4,7 @@
 </picture>
 
 <p align="center">
+  <a href="https://0x63616c.github.io/xenon/">Website</a> ·
   <a href="docs/design/technical.md">Technical design</a> ·
   <a href="docs/design/verification-matrix.md">Verification status</a> ·
   <a href="https://github.com/0x63616c/xenon/issues/1">Roadmap</a> ·
