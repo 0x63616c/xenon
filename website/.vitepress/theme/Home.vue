@@ -50,7 +50,7 @@ import { withBase } from "vitepress";
         </div>
         <div class="connector vertical"></div>
         <div class="system-service">
-          <img :src="withBase('/brand/logo.svg')" alt="" />
+          <img :src="withBase('/brand/spinners/counter-white.svg')" alt="" />
           <div>
             <strong>One Xenon endpoint</strong
             ><span class="service-copy"

@@ -49,11 +49,10 @@ for(const variant of ['stagger','counter','counter-v2','orbit'])for(const dark o
  }).join('');
  writeFileSync(path.join(motionDir,`${variant}${dark?'-white':''}.svg`),svg(`Xenon ${variant} loading animation`,`<style>${css}</style>${discs}`));
 }
-// The chosen primary identity is the original counter-spin, white on black.
-const counter=readFileSync(path.join(motionDir,'counter-white.svg'),'utf8');
-const badge=counter.replace('</title>','</title><rect width="512" height="512" fill="#000000"/>');
-writeFileSync(path.join(out,'logo.svg'),badge);
-writeFileSync(path.join(out,'loader.svg'),badge);
+// The chosen primary identity is the original counter-spin, without a badge background.
+const counter=readFileSync(path.join(motionDir,'counter.svg'),'utf8');
+writeFileSync(path.join(out,'logo.svg'),counter);
+writeFileSync(path.join(out,'loader.svg'),counter);
 const fragment=readFileSync(path.join(root,'tools/logo-editor/editor.fragment.html'),'utf8');
 writeFileSync(path.join(root,'tools/logo-editor/index.html'),`<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xenon logo editor</title><style>body{margin:0;background:#eee}#xenon-motion{max-width:1000px;margin:auto}</style></head><body>\n${fragment}\n</body></html>\n`);
 const samples=name=>`<div class="samples"><img src="${name}.svg" width="120" height="120" alt="${name} loader"><img src="${name}.svg" width="48" height="48" alt=""><img src="${name}.svg" width="24" height="24" alt=""></div><div class="samples dark"><img src="${name}-white.svg" width="120" height="120" alt="${name} loader on black"><img src="${name}-white.svg" width="48" height="48" alt=""><img src="${name}-white.svg" width="24" height="24" alt=""></div>`;

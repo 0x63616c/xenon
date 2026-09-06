@@ -115,14 +115,20 @@ def main():
             "Xenon — Temporal persistence. Built on object storage. In development.", banner)
         subprocess.run(["rsvg-convert", "-w", "1024", "-h", "1024", "-o",
                         str(OUT / f"mark{suffix}.png"), str(OUT / f"mark{suffix}.svg")], check=True)
-    counter = fragment("spinners/counter-white.svg", "#ffffff")
-    word_white = fragment("wordmark-white.svg", "#ffffff")
-    svg(
-        "banner-counter.svg", 1200, 300, "Xenon",
-        '<rect width="1200" height="300" fill="#000000"/>'
-        + place(counter, 52, 42, 216 / 512)
-        + f'<svg x="316" y="90" width="730" height="120" viewBox="0 0 {word_w} {word_h}">{word_white}</svg>',
-    )
+    for suffix, ink, muted, line, spinner, wordmark in [
+        ("", "#000000", "#606060", "#e6e6e6", "counter.svg", "wordmark.svg"),
+        ("-dark", "#ffffff", "#a3a3a3", "#333333", "counter-white.svg", "wordmark-white.svg"),
+    ]:
+        counter = fragment(f"spinners/{spinner}", ink)
+        word = fragment(wordmark, ink)
+        banner = (
+            place(counter, 52, 42, 216 / 512)
+            + f'<svg x="316" y="90" width="730" height="120" viewBox="0 0 {word_w} {word_h}">{word}</svg>'
+            + label("Temporal persistence.", 316, 235, 28, ink, 600, -1)
+            + label("Built on object storage.", 316, 270, 28, muted, 400, -1)
+            + f'<path d="M316 286H1046" stroke="{line}"/>'
+        )
+        svg(f"banner-counter{suffix}.svg", 1200, 300, "Xenon", banner)
     for name in ["banner", "banner-dark"]:
         subprocess.run(["rsvg-convert", "-o", str(OUT / f"{name}.png"),
                         str(OUT / f"{name}.svg")], check=True)
