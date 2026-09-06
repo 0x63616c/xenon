@@ -85,3 +85,14 @@ Clean `3076b15` runtime `20260905T235225Z-xenon-ministack-e1a79483dbf2/result.js
 Clean `50d12aa` real mixed runtime `20260906T000500Z-xenon-ministack-7a6ec46a1016/result.json` failed during the frozen workload, before the history audit. Bounded public API diagnostics were retained before teardown. The workload and acceptance deadlines are unchanged; cause investigation remains open. The reviewed Nexus-aware oracle is integrated, but its component controls do not establish workload success.
 
 At `f660fae`, visibility movement is integrated: all page-size1/7/100 cursors pause before one actual history/visibility ownership move and then verify the frozen2,000-record set. Clean registered barrier race proof `20260906T004312Z-visibility-movement-42cd9ef1/result.json` passed. The real movement scenario remains unexecuted at this checkpoint.
+
+
+### Follow-up verification work
+
+The `ed7cd1e` visibility runtime (`20260906T004954Z-xenon-ministack-bce1ec27f0d8/result.json`) failed while seeding the frozen dataset, before any ownership move. The existing15-minute probe context expired; no successful seed receipt exists. Candidate `8e4184d` seeds one serial stream per independent visibility partition, retains acknowledged progress on failure, and preserves all2000 records and existing deadlines. Its clean registered three-command proof passed (`20260906T013219Z-visibility-movement-5a2ec897`); live validation remains required.
+
+Corrected Omes overlay `413de3e` preserves both corpora and permits the full declared signal sequence when a late ClientActivity SignalWithStart creates an empty fallback workflow. The actual worker receives two successive signals in one fallback run in the added control. Clean registered proof `20260906T013238Z-omes-signals-9b5aac0a` passed the original negative control, seven worker groups and twice-repeated normalization of all20 inputs. This is worker compatibility evidence, not a passing Temporal soak or exhaustive workflow census.
+
+Reviewed execution change `e760cea`, with recovery controls `dff9322` and `67ff6fb`, uses the final durable execution journal as the managed fencing point. Generic callbacks retain their explicit barrier. The current full storage proof is running at `31e84b8`; no runtime latency benefit is claimed before a successful rerun.
+
+The expanded site at `32a8ba9` passed39 responsive page checks. Independently reviewed Temporal deep-dive article `a077d96` passed42 page checks and precise source-link review. These are site/source-tour results, not storage acceptance. Public deployment remains disabled.
