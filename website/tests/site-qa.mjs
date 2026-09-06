@@ -63,6 +63,9 @@ try {
       "docs/upgrades.html",
       "docs/operations.html",
       "cloud.html",
+      "blog/",
+      "blog/one-address-many-owners.html",
+      "blog/when-a-reply-disappears.html",
     ]) {
       await page.goto(new URL(path, base).href, { waitUntil: "networkidle" });
       if (!(await page.locator("h1").count()))
@@ -73,6 +76,63 @@ try {
         )
       )
         throw new Error(`horizontal overflow ${name}/${path}`);
+      if (
+        (path === "cloud.html" || path.startsWith("blog/")) &&
+        (await page.locator(".VPSidebar").isVisible())
+      )
+        throw new Error("marketing sidebar visible");
+      if (path === "blog/one-address-many-owners.html") {
+        await page
+          .getByRole("combobox", { name: /Entry node/ })
+          .selectOption("C");
+        await page
+          .getByRole("combobox", { name: /Partition owner/ })
+          .selectOption("C");
+        await page.getByRole("button", { name: "Next step" }).click();
+        await page
+          .getByText("No forwarding hop is needed.", { exact: false })
+          .waitFor();
+        await page
+          .getByRole("combobox", { name: /Partition owner/ })
+          .selectOption("A");
+        await page.getByRole("button", { name: "Next step" }).click();
+        if ((await page.locator(".routing-map b.active").innerText()) !== "A")
+          throw new Error("forward owner highlight missing");
+        await page
+          .getByText("forwards the unchanged operation to owner A.", {
+            exact: false,
+          })
+          .waitFor();
+      }
+      const footer = page.getByRole("contentinfo", { name: "Site footer" });
+      await footer.waitFor();
+      for (const link of await footer.locator("a").all()) {
+        const href = await link.getAttribute("href");
+        if (!href.startsWith(new URL(base).pathname))
+          throw new Error(`footer base mismatch ${href}`);
+        const response = await page.request.get(new URL(href, base).href);
+        if (!response.ok()) throw new Error(`broken footer link ${href}`);
+      }
+      if (path === "cloud.html") {
+        const input = page.getByRole("textbox", { name: "Stay in the loop." });
+        await input.fill("invalid-email");
+        await page.getByRole("button", { name: "Notify me" }).click();
+        if (await input.evaluate((el) => el.validity.valid))
+          throw new Error("email validation missing");
+        await input.fill("preview@example.com");
+        await page.getByRole("button", { name: "Notify me" }).click();
+        await page
+          .getByRole("status")
+          .filter({ hasText: "Your address has not been saved." })
+          .waitFor();
+        await page.reload({ waitUntil: "networkidle" });
+        if (
+          await page
+            .getByRole("textbox", { name: "Stay in the loop." })
+            .inputValue()
+        )
+          throw new Error("email persisted");
+      }
       if (path === "docs/architecture.html") {
         const firstTab = page.getByRole("tab", { name: "Request path" });
         await firstTab.focus();
@@ -100,11 +160,11 @@ try {
             throw new Error("selected node missing");
         }
       }
-      if (!path || path === "docs/architecture.html")
+      if (true)
         await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
-      if (!path || path === "docs/architecture.html")
+      if (true)
         await page.screenshot({
-          path: `${output}/${name}-${path ? "architecture" : "home"}.png`,
+          path: `${output}/${name}-${path ? path.replaceAll("/", "-").replace(".html", "") : "home"}.png`,
           fullPage: true,
           animations: "disabled",
         });
@@ -117,6 +177,7 @@ try {
       if (!path && name === "mobile") {
         await page.getByRole("button", { name: "mobile navigation" }).click();
         await page
+          .locator("#VPNavScreen")
           .getByRole("link", { name: "Architecture", exact: true })
           .waitFor({ state: "visible" });
         await page.getByRole("button", { name: "mobile navigation" }).click();

@@ -657,3 +657,414 @@ button:focus-visible {
     transition: none !important;
   }
 }
+
+/* Shared navigation closes the marketing and documentation pages consistently. */
+.x-footer {
+  background: #f7f7f9;
+  border-top: 1px solid #e5e5eb;
+  padding: 64px max(28px, calc((100vw - 1120px) / 2)) 28px;
+  color: #66666e;
+  position: relative;
+  z-index: 30;
+}
+.footer-main {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  gap: 40px;
+  padding-bottom: 60px;
+}
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: start;
+  color: #1d1d1f;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -1px;
+}
+.footer-brand img {
+  width: 32px;
+}
+.footer-main h2 {
+  color: #28282d;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.footer-main nav a {
+  display: block;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+.x-footer a:hover {
+  color: #0069cc;
+}
+.x-footer a:focus-visible,
+.x-cloud a:focus-visible {
+  outline: 3px solid #2388ed;
+  outline-offset: 5px;
+}
+.footer-bottom {
+  border-top: 1px solid #dedee5;
+  padding-top: 24px;
+  font-size: 12px;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+.cloud-section {
+  background:
+    radial-gradient(ellipse at 50% 100%, #eaf1ff, transparent 65%), #fafafb;
+  padding: 110px 24px 116px;
+}
+.cloud-section h2 {
+  margin: 18px 0 28px;
+}
+.x-cloud {
+  min-height: 650px;
+  min-height: min(800px, calc(100svh - 72px));
+  padding: 70px 24px 100px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 35%, #edf3ff, transparent 62%);
+}
+.x-cloud h1 {
+  font-size: clamp(60px, 8vw, 108px);
+  line-height: 1.05;
+  letter-spacing: -0.065em;
+  font-weight: 600;
+  margin: 20px 0 32px;
+}
+.cloud-orbit {
+  width: 160px;
+  height: 160px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  margin-bottom: 36px;
+}
+.cloud-orbit img {
+  width: 62px;
+  position: relative;
+}
+.cloud-orbit i {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #cbd9ed;
+  border-radius: 50%;
+}
+.cloud-orbit i:nth-child(2) {
+  inset: 17px;
+  border-color: #d8e3f2;
+}
+.cloud-orbit i:nth-child(3) {
+  inset: -18px;
+  border-color: #e3eaf5;
+}
+@media (max-width: 959px) {
+  .footer-main {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .footer-brand {
+    grid-column: 1 / -1;
+    margin-bottom: 12px;
+  }
+}
+@media (max-width: 560px) {
+  .x-footer {
+    padding: 42px 24px 26px;
+  }
+  .footer-main {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 24px;
+    padding-bottom: 30px;
+  }
+  .footer-bottom {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .x-cloud {
+    min-height: 620px;
+    padding: 64px 24px 80px;
+  }
+  .cloud-section {
+    padding: 84px 24px;
+  }
+}
+
+.cloud-signup {
+  width: min(440px, 100%);
+  margin: 0 0 28px;
+  text-align: left;
+}
+.cloud-signup label {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.cloud-signup > div {
+  display: flex;
+  background: white;
+  border: 1px solid #cfd7e3;
+  border-radius: 12px;
+  padding: 5px;
+  box-shadow: 0 4px 18px #23345205;
+}
+.cloud-signup input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 15px;
+  border-radius: 7px;
+}
+.cloud-signup button {
+  flex-shrink: 0;
+  background: #0071e3;
+  color: white;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.cloud-signup button span {
+  margin-left: 8px;
+}
+.cloud-signup input:focus-visible,
+.cloud-signup button:focus-visible {
+  outline: 2px solid #0071e3;
+  outline-offset: 2px;
+}
+.cloud-signup p {
+  min-height: 36px;
+  font-size: 12px;
+  color: #747982;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.x-blog {
+  padding-top: 84px;
+  padding-bottom: 110px;
+}
+.x-blog header {
+  margin-bottom: 56px;
+}
+.x-blog h1 {
+  font-size: clamp(48px, 6vw, 76px);
+  line-height: 1.08;
+  letter-spacing: -0.055em;
+  font-weight: 600;
+  margin: 16px 0 20px;
+}
+.x-blog header p {
+  font-size: 21px;
+  color: #6b6b72;
+}
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+}
+.blog-card {
+  border: 1px solid #e5e7ed;
+  border-radius: 22px;
+  overflow: hidden;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+.blog-card:hover {
+  border-color: #9bb9dd;
+  transform: translateY(-3px);
+}
+.blog-card:focus-visible {
+  outline: 3px solid #0071e3;
+  outline-offset: 5px;
+}
+.blog-art {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: #f0f5fc;
+}
+.blog-art span {
+  padding: 15px 23px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid #d7e2ef;
+  font-size: 17px;
+}
+.blog-art.routing {
+  flex-direction: column;
+  gap: 8px;
+}
+.blog-art.routing div {
+  display: flex;
+  gap: 22px;
+}
+.blog-art b {
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 1px solid #cedbef;
+  background: white;
+  font-weight: 500;
+}
+.blog-art b:nth-child(2),
+.blog-art .record {
+  background: #1b2b43;
+  color: white;
+  border-color: #1b2b43;
+}
+.blog-art i {
+  color: #7190b8;
+  font-style: normal;
+}
+.blog-art small {
+  color: #b2cef4;
+  font-size: 12px;
+}
+.blog-card-copy {
+  padding: 32px;
+}
+.blog-card h2 {
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  font-weight: 600;
+  margin: 12px 0;
+}
+.blog-card p {
+  color: #6b6b72;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+@media (max-width: 700px) {
+  .blog-grid {
+    grid-template-columns: 1fr;
+  }
+  .x-blog {
+    padding-top: 54px;
+    padding-bottom: 64px;
+  }
+  .blog-card-copy {
+    padding: 26px;
+  }
+}
+
+.routing-demo {
+  margin: 32px 0;
+  padding: 28px;
+  border: 1px solid #dce5f1;
+  border-radius: 18px;
+  background: #f6f9fd;
+}
+.routing-controls {
+  display: flex;
+  gap: 24px;
+}
+.routing-controls label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.routing-controls select {
+  padding: 6px 12px;
+  border: 1px solid #ccd8e8;
+  border-radius: 7px;
+  background: white;
+}
+.routing-map {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 36px 0 20px;
+  font-size: 14px;
+}
+.routing-map b {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #1b2b43;
+  color: white;
+}
+.routing-map i {
+  font-style: normal;
+  color: #7293bd;
+}
+.routing-demo p {
+  min-height: 84px;
+}
+.routing-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #6b6b72;
+}
+.routing-bottom button {
+  background: #0071e3;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: white;
+}
+.routing-demo small {
+  color: #6b6b72;
+  font-size: 12px;
+}
+.routing-demo :is(button, select):focus-visible {
+  outline: 3px solid #0071e3;
+  outline-offset: 3px;
+}
+@media (max-width: 560px) {
+  .routing-demo {
+    padding: 20px;
+  }
+  .routing-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .routing-map {
+    gap: 7px;
+    font-size: 12px;
+  }
+  .routing-map b {
+    padding: 9px 12px;
+  }
+}
+
+.routing-map > span {
+  padding: 8px 5px;
+  border-radius: 7px;
+}
+.routing-map > :is(span, b) {
+  transition:
+    background 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+}
+.routing-map > .active {
+  color: #0069cc;
+}
+.routing-map > :is(span, b).active {
+  background: #dcecff;
+  color: #064e97;
+  box-shadow: 0 0 0 2px #7cb6f2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .routing-map > :is(span, b),
+  .blog-card,
+  .primary {
+    transition: none;
+  }
+}
