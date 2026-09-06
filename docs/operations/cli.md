@@ -1,9 +1,9 @@
 # Xenon CLI foundation
 
 `xenon` is the single CLI entry point. This foundation delivers the existing
-server commands plus help and completion. Cluster inspection, development
-orchestration, tests, search, replay and minimization are still tracked in #119;
-they are not advertised as implemented commands.
+server commands, help/completion, and finite coupled-simulation test/search/replay.
+Cluster inspection, development orchestration, generated workflow search and
+minimization remain tracked in #119 and are not advertised as implemented.
 
 ```sh
 xenon --help
@@ -42,8 +42,8 @@ not consulted by help, completion, version or configuration validation.
   SIGINT/SIGTERM cancels the runtime context, bounded application cleanup finishes,
   and a clean shutdown returns 0. A failed or incomplete shutdown returns 1.
   Cancellation before command execution returns 1 without starting the runtime.
-  A clean server shutdown is not a workload/search pass; those commands are not
-  delivered by this slice.
+  A clean server shutdown is not a workload/search pass. The simulation commands
+  below use explicit canceled and budget results.
 
 ## Implementation decision and verification
 
@@ -67,3 +67,67 @@ and caller-context cancellation with preserved shutdown errors. A forbidden
 stdin and startup callback prove lightweight commands neither prompt nor enter
 the backend. The executable still links its existing native runtime dependency;
 this is not a claim of a separate native-free binary or full CLI delivery.
+
+
+## Saved simulation test, finite search and replay
+
+These journeys use the shared `internal/simulation` Runner and production-Step
+coupled driver. They do not start Temporal, SDK workers, SlateDB databases or
+containers. They execute the saved ordered coordinator/partition effects with
+modeled registry/native behavior and check final recovery/progress.
+
+```sh
+xenon test simulation \
+  --scenario test/scenarios/simulation/coordinator-move.json \
+  --evidence /tmp/xenon-simulation-test
+xenon search \
+  --scenario test/scenarios/simulation/coordinator-move.json \
+  --max-cases 1 --duration 1m --evidence /tmp/xenon-simulation-search
+xenon replay \
+  --artifact /tmp/xenon-simulation-test/case-00000000000000000000/scenario.json \
+  --evidence /tmp/xenon-simulation-replay
+```
+
+Every evidence directory must be new and its parent must already exist. Search
+accepts repeated `--scenario FILE` flags and explores that **finite saved corpus**;
+zero `--max-cases` means all supplied files. It does not randomly generate new
+workflows or loop the corpus to manufacture coverage. `--workload-seed` and
+`--fault-seed` are recorded independently but unused by this fixed corpus.
+
+The supported profile has at most 256 ordered events, depth 1, 1 MiB expanded
+payload and 8 MiB trace per case. It allows one in-flight case, a one-minute
+default total budget (`--duration` overrides it), and one-second settle/cleanup
+budgets. These values are saved in each artifact. Replay uses the artifact's
+saved bytes, event ordering and budgets, independently of the current generator;
+its new evidence records the current executing build.
+
+By default these commands require a known clean 40-hex source build revision.
+`--development` explicitly permits missing or dirty build identity and labels the
+JSON result `development`. Evidence records build revision/dirty state/toolchain,
+modeled native/no-image boundary, generator source hash, expanded bytes and hashes,
+original scenario file hashes, trace, first failure and cleanup outcomes. This is
+component evidence, not full Temporal/Nexus or real-S3 qualification.
+
+Each invocation that reaches the runner writes exactly one stdout JSON object:
+`schema`, `mode`, `qualification` and `result` (including `completed`, `stop_reason`
+and absolute `evidence_path`). Diagnostics remain on stderr. CLI argument/file/
+provenance failures before runner entry use stderr without a result object.
+Test/search/replay share these exit codes:
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Requested cases completed and recovery/cleanup checks passed |
+| 1 | Invalid input, invariant/recovery/output failure, or failed cleanup |
+| 2 | Declared exploration budget ended; unfinished cases are not passes |
+| 130 | Caller cancellation; evidence and bounded cleanup were retained |
+
+A budget/cancellation result never reports an incomplete case as completed.
+Already completed cases are only the explored prefix. If cleanup cannot finish,
+the error reports process-exit-required; no next case is launched. The original
+artifact is never overwritten by replay. There is no `minimize` command yet.
+
+For an executable check, build the reviewed source using the repository's pinned
+Go/native environment, run the three commands above, and compare their saved
+`trace.jsonl` files. Unit contracts also execute these exact command paths against
+real saved production-Step bytes, checking finite limits, bad-effect failure,
+replay, canceled/budget exit codes, JSON streams, and backend-free help.

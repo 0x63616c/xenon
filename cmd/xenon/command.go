@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/0x63616c/xenon/internal/agent"
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
+	"github.com/0x63616c/xenon/internal/simulation"
 	"github.com/0x63616c/xenon/internal/temporalruntime"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +22,10 @@ func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics 
 	command.SetArgs(args)
 	if err := command.ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(diagnostics, err)
+		var exit *commandExit
+		if errors.As(err, &exit) {
+			return exit.code
+		}
 		return 1
 	}
 	return 0
@@ -74,6 +80,7 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		}
 		root.AddCommand(command)
 	}
+	root.AddCommand(simulationCommands(buildinfo.Read, simulation.WallClock{})...)
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(diagnostics)
