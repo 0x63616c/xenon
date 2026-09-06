@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/proof/recorder"
 	"github.com/0x63616c/xenon/internal/rpctrace"
@@ -16,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -219,5 +221,115 @@ func TestPermanentTransportErrorSurvivesObserverReportingFailure(t *testing.T) {
 	_, err = store.invoke(rpctrace.WithObserver(ctx, observer), &wire.ShardCommand{})
 	if serviceerror.ToStatus(err).Code() != codes.InvalidArgument || observer.Failure() == nil || attempts != 1 {
 		t.Fatal("terminal status overwritten or retried", err, attempts)
+	}
+}
+
+func TestOperationTerminalErrorMatrix(t *testing.T) {
+	unknown, _ := status.New(codes.Unavailable, "unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	cases := []struct {
+		name     string
+		err      error
+		result   *wire.ShardResult
+		code     codes.Code
+		sentinel error
+		cancel   bool
+	}{
+		{name: "grpc_cancel", err: status.Error(codes.Canceled, "remote"), code: codes.Canceled, sentinel: context.Canceled},
+		{name: "grpc_deadline", err: status.Error(codes.DeadlineExceeded, "remote"), code: codes.DeadlineExceeded, sentinel: context.DeadlineExceeded},
+		{name: "context_cancel", err: context.Canceled, code: codes.Canceled, sentinel: context.Canceled},
+		{name: "context_deadline", err: context.DeadlineExceeded, code: codes.DeadlineExceeded, sentinel: context.DeadlineExceeded},
+		{name: "local_cancel", err: status.Error(codes.Unavailable, "interrupted"), code: codes.Canceled, sentinel: context.Canceled, cancel: true},
+		{name: "permanent", err: status.Error(codes.InvalidArgument, "bad digest"), code: codes.InvalidArgument},
+		{name: "current_unknown", err: unknown.Err(), code: codes.Unavailable, sentinel: context.Canceled, cancel: true},
+		{name: "nil", code: codes.Internal},
+		{name: "malformed", result: &wire.ShardResult{Error: 999}, code: codes.Internal},
+		{name: "durable", result: &wire.ShardResult{}, code: codes.OK},
+		{name: "durable_logical_failure", result: &wire.ShardResult{Error: wire.ShardResult_UNAVAILABLE}, code: codes.OK},
+	}
+	for _, tc := range cases {
+		for _, prior := range []bool{false, true} {
+			for _, observerFailure := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/prior=%v/observer=%v", tc.name, prior, observerFailure), func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					finish := func(e error) error { return e }
+					failAfter := int32(0)
+					if prior {
+						failAfter = 1
+					}
+					var terminals atomic.Int32
+					if observerFailure {
+						endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							var event recorder.Event
+							if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+								t.Error(err)
+							}
+							if event.Kind == "terminal" && terminals.Add(1) > failAfter {
+								w.WriteHeader(500)
+								return
+							}
+							w.WriteHeader(204)
+						}))
+						defer endpoint.Close()
+						observer, e := rpctrace.NewObserver(endpoint.URL, "producer", "proof")
+						if e != nil {
+							t.Fatal(e)
+						}
+						var e2 error
+						ctx, finish, e2 = rpctrace.BeginObserved(rpctrace.WithObserver(ctx, observer), "shard")
+						if e2 != nil {
+							t.Fatal(e2)
+						}
+					}
+					calls := 0
+					result, err := retryOperation(ctx, func(callCtx context.Context) (*wire.ShardResult, error) {
+						calls++
+						r, e := tc.result, tc.err
+						first := prior && calls == 1
+						if first {
+							r = nil
+							e = unknown.Err()
+						}
+						attempt := func(context.Context, string, any, any, *grpc.ClientConn, ...grpc.CallOption) error {
+							if !first && tc.cancel {
+								cancel()
+							}
+							return e
+						}
+						return r, rpctrace.Unary(callCtx, "method", &wire.ShardRequest{Partition: "p", OperationId: "same"}, r, nil, attempt)
+					})
+					err = finish(err)
+					expected := tc.code
+					unresolved := (prior && (observerFailure || tc.code != codes.OK)) || tc.name == "current_unknown"
+					if unresolved {
+						expected = codes.Unavailable
+					} else if observerFailure && tc.err == nil {
+						expected = codes.Unavailable
+					}
+					if serviceerror.ToStatus(err).Code() != expected {
+						t.Fatal("status", err, expected)
+					}
+					if tc.sentinel != nil && !errors.Is(err, tc.sentinel) {
+						t.Fatal("cancellation identity lost", err)
+					}
+					if unresolved {
+						details := serviceerror.ToStatus(err).Details()
+						if len(details) != 1 || details[0].(*errdetails.ErrorInfo).Reason != "UNKNOWN_OUTCOME" {
+							t.Fatal("ambiguity lost", err)
+						}
+					}
+					wantCalls := 1
+					if prior {
+						wantCalls = 2
+					}
+					if calls != wantCalls {
+						t.Fatal("terminal retried", calls)
+					}
+					if !observerFailure && tc.code == codes.OK && !proto.Equal(result, tc.result) {
+						t.Fatal("durable result lost")
+					}
+				})
+			}
+		}
 	}
 }

@@ -51,3 +51,10 @@ and stops immediately; active registration alone is not failure. Final observer
 reporting joins its error with the operation error so it cannot erase an earlier
 unknown outcome. The existing recorder-death control still requires zero backend
 calls and fail-fast completion, with an added unknown-preservation regression.
+
+The terminal-error matrix crosses raw gRPC and plain context cancellation,
+local cancellation, permanent failure, current/prior unknown outcome, nil or
+unknown-enum response, and valid durable/logical responses with observer loss.
+Cancellation preserves both `errors.Is` context identity and Temporal status
+conversion when joined with recorder errors; prior unresolved unknown remains
+first. These controls execute the actual observer interceptor and finalizer.

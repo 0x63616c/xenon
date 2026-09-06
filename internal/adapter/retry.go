@@ -23,6 +23,15 @@ func retryOperation[T proto.Message](ctx context.Context, invoke func(context.Co
 	}
 	var firstUnknown error
 	finish := func(err error) error {
+		if ctx.Err() != nil {
+			err = errors.Join(ctx.Err(), err)
+		}
+		switch {
+		case errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled:
+			err = errors.Join(serviceerror.NewCanceled("operation canceled"), context.Canceled, err)
+		case errors.Is(err, context.DeadlineExceeded) || status.Code(err) == codes.DeadlineExceeded:
+			err = errors.Join(serviceerror.NewDeadlineExceeded("operation deadline exceeded"), context.DeadlineExceeded, err)
+		}
 		if firstUnknown != nil {
 			return errors.Join(firstUnknown, err)
 		}
@@ -60,10 +69,13 @@ func retryOperation[T proto.Message](ctx context.Context, invoke func(context.Co
 			}
 		}
 		if observationErr := rpctrace.ObservationError(ctx); observationErr != nil {
-			return zero, finish(errors.Join(serviceerror.FromStatus(status.Convert(err)), observationErr))
+			return zero, finish(errors.Join(normalizeOperationError(err), observationErr))
 		}
 		if ctx.Err() != nil {
 			return zero, finish(ctx.Err())
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return zero, finish(err)
 		}
 		switch code {
 		case codes.Canceled:
@@ -86,4 +98,15 @@ func retryOperation[T proto.Message](ctx context.Context, invoke func(context.Co
 			}
 		}
 	}
+}
+
+// Convert wire terminal errors without losing errors.Is cancellation identity.
+func normalizeOperationError(err error) error {
+	if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
+		return errors.Join(context.Canceled, err)
+	}
+	if errors.Is(err, context.DeadlineExceeded) || status.Code(err) == codes.DeadlineExceeded {
+		return errors.Join(context.DeadlineExceeded, err)
+	}
+	return serviceerror.FromStatus(status.Convert(err))
 }
