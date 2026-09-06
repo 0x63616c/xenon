@@ -428,3 +428,32 @@ func TestRecoveryTraceFailuresCannotPass(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchRecordsPrimaryFingerprintBeforeCleanup(t *testing.T) {
+	fingerprint := FailureFingerprint{"acknowledged_state", "missing_after_recovery"}
+	primary, err := NewInvariantFailure(fingerprint, errors.New("lost value on node A"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := testRunner(t, testDriver{
+		run:     func(context.Context, Scenario, func(json.RawMessage) error) error { return primary },
+		cleanup: func(context.Context) error { return errors.New("cleanup unavailable") },
+	})
+	result, err := Search(context.Background(), searchConfig(), &testGenerator{}, r)
+	if err == nil || result.Completed != 0 {
+		t.Fatal(result, err)
+	}
+	for _, name := range []string{"failure.json", "result.json"} {
+		raw, e := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", name))
+		if e != nil {
+			t.Fatal(e)
+		}
+		var detail caseResult
+		if e = json.Unmarshal(raw, &detail); e != nil {
+			t.Fatal(e)
+		}
+		if detail.FailureFingerprint == nil || *detail.FailureFingerprint != fingerprint || detail.FirstFailure != primary.Error() {
+			t.Fatalf("%s: %+v", name, detail)
+		}
+	}
+}

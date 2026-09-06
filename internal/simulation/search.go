@@ -115,11 +115,12 @@ type artifact struct {
 	ReplayOf   string          `json:"replay_of,omitempty"`
 }
 type caseResult struct {
-	FailurePhase string   `json:"failure_phase,omitempty"`
-	FirstFailure string   `json:"first_failure,omitempty"`
-	Secondary    []string `json:"secondary,omitempty"`
-	Settled      bool     `json:"settled"`
-	Cleaned      bool     `json:"cleaned"`
+	FailureFingerprint *FailureFingerprint `json:"failure_fingerprint,omitempty"`
+	FailurePhase       string              `json:"failure_phase,omitempty"`
+	FirstFailure       string              `json:"first_failure,omitempty"`
+	Secondary          []string            `json:"secondary,omitempty"`
+	Settled            bool                `json:"settled"`
+	Cleaned            bool                `json:"cleaned"`
 }
 
 var ErrPending = errors.New("driver or generator still running; process exit required")
@@ -377,6 +378,9 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	if primary != nil {
 		detail.FailurePhase = phase
 		detail.FirstFailure = primary.Error()
+		if fingerprint, ok := FingerprintOf(primary); ok {
+			detail.FailureFingerprint = &fingerprint
+		}
 		// Flush the primary before cleanup can fail or become stuck.
 		primary = errors.Join(primary, save(filepath.Join(dir, "failure.json"), detail))
 	}
@@ -411,6 +415,9 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		primary = errors.Join(finalTraceError, closeErr)
 		detail.FailurePhase = "cleanup"
 		detail.FirstFailure = primary.Error()
+		if fingerprint, ok := FingerprintOf(primary); ok {
+			detail.FailureFingerprint = &fingerprint
+		}
 		detail.Cleaned = false
 		primary = errors.Join(primary, save(filepath.Join(dir, "failure.json"), detail))
 	} else {
