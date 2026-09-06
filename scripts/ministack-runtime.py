@@ -72,12 +72,17 @@ def arguments(argv=None):
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of smoke')
     modes.add_argument('--process-cut-stage',choices=temporal_cut.STAGES,help='bind a real SDK update to a native process cut within the smoke')
+    modes.add_argument('--visibility-movement',action='store_true',help='run frozen public visibility traversal across two real ownership moves')
     modes.add_argument('--omes-mixed',action='store_true',help='run the frozen 40-iteration Omes mixed component instead of smoke')
     modes.add_argument('--smoke',action='store_true',help='run the default smoke explicitly')
     return parser.parse_args(argv)
 
 def main():
     args=arguments()
+    if args.visibility_movement:
+        movement=json.loads((ROOT/"test/scenarios/ministack/visibility-movement.json").read_text())
+        expected={"schema":1,"status":"NOT_EXECUTED","command":["python3","scripts/ministack-runtime.py","--visibility-movement"],"records":2000,"page_sizes":[1,7,100],"move_partitions":["history-0","vis-v1-0"],"destination":"c","cursor_pause_seconds":120,"minimum_completed_operations_before_scale":20,"minimum_local_operations_per_node":10,"require_active_workflow":True,"both_frontends_public_persistence_calls":True,"separate_mutation_records":20,"full_acceptance":False}
+        if movement!=expected:raise ValueError("changed visibility movement contract")
     if args.measurements and args.external_recorder:raise ValueError("measurement modes are mutually exclusive")
     cut_config=temporal_cut.validate_config(json.loads((ROOT/'test/scenarios/ministack/process-cut.json').read_text())) if args.process_cut_stage else None
     measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements or args.external_recorder else None
@@ -156,6 +161,9 @@ def main():
         for name,path,tags in [('xenon-topology','./cmd/xenon-topology',[]),('xenon-sdk-probe','./cmd/xenon-sdk-probe',[]),('xenon-temporal','./cmd/xenon-temporal',['-tags','ministack'])]:
             run(['go','build',*tags,'-o',str(ROOT/'.local/bin'/name),path],900)
         report['binaries']={name:sha(ROOT/'.local/bin'/name) for name in ['xenon-go-node','xenon-topology','xenon-sdk-probe','xenon-temporal']}
+        if args.visibility_movement:
+            run(['go','build','-o',str(ROOT/'.local/bin/xenon-visibility-probe'),'./cmd/xenon-visibility-probe'],900)
+            report['binaries']['xenon-visibility-probe']=sha(ROOT/'.local/bin/xenon-visibility-probe')
         if args.omes_mixed:
             run(['go','build','-o',str(ROOT/'.local/bin/xenon-omes-oracle'),'./cmd/xenon-omes-oracle'],900)
             report['binaries']['xenon-omes-oracle']=sha(ROOT/'.local/bin/xenon-omes-oracle')
@@ -257,7 +265,62 @@ def main():
             report['omes_generated_sha256']=omes_inputs()
             if not report['omes_generated_sha256']:raise RuntimeError('missing prepared Omes worker artifacts')
             return omes,omes_inputs
-        if args.omes_mixed:
+        if args.visibility_movement:
+            visibility_binary=str(ROOT/'.local/bin/xenon-visibility-probe')
+            visibility_flags=['--address',probe_flags[1],'--namespace',case['namespace'],'--storage-address',f"127.0.0.1:{case['ports']['storage_ingress']}"]
+            def visibility(mode,label,extra=None):
+                output=evidence/('visibility-'+label+'.json')
+                run([visibility_binary,'--mode',mode,*visibility_flags,'--checkpoint',label,'--output',str(output),*(extra or [])],910)
+                value=json.loads(output.read_text())
+                if value.get('full_acceptance') is not False or value.get('mode')!=mode:raise RuntimeError('invalid visibility receipt')
+                return value
+            report['visibility_before']=visibility('seed','before-movement')
+            for address in ['127.0.0.1:18233','127.0.0.1:19233']:
+                if probe('visibility-count','--address',address,'--query',"TaskQueue = 'xenon-frozen-visibility'").get('count')!=2000:raise RuntimeError('frontend frozen count mismatch')
+            identity=probe('movement-identity')
+            if identity.get('history_partition')!='history-0' or identity.get('history_shard')!=4:raise RuntimeError('wrong movement workflow domain')
+            probe_flags[probe_flags.index('--workflow-id')+1]=identity['workflow_id']
+            worker=launch('movement-worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
+            execution=probe('start');event('movement-workflow-started',**execution)
+            wait(lambda:probe('phase').get('phase')=='await-control')
+            before=checkpoint('visibility-before-movement')
+            if sum(successful(value) for value in before.values())<20:raise RuntimeError('scale barrier lacks20 completed operations')
+            release=evidence/'visibility-release';token=uuid.uuid4().hex;output=evidence/'visibility-through-movement.json'
+            traversal=launch('visibility-traversal',[visibility_binary,'--mode','check',*visibility_flags,'--checkpoint','through-movement','--output',str(output),'--release-file',str(release),'--release-token',token])
+            hit=json.loads(traversal.line('{',timeout=60))
+            if hit!={'event':'VISIBILITY_FIRST_PAGE','checkpoint':'through-movement','token':token}:raise RuntimeError('wrong traversal barrier')
+            event('visibility-page-barrier',token=token)
+            movement_deadline=time.monotonic()+120
+            def movement_remaining():
+                left=movement_deadline-time.monotonic()
+                if left<=0:raise TimeoutError('visibility movement120s budget exceeded')
+                return left
+            node('c',17353,min(30,movement_remaining()))
+            c_before=metrics('c')
+            assignments['history-0']['node']='c';assignments['vis-v1-0']['node']='c'
+            publish(movement_remaining())
+            probe('storage-ready','--readiness-timeout',str(max(1,int(movement_remaining()-1)))+'s',timeout=movement_remaining())
+            release.write_text(token);event('visibility-cursor-released-after-movement',incarnation=members['c']['incarnation'])
+            # Both actual frontends serve persistence-backed calls after movement.
+            for address in ['127.0.0.1:18233','127.0.0.1:19233']:
+                probe('phase','--address',address,timeout=min(20,movement_remaining()))
+                if probe('visibility-count','--address',address,'--query',"TaskQueue = 'xenon-frozen-visibility'",timeout=min(20,movement_remaining())).get('count')!=2000:raise RuntimeError('frontend frozen count mismatch')
+            probe('control',timeout=movement_remaining())
+            history=evidence/'movement-history';history.mkdir()
+            probe('verify','--run-id',execution['run_id'],'--output',str(history),timeout=300)
+            traversal.process.wait(timeout=910)
+            if traversal.process.returncode:raise RuntimeError('movement traversal failed')
+            report['visibility_through']=json.loads(output.read_text())
+            report['visibility_mutation']=visibility('mutate','separate-mutation')
+            after=checkpoint('visibility-after-movement')
+            if any(successful(after[name])<10 for name in ['a','b','c']):raise RuntimeError('node lacks10 actual local operations')
+            for partition in ['history-0','vis-v1-0']:
+                if successful(after['c'],partition)<=successful(c_before,partition):raise RuntimeError('C did not actually serve '+partition)
+            if any(sha(ROOT/p)!=value for p,value in report['input_sha256'].items()) or run(['git','status','--porcelain=v1','--untracked-files=all']).strip():raise RuntimeError('runtime source changed')
+            if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed')
+            if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native artifacts changed')
+            report.update(result='passed',proof_pass=True,scope='frozen2000 public visibility cursor across actual history/visibility ownership moves; separate mutation; no full acceptance',visibility_movement_executed=True)
+        elif args.omes_mixed:
             omes,omes_inputs=prepare_omes()
             probe('fuzz-endpoint',timeout=60)
             readiness=probe('fuzz-endpoint-ready',timeout=75)
