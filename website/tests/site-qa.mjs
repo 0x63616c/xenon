@@ -162,6 +162,8 @@ try {
           await page.locator(".architecture-explorer").screenshot({
             path: `${output}/${name}-diagram-${label.toLowerCase().replaceAll(/[^a-z]+/g, "-")}.png`,
             animations: "disabled",
+            // Capture the complete diagram without fixed navigation crossing it.
+            style: ".VPNav, .VPLocalNav { visibility: hidden !important; }",
           });
         }
       }
