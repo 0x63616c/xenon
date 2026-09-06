@@ -26,7 +26,6 @@ def main():
    except Exception:
     if time.monotonic()>=end:raise
     time.sleep(.1)
-  run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket',cfg['bucket']])
   run(['go','test','-race','./internal/partitions/slatedb','-run','^TestNativeAdmissionLatencyExperiment$','-count=1','-timeout=120s'],180)
   report['samples_sha256']=hashlib.sha256((out/'samples.json').read_bytes()).hexdigest();report['status']='passed'
  except BaseException as error:report['status']='failed';report['error']=str(error)
