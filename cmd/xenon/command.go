@@ -80,7 +80,13 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		}
 		root.AddCommand(command)
 	}
-	root.AddCommand(simulationCommands(buildinfo.Read, simulation.WallClock{})...)
+	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
+	for _, command := range simulation {
+		if command.Name() == "test" {
+			command.AddCommand(realProfileCommands(runRealProfile)...)
+		}
+	}
+	root.AddCommand(simulation...)
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(diagnostics)

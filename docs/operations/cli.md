@@ -1,7 +1,8 @@
 # Xenon CLI foundation
 
 `xenon` is the single CLI entry point. This foundation delivers the existing
-server commands, help/completion, and finite coupled-simulation test/search/replay.
+server commands, help/completion, finite coupled-simulation test/search/replay,
+and opt-in real smoke/ten-minute profile entries.
 Cluster inspection, development orchestration, generated workflow search and
 minimization remain tracked in #119 and are not advertised as implemented.
 
@@ -144,3 +145,50 @@ Build `.local/xenon` from that clean revision first. Retain the resulting
 `receipt.json` and case artifacts. The harness removes AWS credentials from child
 environments and accepts the repository's existing native loader environment;
 linking the binary does not execute a native storage scenario.
+
+## Real local agent profiles
+
+The single CLI also exposes the reviewed Python implementation helpers:
+
+```sh
+xenon test smoke --repository /absolute/path/to/xenon --evidence /tmp/xenon-smoke
+xenon test local-release-ten-minute --repository /absolute/path/to/xenon \
+  --evidence /tmp/xenon-ten-minute
+```
+
+Both paths are explicit; the evidence directory must be new and its parent must
+exist. The checkout must contain the pinned scenario scripts, config and sources.
+Python 3, Git, Go, Rust/rustup/Cargo, a C compiler, AWS CLI, Docker Compose and the
+already-pulled pinned local images are required. The helper validates source and
+build pins and refuses occupied scenario ports. `--development` explicitly
+permits a dirty checkout and retains development qualification. Help, version and
+config validation do not inspect these tools or initialize backends.
+
+The helper remains responsible for the actual workload and all owned agents,
+workers and Compose resources. See [the ten-minute contract](../../test/scenarios/agent/ten-minute.md)
+for separate setup/workload/drain/recovery budgets, exact saved corpus, faults and
+remaining oracle gaps. Exposing the command is not proof that either runtime
+profile has passed. The CLI records its own build independently from the explicit
+checkout used by the helper; the two source identities are not silently equated.
+
+Each invocation returns one stdout JSON object with schema, profile, status,
+evidence path, helper receipt and whether cleanup was verified. Raw helper output
+is retained in `helper.log`; command diagnostics/errors use stderr. `cli-request.json`
+and `cli-result.json` preserve the invocation and result; helper evidence lives in
+`run/`. Existing evidence is never overwritten. Exit 0 requires a passing helper
+receipt matching the requested profile. Failure is 1, an outer deadline is 2,
+and cancellation is 130. An already-recorded helper failure remains a failure if
+cancellation arrives afterward. Canceled/budget runs are never passes.
+
+On cancellation the CLI signals the helper group and allows 150 seconds for its
+bounded diagnostics and cleanup. It then kills and reaps the helper, with a final
+five-second reap bound. Forced termination reports cleanup unverified: a wedged
+helper may not have retired its separately supervised child groups or Compose
+project. Retain the evidence for scoped recovery; this is never reported as a
+clean shutdown. The outer ceilings are 20 minutes for smoke and three hours for
+the full profile; they do not extend any shorter helper workload budget.
+
+Tests execute the typed command binding and real child supervision with fake
+helpers: clean JSON, explicit paths, preserved receipts/logs, cancellation,
+forced termination, backend-free help and missing input/tool failures. These
+controls open no agent ports, storage engines or containers.

@@ -8,7 +8,8 @@ Use a clean checkout and the pinned tools/images from the agent and ministack
 fixtures. Pull the declared Compose images beforehand, then run:
 
 ```sh
-python3 scripts/agent-smoke.py --profile ten-minute
+xenon test local-release-ten-minute --repository /absolute/path/to/xenon \
+  --evidence /tmp/xenon-ten-minute
 ```
 
 The existing `--profile smoke` default and historical ministack/full/one-hour soak
@@ -16,8 +17,8 @@ profiles remain separate. The helper reuses the same identical Go agents, shared
 storage/Temporal ingress, exact format2 layout, S3 emulator, UI, SDK worker,
 changed-authority serving RPC and cold-recovery code as agent smoke. It refuses
 occupied ports before building or starting resources; do not overlap smoke runs.
-A dedicated `xenon` CLI journey still needs integration; this helper alone does
-not qualify the complete CLI user journey.
+The CLI invokes `scripts/agent-smoke.py --profile ten-minute` as its implementation
+helper. CLI supervision controls do not qualify actual ten-minute execution.
 
 `ten-minute.json` declares independent budgets: setup 2400s, mixed40 900s,
 600s fuzz admission followed by at most 300s drain, each verification phase 900s,

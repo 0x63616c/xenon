@@ -67,8 +67,8 @@ def capture_failure_diagnostics(run, configs, control_command):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');parser.add_argument('--profile',choices=['smoke','ten-minute'],default='smoke');args=parser.parse_args()
-    receipt=ROOT/'.local/evidence'/('agent-'+time.strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:6]);receipt.mkdir(parents=True)
+    parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');parser.add_argument('--profile',choices=['smoke','ten-minute'],default='smoke');parser.add_argument('--evidence',type=Path);args=parser.parse_args()
+    receipt=args.evidence.resolve() if args.evidence else ROOT/'.local/evidence'/('agent-'+time.strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:6]);receipt.mkdir(parents=not bool(args.evidence),exist_ok=False)
     project='xenon-agent-'+uuid.uuid4().hex[:10]
     env=os.environ.copy()
     for key in list(env):
