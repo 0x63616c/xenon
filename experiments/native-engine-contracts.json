@@ -59,7 +59,8 @@
         "TestNativeEngineCanceledBeforeDispatch",
         "TestNativeEngineOpen",
         "TestNativeEngineCanceledReadRetains",
-        "TestNativeEngineCanceledOpenRetains"
+        "TestNativeEngineCanceledOpenRetains",
+        "TestNativeConfiguredFlushSettingsAndReplacement"
       ]
     }
   ]

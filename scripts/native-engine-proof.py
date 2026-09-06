@@ -50,7 +50,7 @@ def main():
                     raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
         env.update({"AWS_ACCESS_KEY_ID": "xenon-local", "AWS_SECRET_ACCESS_KEY": "xenon-local-test-only", "AWS_DEFAULT_REGION": "us-east-1", "AWS_ENDPOINT": endpoint, "AWS_ALLOW_HTTP": "true", "AWS_VIRTUAL_HOSTED_STYLE_REQUEST": "false", "XENON_ENGINE_STORE": "s3://" + cfg["bucket"]})
-        completed = subprocess.run(["go", "test", "-race", "-json", "-count=1", "-timeout", str(cfg["test_timeout_seconds"])+"s", "./internal/partitions/slatedb", "-run", "^TestNativeEngine"], cwd=ROOT, env=env, timeout=cfg["test_timeout_seconds"]+10)
+        completed = subprocess.run(["go", "test", "-race", "-json", "-count=1", "-timeout", str(cfg["test_timeout_seconds"])+"s", "./internal/partitions/slatedb", "-run", "^TestNative(Engine|ConfiguredFlushSettingsAndReplacement$)"], cwd=ROOT, env=env, timeout=cfg["test_timeout_seconds"]+10)
         if completed.returncode:
             raise RuntimeError("native engine contract assertion failed")
         controls = subprocess.run([sys.executable, "test/scenarios/integration/native-engine/negative-controls.py",
