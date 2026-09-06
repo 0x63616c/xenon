@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -28,7 +29,7 @@ type QueueV2 struct {
 var _ p.QueueV2 = (*QueueV2)(nil)
 
 func NewQueueV2(address, partition string) (*QueueV2, error) {
-	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -67,7 +68,12 @@ func qv2Error(r *wire.QueueV2Result) error {
 		return serviceerror.NewInternal("unknown QueueV2 result")
 	}
 }
-func (q *QueueV2) invoke(ctx context.Context, c *wire.QueueV2Command) (*wire.QueueV2Result, error) {
+func (q *QueueV2) invoke(ctx context.Context, c *wire.QueueV2Command) (traceResult *wire.QueueV2Result, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "queuev2")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	b, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)

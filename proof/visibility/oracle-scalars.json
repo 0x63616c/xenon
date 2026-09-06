@@ -1,0 +1,163 @@
+[
+  {
+    "name": "decimal-1.234565",
+    "sql": "to_jsonb((1.234565::decimal(20,5))::text)",
+    "expected": "1.23457"
+  },
+  {
+    "name": "decimal--1.234565",
+    "sql": "to_jsonb((-1.234565::decimal(20,5))::text)",
+    "expected": "-1.23457"
+  },
+  {
+    "name": "decimal-999999999999999.999994",
+    "sql": "to_jsonb((999999999999999.999994::decimal(20,5))::text)",
+    "expected": "999999999999999.99999"
+  },
+  {
+    "name": "decimal-positive-overflow",
+    "sql": "to_jsonb((999999999999999.999995::decimal(20,5))::text)",
+    "expected": {
+      "error": "22003"
+    }
+  },
+  {
+    "name": "decimal-negative-overflow",
+    "sql": "to_jsonb((-999999999999999.999995::decimal(20,5))::text)",
+    "expected": {
+      "error": "22003"
+    }
+  },
+  {
+    "name": "decimal-raw-versus-generated",
+    "sql": "jsonb_build_object('raw', ('{\"Double01\":1.234565}'::jsonb)->'Double01','generated',((('{\"Double01\":1.234565}'::jsonb)->'Double01')::decimal)::decimal(20,5), 'equal_original', ((('{\"Double01\":1.234565}'::jsonb)->'Double01')::decimal)::decimal(20,5)=1.234565, 'equal_rounded', ((('{\"Double01\":1.234565}'::jsonb)->'Double01')::decimal)::decimal(20,5)=1.23457)",
+    "expected": {
+      "raw": 1.234565,
+      "generated": 1.23457,
+      "equal_original": false,
+      "equal_rounded": true
+    }
+  },
+  {
+    "name": "datetime-2026-01-01T00:00:00.0000004Z",
+    "sql": "jsonb_build_object('raw', '2026-01-01T00:00:00.0000004Z', 'generated',to_char('2026-01-01T00:00:00.0000004Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "2026-01-01T00:00:00.0000004Z",
+      "generated": "2026-01-01 00:00:00.000000"
+    }
+  },
+  {
+    "name": "datetime-2026-01-01T00:00:00.0000005Z",
+    "sql": "jsonb_build_object('raw', '2026-01-01T00:00:00.0000005Z', 'generated',to_char('2026-01-01T00:00:00.0000005Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "2026-01-01T00:00:00.0000005Z",
+      "generated": "2026-01-01 00:00:00.000000"
+    }
+  },
+  {
+    "name": "datetime-2026-01-01T00:00:00.0000006Z",
+    "sql": "jsonb_build_object('raw', '2026-01-01T00:00:00.0000006Z', 'generated',to_char('2026-01-01T00:00:00.0000006Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "2026-01-01T00:00:00.0000006Z",
+      "generated": "2026-01-01 00:00:00.000001"
+    }
+  },
+  {
+    "name": "datetime-2026-01-01T00:00:00.9999995Z",
+    "sql": "jsonb_build_object('raw', '2026-01-01T00:00:00.9999995Z', 'generated',to_char('2026-01-01T00:00:00.9999995Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "2026-01-01T00:00:00.9999995Z",
+      "generated": "2026-01-01 00:00:01.000000"
+    }
+  },
+  {
+    "name": "datetime-1969-12-31T23:59:59.9999995Z",
+    "sql": "jsonb_build_object('raw', '1969-12-31T23:59:59.9999995Z', 'generated',to_char('1969-12-31T23:59:59.9999995Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "1969-12-31T23:59:59.9999995Z",
+      "generated": "1970-01-01 00:00:00.000000"
+    }
+  },
+  {
+    "name": "datetime-2026-01-01T01:00:00.0000006+01:00",
+    "sql": "jsonb_build_object('raw', '2026-01-01T01:00:00.0000006+01:00', 'generated',to_char('2026-01-01T01:00:00.0000006+01:00'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": {
+      "raw": "2026-01-01T01:00:00.0000006+01:00",
+      "generated": "2026-01-01 00:00:00.000001"
+    }
+  },
+  {
+    "name": "keyword-{}",
+    "sql": "jsonb_build_object('contains', ('{}'::jsonb->'KeywordList01') @> jsonb_build_array('x'), 'not_contains', NOT (('{}'::jsonb->'KeywordList01') @> jsonb_build_array('x')))",
+    "expected": {
+      "contains": null,
+      "not_contains": null
+    }
+  },
+  {
+    "name": "keyword-{\"KeywordList01\":null}",
+    "sql": "jsonb_build_object('contains', ('{\"KeywordList01\":null}'::jsonb->'KeywordList01') @> jsonb_build_array('x'), 'not_contains', NOT (('{\"KeywordList01\":null}'::jsonb->'KeywordList01') @> jsonb_build_array('x')))",
+    "expected": {
+      "contains": false,
+      "not_contains": true
+    }
+  },
+  {
+    "name": "keyword-{\"KeywordList01\":[]}",
+    "sql": "jsonb_build_object('contains', ('{\"KeywordList01\":[]}'::jsonb->'KeywordList01') @> jsonb_build_array('x'), 'not_contains', NOT (('{\"KeywordList01\":[]}'::jsonb->'KeywordList01') @> jsonb_build_array('x')))",
+    "expected": {
+      "contains": false,
+      "not_contains": true
+    }
+  },
+  {
+    "name": "keyword-{\"KeywordList01\":[\"x\",\"x\",\"\u00e9\"]}",
+    "sql": "jsonb_build_object('contains', ('{\"KeywordList01\":[\"x\",\"x\",\"\u00e9\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('x'), 'not_contains', NOT (('{\"KeywordList01\":[\"x\",\"x\",\"\u00e9\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('x')))",
+    "expected": {
+      "contains": true,
+      "not_contains": false
+    }
+  },
+  {
+    "name": "collation-C",
+    "sql": "(SELECT jsonb_agg(s ORDER BY s COLLATE \"C\") FROM (VALUES ('\u00e9'),('z'),('A'),('a')) t(s))",
+    "expected": [
+      "A",
+      "a",
+      "z",
+      "\u00e9"
+    ]
+  },
+  {
+    "name": "group-null",
+    "sql": "(SELECT jsonb_agg(jsonb_build_object('value',s,'count',n) ORDER BY s COLLATE \"C\" NULLS FIRST) FROM (SELECT s,count(*) n FROM (VALUES (NULL::text), (NULL::text),('a')) t(s) GROUP BY s) g)",
+    "expected": [
+      {
+        "value": null,
+        "count": 2
+      },
+      {
+        "value": "a",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "name": "datetime-tie-0000015",
+    "sql": "to_jsonb(to_char('2026-01-01T00:00:00.0000015Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": "2026-01-01 00:00:00.000002"
+  },
+  {
+    "name": "datetime-tie-0000025",
+    "sql": "to_jsonb(to_char('2026-01-01T00:00:00.0000025Z'::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US'))",
+    "expected": "2026-01-01 00:00:00.000002"
+  },
+  {
+    "name": "keyword-IN-or-null",
+    "sql": "jsonb_build_object('missing', (( '{}'::jsonb->'KeywordList01') @> jsonb_build_array('x')) OR (( '{}'::jsonb->'KeywordList01') @> jsonb_build_array('y')), 'present', (( '{\"KeywordList01\":[\"y\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('x')) OR (( '{\"KeywordList01\":[\"y\"]}'::jsonb->'KeywordList01') @> jsonb_build_array('y')))",
+    "expected": {
+      "missing": null,
+      "present": true
+    }
+  }
+]

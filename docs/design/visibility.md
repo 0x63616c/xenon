@@ -18,11 +18,11 @@ Every get, scan, count and index lookup is constrained by namespace. Workflow qu
 
 ## Query conversion and types
 
-Implement Temporal's generic `StoreQueryConverter[ExprT]` in Go with `ExprT` representing Xenon's typed AST. Retain the pinned parser, attribute resolution, type checking, grouping restrictions and CHASM mapping. Serialize explicit protobuf nodes to Rust; do not send SQL strings or generic JSON values and do not parse Temporal query syntax again in Rust.
+Implement Temporal's generic `StoreQueryConverter[ExprT]` in Go with `ExprT` representing Xenon's typed AST. Retain the pinned parser, attribute resolution, type checking, grouping restrictions and CHASM mapping. Send explicit protobuf nodes from the Go adapter to the Go storage node; do not send SQL strings or generic JSON values and do not parse Temporal query syntax again in the node.
 
 Represent Boolean operators, comparisons, IN/NOT IN, ranges, null predicates and type-specific Keyword/KeywordList/Text operations. Scalar values preserve bool, signed int64, double, normalized datetime and string; lists preserve element type. Distinguish missing/null from false, zero and empty collections. Evaluation uses TRUE/FALSE/UNKNOWN where the PostgreSQL oracle does: only TRUE selects a record, and NOT UNKNOWN remains UNKNOWN. Do not derive negation solely by subtracting present-value postings.
 
-The AST carries schema/alias version and mapped physical field/type identity. The Rust boundary rejects unknown node versions, invalid value types and excessive depth/size. Trusted Go conversion does not eliminate Rust request validation. Normalize the AST deterministically before computing its query digest; pin the normalization format and test equivalent map/order handling.
+The AST carries schema/alias version and mapped physical field/type identity. The Go RPC boundary rejects unknown node versions, invalid value types and excessive depth/size. Adapter conversion does not eliminate storage-node request validation. Normalize the AST deterministically before computing its query digest; pin the normalization format and test equivalent map/order handling.
 
 All types are required: Bool, Int, Double, Datetime, Keyword, KeywordList and Text. Preserve raw typed search attributes and opaque memo payloads in returned records, along with workflow/run IDs, task queue, parent/root identifiers, status, timestamps and history metrics. Preserve CHASM record payloads and system-field overrides through the existing mapper contract.
 
@@ -80,3 +80,15 @@ Any semantic mismatch, namespace leak, premature index publication, stale resurr
 - [SQL visibility store](https://github.com/temporalio/temporal/blob/19a774302c613da9adc4436ab14278ccdca8e0a5/common/persistence/visibility/store/sql/visibility_store.go).
 - [PostgreSQL query converter](https://github.com/temporalio/temporal/blob/19a774302c613da9adc4436ab14278ccdca8e0a5/common/persistence/sql/sqlplugin/postgresql/query_converter.go) and [visibility schema](https://github.com/temporalio/temporal/blob/19a774302c613da9adc4436ab14278ccdca8e0a5/schema/postgresql/v12/visibility/schema.sql).
 - [Visibility persistence suites](https://github.com/temporalio/temporal/blob/19a774302c613da9adc4436ab14278ccdca8e0a5/common/persistence/tests/visibility_persistence_suite.go).
+
+## Delegated deletion decision (issue #61)
+
+The coordinator adjudicated unconditional terminal deletion after an independent
+priority advocate challenge. DELETE creates a retained per-(namespace,run)
+tombstone even when its TaskID is zero or the run has not yet been inserted.
+START, CLOSE and UPSERT cannot resurrect that run, including tasks with a newer
+TaskID. This intentionally differs from pinned SQL's ability to reinsert a
+previously deleted run for repair/reindex. No tombstone expiry is safe without a
+proven replay horizon. This is a delegated agent decision, not a claim that Calum
+personally selected this policy. Delete-before-start, newer delayed updates,
+duplicate deletion and reopen/replay are mandatory regression cases.

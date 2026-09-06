@@ -1,0 +1,28 @@
+{
+  "max_client_action_sets": 12,
+  "max_client_actions_per_set": 3,
+  "max_actions_per_set": 3,
+  "max_timer": {
+    "secs": 0,
+    "nanos": 200000000
+  },
+  "max_payload_size": 256,
+  "max_client_action_set_wait": {
+    "secs": 0,
+    "nanos": 200000000
+  },
+  "action_chances": {
+    "timer": 20.0,
+    "activity": 20.0,
+    "child_workflow": 20.0,
+    "patch_marker": 2.5,
+    "set_workflow_state": 2.5,
+    "await_workflow_state": 2.5,
+    "upsert_memo": 2.5,
+    "upsert_search_attributes": 2.5,
+    "nested_action_set": 10.0,
+    "nexus_operation": 17.5
+  },
+  "max_initial_actions": 5,
+  "local_activities": false
+}

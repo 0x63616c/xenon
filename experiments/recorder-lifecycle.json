@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "name": "recorder-lifecycle",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "internal/proof/recorder/recorder.go",
+    "internal/proof/recorder/recorder_test.go",
+    "cmd/xenon-trace-recorder/main.go",
+    "proof/external-recorder.md",
+    "internal/rpctrace/observer.go",
+    "internal/rpctrace/observer_test.go",
+    "internal/rpctrace/trace.go",
+    "internal/adapter/recorder_trace_test.go",
+    "proof/recorder-adapter.md",
+    "internal/adapter/metadata.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/executiontasks.go",
+    "internal/adapter/queue.go",
+    "internal/adapter/visibility.go",
+    "internal/adapter/queuev2.go",
+    "internal/adapter/nexus.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/matching.go",
+    "internal/adapter/history.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/rpc_trace_test.go",
+    "internal/rpctrace/trace_test.go",
+    "scripts/recorder_lifecycle.py",
+    "scripts/test_recorder_lifecycle.py",
+    "scripts/ministack-runtime.py",
+    "scripts/runtime_measurements.py",
+    "scripts/resource_samples.py",
+    "cmd/xenon-temporal/main.go",
+    "test/scenarios/ministack/recorder.json",
+    "test/scenarios/ministack/recorder-lifecycle.md"
+  ],
+  "fault_schedule": "Actual producer SIGKILL after acknowledged registration; fresh incarnation completion; recorder SIGKILL; missing graceful close marker; malformed HTTP event.",
+  "assertions": [
+    "Observed producer death permits explicitly unknown terminals only in the declared fault phase.",
+    "Recorder loss, malformed protocol and missing graceful marker fail census completeness.",
+    "Default runtime behavior is unchanged; recorder is opt-in and survives producer cold restart."
+  ],
+  "limitations": [
+    "Lightweight actual subprocess controls only; no complete ministack execution.",
+    "Static fault-phase registration census is not an executed-call census or complete latency distribution.",
+    "No steady performance gate or full acceptance claim."
+  ],
+  "commands": [
+    {
+      "runner": "python-measurements",
+      "filter": "test_recorder_lifecycle",
+      "exact": true,
+      "expected_tests": [
+        "test_declared_kill_and_fresh_incarnation",
+        "test_recorder_loss_fails",
+        "test_graceful_producer",
+        "test_missing_close_marker_fails",
+        "test_contract_changes_rejected",
+        "test_finalization_io_failures_preserve_receipt",
+        "test_startup_cleanup_preserves_original_error"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderHTTPProtocolFailure",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderHTTPProtocolFailure"
+      ]
+    },
+    {
+      "runner": "go-test-observer-adapter",
+      "filter": "TestRecorderAdapterTimingAndLoss",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderAdapterTimingAndLoss/delayed_lost_ack",
+        "TestRecorderAdapterTimingAndLoss/recorder_death",
+        "TestRecorderAdapterTimingAndLoss"
+      ]
+    },
+    {
+      "runner": "go-test-observer",
+      "filter": "TestObserverConcurrentRegistration",
+      "exact": true,
+      "expected_tests": [
+        "TestObserverConcurrentRegistration"
+      ]
+    },
+    {
+      "runner": "go-test-observer",
+      "filter": "TestObserverConfiguration",
+      "exact": true,
+      "expected_tests": [
+        "TestObserverConfiguration"
+      ]
+    },
+    {
+      "runner": "go-test-trace-adapter",
+      "filter": "TestRPCTraceInvocationAndAttempts",
+      "exact": true,
+      "expected_tests": [
+        "TestRPCTraceInvocationAndAttempts"
+      ]
+    }
+  ]
+}

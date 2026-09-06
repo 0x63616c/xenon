@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "name": "go-outcomes",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md",
+    "proto/xenon/v1/execution.proto",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "proof/execution/case.json",
+    "proof/execution/README.md",
+    "docs/research/execution-contract.md",
+    "proto/xenon/v1/historytasks.proto",
+    "gen/xenon/v1/historytasks.pb.go",
+    "gen/xenon/v1/historytasks_grpc.pb.go",
+    "internal/node/historytasks.go",
+    "internal/node/historytasks_test.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/historytasks_integration_test.go",
+    "proof/historytasks/README.md",
+    "internal/adapter/history_partitions.go",
+    "internal/adapter/history_partitions_test.go",
+    "internal/adapter/execution_store.go",
+    "internal/adapter/executiontasks.go",
+    "internal/node/executiontasks.go",
+    "internal/node/history_partitions_test.go",
+    "internal/node/temporal_factory_test.go",
+    "internal/temporalstore/factory.go",
+    "docs/research/history-partition-contract.md",
+    "internal/node/outcome_usage.go",
+    "internal/node/outcome_usage_test.go",
+    "internal/ownership/outcomes.go",
+    "internal/ownership/outcomes_test.go",
+    "internal/ownership/manager.go",
+    "internal/ownership/rpc.go",
+    "proof/outcomes/README.md"
+  ],
+  "fault_schedule": "Fill the configured journal, reject new IDs, replay at capacity, reopen; stop a workflow after durable history prewrite consumes final slot, reopen with prospectively explicit increased test cap and retry same root identity.",
+  "assertions": [
+    "New reads and logical outcomes consume capacity; replay at capacity preserves original result.",
+    "Durable per-family counts and encoded StoredOutcome byte totals match exact retained values through reopen.",
+    "Prewrite suboperations count independently and resume without duplicate accounting.",
+    "Legacy unaccounted entries are explicit and never falsely declared complete.",
+    "Manager propagates explicit cap; metrics scrapes do not increment local persistence dispatch counters."
+  ],
+  "limitations": [
+    "No deletion or expiry; this is bounded-proof capacity management, not indefinite production retention.",
+    "Encoded outcome bytes exclude keys, indexes, WAL/SST versions, compaction and storage overhead.",
+    "Legacy rows written by older binaries have unaccounted bytes and fail fresh proof completeness.",
+    "Memory-component test; actual S3 manager movement remains a separate owner-manager gate."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerOutcomeCapacity",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerOutcomeCapacity"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerOutcomeLegacy",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerOutcomeLegacy"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerOutcomePrewriteCapacity",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerOutcomePrewriteCapacity"
+      ]
+    },
+    {
+      "runner": "go-test-outcomes",
+      "filter": "TestOutcomeMetrics",
+      "exact": true,
+      "expected_tests": [
+        "TestOutcomeMetrics"
+      ]
+    }
+  ]
+}

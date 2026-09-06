@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "endpoint": "http://127.0.0.1:19010",
+  "bucket": "xenon-process-cut",
+  "partition": "history-0",
+  "rpc": "127.0.0.1:19011",
+  "control": "127.0.0.1:19012",
+  "shard_id": 17,
+  "operation_id": "controlled-shard-update",
+  "session": "d8012279-b45b-40e0-b3c8-2d01a3a36b52",
+  "pause_timeout_ms": 5000,
+  "stages": ["commit_before_await", "after_await", "before_result_publication"]
+}

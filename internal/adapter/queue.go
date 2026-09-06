@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -28,7 +29,7 @@ type Queue struct {
 var _ p.Queue = (*Queue)(nil)
 
 func NewQueue(address, partition string, queueType p.QueueType) (*Queue, error) {
-	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -39,7 +40,12 @@ func (q *Queue) Close() {
 		_ = q.connection.Close()
 	}
 }
-func (q *Queue) invokeQueue(ctx context.Context, c *wire.QueueCommand) (*wire.QueueResult, error) {
+func (q *Queue) invokeQueue(ctx context.Context, c *wire.QueueCommand) (traceResult *wire.QueueResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "queue")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, q.invocationTimeout)
 	defer cancel()
 	c.QueueType = int32(q.queueType)

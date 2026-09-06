@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "minimum_seconds": 3600,
+  "minimum_rounds": 2,
+  "maximum_rounds": 1000,
+  "controller_timeout_seconds": 36000,
+  "corpus": "test/scenarios/omes-signals/replay.json",
+  "faults": [],
+  "command_timeout_seconds": 900,
+  "limitations": [
+    "Repeated saved inputs explore timing, not new generated action coverage.",
+    "Omes exit status is the workload oracle; independent complete start census and semantic history audit remain separate acceptance requirements.",
+    "No full acceptance claim.",
+    "Uses explicit audited Omes compatibility overlay; not unmodified upstream and not a pass for the original corpus."
+  ],
+  "compatibility_overlay": true,
+  "corrected_corpus_version": "corrected-v1"
+}

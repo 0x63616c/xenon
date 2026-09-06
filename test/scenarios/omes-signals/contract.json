@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "status": "compatibility-overlay-candidate-not-runtime-pass",
+  "original_source": "c6978ba39aa03551ce28974117e8d7ecf983d2b3",
+  "api_source": "d96bd55e87799e9f6a33a1c40a56cfa932566bdf",
+  "protoc": "36.0",
+  "protoc_gen_go": "v1.31.0",
+  "overlay_sha256": "cdb70939ac3a6f0449534421dd13579984c69fcb1c5b737c72d744a63b47bc09",
+  "normalizer_sha256": "529a56005dafde138773d420cec66a631bb4caadef50427ba575d388f87f7a32",
+  "original_corpus_manifest_sha256": "c6c08a316c6f13ec768595787599a5b6fe645e4ab771a9f7dec40d0e491a373a",
+  "corrected_corpus_version": "corrected-v1",
+  "inputs": [
+    {
+      "name": "2026090501.proto",
+      "original_sha256": "fa897cf93da62ca913e51156b8c6059a1ddf7dfefe488da0862434ed8ba5b427",
+      "corrected_sha256": "94602418a14977d41e5ba832890d6b72cdeafd5a0ec8c0d8b3fe9620b630fe30"
+    },
+    {
+      "name": "2026090502.proto",
+      "original_sha256": "acf991f7c3e3dfd4e071a0a35670c0159c92f7c1f71e3060caab4d5d6c9db688",
+      "corrected_sha256": "840812c18cd6c3b7b872e20fd0381d1cc06f4a50f92ab372d8fb6dcbf2c8a6ba"
+    },
+    {
+      "name": "2026090503.proto",
+      "original_sha256": "df75cdb14c8d5fa51984a5e0704715fba724b876f31d0060f835ff39103cb0cd",
+      "corrected_sha256": "a814e66c7c8b3e0d62a5ac8d1f629575bac6c8567af60fb6bf5fc60b47428ccd"
+    },
+    {
+      "name": "2026090504.proto",
+      "original_sha256": "cb2b7ddf19b898b37aabaf08f7360be532c3c83acbd0eda930ca889ffc57abad",
+      "corrected_sha256": "0421400989e0dcaea241f9b29d29ba7e3735410fdce1bb13069e549342961385"
+    },
+    {
+      "name": "2026090505.proto",
+      "original_sha256": "00a6a25b03ac12fb8c32595a17ffa447e53296013086017f5e1e3ad9d2ad96b2",
+      "corrected_sha256": "8d05cb8c8ca4d96a061bd2b8672575fb78e690153f9b8f85ae7edfc41503f9e6"
+    },
+    {
+      "name": "2026090506.proto",
+      "original_sha256": "bc26fb201f57ba6aed1402845ff7a4458e9689cd5a078e83cfca0020f994f325",
+      "corrected_sha256": "d279267994f8bb67e29705198359271a2ed6bcddd45136bc02674aa0cc6aabdd"
+    },
+    {
+      "name": "2026090507.proto",
+      "original_sha256": "919eda08197af5d66b3a9811f98af437a79cf5b284b2fa80d80fb48e182a71f3",
+      "corrected_sha256": "e647ea129fe8dda72e34523d391a127118c2bafc5985402018e33ad82676f129"
+    },
+    {
+      "name": "2026090508.proto",
+      "original_sha256": "cf13c6bdfcc2960e9d446eb554c6170f59ca7102139ecce46ace1d75ddf00857",
+      "corrected_sha256": "080e6274e79622bee3f89bb9ed4409af77451647be22145e782046bec1a75e65"
+    },
+    {
+      "name": "2026090509.proto",
+      "original_sha256": "dc10a8e2392c77596171e29419e38b576e0c188d49e584d4542a780d5efa9c44",
+      "corrected_sha256": "a4dac356bfb152f3d8d30d9c59543aebfa0b0379a80136a0d4b55c859e9f4729"
+    },
+    {
+      "name": "2026090510.proto",
+      "original_sha256": "9b79877cec7bc062eedf245a1d9201f95d578614bf099d5c0f322a225b18fd9e",
+      "corrected_sha256": "de7bf50e2e617de5454d067754b9bdc4043ce823aa37cdf3389eb193b5c6a87b"
+    },
+    {
+      "name": "2026090511.proto",
+      "original_sha256": "0c99a3d5f0b674c975bc895b8814d48749bce18eebead3e3e0a5b3c7136a0722",
+      "corrected_sha256": "f15433e5cd34d8e95684618f8ab6a750b8e59b582443c66b6bc1954cc1c133e5"
+    },
+    {
+      "name": "2026090512.proto",
+      "original_sha256": "294ad8757d29fa6dfe38650e8f76dcfc29a6da61f3f9c6b360b650a2f3545487",
+      "corrected_sha256": "acf6755747ec582b7d7c199eee8bafe90d167784cf5f52cf81e6497b8c564d4f"
+    },
+    {
+      "name": "2026090513.proto",
+      "original_sha256": "e35d8010bf36cb466a3221177abdede68ec72f7e35966762d48e53c7e88cc528",
+      "corrected_sha256": "296e5808eed123cee43fab58cbda50bd13b49a994f44f157c94162f19ed5f2b0"
+    },
+    {
+      "name": "2026090514.proto",
+      "original_sha256": "29e024815c6335d271bd8b08322ffe05c44ed874521634d7546259424af9334c",
+      "corrected_sha256": "89f4c3173ec7adee103b5b38e69335d6d074a659291dfffc5c4e37a1104797a5"
+    },
+    {
+      "name": "2026090515.proto",
+      "original_sha256": "edc72e4c373a95f4cd20579e6c2c5d226d3e24607e06757beb03f4d708f19546",
+      "corrected_sha256": "155fbebce381717b4e1af52ba4c32a131ecc2569183b8d53b56093c876b7a1ad"
+    },
+    {
+      "name": "2026090516.proto",
+      "original_sha256": "a7ee7e015715e968059ecd2981b1e6ad5f378c063fe083a153a57f6146c2b4a6",
+      "corrected_sha256": "d41e6c52c95290ce0b49b71b3b40ec0574f87735a3d109d8a6d936f41b6305ed"
+    },
+    {
+      "name": "2026090517.proto",
+      "original_sha256": "ec3f4533a651bf342f04e121f9e866e85e2d1a21cb4abfa40f38dd95e8c82256",
+      "corrected_sha256": "2939843de97bf391c1c5f77886e38b80102457f1774adebba0a12165c964de3d"
+    },
+    {
+      "name": "2026090518.proto",
+      "original_sha256": "62c2f405cd19f72d4325142a6f720c974d245766c4b6d1d05c38ffaaef9b9d78",
+      "corrected_sha256": "ca5ba05969e0c1a43ed83b2261c9fdd1b633d00471a104bdf21790702e72ea55"
+    },
+    {
+      "name": "2026090519.proto",
+      "original_sha256": "ff13d0ab9789532fe56d0de7eba7160ad189f3008e66d9beaf248661c1e3b490",
+      "corrected_sha256": "1644e0a6f9cf750a0198a05be50be5b580e79d3d687ae21aa3e4a9b476057783"
+    },
+    {
+      "name": "2026090520.proto",
+      "original_sha256": "3426c6021024dfba4008f5ae694a783f45516cd7be2ff28b0aa0636b633fd580",
+      "corrected_sha256": "682eab51c4a4c6b230ed3616d541f3ad539b36b4c52b38bed43c13d027ef0918"
+    }
+  ],
+  "assertions": [
+    "actual pinned worker original numbered return reproduces failure",
+    "patched worker required and optional semantics, unknown and duplicate rejection, CAN payload and late old ID control",
+    "all20 normalize deterministically and compare action trees excluding signal metadata only"
+  ],
+  "limits": [
+    "not unmodified upstream Omes",
+    "not a replacement pass for original failed fuzz run",
+    "no real Temporal or S3 execution in this component",
+    "optional receipt does not prove optional handler completed"
+  ]
+}

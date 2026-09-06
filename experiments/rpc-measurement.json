@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "name": "rpc-measurement",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "internal/rpctrace/trace.go",
+    "internal/rpctrace/trace_test.go",
+    "internal/adapter/rpc_trace_test.go",
+    "proof/rpc-measurement.md",
+    "internal/adapter/metadata.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/executiontasks.go",
+    "internal/adapter/queue.go",
+    "internal/adapter/execution_store.go",
+    "internal/adapter/visibility.go",
+    "internal/adapter/queuev2.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/nexus.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/matching.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_partitions.go",
+    "internal/adapter/historytasks.go"
+  ],
+  "fault_schedule": "First two actual loopback shard Execute calls return Unavailable after10ms; third succeeds after10ms; adapter20ms+40ms retry backoff. Blocked trace writer deterministically fills one-slot queue; independent writer returns error.",
+  "assertions": [
+    "One correlated helper RPC invocation contains all three transport attempts and at least50ms additional backoff.",
+    "Only identifiers, status and timing are recorded; injected secret error text is absent.",
+    "Overflow/write failures make Close fail; overflow emits trace_error and unsuccessful trace_end."
+  ],
+  "limitations": [
+    "No whole public persistence API timing, S3 bytes or CPU/RSS measurements.",
+    "Missing successful trace_end means incomplete trace; killed processes cannot supply complete telemetry."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-trace-adapter",
+      "filter": "TestRPCTraceInvocationAndAttempts",
+      "exact": true,
+      "expected_tests": [
+        "TestRPCTraceInvocationAndAttempts"
+      ]
+    },
+    {
+      "runner": "go-test-rpctrace",
+      "filter": "TestTraceOverflowAndDrain",
+      "exact": true,
+      "expected_tests": [
+        "TestTraceOverflowAndDrain"
+      ]
+    },
+    {
+      "runner": "go-test-rpctrace",
+      "filter": "TestTraceWriteFailure",
+      "exact": true,
+      "expected_tests": [
+        "TestTraceWriteFailure"
+      ]
+    },
+    {
+      "runner": "go-test-rpctrace",
+      "filter": "TestTraceFinalizationFailures",
+      "exact": true,
+      "expected_tests": [
+        "TestTraceFinalizationFailures"
+      ]
+    }
+  ]
+}

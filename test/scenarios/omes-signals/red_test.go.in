@@ -1,0 +1,31 @@
+package kitchensink
+
+import (
+	"errors"
+	"github.com/temporalio/omes/clioptions"
+	pb "github.com/temporalio/omes/loadgen/kitchensink"
+	common "go.temporal.io/api/common/v1"
+	enums "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+	"testing"
+	"time"
+)
+
+func TestXenonOriginalGeneratedReturn(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetDataConverter(clioptions.OmesDataConverter())
+	env.SetWorkflowRunTimeout(3 * time.Second)
+	env.RegisterWorkflow(KitchenSinkWorkflow)
+	result := &pb.ReturnResultAction{ReturnThis: &common.Payload{Metadata: map[string][]byte{"encoding": []byte("binary/null")}}}
+	signal := &pb.DoSignal_DoSignalActions{SignalId: 2, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_ReturnResult{ReturnResult: result}}}}}}
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", signal) }, time.Second)
+
+	env.ExecuteWorkflow(KitchenSinkWorkflow, (*pb.WorkflowInput)(nil))
+	var timeout *temporal.TimeoutError
+	if !errors.As(env.GetWorkflowError(), &timeout) || timeout.TimeoutType() != enums.TIMEOUT_TYPE_SCHEDULE_TO_CLOSE {
+		t.Fatalf("unexpected original failure: %v", env.GetWorkflowError())
+	}
+	t.Fatal("ORIGINAL_NUMBERED_RETURN_SKIPPED")
+}

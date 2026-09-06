@@ -51,7 +51,7 @@ func matchingCase(t *testing.T) matchingFixture {
 func matchingReq(id string, c *wire.MatchingCommand) *wire.MatchingRequest {
 	b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	h := sha256.Sum256(b)
-	return &wire.MatchingRequest{ProtocolVersion: 1, Partition: "p", OperationId: id, CommandSha256: h[:], Command: c}
+	return &wire.MatchingRequest{ProtocolVersion: matchingProtocol(c), Partition: "p", OperationId: id, CommandSha256: h[:], Command: c}
 }
 func TestGoOwnerMatchingRPC(t *testing.T) {
 	f := matchingCase(t)

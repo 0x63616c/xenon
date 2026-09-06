@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -14,11 +15,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"math"
 	"sort"
 	"time"
 )
 
 type MatchingStore struct {
+	fair              bool
 	connection        *grpc.ClientConn
 	client            wire.MatchingPersistenceClient
 	partition         string
@@ -28,11 +31,18 @@ type MatchingStore struct {
 // Implements the pinned legacy TaskStore, including namespace-wide user data.
 
 func NewMatchingStore(address, partition string) (*MatchingStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
 	return &MatchingStore{connection: conn, client: wire.NewMatchingPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
+}
+func NewFairMatchingStore(address, partition string) (*MatchingStore, error) {
+	s, e := NewMatchingStore(address, partition)
+	if e == nil {
+		s.fair = true
+	}
+	return s, e
 }
 func (s *MatchingStore) Close() {
 	if s.connection != nil {
@@ -40,7 +50,13 @@ func (s *MatchingStore) Close() {
 	}
 }
 func (s *MatchingStore) GetName() string { return "xenon" }
-func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingCommand) (traceResult *wire.MatchingResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "matching")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
+	c.Fair = s.fair
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)
@@ -48,7 +64,11 @@ func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingComm
 		return nil, err
 	}
 	hash := sha256.Sum256(data)
-	req := &wire.MatchingRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: hash[:], Command: c}
+	version := uint32(1)
+	if c.Fair {
+		version = 2
+	}
+	req := &wire.MatchingRequest{ProtocolVersion: version, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: hash[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, req)
 		if e == nil {
@@ -181,7 +201,7 @@ func (s *MatchingStore) CreateTasks(ctx context.Context, q *p.InternalCreateTask
 		if v == nil || v.Task == nil || v.Subqueue < 0 || v.Subqueue > 2147483647 {
 			return nil, serviceerror.NewInvalidArgument("invalid task")
 		}
-		c.Tasks = append(c.Tasks, &wire.MatchingTask{Id: v.TaskId, Subqueue: int32(v.Subqueue), Data: v.Task.Data, Encoding: int32(v.Task.EncodingType)})
+		c.Tasks = append(c.Tasks, &wire.MatchingTask{Id: v.TaskId, Pass: v.TaskPass, Subqueue: int32(v.Subqueue), Data: v.Task.Data, Encoding: int32(v.Task.EncodingType)})
 	}
 	_, e = s.invokeMatching(ctx, c)
 	if e != nil {
@@ -190,7 +210,10 @@ func (s *MatchingStore) CreateTasks(ctx context.Context, q *p.InternalCreateTask
 	return &p.CreateTasksResponse{UpdatedMetadata: false}, nil
 }
 func (s *MatchingStore) GetTasks(ctx context.Context, q *p.GetTasksRequest) (*p.InternalGetTasksResponse, error) {
-	if q.InclusiveMinPass != 0 {
+	if s.fair && (q.InclusiveMinPass < 1 || q.ExclusiveMaxTaskID != math.MaxInt64) {
+		return nil, serviceerror.NewInternal("invalid fair task read bounds")
+	}
+	if !s.fair && q.InclusiveMinPass != 0 {
 		return nil, serviceerror.NewInternal("InclusiveMinPass is not supported")
 	}
 	if q.PageSize < 1 || q.PageSize > 1000 || q.Subqueue < 0 || q.Subqueue > 2147483647 {
@@ -200,6 +223,7 @@ func (s *MatchingStore) GetTasks(ctx context.Context, q *p.GetTasksRequest) (*p.
 	if e != nil {
 		return nil, e
 	}
+	c.MinPass = q.InclusiveMinPass
 	c.MinId = q.InclusiveMinTaskID
 	c.MaxId = q.ExclusiveMaxTaskID
 	c.PageSize = int32(q.PageSize)
@@ -216,7 +240,10 @@ func (s *MatchingStore) GetTasks(ctx context.Context, q *p.GetTasksRequest) (*p.
 	return out, nil
 }
 func (s *MatchingStore) CompleteTasksLessThan(ctx context.Context, q *p.CompleteTasksLessThanRequest) (int, error) {
-	if q.ExclusiveMaxPass != 0 {
+	if s.fair && q.ExclusiveMaxPass < 1 {
+		return 0, serviceerror.NewInternal("invalid fair completion pass")
+	}
+	if !s.fair && q.ExclusiveMaxPass != 0 {
 		return 0, serviceerror.NewInternal("ExclusiveMaxPass is not supported")
 	}
 	if q.Limit < 1 || q.Limit > 2147483647 || q.Subqueue < 0 || q.Subqueue > 2147483647 {
@@ -226,6 +253,7 @@ func (s *MatchingStore) CompleteTasksLessThan(ctx context.Context, q *p.Complete
 	if e != nil {
 		return 0, e
 	}
+	c.MaxPass = q.ExclusiveMaxPass
 	c.MaxId = q.ExclusiveMaxTaskID
 	c.Subqueue = int32(q.Subqueue)
 	c.PageSize = int32(q.Limit)

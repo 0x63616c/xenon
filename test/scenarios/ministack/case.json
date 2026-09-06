@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "status": "runtime-candidate",
+  "backend": "s3-emulator",
+  "namespace": "xenon-ministack",
+  "workflow_id": "xenon-durable-workflow-1",
+  "task_queue": "xenon-ministack-worker",
+  "history_shards": 4,
+  "ports": {
+    "s3": 19006,
+    "ui": 18080,
+    "storage_ingress": 17935,
+    "temporal_ingress": 17233,
+    "nodes": [
+      17351,
+      17352,
+      17353
+    ],
+    "node_metrics": [
+      17451,
+      17452,
+      17453
+    ],
+    "temporal_http_ingress": 17243
+  },
+  "temporal_instances": [
+    {
+      "id": "a",
+      "frontend": 18233,
+      "history": 18234,
+      "matching": 18235,
+      "worker": 18239,
+      "membership_base": 18300
+    },
+    {
+      "id": "b",
+      "frontend": 19233,
+      "history": 19234,
+      "matching": 19235,
+      "worker": 19239,
+      "membership_base": 19300
+    }
+  ],
+  "fault_schedule": [
+    {
+      "after": "workflow activity durable marker",
+      "action": "kill active history owner process"
+    },
+    {
+      "after": "owner restarted fresh incarnation and activated",
+      "action": "assert workflow timer signal activity completion and exact result"
+    },
+    {
+      "after": "omes starts fixed iteration run",
+      "action": "add third Xenon node and explicitly move matching partition"
+    },
+    {
+      "after": "SDK connection established through frontend proxy",
+      "action": "kill one Temporal process"
+    },
+    {
+      "after": "all submitted workflow results recorded",
+      "action": "stop all native processes and restart with empty local runtime directories"
+    }
+  ],
+  "required_assertions": [
+    "all SDK workflow results and history checks",
+    "visibility list count filter pagination search attributes",
+    "unchanged UI workflow list and detail via browser",
+    "Omes exact iterations completed without embedded server",
+    "both initial Xenon nodes performed partition work and node3 accepts moved work",
+    "recovered acknowledged outcomes after cold local restart"
+  ],
+  "omes_command": [
+    "run-scenario-with-worker",
+    "--server-address",
+    "127.0.0.1:17233",
+    "--namespace",
+    "xenon-ministack",
+    "--scenario",
+    "workflow_with_single_noop_activity",
+    "--language",
+    "go",
+    "--run-id",
+    "xenon-ministack-omes",
+    "--iterations",
+    "20",
+    "--max-concurrent",
+    "2",
+    "--max-iteration-attempts",
+    "1",
+    "--timeout",
+    "5m",
+    "--version",
+    "v1.48.0",
+    "--max-iterations-per-second",
+    "1",
+    "--retain-temp-dir",
+    "--dir-name",
+    "prepared"
+  ],
+  "partitions": [
+    "history-0",
+    "history-1",
+    "history-2",
+    "history-3",
+    "matching",
+    "global",
+    "vis-v1-0",
+    "vis-v1-1",
+    "vis-v1-2",
+    "vis-v1-3"
+  ],
+  "max_outcomes": 200000,
+  "scope": "first-boot-smoke",
+  "full_acceptance": false,
+  "recovery_seconds": 120,
+  "minimum_free_disk_bytes": 5368709120,
+  "cold_storage_readiness_seconds": 60
+}

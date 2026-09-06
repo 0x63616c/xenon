@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "name": "go-execution",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md",
+    "proto/xenon/v1/execution.proto",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "proof/execution/case.json",
+    "proof/execution/README.md",
+    "docs/research/execution-contract.md"
+  ],
+  "fault_schedule": "Proxy drops the first completed workflow Create response; native duplicate task after a staged insert aborts current/state/tasks, history prewrites survive subsequent state conflict, then reopen and fence replay.",
+  "assertions": [
+    "Nine mutable-state methods cross actual gRPC to the Go native owner.",
+    "Current-run, shard-range and DB version/legacy NextEventID guards preserve typed errors.",
+    "Current pointer, state maps and generated tasks commit or roll back together.",
+    "Prewritten history survives state conflict, and completed root replay never replays prewrites.",
+    "Reopen retains acknowledged outcomes; a competing writer fences stale replay.",
+    "Scheduled task keys and values use PostgreSQL microsecond precision including preepoch times."
+  ],
+  "limitations": [
+    "Memory object store proof, not S3 or process-crash acceptance.",
+    "Workflow mutable-state component only; task retrieval/completion and complete ExecutionStore factory remain separate gates.",
+    "Configured partition only; routing and global scan fanout remain pending.",
+    "2 MiB image limit and 3 MiB response limit are explicit bounded baseline ceilings."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestExecutionRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestExecutionRPC"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerExecutionRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerExecutionRecovery"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "name": "recorder-adapter",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "internal/proof/recorder/recorder.go",
+    "internal/proof/recorder/recorder_test.go",
+    "cmd/xenon-trace-recorder/main.go",
+    "proof/external-recorder.md",
+    "internal/rpctrace/observer.go",
+    "internal/rpctrace/observer_test.go",
+    "internal/rpctrace/trace.go",
+    "internal/adapter/recorder_trace_test.go",
+    "proof/recorder-adapter.md",
+    "internal/adapter/metadata.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/executiontasks.go",
+    "internal/adapter/queue.go",
+    "internal/adapter/visibility.go",
+    "internal/adapter/queuev2.go",
+    "internal/adapter/nexus.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/matching.go",
+    "internal/adapter/history.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/rpc_trace_test.go",
+    "internal/rpctrace/trace_test.go"
+  ],
+  "fault_schedule": "20ms registration ACK delay, first ACK dropped after real journal Accept, actual gRPC handler10ms with firsttwo Unavailable and20+40ms adapterbackoff. Independent recorder listener death after invocation registration, before Execute. Concurrent20 producers share serialized sequence.",
+  "assertions": [
+    "Actual adapter helper includes registration handshake, retries and backoff; separate Execute populations remain shorter.",
+    "Observer registration failure prevents backend Execute and fails measurement status.",
+    "Concurrent registration preserves contiguous sequence; conflicting trace configuration rejects."
+  ],
+  "limitations": [
+    "Fixed pre-opened phase only; no runtime controller or dynamic phase wiring.",
+    "Recorder death in adapter control is listener closure; separate external-recorder proof includes actual recorder SIGKILL.",
+    "Not whole public persistence API timing or full acceptance proof."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-observer-adapter",
+      "filter": "TestRecorderAdapterTimingAndLoss",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderAdapterTimingAndLoss/delayed_lost_ack",
+        "TestRecorderAdapterTimingAndLoss/recorder_death",
+        "TestRecorderAdapterTimingAndLoss"
+      ]
+    },
+    {
+      "runner": "go-test-observer",
+      "filter": "TestObserverConcurrentRegistration",
+      "exact": true,
+      "expected_tests": [
+        "TestObserverConcurrentRegistration"
+      ]
+    },
+    {
+      "runner": "go-test-observer",
+      "filter": "TestObserverConfiguration",
+      "exact": true,
+      "expected_tests": [
+        "TestObserverConfiguration"
+      ]
+    },
+    {
+      "runner": "go-test-trace-adapter",
+      "filter": "TestRPCTraceInvocationAndAttempts",
+      "exact": true,
+      "expected_tests": [
+        "TestRPCTraceInvocationAndAttempts"
+      ]
+    }
+  ]
+}

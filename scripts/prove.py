@@ -15,6 +15,20 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 
+SCENARIO_MANIFESTS = {
+    name: "test/scenarios/ministack/manifests/" + name + ".json"
+    for name in ("runtime-measurements", "nexus-http", "nexus-readiness", "corrected-fuzz-controls")
+}
+
+def manifest_path(name, root=None):
+    root = ROOT if root is None else root
+    return root / SCENARIO_MANIFESTS.get(name, "experiments/" + name + ".json")
+
+def manifest_paths(root=None):
+    root = ROOT if root is None else root
+    return sorted([*(root / "experiments").glob("*.json"), *(root / "test/scenarios").glob("*/manifests/*.json")])
+
+
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -22,6 +36,11 @@ def digest(path):
 
 def classify_success(dirty):
     return ("development-passed", False) if dirty else ("passed", True)
+
+
+def version_matches(output, required):
+    """Accept the pinned version line even when a tool manager emits diagnostics first."""
+    return any(line.strip().startswith(required) for line in output.splitlines())
 
 
 def cargo_configs(root, env):
@@ -39,11 +58,11 @@ def command(spec):
     if spec == {"runner": "go-node-build"}:
         return [sys.executable, "scripts/build-go-node.py"]
     if spec == {"runner": "cargo-build-node"}:
-        return ["cargo", "build", "--locked", "-p", "xenon-node"]
+        return ["cargo", "build", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", "xenon-node"]
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-shard-compat", "s3-directory") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-mixed-oracle", "go-test-observer", "go-test-observer-adapter", "go-test-nexus-config", "go-check-nexus-config", "go-test-sdk-readiness", "go-test-visibility-barrier", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-cas-loss", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -52,6 +71,41 @@ def command(spec):
         raise ValueError("expected_tests must be a nonempty unique list")
     if any(not isinstance(t, str) or not re.fullmatch(r"[a-zA-Z0-9_:/]+", t) for t in tests):
         raise ValueError("invalid expected test name")
+    if runner == "go-test-process-cut":
+        if spec["filter"] not in ("TestCutIdentityAndOneShot", "TestDiscoveryExactCandidate", "TestDiscoveryLateArmRejected") or not spec["exact"]:
+            raise ValueError("unregistered process-cut controls")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/processcut", "-run", "^" + spec["filter"] + "$"]
+    if runner == "s3-process-cut":
+        if spec["filter"] not in ("TestS3ProcessCuts", "TestS3ExecutionDiscoveryCuts") or not spec["exact"]:
+            raise ValueError("unregistered process-cut S3 fixture")
+        return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
+    if runner == "python-measurements":
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout", "test_recorder_lifecycle", "test_corrected_fuzz"):
+            raise ValueError("unregistered runtime measurement controls")
+        return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
+    if runner == "go-test-meter-cli":
+        if spec["filter"] != "TestMeterCLI" or not spec["exact"]:
+            raise ValueError("unregistered meter CLI control")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-s3-meter", "-run", "^TestMeterCLI$"]
+    if runner == "go-test-cas-loss":
+        if spec["filter"] != "TestCASLossHTTP" or not spec["exact"]: raise ValueError("unregistered CAS loss test")
+        return ["go","test","-race","-json","-count=1","./internal/proof/s3meter","-run","^TestCASLossHTTP$"]
+    if runner == "go-test-meter":
+        if spec["filter"] != "TestMeter" or spec["exact"]:
+            raise ValueError("unregistered meter controls")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/s3meter", "-run", "^TestMeter"]
+    if runner == "s3-meter":
+        if spec["filter"] not in ("TestMeterSignedS3", "TestCASLossSignedS3") or not spec["exact"]:
+            raise ValueError("unregistered signed meter test")
+        return [sys.executable, "scripts/s3-meter-proof.py", spec["filter"]]
+    if runner == "s3-maintenance":
+        if spec["filter"] != "TestS3Maintenance" or not spec["exact"]:
+            raise ValueError("unregistered maintenance test")
+        return [sys.executable, "scripts/maintenance-proof.py"]
+    if runner == "s3-owner-manager":
+        if spec["filter"] != "TestS3OwnerManager" or not spec["exact"]:
+            raise ValueError("unregistered owner manager test")
+        return [sys.executable, "scripts/owner-manager-proof.py"]
     if runner == "s3-directory":
         if spec["filter"] != "TestS3Directory" or not spec["exact"]:
             raise ValueError("unregistered directory test")
@@ -60,6 +114,51 @@ def command(spec):
         if spec["filter"] != "crash" or spec["exact"]:
             raise ValueError("invalid crash command")
         return [sys.executable, "scripts/crash-proof.py", *(["--check-cleanup"] if runner == "s3-crash-cleanup" else [])]
+    if runner == "go-test-outcomes":
+        if not spec["exact"] or spec["filter"] != "TestOutcomeMetrics":
+            raise ValueError("unregistered outcome metrics test")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/ownership", "-run", "^TestOutcomeMetrics$"]
+    if runner == "go-test-trace-adapter":
+        if not spec["exact"] or spec["filter"] != "TestRPCTraceInvocationAndAttempts":
+            raise ValueError("unregistered trace adapter proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+    if runner in ("go-test-observer", "go-test-observer-adapter"):
+        names = ("TestObserverConcurrentRegistration", "TestObserverConfiguration") if runner == "go-test-observer" else ("TestRecorderAdapterTimingAndLoss",)
+        if not spec["exact"] or spec["filter"] not in names:
+            raise ValueError("unregistered observer proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace" if runner == "go-test-observer" else "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-fanout":
+        if not spec["exact"] or spec["filter"] != "TestVisibilityIndependentFanout":
+            raise ValueError("unregistered visibility fanout proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^TestVisibilityIndependentFanout$"]
+    if runner == "go-test-mixed-oracle":
+        if not spec["exact"] or spec["filter"] not in ("TestMixedSemantics", "TestMixedNexus", "TestMixedNexusCanceled"):
+            raise ValueError("unregistered mixed oracle control")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-omes-oracle", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-visibility-barrier":
+        if not spec["exact"] or spec["filter"] not in ("TestVisibilityMovementBarrier", "TestSeedPartitions", "TestSeedPartitionsFailureJoinsPeers"):
+            raise ValueError("unregistered visibility barrier control")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-visibility-probe", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-sdk-readiness":
+        if not spec["exact"] or spec["filter"] not in ("TestNexusReadinessShardCoverage", "TestNexusReadinessWorkflowEcho", "TestReadinessWorkerPollerScope", "TestNexusHistoryDiagnostic"):
+            raise ValueError("unregistered SDK readiness proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-sdk-probe", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-nexus-config":
+        if not spec["exact"] or spec["filter"] != "TestNexusHTTPConfiguration":
+            raise ValueError("unregistered Nexus config proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/ministack", "-run", "^TestNexusHTTPConfiguration$"]
+    if runner == "go-check-nexus-config":
+        if not spec["exact"] or spec["filter"] not in ("a", "b") or spec["expected_tests"] != ["TEMPORAL_CONFIG_VALID"]:
+            raise ValueError("unregistered actual config check")
+        return ["go", "run", "-tags", "ministack", "./cmd/xenon-temporal", "--config", "test/scenarios/ministack/config/temporal-" + spec["filter"] + ".json", "--check-config"]
+    if runner == "go-test-recorder":
+        if not spec["exact"] or spec["filter"] not in ("TestRecorderKillAndLostAcknowledgment", "TestRecorderSequenceCapacityAndSteady", "TestRecorderRejectsMissingFooter", "TestRecorderCompletedPopulationAndMalformedJournal", "TestRecorderProcessLoss", "TestRecorderMeasurementLinkage", "TestRecorderHTTPProtocolFailure"):
+            raise ValueError("unregistered recorder proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/recorder", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-rpctrace":
+        if not spec["exact"] or spec["filter"] not in ("TestTraceOverflowAndDrain", "TestTraceWriteFailure", "TestTraceFinalizationFailures"):
+            raise ValueError("unregistered trace proof")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-routing":
         if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline", "TestForwardingClosedAdmission"):
             raise ValueError("unregistered routing test")
@@ -68,16 +167,24 @@ def command(spec):
         if spec["filter"] != "TestShardStoredCompatibility" or not spec["exact"]:
             raise ValueError("unregistered compatibility test")
         return [sys.executable, "scripts/shard-compat-proof.py"]
+    if runner == "go-test-factory":
+        if not spec["exact"] or spec["filter"] != "TestVisibilityFactoryConfiguration":
+            raise ValueError("unregistered factory configuration test")
+        return ["go", "test", "-json", "-count=1", "./internal/temporalstore", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-visibility":
+        if not spec["exact"] or spec["filter"] not in ("TestVisibilityTypedEvaluation", "TestTextPostgreSQLOracle", "TestVisibilitySystemTimeSentinel", "TestVisibilityCustomTimeRounding"):
+            raise ValueError("unregistered visibility value test")
+        return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
-        if not spec["exact"] or not spec["filter"].startswith("TestGoOwner"):
+        if not spec["exact"] or not (spec["filter"].startswith("TestGoOwner") or spec["filter"] in ("TestCanceledAdmissionDoesNotRetireOwner", "TestJournalResultBarrier", "TestMatchingManagedBurst", "TestExecutionResultBarrier")):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":
-        if not spec["exact"] or spec["filter"] not in ("TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestQueueRPC", "TestQueueByteBoundedPagination", "TestQueueRemoteCancellation", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestNexusTransport"):
+        if not spec["exact"] or spec["filter"] not in ("TestRPCTraceInvocationAndAttempts", "TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestQueueRPC", "TestQueueByteBoundedPagination", "TestQueueRemoteCancellation", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestNexusTransport", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC", "TestHistoryPartitionDeadline", "TestHistoryPartitionInvalidCursor", "TestVisibilityRPC", "TestVisibilityUpstream"):
             raise ValueError("unregistered Go test")
         return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
-    return ["cargo", "test", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
+    return ["cargo", "test", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
 
 
 def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/adapter"):
@@ -138,22 +245,22 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat", "forwarding", "directory"])
+    parser.add_argument("name", choices=["corrected-fuzz-controls", "primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
         return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
-    manifest_path = ROOT / "experiments" / (args.name + ".json")
-    manifest = json.loads(manifest_path.read_text())
-    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory") else "memory"):
+    selected_manifest = manifest_path(args.name)
+    manifest = json.loads(selected_manifest.read_text())
+    if manifest["schema"] != 1 or manifest["name"] != args.name or manifest["backend"] != ("s3-emulator" if args.name in ("crash", "go-shard-compat", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else "memory"):
         raise ValueError("unsupported manifest identity/schema/backend")
     timeout = manifest["timeout_seconds_per_command"]
-    if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 900:
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= (1500 if args.name == "maintenance" else 900):
         raise ValueError("invalid timeout")
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
         raise ValueError("shard proof must build the node before tests")
-    if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat") and (not commands or commands[0][2] != "go-node-build"):
+    if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") and (not commands or commands[0][2] != "go-node-build"):
         raise ValueError("Go shard proof must build native Go node first")
     if not commands:
         raise ValueError("empty experiment")
@@ -165,13 +272,21 @@ def main():
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1"})
     if args.name == "crash":
         env["XENON_PROOF_PROJECT"] = "xenon-crash-" + uuid.uuid4().hex[:12]
-    if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat"):
+    if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
         target = ROOT / ".local/slatedb-native-target/debug"
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
     if args.name == "go-shard-compat":
         env["XENON_COMPAT_PROJECT"] = "xenon-compat-" + uuid.uuid4().hex[:12]
         if [item[2] for item in commands] != ["go-node-build", "cargo-build-node", "go-shard-compat"]:
             raise ValueError("compatibility proof requires both builds then registered fixture")
+    if args.name == "process-cut":
+        env["XENON_PROCESS_CUT_PROJECT"] = "xenon-process-cut-" + uuid.uuid4().hex[:12]
+    if args.name == "maintenance":
+        env["XENON_MAINTENANCE_PROJECT"] = "xenon-maintenance-" + uuid.uuid4().hex[:12]
+    if args.name == "owner-manager":
+        env["XENON_OWNER_MANAGER_PROJECT"] = "xenon-owner-manager-" + uuid.uuid4().hex[:12]
+    if args.name in ("s3-meter", "cas-loss"):
+        env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "XENON_S3_METER_PROJECT":"xenon-s3-meter-" + uuid.uuid4().hex[:12]})
     if args.name == "directory":
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "XENON_DIRECTORY_PROJECT":"xenon-directory-" + uuid.uuid4().hex[:12]})
     def git(*argv):
@@ -195,7 +310,7 @@ def main():
             raise ValueError("checkout is dirty; commit inputs or explicitly use --allow-dirty for development")
         if dirty:
             report["tracked_diff_sha256"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD", "--binary"], cwd=ROOT, env=env)).hexdigest()
-        for relative in [str(manifest_path.relative_to(ROOT)), "scripts/prove.py", *manifest["inputs"]]:
+        for relative in [str(selected_manifest.relative_to(ROOT)), "scripts/prove.py", *manifest["inputs"]]:
             path = (ROOT / relative).resolve()
             if not path.is_relative_to(ROOT) or not path.is_file():
                 raise ValueError(f"missing or invalid declared input: {relative}")
@@ -210,14 +325,14 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat", "forwarding", "directory") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
                 raise ValueError(f"cannot record tool version: {tool}")
             report["tool_versions"][tool] = output.strip()
             required = manifest.get("required_tool_prefixes", {}).get(tool)
-            if required and not output.strip().startswith(required):
+            if required and not version_matches(output, required):
                 raise ValueError(f"tool version mismatch: {tool} requires {required}")
         for index, (argv, expected, runner) in enumerate(commands, 1):
             print(f"[{index}/{len(commands)}] {' '.join(argv)}", flush=True)
@@ -238,13 +353,54 @@ def main():
                 if not binary.is_file():
                     raise ValueError("node build produced no binary")
                 report["rust_node_binary_sha256" if args.name == "go-shard-compat" else "node_binary_sha256"] = digest(binary)
+            elif runner in ("s3-owner-manager", "s3-maintenance"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
+                if digest(ROOT / ".local/bin/xenon-go-node") != report["node_binary_sha256"]:
+                    raise ValueError("node binary changed during test")
+            elif runner == "go-test-process-cut":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/processcut")
+            elif runner == "s3-process-cut":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node")
+                if digest(ROOT / ".local/bin/xenon-go-node") != report["node_binary_sha256"]:
+                    raise ValueError("node changed during process-cut proof")
+            elif runner == "python-measurements":
+                actual = re.findall(r"^(test_[a-zA-Z0-9_]+) \([^\n)]+\) \.\.\. ok$", output, re.MULTILINE)
+                if sorted(actual) != sorted(expected) or not re.search(r"^Ran " + str(len(expected)) + r" tests? in [^\n]+\n\nOK$", output.strip(), re.MULTILINE):
+                    raise ValueError("Python measurement assertions mismatch")
+            elif runner == "go-test-meter-cli":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-s3-meter")
+            elif runner in ("go-test-meter", "go-test-cas-loss", "s3-meter"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/s3meter")
             elif runner == "s3-directory":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/directory")
+            elif runner == "go-test-outcomes":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
+            elif runner == "go-test-trace-adapter":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+            elif runner in ("go-test-observer", "go-test-observer-adapter"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace" if runner == "go-test-observer" else "github.com/0x63616c/xenon/internal/adapter")
+            elif runner == "go-test-fanout":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+            elif runner == "go-test-mixed-oracle":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-omes-oracle")
+            elif runner == "go-test-visibility-barrier":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-visibility-probe")
+            elif runner == "go-test-sdk-readiness":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-sdk-probe")
+            elif runner == "go-test-nexus-config":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ministack")
+            elif runner == "go-check-nexus-config":
+                if output.strip() != "TEMPORAL_CONFIG_VALID":
+                    raise ValueError("missing actual config validation result")
+            elif runner == "go-test-recorder":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/recorder")
+            elif runner == "go-test-rpctrace":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace")
             elif runner == "go-test-routing":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/routing")
-            elif runner in ("go-test-shard", "go-test-node", "go-shard-compat"):
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else "github.com/0x63616c/xenon/internal/adapter")
-                binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat") else "target/debug/xenon-node")
+            elif runner in ("go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "go-shard-compat"):
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else ("github.com/0x63616c/xenon/internal/visibility" if runner == "go-test-visibility" else ("github.com/0x63616c/xenon/internal/temporalstore" if runner == "go-test-factory" else "github.com/0x63616c/xenon/internal/adapter")))
+                binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") else "target/debug/xenon-node")
                 if runner == "go-shard-compat" and digest(ROOT / "target/debug/xenon-node") != report["rust_node_binary_sha256"]:
                     raise ValueError("Rust reference binary changed during test")
                 if digest(binary) != report.get("node_binary_sha256"):
@@ -261,7 +417,7 @@ def main():
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name in ("shard", "go-shard-compat") and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
-        if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-shard-compat"):
+        if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
             native_build = report["native_build"]
             source = ROOT / ".local/slatedb-native-source"
             for argv, expected in [(["git", "rev-parse", "HEAD"], native_build["source_commit"]), (["git", "status", "--porcelain=v1", "--untracked-files=all"], "")]:
@@ -285,9 +441,11 @@ def main():
                 report["cleanup"] = {"project": project, "exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
                 report.update(result="failed", proof_pass=False, error="compatibility Compose cleanup failed")
-        if args.name == "directory":
+        if args.name in ("directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut"):
+            env_key = {"directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT", "s3-meter":"XENON_S3_METER_PROJECT", "cas-loss":"XENON_S3_METER_PROJECT", "process-cut":"XENON_PROCESS_CUT_PROJECT"}[args.name]
+            compose_path = "deploy/" + ("s3-meter" if args.name=="cas-loss" else args.name) + ".compose.yaml"
             try:
-                code, output, expired = run_process(["docker", "compose", "--project-name", env["XENON_DIRECTORY_PROJECT"], "-f", "deploy/directory.compose.yaml", "down", "--volumes"], 60, env, ROOT)
+                code, output, expired = run_process(["docker", "compose", "--project-name", env[env_key], "-f", compose_path, "down", "--volumes"], 60, env, ROOT)
                 report["cleanup"] = {"exit_code": code, "timed_out": expired}
             except Exception as error:
                 report["cleanup"] = {"exit_code": -1, "timed_out": False, "error": str(error)}

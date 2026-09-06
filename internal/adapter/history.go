@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -23,6 +24,7 @@ import (
 // HistoryStore is only the seven-operation history component of ExecutionStore.
 // It deliberately does not claim to implement unfinished workflow operations.
 type HistoryStore struct {
+	historyPartitions []string
 	connection        *grpc.ClientConn
 	client            wire.HistoryPersistenceClient
 	partition         string
@@ -31,7 +33,7 @@ type HistoryStore struct {
 }
 
 func NewHistoryStore(address, partition string) (*HistoryStore, error) {
-	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
@@ -44,7 +46,12 @@ func (s *HistoryStore) Close() {
 }
 func (s *HistoryStore) GetName() string                           { return "xenon" }
 func (s *HistoryStore) GetHistoryBranchUtil() p.HistoryBranchUtil { return s.HistoryBranchUtilImpl }
-func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand) (*wire.HistoryResult, error) {
+func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand) (traceResult *wire.HistoryResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "history")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
@@ -52,7 +59,11 @@ func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand
 		return nil, e
 	}
 	d := sha256.Sum256(raw)
-	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, c.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {
@@ -236,6 +247,9 @@ func (s *HistoryStore) DeleteHistoryBranch(ctx context.Context, q *p.InternalDel
 	return e
 }
 func (s *HistoryStore) GetAllHistoryTreeBranches(ctx context.Context, q *p.GetAllHistoryTreeBranchesRequest) (*p.InternalGetAllHistoryTreeBranchesResponse, error) {
+	if s.historyPartitions != nil {
+		return s.listHistoryPartitions(ctx, q)
+	}
 	if q == nil {
 		return nil, serviceerror.NewInvalidArgument("nil history list")
 	}

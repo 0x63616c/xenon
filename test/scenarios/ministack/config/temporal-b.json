@@ -1,0 +1,107 @@
+{
+  "log": {
+    "stdout": true,
+    "level": "info"
+  },
+  "persistence": {
+    "defaultStore": "xenon-default",
+    "visibilityStore": "xenon-visibility",
+    "numHistoryShards": 4,
+    "datastores": {
+      "xenon-default": {
+        "customDatastore": {
+          "name": "xenon",
+          "options": {
+            "address": "127.0.0.1:17935",
+            "matchingPartition": "matching",
+            "globalPartition": "global",
+            "historyPartitions": [
+              "history-0",
+              "history-1",
+              "history-2",
+              "history-3"
+            ]
+          }
+        }
+      },
+      "xenon-visibility": {
+        "customDatastore": {
+          "name": "xenon",
+          "options": {
+            "address": "127.0.0.1:17935",
+            "index": "xenon-visibility",
+            "schema_partition": "global"
+          }
+        }
+      }
+    }
+  },
+  "global": {
+    "membership": {
+      "maxJoinDuration": "30s",
+      "broadcastAddress": "127.0.0.1"
+    }
+  },
+  "services": {
+    "frontend": {
+      "rpc": {
+        "grpcPort": 19233,
+        "membershipPort": 19300,
+        "bindOnIP": "0.0.0.0",
+        "httpPort": 19243
+      }
+    },
+    "history": {
+      "rpc": {
+        "grpcPort": 19234,
+        "membershipPort": 19301,
+        "bindOnIP": "0.0.0.0"
+      }
+    },
+    "matching": {
+      "rpc": {
+        "grpcPort": 19235,
+        "membershipPort": 19302,
+        "bindOnIP": "0.0.0.0"
+      }
+    },
+    "worker": {
+      "rpc": {
+        "grpcPort": 19239,
+        "membershipPort": 19303,
+        "bindOnIP": "0.0.0.0"
+      }
+    }
+  },
+  "clusterMetadata": {
+    "enableGlobalNamespace": false,
+    "failoverVersionIncrement": 10,
+    "masterClusterName": "active",
+    "currentClusterName": "active",
+    "clusterInformation": {
+      "active": {
+        "enabled": true,
+        "initialFailoverVersion": 1,
+        "rpcName": "frontend",
+        "rpcAddress": "127.0.0.1:17233",
+        "httpAddress": "127.0.0.1:17243"
+      }
+    }
+  },
+  "dcRedirectionPolicy": {
+    "policy": "noop"
+  },
+  "archival": {
+    "history": {
+      "state": "disabled",
+      "enableRead": false
+    },
+    "visibility": {
+      "state": "disabled",
+      "enableRead": false
+    }
+  },
+  "publicClient": {
+    "httpHostPort": "127.0.0.1:17243"
+  }
+}
