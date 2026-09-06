@@ -30,10 +30,24 @@ const steps = computed(() => [
       >
     </div>
     <div class="routing-map" aria-hidden="true">
-      <span>Temporal</span><i>→</i><b>{{ entry }}</b
-      ><template v-if="entry !== owner"
-        ><i>→</i><b>{{ owner }}</b></template
-      ><i>→</i><span>S3</span>
+      <span :class="{ active: step === 3 }">Temporal</span>
+      <i :class="{ active: step === 0 || step === 3 }">{{
+        step === 3 ? "←" : "→"
+      }}</i>
+      <b
+        :class="{
+          active: step === 0 || (entry === owner && (step === 1 || step === 2)),
+        }"
+        >{{ entry }}</b
+      >
+      <template v-if="entry !== owner">
+        <i :class="{ active: step === 1 || step === 3 }">{{
+          step === 3 ? "←" : "→"
+        }}</i>
+        <b :class="{ active: step === 1 || step === 2 }">{{ owner }}</b>
+      </template>
+      <i :class="{ active: step === 2 }">→</i
+      ><span :class="{ active: step === 2 }">S3</span>
     </div>
     <p aria-live="polite">{{ steps[step] }}</p>
     <div class="routing-bottom">

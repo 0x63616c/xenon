@@ -96,6 +96,8 @@ try {
           .getByRole("combobox", { name: /Partition owner/ })
           .selectOption("A");
         await page.getByRole("button", { name: "Next step" }).click();
+        if ((await page.locator(".routing-map b.active").innerText()) !== "A")
+          throw new Error("forward owner highlight missing");
         await page
           .getByText("forwards the unchanged operation to owner A.", {
             exact: false,
