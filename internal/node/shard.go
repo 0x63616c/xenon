@@ -33,7 +33,7 @@ type Config struct {
 }
 
 func DefaultConfig(partition string) Config {
-	return Config{Partition: partition, MaxOutcomes: 10000, OperationTimeout: 20 * time.Second, AdmissionTimeout: 5 * time.Second, MaxAdmitted: 64}
+	return Config{Partition: partition, MaxOutcomes: 10000, OperationTimeout: 20 * time.Second, AdmissionTimeout: 20 * time.Second, MaxAdmitted: 64}
 }
 
 // Owner never destroys a native resource while an FFI call can still reference it.
