@@ -53,7 +53,24 @@ func (s *ExecutionServer) Execute(ctx context.Context, q *wire.ExecutionRequest)
 	if !bytes.Equal(d[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
 	}
-	raw, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
+	raw, e := s.runExecutionResult(ctx, q, d[:])
+	if e != nil {
+		return nil, e
+	}
+	r := new(wire.ExecutionResult)
+	if e = proto.Unmarshal(raw, r); e != nil {
+		return nil, backend(e)
+	}
+	return r, nil
+}
+
+// runExecutionResult owns the entire gate callback: replay lookup and history
+// prewrites precede the final root journal. Only that durable root outcome is
+// returned; no caller callback or database read can run after its commit. This
+// gives the same fencing point for fresh, replayed and logical-error results.
+func (s *ExecutionServer) runExecutionResult(ctx context.Context, q *wire.ExecutionRequest, digest []byte) ([]byte, error) {
+	c := q.Command
+	return s.Owner.run(ctx, func(*native.Db) ([]byte, error) {
 		// Check the root before independent history prewrites. A replay must never
 		// recreate events removed after the original completed operation.
 		tx, e := s.Owner.db.Begin(native.IsolationLevelSerializableSnapshot)
@@ -84,7 +101,7 @@ func (s *ExecutionServer) Execute(ctx context.Context, q *wire.ExecutionRequest)
 				}
 			}
 		}
-		outcome, e := s.Owner.journal(q.OperationId, d[:], executionFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		outcome, e := s.Owner.journal(q.OperationId, digest, executionFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
 			r, e := applyExecution(tx, c)
 			if e != nil {
 				return nil, e
@@ -93,22 +110,15 @@ func (s *ExecutionServer) Execute(ctx context.Context, q *wire.ExecutionRequest)
 		})
 		var logical *executionFailure
 		if errors.As(e, &logical) {
-			outcome, e = s.Owner.journal(q.OperationId, d[:], executionFamily, func(*native.DbTransaction) (*wire.StoredOutcome, error) { return executionOutcome(logical.result), nil })
+			outcome, e = s.Owner.journal(q.OperationId, digest, executionFamily, func(*native.DbTransaction) (*wire.StoredOutcome, error) { return executionOutcome(logical.result), nil })
 		}
 		if e != nil {
 			return nil, e
 		}
 		return proto.Marshal(outcome.GetExecutionResult())
-	})
-	if e != nil {
-		return nil, e
-	}
-	r := new(wire.ExecutionResult)
-	if e = proto.Unmarshal(raw, r); e != nil {
-		return nil, backend(e)
-	}
-	return r, nil
+	}, true)
 }
+
 func executionOutcome(r *wire.ExecutionResult) *wire.StoredOutcome {
 	return &wire.StoredOutcome{Result: &wire.StoredOutcome_ExecutionResult{ExecutionResult: r}}
 }

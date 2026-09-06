@@ -168,7 +168,7 @@ def command(spec):
             raise ValueError("unregistered visibility value test")
         return ["go", "test", "-json", "-count=1", "./internal/visibility", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-node":
-        if not spec["exact"] or not (spec["filter"].startswith("TestGoOwner") or spec["filter"] in ("TestCanceledAdmissionDoesNotRetireOwner", "TestJournalResultBarrier", "TestMatchingManagedBurst")):
+        if not spec["exact"] or not (spec["filter"].startswith("TestGoOwner") or spec["filter"] in ("TestCanceledAdmissionDoesNotRetireOwner", "TestJournalResultBarrier", "TestMatchingManagedBurst", "TestExecutionResultBarrier")):
             raise ValueError("unregistered Go owner test")
         return ["go", "test", "-json", "-count=1", "./internal/node", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-shard":

@@ -778,6 +778,14 @@
       "expected_tests": [
         "TestMatchingManagedBurst"
       ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestExecutionResultBarrier",
+      "exact": true,
+      "expected_tests": [
+        "TestExecutionResultBarrier"
+      ]
     }
   ]
 }

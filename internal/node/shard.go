@@ -146,8 +146,9 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	return o.run(ctx, operation, false)
 }
 
-// committedJournalResult is true only through runJournalResult, which constructs
-// the entire callback and cannot run caller code after its durable commit.
+// committedJournalResult is true only through runJournalResult or the private
+// execution runner. Both construct the entire callback and return only the final
+// durable journal outcome, with no caller code or database reads after commit.
 func (o *Owner) run(ctx context.Context, operation func(*native.Db) ([]byte, error), committedJournalResult bool) ([]byte, error) {
 	if operation == nil {
 		return nil, status.Error(codes.InvalidArgument, "nil operation")

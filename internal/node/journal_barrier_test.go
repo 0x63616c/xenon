@@ -133,3 +133,26 @@ func TestMatchingManagedBurst(t *testing.T) {
 		t.Error("healthy managed burst quarantined owner")
 	}
 }
+
+func TestExecutionResultBarrier(t *testing.T) {
+	store := objects(t)
+	o := owner(t, engine(t, store, "execution-barrier", false))
+	o.config.Authority = func(context.Context) error { return nil }
+	s := &ExecutionServer{Owner: o}
+	q := executionRequest("missing-execution", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_GET, NamespaceId: "11111111-1111-4111-8111-111111111111", WorkflowId: "missing", RunId: "22222222-2222-4222-8222-222222222222"})
+	for i := 0; i < 2; i++ {
+		r, e := s.Execute(context.Background(), q)
+		if e != nil || r.Error != wire.ExecutionResult_NOT_FOUND {
+			t.Fatal(r, e)
+		}
+		if value, e := o.db.Get([]byte("v1/ownership/read-barrier")); e != nil || value != nil {
+			t.Fatal("redundant execution barrier", e)
+		}
+	}
+	replacement := owner(t, engine(t, store, "execution-barrier", false))
+	defer closeOwner(t, replacement)
+	if _, e := s.Execute(context.Background(), q); status.Code(e) != codes.Unavailable || !o.Quarantined() {
+		t.Fatal("fenced execution replay served", e)
+	}
+	closeOwner(t, o)
+}
