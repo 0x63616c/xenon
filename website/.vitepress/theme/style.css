@@ -159,145 +159,6 @@
   max-width: 100%;
   margin: 58px auto 0;
 }
-.system-top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 17px;
-}
-.system-top > span:last-child {
-  font-size: 13px;
-  color: #797979;
-}
-.small-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #171717;
-  color: white;
-  font-size: 19px;
-  font-weight: 600;
-  display: grid;
-  place-items: center;
-}
-.connector.vertical {
-  height: 28px;
-  width: 1px;
-  margin: auto;
-  background: #cfcfcf;
-}
-.system-service {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: #1c1c1c;
-  border: 1px solid #3c3c3c;
-  border-radius: 16px;
-  width: 325px;
-  max-width: 90%;
-  margin: auto;
-  padding: 17px;
-  color: #fff;
-  box-shadow: 0 14px 35px #28282818;
-  font-size: 16px;
-}
-.system-service img {
-  width: 25px;
-}
-.live-dot {
-  width: 6px;
-  height: 6px;
-  background: #ffffff;
-  border-radius: 50%;
-  margin-left: 14px;
-}
-.branch {
-  height: 30px;
-  display: flex;
-  justify-content: space-around;
-  width: 76%;
-  margin: auto;
-  border-top: 1px solid #cacaca;
-  position: relative;
-  top: 14px;
-}
-.branch:before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 30px;
-  height: 14px;
-  width: 1px;
-  background: #cacaca;
-}
-.branch i {
-  height: 100%;
-  width: 1px;
-  background: #cacaca;
-}
-.system-nodes {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-top: 14px;
-}
-.system-node {
-  border: 1px solid #dfdfdf;
-  border-radius: 12px;
-  background: #ffffffc9;
-  padding: 17px 22px;
-  box-shadow: 0 10px 25px #5c5c5c08;
-}
-.node-caption {
-  font-size: 12px;
-  letter-spacing: 0.6px;
-  font-weight: 600;
-  color: #828282;
-}
-.partition-bars {
-  display: flex;
-  gap: 6px;
-  margin: 12px 0;
-}
-.partition-bars i {
-  display: block;
-  background: #ececec;
-  height: 7px;
-  border-radius: 3px;
-  flex: 1;
-}
-.partition-bars i.active {
-  background: #333333;
-}
-.node-engine {
-  font-size: 13px;
-  color: #646464;
-}
-.storage-line {
-  height: 30px;
-  width: 1px;
-  background: #cdcdcd;
-  margin: auto;
-}
-.system-storage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 18px;
-}
-.system-storage svg {
-  width: 22px;
-  height: 25px;
-  stroke: #757575;
-  stroke-width: 1.5;
-}
-.system-storage span {
-  font-size: 12px;
-  color: #787878;
-}
 .section-width {
   max-width: 1080px;
   margin: auto;
@@ -442,54 +303,6 @@
   background: #171717;
   color: #ffffff;
 }
-.arch-stage {
-  padding: 28px;
-  display: grid;
-  gap: 10px;
-}
-.arch-node {
-  padding: 14px 18px;
-  border: 1px solid #e3e3e3;
-  border-radius: 12px;
-  text-align: left;
-  background: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-.arch-node strong {
-  font-size: 15px;
-  font-weight: 600;
-}
-.arch-node span {
-  font-size: 12px;
-  color: #7c7c7c;
-}
-.arch-node.selected {
-  border-color: #171717;
-  box-shadow: 0 0 0 2px #17171718;
-}
-.arch-node:hover {
-  border-color: #555555;
-}
-.arch-node.engine {
-  background: #262626;
-  border-color: #404040;
-  color: white;
-}
-.arch-node.engine span {
-  color: #bfbfbf;
-}
-.arch-arrow {
-  text-align: center;
-  color: #a8a8a8;
-  font-size: 16px;
-  line-height: 18px;
-}
 .arch-inspector {
   padding: 25px 28px;
   background: #fff;
@@ -578,26 +391,8 @@ button:focus-visible {
   .system-top > span:last-child {
     font-size: 12px;
   }
-  .system-nodes {
-    gap: 8px;
-  }
-  .system-node {
-    padding: 13px 10px;
-    border-radius: 12px;
-  }
-  .node-caption {
-    font-size: 12px;
-    letter-spacing: 1px;
-  }
-  .system-storage {
-    gap: 8px;
-  }
   .system-storage span {
     font-size: 12px;
-  }
-  .system-service {
-    padding: 14px;
-    width: 280px;
   }
   .principles {
     padding: 58px 24px;
@@ -639,17 +434,6 @@ button:focus-visible {
   }
   .cloud-section h2 {
     font-size: 46px;
-  }
-  .arch-stage {
-    padding: 18px;
-  }
-  .arch-node {
-    padding: 12px;
-  }
-  .arch-node span {
-    font-size: 12px;
-    max-width: 40%;
-    text-align: right;
   }
   .arch-inspector {
     padding: 20px;

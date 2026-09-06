@@ -118,6 +118,15 @@ try {
             throw new Error(`icon failed: ${url}`);
         }
       }
+      if (!path) {
+        await page.locator('.hero-system [data-stage="2"]').click();
+        if (
+          !(await page.locator(".hero-map-detail").innerText()).includes(
+            "shared address",
+          )
+        )
+          throw new Error(`homepage role explanation failed: ${name}`);
+      }
       if (path === "docs/architecture.html") {
         const firstTab = page.getByRole("tab", { name: "Request path" });
         await firstTab.focus();
@@ -134,15 +143,26 @@ try {
           "Request path",
         ]) {
           await page.getByRole("tab", { name: label }).click();
-          const nodes = page.locator(".arch-node");
-          if ((await nodes.count()) !== 6)
-            throw new Error("architecture nodes missing");
-          await nodes.last().click();
-          await page
-            .locator(".arch-inspector h3")
-            .waitFor({ state: "visible" });
-          if (!((await nodes.last().getAttribute("aria-pressed")) === "true"))
-            throw new Error("selected node missing");
+          const hotspots = page.locator(".architecture-explorer [data-stage]");
+          const stages = await hotspots.evaluateAll((buttons) =>
+            [...new Set(buttons.map((button) => button.dataset.stage))].sort(),
+          );
+          if (stages.join(",") !== "0,1,2,3,4,5")
+            throw new Error(`architecture roles missing: ${label}`);
+          for (const stage of stages) {
+            const button = page
+              .locator(`.architecture-explorer [data-stage="${stage}"]`)
+              .first();
+            await button.click();
+            if ((await button.getAttribute("aria-pressed")) !== "true")
+              throw new Error(`role selection failed: ${label}/${stage}`);
+            if (!(await page.locator(".arch-inspector h3").innerText()).trim())
+              throw new Error(`role explanation missing: ${label}/${stage}`);
+          }
+          await page.locator(".architecture-explorer").screenshot({
+            path: `${output}/${name}-diagram-${label.toLowerCase().replaceAll(/[^a-z]+/g, "-")}.png`,
+            animations: "disabled",
+          });
         }
       }
       if (!path || path === "docs/architecture.html")

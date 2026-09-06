@@ -1,5 +1,34 @@
 <script setup>
 import { withBase } from "vitepress";
+import SystemDiagram from "./SystemDiagram.vue";
+import { ref } from "vue";
+const selectedRole = ref(-1);
+const roles = [
+  [
+    "Your existing clients",
+    "Applications, Omes and the UI continue to use Temporal's APIs.",
+  ],
+  [
+    "Temporal runs your workflows",
+    "The workflow engine stays in place. Its persistence adapters send complete operations to Xenon.",
+  ],
+  [
+    "A shared address, not another storage node",
+    "The service routes a request to any ready Xenon node. The local proof uses HAProxy; Kubernetes Service is the intended deployment equivalent.",
+  ],
+  [
+    "Each node can receive and forward",
+    "A Go process executes work for partitions it owns. For another owner's partition, it forwards the operation internally.",
+  ],
+  [
+    "SlateDB lives inside the owner",
+    "Each owned partition has its own embedded SlateDB handle and admission gate. One node can own several partitions.",
+  ],
+  [
+    "Durable state lives in object storage",
+    "The current storage API is S3-compatible. Local proofs use MinIO; Amazon S3 and other providers require their own acceptance runs.",
+  ],
+];
 </script>
 <template>
   <main class="x-home">
@@ -14,7 +43,8 @@ import { withBase } from "vitepress";
       <div class="eyebrow"><span class="status-dot"></span> IN DEVELOPMENT</div>
       <h1>Temporal.<br /><span>Object storage.</span></h1>
       <p class="hero-copy">
-        Your workflows stay Temporal.<br />Your durable state lives in S3.
+        Your workflows stay Temporal.<br />Your durable state lives in object
+        storage.
       </p>
       <div class="actions">
         <a class="primary" :href="withBase('/docs/architecture.html')"
@@ -23,40 +53,19 @@ import { withBase } from "vitepress";
           >Read the docs <span>→</span></a
         >
       </div>
-      <div
-        class="hero-system"
-        aria-label="Temporal connects through one Xenon endpoint to Go nodes, with durable state in S3"
-      >
-        <div class="system-top">
-          <span class="small-icon">T</span><strong>Temporal</strong
-          ><span>SDKs · UI · workflows</span>
-        </div>
-        <div class="connector vertical"></div>
-        <div class="system-service">
-          <img :src="withBase('/brand/mark-white.svg')" alt="" /><strong
-            >One Xenon endpoint</strong
-          ><span class="live-dot"></span>
-        </div>
-        <div class="branch"><i></i><i></i><i></i></div>
-        <div class="system-nodes">
-          <div v-for="(n, i) in ['A', 'B', 'C']" :key="n" class="system-node">
-            <span class="node-caption">GO NODE {{ n }}</span>
-            <div class="partition-bars">
-              <i
-                v-for="j in 3"
-                :key="j"
-                :class="{ active: (j + i) % 3 === 0 }"
-              ></i>
-            </div>
-            <span class="node-engine">SlateDB</span>
-          </div>
-        </div>
-        <div class="storage-line"></div>
-        <div class="system-storage">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <ellipse cx="12" cy="5" rx="8" ry="3" />
-            <path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0" /></svg
-          ><strong>S3</strong><span>Application data + ownership metadata</span>
+      <div class="hero-system">
+        <p class="diagram-instruction">Select a component to see its role.</p>
+        <SystemDiagram
+          compact
+          interactive
+          :selected="selectedRole"
+          @select="selectedRole = $event"
+        />
+        <div class="hero-map-detail" aria-live="polite">
+          <template v-if="selectedRole >= 0"
+            ><strong>{{ roles[selectedRole][0] }}</strong>
+            <p>{{ roles[selectedRole][1] }}</p></template
+          >
         </div>
       </div>
     </section>
@@ -76,10 +85,10 @@ import { withBase } from "vitepress";
         </article>
         <article>
           <span class="number">02</span>
-          <h3>Durability belongs in S3.</h3>
+          <h3>Built for object storage.</h3>
           <p>
             Go nodes embed SlateDB. Application records and ownership metadata
-            live in object storage; local disks are disposable.
+            use S3-compatible object storage; local disks are disposable.
           </p>
         </article>
         <article>
@@ -97,8 +106,8 @@ import { withBase } from "vitepress";
         <span class="eyebrow">LOOK INSIDE</span>
         <h2>Simple to enter.<br />Careful at every commit.</h2>
         <p>
-          Follow a request from the SDK to S3. Explore partition admission,
-          durable replay, and what happens when an owner disappears.
+          Follow a request from the SDK to object storage. Explore partition
+          admission, durable replay, and what happens when an owner disappears.
         </p>
         <a class="text-link" :href="withBase('/docs/architecture.html')"
           >Open the interactive guide <span>→</span></a
