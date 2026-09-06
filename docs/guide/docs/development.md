@@ -1,6 +1,6 @@
 # Local development
 
-Use a private checkout you are authorized to access. The commands below describe the integration candidate; check [verification status](./status.md) before assuming that `main` contains it. Start with a clean committed revision when producing proof evidence. Generated builds, emulator state and reports belong under ignored `.local/` paths.
+Use a private checkout you are authorized to access. The commands below describe the unified-agent runtime in this branch; check [verification status](./status.md) before treating any proof as shipping-complete. Start with a clean committed revision when producing proof evidence. Generated builds, emulator state and reports belong under ignored `.local/` paths.
 
 ## Prerequisites
 
@@ -43,11 +43,13 @@ Review the generated diff along with the protocol change. Do not edit generated 
 python3 scripts/ministack-runtime.py
 ```
 
-This command launches a scoped MinIO environment, stable HAProxy ingress, two Temporal instances and Go Xenon nodes. It bootstraps the actual namespace and search-attribute aliases, drives the SDK sequence and 20 Omes workflows, adds a node, moves matching, kills selected processes, checks the real UI, and attempts a cold restart.
+This command launches the older split-process proof topology: scoped MinIO, stable HAProxy ingress, two Temporal instances and Go Xenon storage nodes. It remains a regression harness while the unified-agent scenario catches up. It bootstraps the actual namespace and search-attribute aliases, drives the SDK sequence and 20 Omes workflows, adds a node, moves matching, kills selected processes, checks the real UI, and attempts a cold restart.
 
 The local ports include S3 `19006`, Temporal ingress `17233`, Xenon ingress `17935` and UI `18080`. The checked-in Compose and Temporal configurations live under `test/scenarios/ministack/config/`; workload and tool inputs live under `test/scenarios/ministack/` and `test/scenarios/ministack/pins.json`.
 
-The controller tears down its own containers and emulator volume after saving evidence. Treat it as a test environment, not a long-lived development database. Do not run concurrent heavy builds when measuring a runtime scenario. The latest integrated smoke still [fails its cold Omes visibility gate](./status.md).
+The controller tears down its own containers and emulator volume after saving evidence. Treat it as a test environment, not a long-lived development database. Do not run concurrent heavy builds when measuring a runtime scenario.
+
+A container recipe now exists for the unified runtime via `Dockerfile.unified-agent`; on this checkout, clean-host container validation is still an open delivery gate.
 
 ## Additional runtime modes
 

@@ -18,7 +18,7 @@ Choose the entry node and partition owner, then step through the request. The ro
 
 ## A stable entrance
 
-The local ministack places a proxy in front of the Go storage nodes. A node can execute operations for the partitions it owns and forward other operations. The forwarded envelope preserves the operation identity and typed request.
+The local ministack places one ingress endpoint in front of multiple identical Xenon agents. A node executes operations for the partitions it owns and forwards others. The forwarded envelope preserves the operation identity and typed request.
 
 Partition assignment is separate from the service address. Moving a partition changes its owner; it does not put a node address into the application's durable keys.
 
@@ -30,6 +30,6 @@ The handler then works through its SlateDB handle. Before returning a result, a 
 
 ## Movement is a protocol
 
-The current ownership implementation uses explicit administrative activation and assignment stored in S3. A new reservation opens SlateDB once and conditionally publishes READY. A delayed opener may fence a newer handle, so recovery has to account for that race too.
+The current ownership implementation uses explicit administrative activation and assignment stored in S3 via conditional publication. A new reservation opens the partition engine once and conditionally publishes READY; membership uses periodic S3 heartbeat checks, and stale members are evicted automatically after heartbeat expiry.
 
 This is not an automatic election service. The implemented protocol and bounded recovery experiments are described in the [architecture guide](../docs/architecture.md); the [verification status](../docs/status.md) keeps the broader delivery gates visible.

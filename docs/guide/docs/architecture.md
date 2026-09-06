@@ -1,6 +1,6 @@
 # The path to durable state
 
-Follow a request, look inside a Go node, or inspect an ownership move. Select a stage to see the contract it enforces.
+Follow a request, inspect an ownership move, or inspect a Xenon agent. Select a stage to see the contract it enforces.
 
 <XenonArchitecture />
 

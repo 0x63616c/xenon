@@ -108,6 +108,7 @@ try {
       await footer.waitFor();
       for (const link of await footer.locator("a").all()) {
         const href = await link.getAttribute("href");
+        if (/^https?:/.test(href)) continue;
         if (!href.startsWith(new URL(base).pathname))
           throw new Error(`footer base mismatch ${href}`);
         const response = await page.request.get(new URL(href, base).href);

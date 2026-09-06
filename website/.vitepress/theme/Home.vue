@@ -42,30 +42,35 @@ import { withBase } from "vitepress";
       </nav>
       <div
         class="hero-system"
-        aria-label="Temporal connects through one Xenon endpoint to Go nodes, with durable state in S3"
+        aria-label="Temporal connects through one Xenon endpoint to identical Xenon agents, with durable state in S3"
       >
         <div class="system-top">
           <span class="small-icon">T</span><strong>Temporal</strong
-          ><span>SDKs · UI · workflows</span>
+          ><span>SDKs · Omes · UI</span>
         </div>
         <div class="connector vertical"></div>
         <div class="system-service">
-          <img :src="withBase('/xenon.svg')" alt="" /><strong
-            >One Xenon endpoint</strong
-          ><span class="live-dot"></span>
+          <img :src="withBase('/xenon.svg')" alt="" />
+          <div>
+            <strong>One Xenon endpoint</strong
+            ><span class="service-copy"
+              >One ingress for every client transport</span
+            >
+          </div>
+          <span class="live-dot"></span>
         </div>
         <div class="branch"><i></i><i></i><i></i></div>
         <div class="system-nodes">
           <div v-for="(n, i) in ['A', 'B', 'C']" :key="n" class="system-node">
-            <span class="node-caption">GO NODE {{ n }}</span>
+            <span class="node-caption">Xenon Agent {{ n }}</span>
             <div class="partition-bars">
               <i
                 v-for="j in 3"
                 :key="j"
-                :class="{ blue: (j + i) % 3 === 0 }"
+                :class="{ blue: (j + i) % 3 === 0, mint: (j + i) % 2 === 0 }"
               ></i>
             </div>
-            <span class="node-engine">SlateDB</span>
+            <span class="node-engine">Temporal + Xenon storage runtime</span>
           </div>
         </div>
         <div class="storage-line"></div>
@@ -139,10 +144,9 @@ import { withBase } from "vitepress";
       </div>
       <div>
         <p>
-          In a local test, we killed a Xenon process after a durable write,
-          recovered the workflow, then restarted with all local state removed.
-          The recovered histories matched. Full acceptance is still in progress.
-          Validation against AWS S3 is pending.
+          A passing three-agent component run moved live work, restarted a whole
+          agent, discarded every local cache, and recovered matching histories.
+          Full Omes and real AWS S3 acceptance remain open.
         </p>
         <a class="text-link" :href="withBase('/docs/status.html')"
           >Read the test results <span>→</span></a

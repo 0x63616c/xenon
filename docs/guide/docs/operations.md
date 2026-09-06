@@ -10,11 +10,11 @@ Local caches and runtime directories can be replaced. That does not authorize de
 
 ## Activate a process, then assign work
 
-Each Go node announces a fresh process incarnation. An administrator conditionally publishes topology that activates that exact incarnation and assigns partitions to it. Reusing a member name or address does not let a new process inherit an old activation.
+Each Xenon node announces a fresh process incarnation. An administrator conditionally publishes topology that activates that exact incarnation and assigns partitions to it. Reusing a member name or address does not let a new process inherit an old activation.
 
 The desired owner reserves a new directory generation, opens SlateDB once for that attempt, and publishes READY conditionally. It then checks fresh activation and directory authority inside every operation's admission gate. A stale route or READY record alone does not authorize service.
 
-Adding a node and moving a partition are explicit topology changes today. There is no automatic failure detector, lease-expiry election or autonomous rebalancer. The committed owner-manager proof exercises these changes against MinIO.
+Adding a node and moving a partition are explicit topology operations. The membership loop also drives an automatic S3-CAS heartbeat, and peers remove unchanged failed members when heartbeat suspicion expires. Automatic placement rebalancing remains policy-driven; the runtime keeps explicit topology intent and deterministic routes.
 
 ## Handle uncertainty without guessing
 
@@ -42,7 +42,7 @@ Managed nodes can expose `GET /outcomes` when `XENON_METRICS_LISTEN` is configur
 
 The current cold restart proves why a TCP listener is not enough readiness. The controller reads existing cluster metadata through the actual Xenon ingress before launching Temporal. It retries only transient availability/deadline errors within its declared 60-second window. Missing or malformed metadata is an immediate failure.
 
-That fixed startup path passed in the latest smoke. The subsequent 20-record Omes visibility probe still hit its deadline; exact SDK history recovery and a single workflow's visibility had passed. The unresolved result remains part of the [verification status](./status.md).
+That fixed startup path has passing receipts in the latest implemented runs. The full Omes + visibility + fault profile remains open; see [verification status](./status.md) for historical and current receipts.
 
 ## Cleanup and external boundaries
 

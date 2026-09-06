@@ -6,13 +6,12 @@ The repository is one Go module with a pinned Rust engine dependency. Start with
 
 | Path | Role |
 | --- | --- |
-| `cmd/xenon-go-node/` | The Go storage process, standalone or managed ownership mode. |
-| `cmd/xenon-topology/` | Explicit conditional topology administration. |
-| `cmd/xenon-temporal/` | Pinned Temporal launcher with custom persistence factories. |
+| `cmd/xenon/` | Unified Go binary with embedded Temporal services and the Xenon storage/runtime. |
+| `cmd/xenon-topology/` | Explicit conditional topology administration for controlled movement and membership intent. |
 | `cmd/xenon-sdk-probe/` | Real SDK workload, health, visibility and history assertions. |
 | `cmd/xenon-visibility-probe/` | Declared visibility fixtures and public API checks. |
 
-The Temporal launcher uses the `ministack` build tag. The runtime controller supplies its actual build command and configuration; it is not an arbitrary installed Temporal binary with a runtime-loaded plugin.
+The unified command uses the committed runtime controller and probes through explicit wiring; it is not an arbitrary installed Temporal binary with a runtime-loaded plugin. Legacy storage-only or launcher-only binaries remain in the repository for controlled migration and comparative work, but `cmd/xenon` is the default production path.
 
 ## From interface to operation
 

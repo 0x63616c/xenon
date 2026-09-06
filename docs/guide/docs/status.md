@@ -19,7 +19,7 @@ Run `20260905T235225Z-xenon-ministack-e1a79483dbf2` finished with `proof_pass: t
 | All local state discarded; S3 retained | Both Temporal instances restarted; recovered histories matched the original hashes |
 | Cold visibility | SDK workflow and all twenty Omes records verified |
 
-This is one declared crash scenario, not the full fault/workload matrix. Earlier failed smoke receipts remain failed; the cold visibility deadline observed at `ae1f663` did not recur in this passing run.
+This is one declared crash scenario, not the full fault/workload matrix. Earlier failed receipts are preserved as historical evidence; the cold visibility deadline observed at `ae1f663` did not recur in this passing run.
 
 The later clean unified-agent component run at `7b5e76a` started three identical
 `xenon` processes, moved a live history partition to the joining process, proved
@@ -34,7 +34,7 @@ The original-corpus fuzz attempt at `90327c9` passed real Nexus readiness across
 
 The mixed-workload controller and history oracle are implemented but still await live execution. Its 240 baseline parent/child runs are distinct from additional Nexus handler workflows; source-derived checks must account for both. Remaining native cut stages, movement and measurement scenarios are not implied by the passing smoke.
 
-The repository's `docs/design/verification-matrix.md` retains exact component receipts and the integration ledger.
+The repository's `docs/design/verification-matrix.md` retains exact component receipts and the integrated implementation ledger.
 
 ## Component evidence
 
@@ -57,6 +57,6 @@ The saved corpus and workload helpers are committed. Their existence is not evid
 
 ## External and product boundaries
 
-Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI recovered on September 5, 2026: the unified-agent revision passed all nine persistence jobs, including the full proof, process-cut, S3 crash, ownership, maintenance, stored-data compatibility, and Go-binding gates. Integration into `main` is tracked separately from those component results.
+Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI recovered on September 5, 2026: the unified-agent revision passed all nine persistence jobs, including the full-proof slice, process-cut, S3 crash, ownership, maintenance, stored-data compatibility, and Go-binding gates.
 
-There is no published performance benchmark, production availability commitment, automatic failed-member rebalancer, or available Xenon Cloud service. The source is public experimental software under the MIT License.
+There is no published performance benchmark, production availability commitment, separate custom control plane, hosted operator, or billing service. Automatic failed-member eviction is implemented through membership heartbeat + S3-CAS sequencing; it is not a full cluster auto-placement orchestrator. The source is public experimental software under the MIT License.

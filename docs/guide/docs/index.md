@@ -1,6 +1,6 @@
 # Meet Xenon
 
-Xenon is experimental S3-backed persistence for Temporal. Go storage nodes embed SlateDB through its official Go bindings. Temporal keeps its workflow engine, frontend API, existing SDKs and UI.
+Xenon is experimental S3-backed persistence for Temporal. A single Go Xenon binary embeds Temporal services and SlateDB through the official Go bindings. Temporal keeps its workflow engine, frontend API, existing SDKs and UI.
 
 Instead of writing to a conventional persistence database, a Temporal adapter sends a complete operation to one Xenon service endpoint. The receiving node either executes it on a partition it owns or forwards it to the current owner. SlateDB writes durable application state to S3. Conditional S3 objects hold ownership and placement metadata.
 
@@ -20,9 +20,15 @@ Changing partition count or order is a data-layout migration. It is not the same
 
 ## Where the project stands
 
-Persistence families, any-node forwarding, conditional ownership, and a real multi-instance smoke controller are implemented. Component proofs and parts of the integrated runtime have passed. **The complete shipping proof has not passed.** The recorded integrated smoke failed its post-cold Omes visibility check after exact workflow-history recovery succeeded. A later fuzz-soak startup failed functional Nexus readiness before any saved corpus input ran.
+Persistence families, any-node forwarding, S3-CAS membership, and the unified runtime are on `main`. Component proofs have passed, including a three-agent run with live movement, whole-agent restart, disposable-local cold recovery, and matching recovered histories.
 
-Read [verification status](./status.md) before interpreting a feature list or running the proof. The larger acceptance profile, saved fuzz replay under faults, final measurements and real AWS S3 validation remain separate gates.
+The complete shipping proof remains open:
+
+- Clean-host container validation for the unified-image recipe.
+- Full Omes, movement, and sustained-fault profile execution.
+- Real AWS S3 execution of the acceptance matrix.
+
+Read [verification status](./status.md) for the latest evidence ordering. Earlier failed receipts remain in the archive where useful for continuity; they are not the current acceptance claim.
 
 ## Start here
 
