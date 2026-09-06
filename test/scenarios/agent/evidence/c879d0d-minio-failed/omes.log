@@ -1,0 +1,27 @@
+2026-09-06T13:58:13.702-0700	INFO	workerctl/run.go:155	Starting worker with command: [./program worker --task-queue omes-xenon-agent-omes --namespace=xenon-ministack --server-address=127.0.0.1:17233]
+2026-09-06T13:58:13.709-0700	INFO	clioptions/client.go:120	Client connected to 127.0.0.1:17233, namespace: xenon-ministack
+2026-09-06T13:58:14.125-0700	INFO	harness/worker.go:109	Go worker will run on task queue omes-xenon-agent-omes
+2026-09-06T13:58:14.758-0700	INFO	internal/internal_worker.go:1535	Started Worker	{"Namespace": "xenon-ministack", "TaskQueue": "omes-xenon-agent-omes", "WorkerID": "79107@Mac.localdomain@"}
+2026-09-06T13:58:33.286-0700	WARN	internal/internal_worker_base.go:888	Failed to poll for task.	{"Namespace": "xenon-ministack", "TaskQueue": "omes-xenon-agent-omes", "WorkerID": "79107@Mac.localdomain@", "WorkerType": "ActivityWorker", "Error": "context canceled"}
+2026-09-06T13:58:47.584-0700	ERROR	loadgen/generic_executor.go:194	iteration 3 failed: failed to start kitchen sink workflow: failed to start kitchen sink workflow: context deadline exceeded
+2026-09-06T13:58:47.584-0700	INFO	loadgen/generic_executor.go:211	Run cooldown: stopped starting new iterations and waiting for 1 iterations to complete
+2026-09-06T13:58:47.584-0700	ERROR	loadgen/generic_executor.go:194	iteration 4 failed: failed to start kitchen sink workflow: failed to start kitchen sink workflow: context canceled
+2026-09-06T13:58:47.584-0700	INFO	workerctl/run.go:194	Sending interrupt to worker, PID: 79107
+2026-09-06T13:58:47.584-0700	INFO	internal/internal_worker.go:1602	Worker has been stopped.	{"Namespace": "xenon-ministack", "TaskQueue": "omes-xenon-agent-omes", "WorkerID": "79107@Mac.localdomain@", "Signal": null}
+2026-09-06T13:58:47.585-0700	INFO	internal/internal_worker.go:1675	Stopped Worker	{"Namespace": "xenon-ministack", "TaskQueue": "omes-xenon-agent-omes", "WorkerID": "79107@Mac.localdomain@"}
+2026-09-06T13:58:47.590-0700	INFO	workerctl/run.go:201	Worker exited after interrupt: <nil>
+2026-09-06T13:58:47.590-0700	FATAL	omes/util.go:33	scenario failed: failed scenario: run finished with error after 33.342274625s: iteration 3 failed: failed to start kitchen sink workflow: failed to start kitchen sink workflow: context deadline exceeded
+main.exitOnError
+	/private/tmp/xenon-cluster-control-20260906/.local/omes-source/cmd/omes/util.go:33
+main.runScenarioWithWorkerCmd.func2
+	/private/tmp/xenon-cluster-control-20260906/.local/omes-source/cmd/omes/run_scenario_with_worker.go:24
+github.com/spf13/cobra.(*Command).execute
+	/Users/calum/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:944
+github.com/spf13/cobra.(*Command).ExecuteC
+	/Users/calum/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:1068
+github.com/spf13/cobra.(*Command).Execute
+	/Users/calum/go/pkg/mod/github.com/spf13/cobra@v1.7.0/command.go:992
+main.main
+	/private/tmp/xenon-cluster-control-20260906/.local/omes-source/cmd/omes/main.go:26
+runtime.main
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/runtime/proc.go:302
