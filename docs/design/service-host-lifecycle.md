@@ -45,3 +45,29 @@ registry budget/unknown-outcome preservation and a delayed native-open boundary
 that survives the first Stop budget and drains after completion. They do not
 constitute executable multi-node or native S3 failover acceptance. The coordinating
 agent runs that next using the committed fresh agent scenario.
+
+### Startup ownership gaps (delegated correction)
+
+The composed run `agent-20260906T114456-274d67` at `ced487c` failed when
+Temporal's ringpop startup called `UpsertClusterMembership` after C's successful
+readiness probe. Global routing returned `no ready partition owner`. The saved
+pre-join control was ready on B; no post-failure control survived, so the exact
+assignment versus writer reactivation cause is unproven. Both can legitimately
+make admission temporarily unavailable. A readiness probe cannot promise that
+later initialization calls avoid movement.
+
+Cluster operations now retry transport Unavailable within their original caller
+or 30-second invocation deadline, retaining the same operation ID, command digest
+and request. Backoff starts at 20ms and caps at 250ms. This spends the existing
+bounded operation budget; the router's one-hop and three-owner-attempt bounds
+remain unchanged. Permanent errors stop immediately. An explicit UNKNOWN_OUTCOME
+retains its first wire details across subsequent failure/cancellation, while a
+plain admission failure does not override a permanent terminal status. A valid
+ClusterResult resolves ambiguity because ClusterService returns it only after
+replay and AwaitDurable, including persisted logical errors.
+
+`go test -race ./internal/adapter -run TestCluster -count=1` exercises startup
+membership recovery past the former three-attempt ceiling, unchanged request and
+deadline, caller cancellation, terminal status precedence, and unknown outcome
+preservation through Temporal's serviceerror conversion. This is a focused
+regression; the composed scenario must be rerun before claiming startup proof.

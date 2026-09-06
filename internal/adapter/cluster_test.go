@@ -5,11 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -161,6 +163,153 @@ func TestClusterRemoteCancellation(t *testing.T) {
 		}
 		if !errors.Is(err, want) {
 			t.Fatalf("%v: %v", c, err)
+		}
+	}
+}
+
+func TestClusterMembershipStartupWaitsForMovementWithinOriginalBudget(t *testing.T) {
+	var requests []*wire.ClusterRequest
+	var deadline time.Time
+	s := &ClusterStore{partition: "global", invocationTimeout: time.Second, client: clusterWireFunc(func(ctx context.Context, q *wire.ClusterRequest) (*wire.ClusterResult, error) {
+		observed, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("missing invocation deadline")
+		}
+		if deadline.IsZero() {
+			deadline = observed
+		} else if !deadline.Equal(observed) {
+			t.Fatal("retry extended deadline")
+		}
+		requests = append(requests, proto.Clone(q).(*wire.ClusterRequest))
+		if len(requests) <= 3 {
+			return nil, status.Error(codes.Unavailable, "no ready partition owner")
+		}
+		return &wire.ClusterResult{}, nil
+	})}
+	// This is the same operation that Temporal ringpop.Start treats as fatal on error.
+	err := s.UpsertClusterMembership(context.Background(), &p.UpsertClusterMembershipRequest{HostID: []byte("host"), RPCAddress: net.ParseIP("127.0.0.1"), RPCPort: 7233, RecordExpiry: time.Hour})
+	if err != nil {
+		t.Fatal("valid ownership gap escaped startup call", err)
+	}
+	if len(requests) != 4 {
+		t.Fatal("did not cross the former three-attempt ceiling", len(requests))
+	}
+	for _, q := range requests[1:] {
+		if !proto.Equal(requests[0], q) {
+			t.Fatal("operation identity/body/digest changed during movement")
+		}
+	}
+}
+func TestClusterMovementRetryStopsAtCallerBudgetAndPermanentError(t *testing.T) {
+	calls := 0
+	s := &ClusterStore{partition: "global", invocationTimeout: time.Second, client: clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+		calls++
+		return nil, status.Error(codes.Unavailable, "owner moving")
+	})}
+	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Millisecond)
+	defer cancel()
+	if err := s.DeleteClusterMetadata(ctx, &p.InternalDeleteClusterMetadataRequest{}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal(err)
+	}
+	if calls < 2 {
+		t.Fatal("did not retry")
+	}
+	calls = 0
+	s.client = clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+		calls++
+		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
+	})
+	if err := s.DeleteClusterMetadata(context.Background(), &p.InternalDeleteClusterMetadataRequest{}); err == nil || calls != 1 {
+		t.Fatal("permanent error retried", err, calls)
+	}
+	canceled, stop := context.WithCancel(context.Background())
+	calls = 0
+	s.client = clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+		calls++
+		stop()
+		return nil, status.Error(codes.Unavailable, "lost response")
+	})
+	if err := s.DeleteClusterMetadata(canceled, &p.InternalDeleteClusterMetadataRequest{}); !errors.Is(err, context.Canceled) || calls != 1 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestClusterUnknownOutcomeSurvivesLaterAdmissionTimeout(t *testing.T) {
+	marker, _ := status.New(codes.Unavailable, "first durable outcome unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	calls := 0
+	s := &ClusterStore{partition: "global", invocationTimeout: 75 * time.Millisecond, client: clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+		calls++
+		if calls == 1 {
+			return nil, marker.Err()
+		}
+		return nil, status.Error(codes.Unavailable, "no ready partition owner")
+	})}
+	err := s.DeleteClusterMetadata(context.Background(), &p.InternalDeleteClusterMetadataRequest{})
+	var unavailable *serviceerror.Unavailable
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.As(err, &unavailable) {
+		t.Fatal("deadline or ambiguity lost", err)
+	}
+	details := serviceerror.ToStatus(err).Details()
+	if len(details) != 1 || details[0].(*errdetails.ErrorInfo).Reason != "UNKNOWN_OUTCOME" {
+		t.Fatal("first unknown provenance overwritten", details)
+	}
+}
+
+func TestClusterRetryTerminalStatusAndUnknownPriority(t *testing.T) {
+	unknown, _ := status.New(codes.Unavailable, "first unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	for _, terminal := range []codes.Code{codes.InvalidArgument, codes.PermissionDenied, codes.Canceled, codes.DeadlineExceeded} {
+		for _, ambiguous := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%v/unknown=%v", terminal, ambiguous), func(t *testing.T) {
+				calls := 0
+				s := &ClusterStore{partition: "global", invocationTimeout: time.Second, client: clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+					calls++
+					if calls == 1 {
+						return nil, status.Error(codes.Unavailable, "no ready partition owner")
+					}
+					if calls == 2 && ambiguous {
+						return nil, unknown.Err()
+					}
+					return nil, status.Error(terminal, "terminal")
+				})}
+				err := s.DeleteClusterMetadata(context.Background(), &p.InternalDeleteClusterMetadataRequest{})
+				st := serviceerror.ToStatus(err)
+				if ambiguous {
+					if st.Code() != codes.Unavailable || len(st.Details()) != 1 || st.Details()[0].(*errdetails.ErrorInfo).Reason != "UNKNOWN_OUTCOME" {
+						t.Fatal("unknown overwritten", st)
+					}
+				} else if st.Code() != terminal {
+					t.Fatal("terminal status hidden", st)
+				}
+				wantCalls := 2
+				if ambiguous {
+					wantCalls = 3
+				}
+				if calls != wantCalls {
+					t.Fatal("terminal retried", calls)
+				}
+			})
+		}
+	}
+}
+
+func TestClusterDurableResponseResolvesUnknown(t *testing.T) {
+	unknown, _ := status.New(codes.Unavailable, "unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	for _, logical := range []wire.ClusterResult_Error{wire.ClusterResult_NONE, wire.ClusterResult_INVALID_ARGUMENT} {
+		calls := 0
+		s := &ClusterStore{partition: "global", invocationTimeout: time.Second, client: clusterWireFunc(func(context.Context, *wire.ClusterRequest) (*wire.ClusterResult, error) {
+			calls++
+			if calls == 1 {
+				return nil, unknown.Err()
+			}
+			return &wire.ClusterResult{Error: logical}, nil
+		})}
+		err := s.DeleteClusterMetadata(context.Background(), &p.InternalDeleteClusterMetadataRequest{})
+		want := codes.OK
+		if logical != wire.ClusterResult_NONE {
+			want = codes.InvalidArgument
+		}
+		if serviceerror.ToStatus(err).Code() != want || calls != 2 {
+			t.Fatal("durable response did not resolve history", err, calls)
 		}
 	}
 }
