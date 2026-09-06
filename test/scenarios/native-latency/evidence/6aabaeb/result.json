@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "returncode": 0,
+      "log": "command-0.log",
+      "sha256": "7097a77884c0c0f0bfa5afd9d93b11f3e5af736bb38226e741ec9242998dcdc7"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "returncode": 0,
+      "log": "command-1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "go",
+        "version"
+      ],
+      "returncode": 0,
+      "log": "command-2.log",
+      "sha256": "c528ba02b39880f1357f51dee70e41c1ef03e3a70c7a03055c080532b9635f58"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "xenon-latency-9ec83b0ea9",
+        "--publish",
+        "127.0.0.1:19026:9000",
+        "--env",
+        "MINIO_ROOT_USER=xenon-local",
+        "--env",
+        "MINIO_ROOT_PASSWORD=xenon-local-test-only",
+        "minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e",
+        "server",
+        "/data"
+      ],
+      "returncode": 0,
+      "log": "command-3.log",
+      "sha256": "dd85553df2f3c3ce99ef05b7abaacecde89a70f688146cf6ce6e0e40c6a2302d"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./internal/partitions/slatedb",
+        "-run",
+        "^TestNativeAdmissionLatencyExperiment$",
+        "-count=1",
+        "-timeout=120s"
+      ],
+      "returncode": 0,
+      "log": "command-4.log",
+      "sha256": "332e6a26bed76bb1b05712c1ae722fa12e09472bd7a3c1f91ecd403db88e882a"
+    },
+    {
+      "argv": [
+        "docker",
+        "rm",
+        "--force",
+        "--volumes",
+        "xenon-latency-9ec83b0ea9"
+      ],
+      "returncode": 0,
+      "log": "command-5.log",
+      "sha256": "c5d548c00d05f35ce97e010ea108133ff409210cf09c1181cf40fb561195959e"
+    }
+  ],
+  "revision": "6aabaebe288fdd0793c70fc3f6f38ab957e16bf7",
+  "dirty": false,
+  "inputs": {
+    "test/scenarios/native-latency/case.json": "af8195845d108bdb3ca05818db7e3a2d8b7b863b939e67333ba3b1a90de35856",
+    "scripts/native-admission-latency.py": "dafb817a8f826ac4ed04b6ebdd122f51dc1268c38068ef033aa882d6cb368fce",
+    "internal/partitions/slatedb/latency_experiment_test.go": "1e39bb9e45c2a4fca072a11526ca3fb8d7e55e71f982191636455dfa12086099",
+    "internal/partitions/slatedb/engine.go": "51f428f5319453b4304d31cfd7b4844c4c2dc56605d54c8b903bac9dd1f12f4f",
+    "internal/partitions/slatedb/operation.go": "b4adc0a437cf13eac48ec21fa40e0211d27d6e9cdb777fc641da233cabd09c5a",
+    "go.mod": "6854719098d00cb6f3482210ea28437229301baa35a917e51029b4a8e3a4ef35",
+    "go.sum": "345ecb46cde1b2c0501eebefbf21372434d3b6cdfa5b4570a4011d6578ae8f7f"
+  },
+  "native_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+  "go": "go version go1.27.1 darwin/arm64",
+  "samples_sha256": "1369d3e1f59957bdc5a3f1dc92ae6b7532ee4922d8ef335400254f9d28397b64"
+}
