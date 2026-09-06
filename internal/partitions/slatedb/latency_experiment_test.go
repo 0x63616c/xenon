@@ -24,7 +24,7 @@ func TestNativeAdmissionLatencyExperiment(t *testing.T) {
 		Operations  int      `json:"operations"`
 		Flush       []string `json:"flush_intervals"`
 	}
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "test", "scenarios", "native-latency", "case.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "scenarios", "native-latency", "case.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
