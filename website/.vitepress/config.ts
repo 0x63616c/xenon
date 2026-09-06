@@ -17,6 +17,7 @@ export default defineConfig({
     nav: [
       { text: "Architecture", link: "/docs/architecture" },
       { text: "Documentation", link: "/docs/" },
+      { text: "Blog", link: "/blog/" },
       { text: "Cloud", link: "/cloud" },
     ],
     sidebar: [
@@ -41,9 +42,5 @@ export default defineConfig({
     ],
     search: { provider: "local" },
     outline: [2, 3],
-    footer: {
-      message: "Private development preview · Proprietary software",
-      copyright: "Xenon · Cloud coming soon",
-    },
   },
 });
