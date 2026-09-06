@@ -73,6 +73,33 @@ try {
         )
       )
         throw new Error(`horizontal overflow ${name}/${path}`);
+      const brokenImages = await page
+        .locator("img")
+        .evaluateAll((images) =>
+          images
+            .filter((image) => !image.complete || image.naturalWidth === 0)
+            .map((image) => image.src),
+        );
+      if (brokenImages.length)
+        throw new Error(
+          `broken images ${name}/${path}: ${brokenImages.join(", ")}`,
+        );
+      const logo = page.locator(".VPNavBarTitle img");
+      if (!(await logo.getAttribute("src"))?.endsWith("/brand/lockup.svg"))
+        throw new Error(`missing brand lockup ${name}/${path}`);
+      if (!path) {
+        for (const rel of ["icon", "alternate icon", "apple-touch-icon"]) {
+          const href = await page
+            .locator(`link[rel="${rel}"]`)
+            .getAttribute("href");
+          const url = new URL(href, page.url());
+          if (!url.href.startsWith(new URL("brand/", base).href))
+            throw new Error(`icon escaped site base: ${url}`);
+          const response = await context.request.get(url.href);
+          if (!response.ok() || !(await response.body()).length)
+            throw new Error(`icon failed: ${url}`);
+        }
+      }
       if (path === "docs/architecture.html") {
         const firstTab = page.getByRole("tab", { name: "Request path" });
         await firstTab.focus();

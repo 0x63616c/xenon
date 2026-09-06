@@ -4,6 +4,13 @@ import { withBase } from "vitepress";
 <template>
   <main class="x-home">
     <section class="hero">
+      <img
+        class="hero-mark"
+        :src="withBase('/brand/mark.svg')"
+        alt="Xenon"
+        width="80"
+        height="80"
+      />
       <div class="eyebrow"><span class="status-dot"></span> IN DEVELOPMENT</div>
       <h1>Temporal.<br /><span>Object storage.</span></h1>
       <p class="hero-copy">
@@ -26,7 +33,7 @@ import { withBase } from "vitepress";
         </div>
         <div class="connector vertical"></div>
         <div class="system-service">
-          <img :src="withBase('/xenon.svg')" alt="" /><strong
+          <img :src="withBase('/brand/mark-white.svg')" alt="" /><strong
             >One Xenon endpoint</strong
           ><span class="live-dot"></span>
         </div>
@@ -38,7 +45,7 @@ import { withBase } from "vitepress";
               <i
                 v-for="j in 3"
                 :key="j"
-                :class="{ blue: (j + i) % 3 === 0 }"
+                :class="{ active: (j + i) % 3 === 0 }"
               ></i>
             </div>
             <span class="node-engine">SlateDB</span>

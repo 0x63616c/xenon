@@ -10,3 +10,14 @@ cpSync(
   new URL("./.content/", import.meta.url),
   { recursive: true },
 );
+
+// Publish the shared artwork, keeping the legacy symbol URL working.
+cpSync(
+  new URL("../assets/brand/", import.meta.url),
+  new URL("./.content/public/brand/", import.meta.url),
+  { recursive: true },
+);
+cpSync(
+  new URL("../assets/brand/mark.svg", import.meta.url),
+  new URL("./.content/public/xenon.svg", import.meta.url),
+);

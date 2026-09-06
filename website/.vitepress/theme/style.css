@@ -1,13 +1,14 @@
 :root {
   --vp-font-family-base:
     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --vp-c-brand-1: #0069cc;
-  --vp-c-brand-2: #0079e8;
-  --vp-c-brand-3: #0071e3;
+  --vp-c-brand-1: #171717;
+  --vp-c-brand-2: #333333;
+  --vp-c-brand-3: #171717;
+  --vp-c-brand-soft: rgba(0, 0, 0, 0.06);
   --vp-c-bg: #fff;
-  --vp-c-bg-soft: #f5f5f7;
-  --vp-c-text-1: #1d1d1f;
-  --vp-c-text-2: #636369;
+  --vp-c-bg-soft: #f5f5f5;
+  --vp-c-text-1: #1d1d1d;
+  --vp-c-text-2: #636363;
   --vp-sidebar-bg-color: #fafafa;
   --vp-nav-height: 72px;
   --vp-layout-max-width: 1440px;
@@ -22,7 +23,8 @@
   letter-spacing: -1px;
 }
 .VPNavBarTitle .logo {
-  height: 30px;
+  height: 32px;
+  width: auto;
 }
 .VPNavBarMenuLink {
   font-size: 14px !important;
@@ -44,36 +46,45 @@
   font-weight: 500;
 }
 .VPFooter {
-  border-top: 1px solid #e8e8ed !important;
+  border-top: 1px solid #e8e8e8 !important;
+}
+.footer-logo {
+  display: block;
+  width: 112px;
+  height: auto;
+  margin: 0 auto 18px;
+}
+.hero-mark {
+  display: block;
+  margin: 0 auto 22px;
 }
 .VPFooter p {
   font-size: 13px !important;
 }
 .x-home {
-  color: #1d1d1f;
+  color: #1d1d1d;
 }
 .hero {
-  padding: 75px 24px 92px;
+  padding: 48px 24px 80px;
   text-align: center;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 75%, #e9f2ff 0, transparent 56%), #fff;
+  background: #fff;
 }
 .eyebrow {
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 2px;
   display: block;
-  color: #69707b;
+  color: #6f6f6f;
   line-height: 1.6;
 }
 .hero .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  border: 1px solid #e4e8ee;
+  border: 1px solid #e8e8e8;
   padding: 7px 13px;
-  border-radius: 30px;
+  border-radius: 12px;
   background: #fff;
   font-size: 12px;
   letter-spacing: 1.6px;
@@ -82,24 +93,22 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #539bde;
+  background: #171717;
 }
 .hero h1 {
-  font-size: clamp(58px, 7.5vw, 106px);
+  font-size: clamp(56px, 7vw, 92px);
   line-height: 0.99;
-  letter-spacing: -6px;
+  letter-spacing: -4.5px;
   font-weight: 650;
   margin: 25px 0 25px;
 }
 .hero h1 span {
-  background: linear-gradient(110deg, #0879df, #164ec5 85%);
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #666666;
 }
 .hero-copy {
   font-size: 24px;
   line-height: 1.45;
-  color: #6b6b72;
+  color: #6c6c6c;
   letter-spacing: -0.4px;
 }
 .actions {
@@ -114,9 +123,9 @@
   align-items: center;
   gap: 18px;
   padding: 12px 21px;
-  background: #0071e3;
+  background: #171717;
   color: #fff;
-  border-radius: 28px;
+  border-radius: 8px;
   font-size: 15px;
   font-weight: 500;
   transition:
@@ -124,12 +133,12 @@
     transform 0.2s;
 }
 .primary:hover {
-  background: #0062c6;
+  background: #333333;
   transform: translateY(-2px);
 }
 .text-link {
   font-size: 16px;
-  color: #0069cc;
+  color: #171717;
   display: inline-flex;
   gap: 12px;
   align-items: center;
@@ -152,13 +161,13 @@
 }
 .system-top > span:last-child {
   font-size: 13px;
-  color: #747982;
+  color: #797979;
 }
 .small-icon {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #15171c;
+  background: #171717;
   color: white;
   font-size: 19px;
   font-weight: 600;
@@ -169,22 +178,22 @@
   height: 28px;
   width: 1px;
   margin: auto;
-  background: #bed2e8;
+  background: #cfcfcf;
 }
 .system-service {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: #181c23;
-  border: 1px solid #343d4c;
+  background: #1c1c1c;
+  border: 1px solid #3c3c3c;
   border-radius: 16px;
   width: 325px;
   max-width: 90%;
   margin: auto;
   padding: 17px;
   color: #fff;
-  box-shadow: 0 14px 35px #162a4b18;
+  box-shadow: 0 14px 35px #28282818;
   font-size: 16px;
 }
 .system-service img {
@@ -193,10 +202,9 @@
 .live-dot {
   width: 6px;
   height: 6px;
-  background: #82c5ff;
+  background: #ffffff;
   border-radius: 50%;
   margin-left: 14px;
-  box-shadow: 0 0 12px #82c5ff;
 }
 .branch {
   height: 30px;
@@ -204,7 +212,7 @@
   justify-content: space-around;
   width: 76%;
   margin: auto;
-  border-top: 1px solid #b5cde7;
+  border-top: 1px solid #cacaca;
   position: relative;
   top: 14px;
 }
@@ -215,12 +223,12 @@
   bottom: 30px;
   height: 14px;
   width: 1px;
-  background: #b5cde7;
+  background: #cacaca;
 }
 .branch i {
   height: 100%;
   width: 1px;
-  background: #b5cde7;
+  background: #cacaca;
 }
 .system-nodes {
   display: grid;
@@ -229,17 +237,17 @@
   margin-top: 14px;
 }
 .system-node {
-  border: 1px solid #d6e0ee;
-  border-radius: 18px;
+  border: 1px solid #dfdfdf;
+  border-radius: 12px;
   background: #ffffffc9;
   padding: 17px 22px;
-  box-shadow: 0 10px 25px #36619708;
+  box-shadow: 0 10px 25px #5c5c5c08;
 }
 .node-caption {
   font-size: 12px;
   letter-spacing: 0.6px;
   font-weight: 600;
-  color: #7a8391;
+  color: #828282;
 }
 .partition-bars {
   display: flex;
@@ -248,22 +256,22 @@
 }
 .partition-bars i {
   display: block;
-  background: #e8edf4;
+  background: #ececec;
   height: 7px;
   border-radius: 3px;
   flex: 1;
 }
-.partition-bars i.blue {
-  background: #5a9ced;
+.partition-bars i.active {
+  background: #333333;
 }
 .node-engine {
   font-size: 13px;
-  color: #596575;
+  color: #646464;
 }
 .storage-line {
   height: 30px;
   width: 1px;
-  background: #bdd0e4;
+  background: #cdcdcd;
   margin: auto;
 }
 .system-storage {
@@ -276,12 +284,12 @@
 .system-storage svg {
   width: 22px;
   height: 25px;
-  stroke: #4f7bad;
+  stroke: #757575;
   stroke-width: 1.5;
 }
 .system-storage span {
   font-size: 12px;
-  color: #6d7988;
+  color: #787878;
 }
 .section-width {
   max-width: 1080px;
@@ -309,7 +317,7 @@
   margin-top: 56px;
 }
 .number {
-  color: #a7a7ae;
+  color: #a8a8a8;
   font-size: 13px;
   font-weight: 500;
 }
@@ -322,7 +330,7 @@
 .principle-grid p,
 .architecture-teaser p,
 .status-section p {
-  color: #6a6a72;
+  color: #6b6b6b;
   font-size: 17px;
   line-height: 1.65;
 }
@@ -332,8 +340,8 @@
   gap: 70px;
   padding-top: 65px;
   padding-bottom: 65px;
-  border-radius: 30px;
-  background: #f5f5f7;
+  border-radius: 12px;
+  background: #f5f5f5;
 }
 .architecture-teaser p {
   margin: 22px 0;
@@ -352,23 +360,23 @@
   gap: 25px;
   padding: 20px;
   background: white;
-  border: 1px solid #e8e8ed;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
   font-size: 16px;
-  color: #50525b;
+  color: #525252;
 }
 .commit-flow > div span {
   font-size: 12px;
-  color: #9599a3;
+  color: #999999;
 }
 .commit-flow .final {
-  background: #1b2331;
+  background: #222222;
   color: white;
-  border-color: #1b2331;
+  border-color: #222222;
 }
 .commit-flow b {
   margin-left: auto;
-  color: #79baff;
+  color: #ffffff;
 }
 .status-section {
   display: grid;
@@ -383,7 +391,7 @@
 }
 .cloud-section {
   text-align: center;
-  background: #f5f5f7;
+  background: #f5f5f5;
   padding: 85px 24px 90px;
 }
 .cloud-section h2 {
@@ -394,38 +402,38 @@
 }
 .cloud-section p {
   font-size: 18px;
-  color: #6b6b72;
+  color: #6c6c6c;
   margin: 22px 0;
 }
 .x-home a:focus-visible {
-  outline: 3px solid #2388ed;
+  outline: 3px solid #171717;
   outline-offset: 5px;
 }
 .architecture-explorer {
   margin: 30px 0;
-  border: 1px solid #e1e5eb;
+  border: 1px solid #e5e5e5;
   border-radius: 20px;
   overflow: hidden;
-  background: #f7f9fc;
+  background: #f9f9f9;
 }
 .arch-tabs {
   display: flex;
   gap: 4px;
   padding: 12px;
   background: #fff;
-  border-bottom: 1px solid #e8e8ed;
+  border-bottom: 1px solid #e8e8e8;
 }
 .arch-tabs button {
   flex: 1;
   border-radius: 8px;
   padding: 10px 8px;
   font-size: 14px;
-  color: #626a76;
+  color: #696969;
   font-weight: 500;
 }
 .arch-tabs button[aria-selected="true"] {
-  background: #eaf2ff;
-  color: #0062c6;
+  background: #171717;
+  color: #ffffff;
 }
 .arch-stage {
   padding: 28px;
@@ -434,7 +442,7 @@
 }
 .arch-node {
   padding: 14px 18px;
-  border: 1px solid #dde4ee;
+  border: 1px solid #e3e3e3;
   border-radius: 12px;
   text-align: left;
   background: #fff;
@@ -452,33 +460,33 @@
 }
 .arch-node span {
   font-size: 12px;
-  color: #727d8c;
+  color: #7c7c7c;
 }
 .arch-node.selected {
-  border-color: #1482ef;
-  box-shadow: 0 0 0 2px #1482ef18;
+  border-color: #171717;
+  box-shadow: 0 0 0 2px #17171718;
 }
 .arch-node:hover {
-  border-color: #81b4e8;
+  border-color: #555555;
 }
 .arch-node.engine {
-  background: #202734;
-  border-color: #344256;
+  background: #262626;
+  border-color: #404040;
   color: white;
 }
 .arch-node.engine span {
-  color: #afc1d7;
+  color: #bfbfbf;
 }
 .arch-arrow {
   text-align: center;
-  color: #9aaabe;
+  color: #a8a8a8;
   font-size: 16px;
   line-height: 18px;
 }
 .arch-inspector {
   padding: 25px 28px;
   background: #fff;
-  border-top: 1px solid #e1e5eb;
+  border-top: 1px solid #e5e5e5;
   min-height: 180px;
 }
 .arch-inspector h3 {
@@ -488,7 +496,7 @@
 }
 .arch-inspector p {
   margin: 0 !important;
-  color: #636b78;
+  color: #6a6a6a;
   font-size: 15px;
   line-height: 1.7;
 }
@@ -497,7 +505,7 @@
 }
 .arch-scope {
   font-size: 12px !important;
-  color: #747b87;
+  color: #7a7a7a;
   padding: 0 28px 18px;
   margin: 0 !important;
 }
@@ -505,12 +513,12 @@
   white-space: nowrap;
 }
 button:focus-visible {
-  outline: 2px solid #1681ec;
+  outline: 2px solid #171717;
   outline-offset: 2px;
 }
 @media (min-width: 1400px) {
   .hero {
-    padding-top: 85px;
+    padding-top: 56px;
   }
   .hero-system {
     margin-top: 65px;
@@ -546,7 +554,7 @@ button:focus-visible {
     padding: 45px 20px 60px;
   }
   .hero h1 {
-    font-size: 61px;
+    font-size: clamp(46px, 14vw, 58px);
     letter-spacing: -3.5px;
   }
   .hero-copy {
@@ -593,7 +601,7 @@ button:focus-visible {
     margin-top: 32px;
   }
   .principle-grid article {
-    border-top: 1px solid #e9e9ef;
+    border-top: 1px solid #e9e9e9;
     padding-top: 20px;
   }
   .principle-grid h3 {
