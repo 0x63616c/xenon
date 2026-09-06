@@ -278,6 +278,10 @@ func TestMembershipRejectsSequenceRegressionAndChangedAddress(t *testing.T) {
 			if err == nil || view.Ready {
 				t.Fatal(view, err)
 			}
+			view, err = a.Discover(context.Background(), 3, Coordinator{Incarnation: leader, Generation: 1})
+			if err == nil || view.Ready {
+				t.Fatal("repeated invalid record escaped high-water validation", view, err)
+			}
 		})
 	}
 }

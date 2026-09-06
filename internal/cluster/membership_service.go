@@ -317,7 +317,8 @@ func (m *Membership) Discover(ctx context.Context, at Tick, c Coordinator) (Memb
 		old, ok := m.observed[o.Incarnation]
 		if ok && (old.owner != o || h.Sequence < old.sequence) {
 			m.scan = nil
-			delete(m.observed, o.Incarnation)
+			old.progressed = false
+			m.observed[o.Incarnation] = old
 			return empty, ErrMembership
 		}
 		if !ok {
