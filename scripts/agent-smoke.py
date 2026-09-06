@@ -51,6 +51,16 @@ def agent_ready(config, probe):
     return bool(probe('health','--address','127.0.0.1:'+str(config['base_port'])))
 
 
+def schema_ready(config, probe, namespace, end):
+    remaining=end-time.monotonic()
+    if remaining<=0:raise TimeoutError('schema setup deadline')
+    observed=probe('schema-ready','--address','127.0.0.1:'+str(config['base_port']),
+                   '--namespace',namespace,'--readiness-timeout',str(remaining)+'s')
+    if time.monotonic()>=end:raise TimeoutError('schema setup deadline')
+    if observed.get('ready') is not True:raise RuntimeError('schema readiness not confirmed')
+    return observed
+
+
 def capture_failure_diagnostics(run, configs, control_command):
     results={}
     commands={name: [sys.executable,'-c',
@@ -236,11 +246,17 @@ def main():
         after=topology('control-after-c-probe.json')
         if not same_authority(owned[logical],after['partitions'][physical]):return False
         return {'node':c_id,'partition':logical,'physical_partition':physical,'generation':owned[logical]['generation']}
+    schema_required=False
+    def observe_schema(name,config,end):
+        observed=schema_ready(config,probe,agent_case['namespace'],end)
+        report['events'].append({'event':'agent-schema-ready','node':name,'address':'127.0.0.1:'+str(config['base_port']),'observation':observed})
+        return True
     def start(name,label=None,wait_health=True):
         p=launch(label or name,[str(agent),'start','--config',str(SCENARIO/(name+'.json'))])
         config=json.loads((SCENARIO/(name+'.json')).read_text())
         if wait_health:
-            wait(lambda:agent_ready(config,probe),120)
+            ready_end=min(deadline,time.monotonic()+120)
+            wait(lambda:agent_ready(config,probe) and (not schema_required or observe_schema(name,config,ready_end)),max(0,ready_end-time.monotonic()))
             if p.poll() is not None:raise RuntimeError('agent exited '+name)
             report['events'].append({'event':'agent-healthy','node':name,'pid':p.pid})
         return p
@@ -249,6 +265,7 @@ def main():
         report['dirty']=bool(run(['git','status','--porcelain=v1','--untracked-files=all']).strip())
         if report['dirty'] and not args.development:raise RuntimeError('clean committed checkout required')
         report['harness_hashes']={name:sha(ROOT/'scripts'/name) for name in ['agent-smoke.py','agent_control.py','omes_workloads.py']}
+        report['schema_probe_hashes']={name:sha(ROOT/'cmd/xenon-sdk-probe'/name) for name in ['main.go','schema_readiness.go']}
         report['scenario_hashes']={p.name:sha(p) for p in sorted(SCENARIO.iterdir()) if p.is_file()}
         report['reused_ministack_input_hashes']={'pins.json':sha(ROOT/'test/scenarios/ministack/pins.json')}
         if ministack_pins['ui']['image']!=json.loads((SCENARIO/'compose.json').read_text())['services']['ui']['image']:raise RuntimeError('agent UI image pin differs from ministack pin')
@@ -277,7 +294,12 @@ def main():
         launch('temporal-http-ingress',[str(ingress),'--listen','127.0.0.1:17243','--backends','127.0.0.1:18242,127.0.0.1:19242,127.0.0.1:21242'])
         run(['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','create-bucket','--bucket','xenon-agent-proof'])
         a=start('a');b=start('b')
-        wait(lambda:probe('bootstrap'),120)
+        schema_end=min(deadline,time.monotonic()+120)
+        wait(lambda:probe('bootstrap'),max(0,schema_end-time.monotonic()))
+        for name in ['a','b']:
+            config=json.loads((SCENARIO/(name+'.json')).read_text())
+            wait(lambda:observe_schema(name,config,schema_end),max(0,schema_end-time.monotonic()))
+        schema_required=True
         wait(lambda:ui_surface(),30)
         report['http_surface']=probe_temporal_http()
         report['events'].append({'event':'temporal-http-and-ui-ready','http':report['http_surface'],'ui':{'port':agent_case['ui_port']}})
@@ -344,7 +366,8 @@ def main():
         a=start('a','a-cold',False);b=start('b','b-cold',False);c=start('c','c-cold',False)
         for name,p in [('a',a),('b',b),('c',c)]:
             config=json.loads((SCENARIO/(name+'.json')).read_text())
-            wait(lambda:agent_ready(config,probe),120)
+            ready_end=min(deadline,time.monotonic()+120)
+            wait(lambda:agent_ready(config,probe) and observe_schema(name,config,ready_end),max(0,ready_end-time.monotonic()))
             if p.poll() is not None:raise RuntimeError('cold agent exited '+name)
             report['events'].append({'event':'cold-agent-healthy','node':name,'pid':p.pid})
         after=receipt/'history-after';after.mkdir()

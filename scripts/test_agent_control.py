@@ -79,6 +79,23 @@ class AgentControlTests(unittest.TestCase):
             probe.return_value=False
             self.assertFalse(smoke.agent_ready(self.config,probe))
 
+    def test_schema_precondition_targets_instance_and_remaining_budget(self):
+        probe=MagicMock(return_value={'ready':True,'attributes':{'KS_Int':3}})
+        with patch.object(smoke.time,'monotonic',side_effect=[100,101]):
+            result=smoke.schema_ready(self.config,probe,'proof',110)
+        self.assertTrue(result['ready'])
+        probe.assert_called_once_with('schema-ready','--address','127.0.0.1:'+str(self.config['base_port']),
+                                     '--namespace','proof','--readiness-timeout','10s')
+        probe.reset_mock()
+        with patch.object(smoke.time,'monotonic',return_value=111):
+            with self.assertRaises(TimeoutError):smoke.schema_ready(self.config,probe,'proof',110)
+        probe.assert_not_called()
+        with patch.object(smoke.time,'monotonic',side_effect=[100,111]):
+            with self.assertRaises(TimeoutError):smoke.schema_ready(self.config,probe,'proof',110)
+        probe.return_value={'ready':False}
+        with patch.object(smoke.time,'monotonic',return_value=100):
+            with self.assertRaises(RuntimeError):smoke.schema_ready(self.config,probe,'proof',110)
+
     def test_failed_diagnostics_do_not_prevent_other_snapshots(self):
         run=MagicMock(side_effect=[TimeoutError('dead node'), 'control bytes'])
         result=smoke.capture_failure_diagnostics(run,{'a':self.config},['aws','get-control'])
