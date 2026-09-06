@@ -42,60 +42,36 @@ index 873e0be..0e3d806 100644
 diff --git a/workers/go/workerlib/kitchensink/kitchen_sink.go b/workers/go/workerlib/kitchensink/kitchen_sink.go
 --- a/workers/go/workerlib/kitchensink/kitchen_sink.go
 +++ b/workers/go/workerlib/kitchensink/kitchen_sink.go
-@@ -37,6 +37,7 @@
+@@ -36,9 +36,31 @@
+ 			TaskQueue: info.TaskQueue,
  		},
  		WorkflowType:  "kitchenSink",
- 		WorkflowInput: &kitchensink.WorkflowInput{},
-+		AllowEmptySignalWithStartFallback: true,
+-		WorkflowInput: &kitchensink.WorkflowInput{},
++		WorkflowInput: activitySignalFallback(clientActivity.ClientSequence),
  	}
  	return executor.ExecuteClientSequence(ctx, clientActivity.ClientSequence)
- }
-diff --git a/loadgen/kitchensink/client_action_executor.go b/loadgen/kitchensink/client_action_executor.go
---- a/loadgen/kitchensink/client_action_executor.go
-+++ b/loadgen/kitchensink/client_action_executor.go
-@@ -11,16 +11,19 @@
- 	"go.temporal.io/sdk/client"
- 	"go.temporal.io/sdk/workflow"
- 	"golang.org/x/sync/errgroup"
-+	"google.golang.org/protobuf/proto"
- )
- 
- type ClientActionsExecutor struct {
--	Client          client.Client
--	Namespace       string
--	WorkflowOptions client.StartWorkflowOptions
--	WorkflowType    string
--	WorkflowInput   *WorkflowInput
--	Handle          client.WorkflowRun
--	runID           string
-+	// Only the Go client activity uses an empty fallback for a late SignalWithStart.
-+	AllowEmptySignalWithStartFallback bool
-+	Client                            client.Client
-+	Namespace                         string
-+	WorkflowOptions                   client.StartWorkflowOptions
-+	WorkflowType                      string
-+	WorkflowInput                     *WorkflowInput
-+	Handle                            client.WorkflowRun
-+	runID                             string
- }
- 
- func (e *ClientActionsExecutor) Start(
-@@ -154,8 +157,17 @@
- 	}
- 
- 	if sig.WithStart {
-+		input := e.WorkflowInput
-+		// Existing executions ignore this start argument. For a new execution,
-+		// admit only this signal, without changing its actions or completion rules.
-+		if e.AllowEmptySignalWithStartFallback && input != nil && proto.Equal(input, &WorkflowInput{}) {
-+			if actions := sig.GetDoSignalActions(); actions != nil && actions.SignalId > 0 {
-+				input = proto.Clone(input).(*WorkflowInput)
-+				input.OptionalSignalIds = []int32{actions.SignalId}
++}
++
++// activitySignalFallback declares every numbered signal this activity may send
++// to its fallback execution, including signals after the first WithStart.
++// The original sequence and actions are never changed; IDs remain optional.
++func activitySignalFallback(sequence *kitchensink.ClientSequence) *kitchensink.WorkflowInput {
++	input := &kitchensink.WorkflowInput{}
++	var visit func(*kitchensink.ClientActionSet)
++	visit = func(set *kitchensink.ClientActionSet) {
++		for _, action := range set.GetActions() {
++			if signal := action.GetDoSignal().GetDoSignalActions(); signal != nil && signal.SignalId > 0 && !slices.Contains(input.OptionalSignalIds, signal.SignalId) {
++				input.OptionalSignalIds = append(input.OptionalSignalIds, signal.SignalId)
++			}
++			if nested := action.GetNestedActions(); nested != nil {
++				visit(nested)
 +			}
 +		}
- 		return e.Client.SignalWithStartWorkflow(
--			ctx, e.WorkflowOptions.ID, signalName, signalArgs, e.WorkflowOptions, e.WorkflowType, e.WorkflowInput)
-+			ctx, e.WorkflowOptions.ID, signalName, signalArgs, e.WorkflowOptions, e.WorkflowType, input)
- 	}
- 	return nil, e.Client.SignalWorkflow(ctx, e.WorkflowOptions.ID, "", signalName, signalArgs)
++	}
++	for _, set := range sequence.GetActionSets() {
++		visit(set)
++	}
++	return input
  }
+ 
+ type KSWorkflowState struct {

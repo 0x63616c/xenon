@@ -233,48 +233,40 @@ func (c *fallbackCapture) SignalWithStartWorkflow(ctx context.Context, id, name 
 	return nil, nil
 }
 func TestXenonLateSignalWithStartFallback(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		enabled bool
-		input   *pb.WorkflowInput
-		accept  bool
-	}{
-		{"activity_empty", true, &pb.WorkflowInput{}, true},
-		{"default_empty", false, &pb.WorkflowInput{}, false},
-		{"declared_unchanged", true, &pb.WorkflowInput{ExpectedSignalIds: []int32{99}}, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			capture := &fallbackCapture{}
-			original := proto.Clone(tc.input)
-			signal := returnSignal(13, "late-actions-executed")
-			executor := &pb.ClientActionsExecutor{Client: capture, WorkflowInput: tc.input, AllowEmptySignalWithStartFallback: tc.enabled}
-			seq := &pb.ClientSequence{ActionSets: []*pb.ClientActionSet{{Actions: []*pb.ClientAction{{Variant: &pb.ClientAction_DoSignal{DoSignal: &pb.DoSignal{WithStart: true, Variant: &pb.DoSignal_DoSignalActions_{DoSignalActions: signal}}}}}}}}
-			if err := executor.ExecuteClientSequence(context.Background(), seq); err != nil {
-				t.Fatal(err)
-			}
-			if !proto.Equal(original, tc.input) || !proto.Equal(signal, capture.signal) {
-				t.Fatal("input or generated actions mutated")
-			}
-			if tc.accept {
-				if len(capture.input.OptionalSignalIds) != 1 || capture.input.OptionalSignalIds[0] != 13 {
-					t.Fatal(capture.input)
-				}
-				var suite testsuite.WorkflowTestSuite
-				env := suite.NewTestWorkflowEnvironment()
-				env.SetWorkflowRunTimeout(6 * time.Second)
-				env.SetDataConverter(clioptions.OmesDataConverter())
-				env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", capture.signal) }, time.Millisecond)
-				env.ExecuteWorkflow(KitchenSinkWorkflow, capture.input)
-				if err := env.GetWorkflowError(); err != nil {
-					t.Fatal(err)
-				}
-				var result string
-				if err := env.GetWorkflowResult(&result); err != nil || result != "late-actions-executed" {
-					t.Fatal(result, err)
-				}
-			} else if !proto.Equal(original, capture.input) {
-				t.Fatal("non-fallback policy changed")
-			}
-		})
+	first := &pb.DoSignal_DoSignalActions{SignalId: 10, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_SetWorkflowState{SetWorkflowState: &pb.WorkflowState{Kvs: map[string]string{"first": "seen"}}}}}}}}
+	second := returnSignal(13, "late-actions-executed")
+	second.GetDoActionsInMain().Actions = append([]*pb.Action{{Variant: &pb.Action_AwaitWorkflowState{AwaitWorkflowState: &pb.AwaitWorkflowState{Key: "first", Value: "seen"}}}}, second.GetDoActionsInMain().Actions...)
+	action := func(signal *pb.DoSignal_DoSignalActions) *pb.ClientAction {
+		return &pb.ClientAction{Variant: &pb.ClientAction_DoSignal{DoSignal: &pb.DoSignal{WithStart: true, Variant: &pb.DoSignal_DoSignalActions_{DoSignalActions: signal}}}}
+	}
+	seq := &pb.ClientSequence{ActionSets: []*pb.ClientActionSet{{Actions: []*pb.ClientAction{action(first), {Variant: &pb.ClientAction_NestedActions{NestedActions: &pb.ClientActionSet{Actions: []*pb.ClientAction{action(second), action(first)}}}}}}}}
+	original := proto.Clone(seq)
+	input := activitySignalFallback(seq)
+	if !proto.Equal(input, &pb.WorkflowInput{OptionalSignalIds: []int32{10, 13}}) || !proto.Equal(original, seq) {
+		t.Fatal("sequence metadata or actions changed", input)
+	}
+	capture := &fallbackCapture{}
+	executor := &pb.ClientActionsExecutor{Client: capture, WorkflowInput: input}
+	if err := executor.ExecuteClientSequence(context.Background(), seq); err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(capture.input, input) || !proto.Equal(original, seq) {
+		t.Fatal("fallback forwarding changed")
+	}
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetWorkflowRunTimeout(6 * time.Second)
+	env.SetDataConverter(clioptions.OmesDataConverter())
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow("do_actions_signal", first)
+		env.SignalWorkflow("do_actions_signal", second)
+	}, time.Millisecond)
+	env.ExecuteWorkflow(KitchenSinkWorkflow, capture.input)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	var result string
+	if err := env.GetWorkflowResult(&result); err != nil || result != "late-actions-executed" {
+		t.Fatal(result, err)
 	}
 }
