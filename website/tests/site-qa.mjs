@@ -153,6 +153,11 @@ try {
           fullPage: true,
           animations: "disabled",
         });
+      if (!path)
+        await page.screenshot({
+          path: `${output}/${name}-hero.png`,
+          animations: "disabled",
+        });
       if (!path && name === "desktop") {
         await page.getByRole("button", { name: /Search/ }).click();
         await page.locator("#localsearch-input").fill("recovery");

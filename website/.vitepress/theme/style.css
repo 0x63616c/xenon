@@ -561,8 +561,8 @@ button:focus-visible {
     padding: 45px 20px 60px;
   }
   .hero h1 {
-    font-size: clamp(46px, 14vw, 58px);
-    letter-spacing: -3.5px;
+    font-size: clamp(40px, 12vw, 52px);
+    letter-spacing: -2.6px;
   }
   .hero-copy {
     font-size: 20px;
