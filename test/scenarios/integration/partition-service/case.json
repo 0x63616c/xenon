@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "bucket": "partition-service-proof",
+  "docker": "29.4.0",
+  "compose": "5.1.2",
+  "test_timeout_seconds": 120,
+  "phase_timeout_seconds": 20,
+  "cleanup_timeout_seconds": 10,
+  "poll_milliseconds": 10,
+  "state_key": "application/state",
+  "state_value": "acknowledged-before-movement",
+  "outcome_key": "application/outcome",
+  "outcome_value": "operation-1:digest-1:success",
+  "schedule": [
+    "owner_a_ready_native_atomic_state_and_outcome_durable",
+    "prepare_old_coordinator_plan",
+    "replace_coordinator_b_reject_old_plan_cas",
+    "assign_b_drain_a_open_b_read_acknowledged_state_and_outcome",
+    "separate_case_delay_actual_a_open_completion",
+    "replace_coordinator_assign_b_native_write_durable",
+    "release_old_a_completion_assert_no_ready_and_b_data_unchanged"
+  ]
+}
