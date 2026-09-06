@@ -59,3 +59,9 @@ The committed [four-case receipt](evidence/0d409d2-minio/report.json) records a 
 Its [test output](evidence/0d409d2-minio/tests.jsonl) includes direct recovered shard
 state validation. This is native service composition evidence, not full application
 activation or the ten-minute Temporal acceptance gate.
+
+The [composed batch receipt](evidence/87690e5-minio/report.json) repeats all four
+cases at clean revision `87690e5`, after renewal/checker fixes, canonical-ID
+compatibility fixes, cluster metadata extraction and origin-only routing changes.
+All cases and cleanup passed with unchanged inputs. The cases still exercise the
+shard family and partition services; they do not establish complete runtime routing.
