@@ -216,3 +216,9 @@ Standardize command/flag vocabulary, help/completion, typed configuration and do
 ### Review throughput — latest user preference
 
 Calum explicitly prefers batched review over review after every micro-change. Keep focused tests and bounded commits during implementation, but group related changes into meaningful batches for independent review and integration. This supersedes any earlier per-ticket review/merge barrier. Spec and plan still receive independent stage review; high-risk architecture decisions remain reviewed before dependent implementation.
+
+### Current delivery goal
+
+Deliver the agreed Xenon architecture as a working, maintainable experimental release, with one Go binary/CLI, direct-S3 SlateDB durability, Temporal SDK/UI/Nexus compatibility, safe distributed ownership and routing, exact service seams/layout, controlled-time production DST, continuous workflow failure search/replay, and repeatable real-stack acceptance. Completion requires reviewed and integrated code plus clean-checkout evidence, operational packaging and honest measured limits. All detailed requirements in the service contracts and delivery plan remain binding.
+
+Continue independent implementation in parallel and keep this whiteboard aligned with actual decisions. Run focused tests while coding; review related work in batches, then integrate and verify. Use the existing GitHub project, two milestones and broad tickets. Avoid additional process, micro-review barriers or another planning-only cycle. Public publication is authorized; deferred environments/features remain explicit rather than silently counted as passed.
