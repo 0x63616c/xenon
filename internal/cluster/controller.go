@@ -45,11 +45,11 @@ func Step(previous State, event Event) (State, []Effect) {
 		s.pending = &e
 		return []Effect{e.clone()}
 	}
-	publish := func(expected registry.Version, w registry.Write) []Effect {
+	publish := func(expected registry.Version, w registry.Write, renewal bool) []Effect {
 		e := Effect{Kind: PublishControl, Expected: expected, Write: w}
 		effects := emit(e)
 		if len(effects) != 0 {
-			s.publication = &Publication{Effect: effects[0].clone()}
+			s.publication = &Publication{Effect: effects[0].clone(), renewal: renewal}
 		}
 		return effects
 	}
@@ -75,6 +75,11 @@ func Step(previous State, event Event) (State, []Effect) {
 	pending := s.pending.clone()
 	s.pending = nil
 	confirm := func(transition identity.TransitionID) {
+		if s.publication != nil && s.publication.renewal {
+			s.lastRenew = s.at
+			s.renewed = true
+			s.moveCredit = true
+		}
 		if s.LastUnknown != nil && s.LastUnknown.Effect.Write.Transition == transition {
 			s.LastUnknown = nil
 		}
@@ -101,16 +106,10 @@ func Step(previous State, event Event) (State, []Effect) {
 		}
 		if event.Err == nil && resolution == registry.Published {
 			// Decoding also enforces the configured record bound and control schema.
-			if published, err := DecodeControl(pending.Key, event.Record, s.config.MaxControlBytes); err == nil {
+			if _, err := DecodeControl(pending.Key, event.Record, s.config.MaxControlBytes); err == nil {
 				confirm(pending.Write.Transition)
 				s.seenControl = true
-				// Any publication with our coordinator updates renewal progress only if
-				// it actually changed the coordinator tuple; placement must not starve it.
-				c := published.Control()
-				if !s.renewed || !s.haveSnapshot || c.Coordinator != s.snapshot.Control().Coordinator {
-					s.lastRenew = s.at
-					s.renewed = true
-				}
+
 				s.LastError = nil
 				return s, nil
 			} else {
@@ -156,7 +155,7 @@ func Step(previous State, event Event) (State, []Effect) {
 				s.LastError = err
 				return s, nil
 			}
-			effects := publish("", w)
+			effects := publish("", w, true)
 			return s, effects
 		}
 		return s, nil
@@ -187,36 +186,28 @@ func Step(previous State, event Event) (State, []Effect) {
 	s.snapshot, s.haveSnapshot = snap, true
 	s.LastError = nil
 	if authority.Incarnation == s.config.Incarnation {
-		if !s.renewed || s.at-s.lastRenew >= Tick(s.config.RenewalInterval) {
+		// One confirmed renewal grants at most one placement attempt, even when
+		// every Poll arrives after the renewal interval. Consuming the credit on
+		// dispatch also prevents repeated assignment conflicts starving renewal.
+		if !s.renewed || s.at-s.lastRenew >= Tick(s.config.RenewalInterval) && !s.moveCredit {
 			change, err = Renew(s.config.Incarnation, authority)
 		} else {
-			if len(s.members) == 0 {
+			var w registry.Write
+			var move bool
+			w, move, err = s.plan(snap, event.Transition)
+			if err != nil {
+				s.LastError = err
 				return s, nil
 			}
-			nodes := make([]identity.NodeID, len(s.members))
-			for i, member := range s.members {
-				nodes[i] = member.Node
+			if move {
+				s.moveCredit = false
+				effects := publish(authority.Version, w, false)
+				return s, effects
 			}
-			plan, planErr := PlanPlacement(s.config.Placement, s.config.Slots, nodes)
-			if planErr != nil {
-				s.LastError = planErr
+			if s.at-s.lastRenew < Tick(s.config.RenewalInterval) {
 				return s, nil
 			}
-			move, ok, moveErr := SelectPlacementMove(s.config.Slots, c, plan, s.members)
-			if moveErr != nil {
-				s.LastError = moveErr
-				return s, nil
-			}
-			if !ok {
-				return s, nil
-			}
-			w, assignErr := snap.Assign(s.config.Incarnation, event.Transition, map[identity.PartitionID]Owner{move.Partition: move.Owner})
-			if assignErr != nil {
-				s.LastError = assignErr
-				return s, nil
-			}
-			effects := publish(authority.Version, w)
-			return s, effects
+			change, err = Renew(s.config.Incarnation, authority)
 		}
 	} else if !takeover {
 		s.renewed = false
@@ -231,8 +222,29 @@ func Step(previous State, event Event) (State, []Effect) {
 		s.LastError = err
 		return s, nil
 	}
-	effects := publish(authority.Version, w)
+	effects := publish(authority.Version, w, true)
 	return s, effects
+}
+
+// plan uses the same fresh snapshot as election; no cached authority is rebased.
+func (s State) plan(snap Snapshot, transition identity.TransitionID) (registry.Write, bool, error) {
+	if len(s.members) == 0 {
+		return registry.Write{}, false, nil
+	}
+	nodes := make([]identity.NodeID, len(s.members))
+	for i, member := range s.members {
+		nodes[i] = member.Node
+	}
+	plan, err := PlanPlacement(s.config.Placement, s.config.Slots, nodes)
+	if err != nil {
+		return registry.Write{}, false, err
+	}
+	move, ok, err := SelectPlacementMove(s.config.Slots, snap.Control(), plan, s.members)
+	if err != nil || !ok {
+		return registry.Write{}, false, err
+	}
+	w, err := snap.Assign(s.config.Incarnation, transition, map[identity.PartitionID]Owner{move.Partition: move.Owner})
+	return w, err == nil, err
 }
 
 func validMembers(members []Owner) bool {

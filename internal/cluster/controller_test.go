@@ -3,6 +3,7 @@ package cluster
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -200,10 +201,14 @@ func TestControllerUnknownMatchingReadConfirmsWithoutOldAuthorityReuse(t *testin
 	s, effects := completeRead(s, read, controlRecord(t, fixtureControl(), "v1", 1), 2)
 	attempt := onlyPublication(t, effects)
 	s, _ = completePublish(s, attempt, registry.Record{}, &registry.UnknownOutcome{Key: controlKey, Transition: attempt.Write.Transition})
-	s, read = pollController(t, s, 1)
+	b := Owner{Node: "nod_0000000000000000000002", Incarnation: contender, Address: "b:8080"}
+	s, read = pollController(t, s, 100, b)
 	s, effects = completeRead(s, read, effectRecord(t, attempt, "v2"), 3)
-	// A fresh read may renew again; it must use v2 and a new transition, never
-	// substitute v2 into the old attempt or infer authority from the lost response.
+	// Matching readback accounts for renewal progress and grants a placement
+	// opportunity from this fresh snapshot, even long after the initial attempt.
+	if s.lastRenew != 100 || !s.renewed {
+		t.Fatal("matching readback did not account for renewal time")
+	}
 	next := onlyPublication(t, effects)
 	if next.Expected != "v2" || next.Write.Transition == attempt.Write.Transition {
 		t.Fatal("confirmed read reused old attempt")
@@ -315,7 +320,8 @@ func TestControllerMalformedReadRetainsAmbiguousAttemptAndInputOwnership(t *test
 	if len(effects) != 0 || s.Publication() == nil || s.LastUnknown == nil {
 		t.Fatal("malformed read discarded ambiguity")
 	}
-	s, read = pollController(t, s, 2)
+	b := Owner{Node: "nod_0000000000000000000002", Incarnation: contender, Address: "b:8080"}
+	s, read = pollController(t, s, 2, b)
 	s, effects = completeRead(s, read, effectRecord(t, attempt, "v2"), 4)
 	if s.LastUnknown != nil {
 		t.Fatal("exact matching publication still reported unknown")
@@ -330,5 +336,38 @@ func TestControllerMalformedReadRetainsAmbiguousAttemptAndInputOwnership(t *test
 	s, effects = Step(s, Event{Kind: Poll, At: 1, Incarnation: leader})
 	if len(effects) != 0 || s.at != before.at || s.pending.ID != before.pending.ID || !errors.Is(s.LastError, ErrInvalidController) {
 		t.Fatal("regressing clock accepted")
+	}
+}
+
+func TestControllerSlowPollsCannotStarvePlacementOrRenewal(t *testing.T) {
+	s := controllerState(t, leader)
+	current := controlRecord(t, fixtureControl(), "v1", 1)
+	b := Owner{Node: "nod_0000000000000000000002", Incarnation: contender, Address: "b:8080"}
+	wantRenewals := []uint64{1, 1, 2, 2}
+	for cycle := 0; cycle < 4; cycle++ {
+		var read Effect
+		s, read = pollController(t, s, Tick(cycle*10), b)
+		var effects []Effect
+		s, effects = completeRead(s, read, current, 100+cycle)
+		publication := onlyPublication(t, effects)
+		proposed := effectRecord(t, publication, fmt.Sprintf("v%d", cycle+2))
+		snap, err := DecodeControl(controlKey, proposed, controlLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := snap.Control()
+		if c.Coordinator.Renewal != wantRenewals[cycle] {
+			t.Fatal("placement or renewal starved", cycle, c.Coordinator)
+		}
+		if cycle%2 == 1 && c.ActiveMove != partitionA {
+			t.Fatal("slow poll did not plan assignment", cycle)
+		}
+		if cycle == 1 {
+			// A failed plan still consumes its credit; next slow poll must renew.
+			s, _ = completePublish(s, publication, registry.Record{}, &registry.Conflict{Key: controlKey})
+		} else {
+			current = proposed
+			s, _ = completePublish(s, publication, current, nil)
+		}
 	}
 }

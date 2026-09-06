@@ -85,6 +85,7 @@ func (e Effect) clone() Effect { e.Write.Body = bytes.Clone(e.Write.Body); retur
 type Publication struct {
 	Effect  Effect
 	Unknown *registry.UnknownOutcome
+	renewal bool
 }
 
 func (p *Publication) clone() *Publication {
@@ -113,6 +114,7 @@ type State struct {
 	at           Tick
 	lastRenew    Tick
 	renewed      bool
+	moveCredit   bool
 	seenControl  bool
 	stopping     bool
 	snapshot     Snapshot
