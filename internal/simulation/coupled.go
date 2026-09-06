@@ -1,6 +1,7 @@
 package simulation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -83,6 +84,10 @@ const coupledLimit = 1 << 20
 // missing effect, double application or wrong delivery order is a replay error.
 // negative is empty or one named test mutation; the same checker observes both.
 func RunCoupled(scenario CoupledScenario, negative string) (CoupledResult, error) {
+	return runCoupled(context.Background(), scenario, negative, nil)
+}
+
+func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, observe func(CoupledTrace) error) (CoupledResult, error) {
 	result := CoupledResult{}
 	if scenario.Version != 1 || len(scenario.Steps) == 0 || len(scenario.Steps) > 256 || len(scenario.Actors) != 5 {
 		return result, fmt.Errorf("invalid bounded coupled scenario")
@@ -133,6 +138,10 @@ func RunCoupled(scenario CoupledScenario, negative string) (CoupledResult, error
 	epochs := map[ids.PartitionID]uint64{}
 	key := func(actor string, effect uint64) string { return fmt.Sprintf("%s/%d", actor, effect) }
 	for index, input := range scenario.Steps {
+		if err := ctx.Err(); err != nil {
+			result.Final = current.Clone()
+			return result, err
+		}
 		fail := func(err error) (CoupledResult, error) {
 			result.Final = current.Clone()
 			return result, fmt.Errorf("step %d %s %s/%d: %w", index, input.Action, input.Actor, input.Effect, err)
@@ -325,6 +334,11 @@ func RunCoupled(scenario CoupledScenario, negative string) (CoupledResult, error
 			return fail(fmt.Errorf("unknown action"))
 		}
 		result.Trace = append(result.Trace, entry)
+		if observe != nil {
+			if err := observe(entry); err != nil {
+				return fail(err)
+			}
+		}
 		if err := checker.observe(entry); err != nil {
 			return fail(err)
 		}

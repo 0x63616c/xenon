@@ -50,3 +50,62 @@ For retained evidence, save the exact source revision, hash this schedule and
 The integrated declarative proof runner must attach those identities before this
 slice can contribute a reproducible release gate. A passing ad hoc test alone
 must not be labelled full simulation acceptance.
+
+## Shared bounded search/replay foundation
+
+`Search(ctx, SearchConfig, Generator, *Runner)` and
+`Replay(ctx, scenarioArtifactPath, *Runner)` now share a sequential case runner.
+`NewCoupledCorpus(savedScheduleBytes...)` and `CoupledDriver` are a concrete
+consumer for the production `cluster.Step`/`partitions.Step` scenario above.
+The corpus is finite and returns EOF; it does not pretend that repeating a fixed
+schedule generates new Temporal, Omes or Nexus workloads. `ExpandCoupled` splits
+that schedule into explicit workload, topology and ordered event bytes. Logical
+actor ticks and effect delivery order are unchanged. The existing independent
+checker asserts recovered-owner progress and no unsettled effects before the
+coupled driver can settle successfully.
+
+Callers provide a new run directory, the actual executing source revision and a
+version map with `toolchain`, `native`, and `images` entries (explicit `modeled`
+and `none` values are appropriate for this driver). These are caller-supplied
+provenance, not auto-discovered or independently verified build attestation.
+The historical source revision inside a saved schedule is retained separately.
+Generator version, SHA-256 and capabilities are mandatory. The coupled corpus
+hashes its embedded generator/driver source file, not just its input corpus. Workload and fault
+seeds are derived independently using labeled SHA-256 streams and saved per case;
+the fixed corpus consumes neither stream. A generated-workflow implementation
+and additional capability validation remain future work.
+
+`MaxInFlight` must be 1. All operation/payload/depth, trace, case/time, settle and
+cleanup limits are explicit. Zero `MaxCases` requires `Continuous=true`, which
+still requires a duration budget. `Clock` and `Timer` are injected; `WallClock`
+is the real-time implementation, and tests drive manual time. There is no queue
+of speculative cases: the next generator request follows successful recovery
+assertions and cleanup. Driver validation must be pure and bounded; it must not
+allocate external resources. Drivers must treat scenario bytes as immutable and
+honor cancellation. Cleanup must safely stop/drain outstanding Run/Settle work.
+
+Each run saves configuration and provenance, then each request and the exact
+expanded scenario with its hash before driver launch. Evidence files are
+create-only; directories/files are synced, and observations append to a bounded
+synced JSON-lines trace. The first observed run/settle failure is synced before
+cleanup starts. Cleanup errors are secondary and cannot turn a failure into a
+pass. Unresolved goroutines report `ErrPending` (process exit required), with no
+new case launched and late trace writes refused. The runner cannot safely kill
+arbitrary Go/native work and does not claim to do so. Use a fresh runner/driver
+and directory after a failed run; cleanup never deletes evidence or shared data.
+
+Replay verifies the artifact's expanded scenario hash and loads those bytes and
+original RNG identities, without calling the original generator. It writes a new
+artifact and trace with the replaying source/tool provenance; it never overwrites
+the failure. `Completed` counts only cases that ran, settled and cleaned. `budget`
+means no failure was found in the completed explored prefix; an unfinished case
+is not counted. `canceled` is not a pass. Generation/validation errors are recorded
+separately from execution failure phases and stop the search.
+
+Tests cover exact saved replay after generator mutation, byte tampering,
+independent RNG streams, unsupported combinations, invalid concurrency/budgets,
+first-failure preservation, ignored trace errors, failed recovery, manual-time
+cancellation/drain, blocked cleanup and evidence overwrite refusal. These APIs
+are not yet wired into `xenon` commands. General randomized event scheduling,
+real-stack drivers, Omes/Nexus input generation, minimization and full #119
+acceptance remain open.
