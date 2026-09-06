@@ -22,7 +22,8 @@
   ],
   "fault_schedule": "Real filesystem cursor release control, wrong token and missing release deadline. Runtime movement itself is not executed by this component proof.",
   "assertions": [
-    "First-page barrier cannot resume until exact controller token; missing release is bounded."
+    "First-page barrier cannot resume until exact controller token; missing release is bounded.",
+    "Only declared page-size1,7,100 check overrides are admitted; seed/mutate remain all-size."
   ],
   "limitations": [
     "No live stack execution in component control.",
@@ -34,6 +35,7 @@
       "filter": "TestVisibilityMovementBarrier",
       "exact": true,
       "expected_tests": [
+        "TestVisibilityMovementBarrier/page_sizes",
         "TestVisibilityMovementBarrier/release",
         "TestVisibilityMovementBarrier/wrong_token",
         "TestVisibilityMovementBarrier/deadline",

@@ -38,3 +38,20 @@ func pageBarrier(ctx context.Context, path, token string) error {
 		}
 	}
 }
+
+// Restrict the override to the frozen population's declared traversal sizes.
+// Seeding and mutation continue to validate every declared size.
+func movementPageSizes(mode string, override int) ([]int, error) {
+	if override == 0 {
+		return []int{1, 7, 100}, nil
+	}
+	if mode != "check" {
+		return nil, fmt.Errorf("page-size override requires check mode")
+	}
+	switch override {
+	case 1, 7, 100:
+		return []int{override}, nil
+	default:
+		return nil, fmt.Errorf("page-size override must be 1, 7 or 100")
+	}
+}

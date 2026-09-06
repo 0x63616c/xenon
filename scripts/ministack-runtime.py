@@ -285,12 +285,23 @@ def main():
             wait(lambda:probe('phase').get('phase')=='await-control')
             before=checkpoint('visibility-before-movement')
             if sum(successful(value) for value in before.values())<20:raise RuntimeError('scale barrier lacks20 completed operations')
-            release=evidence/'visibility-release';token=uuid.uuid4().hex;output=evidence/'visibility-through-movement.json'
-            traversal=launch('visibility-traversal',[visibility_binary,'--mode','check',*visibility_flags,'--checkpoint','through-movement','--output',str(output),'--release-file',str(release),'--release-token',token])
-            hit=json.loads(traversal.line('{',timeout=60))
-            if hit!={'event':'VISIBILITY_FIRST_PAGE','checkpoint':'through-movement','token':token}:raise RuntimeError('wrong traversal barrier')
-            event('visibility-page-barrier',token=token)
+            # All three real cursors capture page one before the single topology move.
+            # Their shared120s budget begins before launch, so waiting for peers
+            # cannot silently extend the first cursor's own120s pause bound.
             movement_deadline=time.monotonic()+120
+            traversals={}
+            for size in movement['page_sizes']:
+                label='through-movement-page-'+str(size);token=uuid.uuid4().hex
+                release=evidence/('visibility-release-'+str(size));output=evidence/('visibility-'+label+'.json')
+                process=launch('visibility-traversal-'+str(size),[visibility_binary,'--mode','check',*visibility_flags,'--page-size',str(size),'--checkpoint',label,'--output',str(output),'--release-file',str(release),'--release-token',token])
+                traversals[size]={'process':process,'label':label,'token':token,'release':release,'output':output}
+            barrier_deadline=min(movement_deadline,time.monotonic()+60)
+            for size,item in traversals.items():
+                left=barrier_deadline-time.monotonic()
+                if left<=0:raise TimeoutError('not all visibility cursors reached first page')
+                hit=json.loads(item['process'].line('{',timeout=left))
+                if hit!={'event':'VISIBILITY_FIRST_PAGE','checkpoint':item['label'],'token':item['token'],'page_size':size}:raise RuntimeError('wrong traversal barrier')
+                event('visibility-page-barrier',page_size=size,token=item['token'])
             def movement_remaining():
                 left=movement_deadline-time.monotonic()
                 if left<=0:raise TimeoutError('visibility movement120s budget exceeded')
@@ -300,7 +311,10 @@ def main():
             assignments['history-0']['node']='c';assignments['vis-v1-0']['node']='c'
             publish(movement_remaining())
             probe('storage-ready','--readiness-timeout',str(max(1,int(movement_remaining()-1)))+'s',timeout=movement_remaining())
-            staged_release=release.with_suffix('.tmp');staged_release.write_text(token);os.replace(staged_release,release);event('visibility-cursor-released-after-movement',incarnation=members['c']['incarnation'])
+            for size,item in traversals.items():
+                movement_remaining()
+                staged_release=item['release'].with_suffix('.tmp');staged_release.write_text(item['token']);os.replace(staged_release,item['release'])
+                event('visibility-cursor-released-after-movement',page_size=size,incarnation=members['c']['incarnation'])
             # Both actual frontends serve persistence-backed calls after movement.
             for address in ['127.0.0.1:18233','127.0.0.1:19233']:
                 probe('phase','--address',address,timeout=min(20,movement_remaining()))
@@ -308,9 +322,14 @@ def main():
             probe('control',timeout=movement_remaining())
             history=evidence/'movement-history';history.mkdir()
             probe('verify','--run-id',execution['run_id'],'--output',str(history),timeout=300)
-            traversal.process.wait(timeout=910)
-            if traversal.process.returncode:raise RuntimeError('movement traversal failed')
-            report['visibility_through']=json.loads(output.read_text())
+            report['visibility_through']={}
+            for size,item in traversals.items():
+                item['process'].process.wait(timeout=910)
+                if item['process'].process.returncode:raise RuntimeError('movement traversal failed for page '+str(size))
+                value=json.loads(item['output'].read_text());verified=value.get('verified',{})
+                before_verified=report['visibility_before']['verified']
+                if value.get('full_acceptance') is not False or value.get('mode')!='check' or value.get('checkpoint')!=item['label'] or value.get('page_sizes')!=[size] or value.get('fixture_sha256')!=report['visibility_before']['fixture_sha256'] or verified.get('records')!=2000 or verified.get('groups')!=before_verified['groups'] or verified.get('set_sha256')!={str(size):before_verified['set_sha256'][str(size)]}:raise RuntimeError('movement traversal receipt mismatch')
+                report['visibility_through'][str(size)]=value
             report['visibility_mutation']=visibility('mutate','separate-mutation')
             after=checkpoint('visibility-after-movement')
             if any(successful(after[name])<10 for name in ['a','b','c']):raise RuntimeError('node lacks10 actual local operations')

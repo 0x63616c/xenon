@@ -189,6 +189,7 @@ func run() error {
 	casePath := flag.String("fixture", "proof/visibility/frozen.json", "committed fixture")
 	output := flag.String("output", "", "new evidence file")
 	checkpoint := flag.String("checkpoint", "", "caller movement checkpoint label")
+	pageSize := flag.Int("page-size", 0, "check-only traversal size: 1, 7 or 100; zero checks all")
 	releaseFile := flag.String("release-file", "", "optional first-page movement barrier file")
 	releaseToken := flag.String("release-token", "", "exact movement release token")
 	flag.Parse()
@@ -214,6 +215,10 @@ func run() error {
 	if json.Unmarshal(raw, &f) != nil || f.Records != 2000 || fmt.Sprint(f.PageSizes) != "[1 7 100]" {
 		return fmt.Errorf("invalid frozen recipe")
 	}
+	selectedSizes, e := movementPageSizes(*mode, *pageSize)
+	if e != nil {
+		return e
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	c, e := client.DialContext(ctx, client.Options{HostPort: *address, Namespace: *ns})
@@ -236,7 +241,7 @@ func run() error {
 		return e
 	}
 	defer s.Close()
-	report := map[string]any{"mode": *mode, "checkpoint": *checkpoint, "namespace_id": d.namespace, "fixture_sha256": fmt.Sprintf("%x", sha256.Sum256(raw)), "full_acceptance": false, "ownership_movement_executed": false}
+	report := map[string]any{"mode": *mode, "checkpoint": *checkpoint, "namespace_id": d.namespace, "fixture_sha256": fmt.Sprintf("%x", sha256.Sum256(raw)), "full_acceptance": false, "ownership_movement_executed": false, "page_sizes": selectedSizes}
 	if *mode == "mutate" {
 		d.queue = "xenon-mutation-visibility"
 		d.offset = 1000000
@@ -293,13 +298,13 @@ func run() error {
 				return nil
 			}
 			used = true
-			if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "VISIBILITY_FIRST_PAGE", "checkpoint": *checkpoint, "token": *releaseToken}); err != nil {
+			if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "VISIBILITY_FIRST_PAGE", "checkpoint": *checkpoint, "token": *releaseToken, "page_size": selectedSizes[0]}); err != nil {
 				return err
 			}
 			return pageBarrier(ctx, *releaseFile, *releaseToken)
 		}
 	}
-	verified, e := checkPages(ctx, c.WorkflowService(), *ns, d, f.PageSizes, barrier)
+	verified, e := checkPages(ctx, c.WorkflowService(), *ns, d, selectedSizes, barrier)
 	if e != nil {
 		return e
 	}
