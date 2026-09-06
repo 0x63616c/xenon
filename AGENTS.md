@@ -12,7 +12,7 @@ This project adapts Matt Pocock's Wayfinder: execution is in scope, agent debate
 
 ## Review batching preference
 
-Calum explicitly prefers batching reviews for throughput. Implement and test related small changes as a cohesive batch, then obtain independent review before integrating that batch. Do not serialize every micro-ticket behind a fresh review cycle. Separate spec, plan and implementation review stages remain; implementation batches may span several bounded tickets. Review safety-critical architecture decisions before dependent work when they would invalidate the batch.
+Calum explicitly prefers lightweight tracking and batching reviews for throughput. Use one current board, two delivery milestones, broad tickets and ordinary Todo/In Progress/Done statuses; avoid process expansion or micro-ticket bookkeeping. Implement and test related small changes as a cohesive batch, then obtain independent review before integrating that batch. Do not serialize every micro-ticket behind a fresh review cycle. Separate spec, plan and implementation review stages remain; implementation batches may span several bounded tickets. Review safety-critical architecture decisions before dependent work when they would invalidate the batch.
 
 ## Latest engine constraint
 

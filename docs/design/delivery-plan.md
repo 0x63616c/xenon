@@ -12,9 +12,9 @@ Claim linked bounded implementation tickets under the live map before edits. Pub
 
 The gate names below that do not exist at the baseline are **deliverables of their step**, registered in the existing `scripts/prove.py` runner with committed manifests, exact expected tests and input hashes. A missing gate is a failure. Existing commands must remain usable until a reviewed equivalent replaces them. Development evidence with a dirty patch hash is diagnostic; clean committed reruns are the acceptance evidence.
 
-## Execution batches (latest throughput preference)
+## Implementation groupings (not separate milestones)
 
-The nine sections below describe dependencies and acceptance scope, not nine mandatory stop-and-review cycles. Implement related work together, keep focused tests running during development, and review the composed diff at the batch boundary. Small commits and ticket updates need not interrupt implementation.
+GitHub uses only two delivery milestones: Build and harden, then Release proof and polish. The groupings and nine sections below describe dependencies and acceptance scope, not extra milestones or mandatory stop-and-review cycles. Implement related work together, keep focused tests running during development, and review the composed diff at the batch boundary. Small commits and ticket updates need not interrupt implementation.
 
 1. **Backend and feasibility foundation:** shared S3/filesystem registry contracts in parallel, time seams at their first consumers, plus independent native/layout/placement experiments. Review the composed backend work together; review safety-critical feasibility decisions before they constrain production integration.
 2. **Working distributed service:** production cluster/partition/persistence services, coupled DST and origin-only routing (sections 3–5), delivered in usable internal commits with a joint review of their interactions.
