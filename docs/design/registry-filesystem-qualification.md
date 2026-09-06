@@ -45,9 +45,22 @@ hashes, revision, commands/results/logs and removes its owned temporary trees.
 | Target | Qualification in this implementation run |
 | --- | --- |
 | macOS 26.3 / Darwin 25.3 arm64 local volume | Race/process suite and three omission controls passed before integration; final evidence must bind integrated revision and mount identity. |
-| Linux local filesystem | Cross-compiled; awaiting executed platform evidence. |
+| Linux arm64 / OrbStack 7.0.5 / container overlayfs | Race/process suite and all three omission controls passed at `8f8bc6b`; [pinned receipt and logs](../../test/scenarios/registry-filesystem/evidence/linux-8f8bc6b/receipt.json). |
 | NFS | Unqualified: no declared two-machine mount available. |
 | SMB | Unqualified: no declared two-machine mount available. |
+
+The Linux proof uses the official Go 1.27.1 Bookworm image pinned by digest in
+`test/scenarios/registry-filesystem/run-linux.sh`. It copies an exact-revision
+checkout into the container and places all test data on its Linux overlayfs;
+there are no macOS source/data bind mounts. Reproduce with Docker and a fresh path:
+
+```sh
+test/scenarios/registry-filesystem/run-linux.sh /tmp/fresh-linux-evidence 8f8bc6b
+```
+
+Omit the revision argument to test current HEAD. The runner has a 600-second
+container budget, records platform/source/image hashes and exit codes, copies
+logs out, then removes its owned container and disposable source checkout.
 
 These checks qualify process-crash/locking behavior on the declared configuration,
 not hardware power loss, server failover or a filesystem family. In particular,
