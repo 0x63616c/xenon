@@ -12,6 +12,17 @@ Claim linked bounded implementation tickets under the live map before edits. Pub
 
 The gate names below that do not exist at the baseline are **deliverables of their step**, registered in the existing `scripts/prove.py` runner with committed manifests, exact expected tests and input hashes. A missing gate is a failure. Existing commands must remain usable until a reviewed equivalent replaces them. Development evidence with a dirty patch hash is diagnostic; clean committed reruns are the acceptance evidence.
 
+## Execution batches (latest throughput preference)
+
+The nine sections below describe dependencies and acceptance scope, not nine mandatory stop-and-review cycles. Implement related work together, keep focused tests running during development, and review the composed diff at the batch boundary. Small commits and ticket updates need not interrupt implementation.
+
+1. **Backend and feasibility foundation:** shared S3/filesystem registry contracts in parallel, time seams at their first consumers, plus independent native/layout/placement experiments. Review the composed backend work together; review safety-critical feasibility decisions before they constrain production integration.
+2. **Working distributed service:** production cluster/partition/persistence services, coupled DST and origin-only routing (sections 3–5), delivered in usable internal commits with a joint review of their interactions.
+3. **Complete migration and readiness:** remaining service families, persisted identity/authority compatibility and real lifecycle readiness (sections 6–7), reviewed together with populated-state evidence.
+4. **Developer and release experience:** one CLI, shared search/replay/minimize, real Omes/Nexus/churn profiles, capacity/benchmark evidence and clean-checkout packaging (sections 8–9), with independent final integration review.
+
+Parallel agents own disjoint files/worktrees. A shared API owner provides the common contract so backends or callers do not build incompatible versions. Do not start dependent unsafe production behavior before its required native/cutover gate; independent implementation and tests continue meanwhile. Batch boundaries can move when evidence shows a better grouping, without dropping any listed requirement.
+
 ## 1. Registry, identity and time foundation
 
 Dependencies: adjudicated spec. Requirements: [registry](dst-service-contracts.md#registry-conditional-publication-and-ambiguity), [identity](dst-service-contracts.md#identity-and-randomness), [time](dst-service-contracts.md#events-effects-time-and-lifecycle).
