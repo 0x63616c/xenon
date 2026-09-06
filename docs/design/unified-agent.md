@@ -91,8 +91,44 @@ ownership movement, cold recovery, real S3, container packaging, and an actual
 old/new Temporal upgrade over existing state. Neither mixed-version operation nor
 rollback is implied by the wrapper.
 
-Joining is automatic at startup; failed-member eviction is not. Recovery requires
+Joining and failed-member eviction are automatic. Recovery requires
 same-node replacement or explicit topology administration. Production ownership,
 routing and replay under controlled scheduling still need their full deterministic
 scenario and trace/provenance runner. The replay unit scenario alone is narrower.
 No hosted control plane, billing or custom Kubernetes operator is introduced here.
+
+## Container packaging slice
+
+`Dockerfile.unified-agent` provides a declared container build for
+`cmd/xenon`:
+
+- Multi-stage build runs `scripts/build-go-node.py` in the declared toolchain stage to
+  produce the `xenon` binary and pinned SlateDB native library.
+- Runtime image executes as non-root UID/GID `65532`.
+- Image build performs smoke validation using:
+  - `xenon version`
+  - `xenon check-config --config /etc/xenon/agent.example.json`
+
+From this checkout:
+
+```sh
+docker build -f Dockerfile.unified-agent -t xenon-unified-agent:local .
+docker run --rm xenon-unified-agent:local version
+docker run --rm xenon-unified-agent:local check-config --config /etc/xenon/agent.example.json
+```
+
+This host has not completed that image build because its disk filled while linking
+the existing native test stack. The recipe is reviewable, but container execution
+remains an open delivery check until CI or another clean host builds and runs it.
+
+If you need to start an agent container locally, pass a real config at runtime:
+
+```sh
+docker run --rm \
+  -v "$(pwd)/deploy/agent.example.json:/etc/xenon/agent.json:ro" \
+  -p 17233:17233 \
+  -e AWS_ENDPOINT=http://host.docker.internal:19006 \
+  -e AWS_ACCESS_KEY_ID=... \
+  -e AWS_SECRET_ACCESS_KEY=... \
+  xenon-unified-agent:local start --config /etc/xenon/agent.json
+```

@@ -20,7 +20,7 @@ func Join(ctx context.Context, store *TopologyStore, identity directory.Identity
 	for _, name := range []string{"global", "matching", "history-0", "history-1", "history-2", "history-3", "vis-v1-0", "vis-v1-1", "vis-v1-2", "vis-v1-3"} {
 		expected[name] = Assignment{Node: identity.Node, DataPrefix: dataPrefix + "/" + name}
 	}
-	want := Member{Address: identity.Address, Incarnation: identity.Incarnation}
+	want := Member{Address: identity.Address, Incarnation: identity.Incarnation, Heartbeat: 1}
 	initial := Topology{Format: 1, Revision: 1, Transition: identity.Incarnation, Members: map[string]Member{identity.Node: want}, Partitions: expected}
 	if !store.valid(initial) {
 		return directory.ErrInvalid
@@ -55,7 +55,7 @@ func Join(ctx context.Context, store *TopologyStore, identity directory.Identity
 			current = Member{}
 			exists = false
 		}
-		if exists && current == want {
+		if exists && current.Address == want.Address && current.Incarnation == want.Incarnation {
 			return nil
 		}
 		if !observed {
@@ -64,21 +64,7 @@ func Join(ctx context.Context, store *TopologyStore, identity directory.Identity
 			return directory.ErrConflict
 		}
 		next.Members[identity.Node] = want
-		nodes := make([]string, 0, len(next.Members))
-		for id := range next.Members {
-			nodes = append(nodes, id)
-		}
-		sort.Strings(nodes)
-		partitions := make([]string, 0, len(next.Partitions))
-		for id := range next.Partitions {
-			partitions = append(partitions, id)
-		}
-		sort.Strings(partitions)
-		for index, id := range partitions {
-			a := next.Partitions[id]
-			a.Node = nodes[index%len(nodes)]
-			next.Partitions[id] = a
-		}
+		rebalance(&next)
 		if _, err = store.Publish(ctx, prior, next); err == nil {
 			return nil
 		} else if !errors.Is(err, directory.ErrConflict) && !errors.Is(err, directory.ErrUnknown) {
@@ -86,4 +72,22 @@ func Join(ctx context.Context, store *TopologyStore, identity directory.Identity
 		}
 	}
 	return fmt.Errorf("%w: join attempts exhausted; inspect topology before restarting", directory.ErrUnknown)
+}
+
+func rebalance(next *Topology) {
+	nodes := make([]string, 0, len(next.Members))
+	for id := range next.Members {
+		nodes = append(nodes, id)
+	}
+	sort.Strings(nodes)
+	partitions := make([]string, 0, len(next.Partitions))
+	for id := range next.Partitions {
+		partitions = append(partitions, id)
+	}
+	sort.Strings(partitions)
+	for index, id := range partitions {
+		a := next.Partitions[id]
+		a.Node = nodes[index%len(nodes)]
+		next.Partitions[id] = a
+	}
 }
