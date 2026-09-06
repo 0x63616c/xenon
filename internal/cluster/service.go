@@ -34,10 +34,10 @@ func NewService(ctx context.Context, c ControllerConfig, store registry.Store, i
 	return &Service{state: state, store: store, ids: ids, ctx: work, cancel: cancel, changed: make(chan struct{})}, nil
 }
 func (s *Service) Snapshot() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state.clone() }
-func (s *Service) Poll(at Tick, members []Owner) {
+func (s *Service) Poll(at Tick, view MembershipView) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.applyLocked(Event{Kind: Poll, At: at, Members: members, Incarnation: s.state.config.Incarnation})
+	s.applyLocked(Event{Kind: Poll, At: at, Membership: view, Incarnation: s.state.config.Incarnation})
 }
 func (s *Service) Stop() {
 	s.mu.Lock()

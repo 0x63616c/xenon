@@ -3,7 +3,6 @@ package cluster
 import (
 	"bytes"
 	"errors"
-	"slices"
 	"time"
 
 	"github.com/0x63616c/xenon/internal/identity"
@@ -60,7 +59,7 @@ type Event struct {
 	At          Tick
 	Incarnation identity.IncarnationID
 	Effect      EffectID
-	Members     []Owner
+	Membership  MembershipView
 	Transition  identity.TransitionID
 	Record      registry.Record
 	Err         error
@@ -107,7 +106,7 @@ type State struct {
 	pending      *Effect
 	publication  *Publication
 	election     Election
-	members      []Owner
+	membership   MembershipView
 	at           Tick
 	lastRenew    Tick
 	renewed      bool
@@ -143,7 +142,7 @@ func (s State) Stopped() bool             { return s.stopping && s.pending == ni
 func (s State) Control() (Control, bool)  { return s.snapshot.Control(), s.haveSnapshot }
 func (s State) clone() State {
 	s.config = s.config.clone()
-	s.members = slices.Clone(s.members)
+	s.membership = s.membership.clone()
 	if s.pending != nil {
 		e := s.pending.clone()
 		s.pending = &e

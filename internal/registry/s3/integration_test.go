@@ -67,7 +67,7 @@ func TestS3Registry(t *testing.T) {
 	if err = json.Unmarshal(raw, &cfg); err != nil || cfg.Schema != 1 || cfg.DeadlineSeconds != 90 {
 		t.Fatal("fixture", err)
 	}
-	want := []string{"shared_contract", "lost_commit", "lost_commit_later_record", "lost_before_commit", "cancel_after_dispatch", "corrupt_read", "oversized_read", "reopen"}
+	want := []string{"shared_contract", "lost_commit", "lost_commit_later_record", "lost_before_commit", "cancel_after_dispatch", "corrupt_read", "oversized_read", "reopen", "advisory_membership"}
 	if len(cfg.Schedule) != len(want) {
 		t.Fatal("schedule")
 	}
@@ -88,6 +88,7 @@ func TestS3Registry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("advisory_membership", func(t *testing.T) { membershipProof(t, ctx, s) })
 	t.Run("shared_contract", func(t *testing.T) { contracttest.Run(t, ctx, s) })
 	for _, mode := range cfg.Schedule[1:5] {
 		t.Run(mode, func(t *testing.T) {

@@ -74,10 +74,10 @@ func TestServiceSinglePendingCASAndDrainRetainsLateOutcome(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		service.Poll(0, nil)
+		service.Poll(0, MembershipView{})
 		<-store.started
 		for at := Tick(1); at < 10; at++ {
-			service.Poll(at, nil)
+			service.Poll(at, MembershipView{})
 		}
 		snap := service.Snapshot()
 		if len(snap.Pending()) != 1 || snap.Pending()[0].Kind != PublishControl {
@@ -116,7 +116,7 @@ func TestServiceExplicitPollDrivesFailureRecovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		service.Poll(0, nil)
+		service.Poll(0, MembershipView{})
 		synctest.Wait()
 		if service.Snapshot().LastError == nil || len(service.Snapshot().Pending()) != 0 {
 			t.Fatal("read failure not retained")
@@ -124,7 +124,7 @@ func TestServiceExplicitPollDrivesFailureRecovery(t *testing.T) {
 		store.mu.Lock()
 		store.readErr = nil
 		store.mu.Unlock()
-		service.Poll(1, nil)
+		service.Poll(1, MembershipView{})
 		synctest.Wait()
 		if service.Snapshot().LastError != nil || len(service.Snapshot().Pending()) != 0 {
 			t.Fatal("renewal did not complete", service.Snapshot().LastError)
