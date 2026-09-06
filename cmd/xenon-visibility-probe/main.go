@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/0x63616c/xenon/internal/adapter"
@@ -259,8 +260,19 @@ func run() error {
 		if *mode == "seed" && len(groups) != 4 {
 			return fmt.Errorf("recipe did not populate four partitions")
 		}
+		var progress sync.Mutex
+		acknowledged := 0
 		partitions, err := seedPartitions(ctx, groups, func(ctx context.Context, i int) error {
-			return s.RecordWorkflowExecutionStarted(ctx, &store.InternalRecordWorkflowExecutionStartedRequest{InternalVisibilityRequestBase: d.record(i, 1)})
+			err := s.RecordWorkflowExecutionStarted(ctx, &store.InternalRecordWorkflowExecutionStartedRequest{InternalVisibilityRequestBase: d.record(i, 1)})
+			if err == nil {
+				progress.Lock()
+				acknowledged++
+				if acknowledged%100 == 0 || acknowledged == d.count {
+					fmt.Fprintf(os.Stderr, "VISIBILITY_SEED_ACKNOWLEDGED %d/%d\n", acknowledged, d.count)
+				}
+				progress.Unlock()
+			}
+			return err
 		})
 		report["partition_counts"] = partitions
 		if err != nil {
@@ -276,6 +288,7 @@ func run() error {
 			return fmt.Errorf("%w; receipt encode=%v close=%v", err, encodeErr, closeErr)
 		}
 	}
+	fmt.Fprintf(os.Stderr, "VISIBILITY_VERIFY mode=%s records=%d\n", *mode, d.count)
 	if *mode == "mutate" {
 		// Freeze page one before exactly one durable mutation, then resume cursor.
 		d.concurrent = true
