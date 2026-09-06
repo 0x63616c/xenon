@@ -1,0 +1,14 @@
+ Network xenon-contention-4529_default Creating 
+ Network xenon-contention-4529_default Created 
+ Volume xenon-contention-4529_objects Creating 
+ Volume xenon-contention-4529_objects Created 
+ Container xenon-contention-4529-s3-1 Creating 
+ Container xenon-contention-4529-s3-1 Created 
+ Container xenon-contention-4529-s3-1 Starting 
+ Container xenon-contention-4529-s3-1 Started 
+partitions=256 contenders=1 attempts=14 conflicts=1 renewal_max_gap_ms=65.5 verified=true
+partitions=256 contenders=10 attempts=76 conflicts=36 renewal_max_gap_ms=242.3 verified=true
+partitions=256 contenders=100 attempts=2889 conflicts=2579 renewal_max_gap_ms=3988.0 verified=true
+partitions=1024 contenders=1 attempts=15 conflicts=2 renewal_max_gap_ms=144.2 verified=true
+partitions=1024 contenders=10 attempts=103 conflicts=63 renewal_max_gap_ms=903.2 verified=true
+partitions=1024 contenders=100 attempts=8029 conflicts=7719 renewal_max_gap_ms=18775.3 verified=true

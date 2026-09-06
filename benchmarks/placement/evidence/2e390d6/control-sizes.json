@@ -1,0 +1,38 @@
+[
+  {
+    "partitions": 64,
+    "instances": 100,
+    "payload_bytes": 35769,
+    "registry_envelope_bytes": 47910,
+    "within_configured_1mib_budget": true,
+    "payload_sha256": "5da484cd75f28991c0d496ae4c8db90a83a531164124de3c228d7675882a2818",
+    "envelope_sha256": "e27b76cd639e6fe79f8c628a3edf1db7317bb757a17611b9c1c683c7f719e42f"
+  },
+  {
+    "partitions": 256,
+    "instances": 100,
+    "payload_bytes": 142329,
+    "registry_envelope_bytes": 189990,
+    "within_configured_1mib_budget": true,
+    "payload_sha256": "41d59fe86aa9b8ae58aa7f761525e2668665f22a1668c70a03906b3eb4782d99",
+    "envelope_sha256": "242e4efb870a0ecfbcf5b803bf247e0c938828a471ff13fa1d6a0fb1d5c148e7"
+  },
+  {
+    "partitions": 1024,
+    "instances": 100,
+    "payload_bytes": 568569,
+    "registry_envelope_bytes": 758310,
+    "within_configured_1mib_budget": true,
+    "payload_sha256": "adde667d3bdaacbd9f142cfbe1c769ab9e3c6d120b6003abff2d9c6894eda1b3",
+    "envelope_sha256": "3b68d9d7763aa4998eba79d24656bda72a7ea024a552e901a0217450e475062c"
+  },
+  {
+    "partitions": 4096,
+    "instances": 100,
+    "payload_bytes": 2273529,
+    "registry_envelope_bytes": 3031590,
+    "within_configured_1mib_budget": false,
+    "payload_sha256": "857cc3696076f4d1a3995b6748ff8b905f7f51fced8766d9071c188c3901adac",
+    "envelope_sha256": "0d8e557bb2a62c2a0c05e4429a4f95e3fc8e034a6c8386d69264d8d370e6a2ae"
+  }
+]

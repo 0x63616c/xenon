@@ -1,0 +1,1 @@
+{"schema":1,"endpoint":"http://127.0.0.1:19316","bucket":"xenon-contention-proof","partition_counts":[256,1024],"contenders":[1,10,100],"updates_per_contender":3,"renewals":10,"renewal_interval_ms":20,"retry_cap_ms":20,"case_deadline_seconds":90,"counter_base":1000000,"disable_keep_alives":true}

@@ -1,0 +1,15 @@
+ Network xenon-contention-1589_default Creating 
+ Network xenon-contention-1589_default Created 
+ Volume xenon-contention-1589_objects Creating 
+ Volume xenon-contention-1589_objects Created 
+ Container xenon-contention-1589-s3-1 Creating 
+ Container xenon-contention-1589-s3-1 Created 
+ Container xenon-contention-1589-s3-1 Starting 
+ Container xenon-contention-1589-s3-1 Started 
+partitions=256 contenders=1 attempts=18 conflicts=5 renewal_max_gap_ms=115.8 verified=true
+partitions=256 contenders=10 attempts=75 conflicts=35 renewal_max_gap_ms=267.1 verified=true
+partitions=256 contenders=100 attempts=3297 conflicts=2987 renewal_max_gap_ms=2884.1 verified=true
+partitions=1024 contenders=1 attempts=18 conflicts=5 renewal_max_gap_ms=138.0 verified=true
+partitions=1024 contenders=10 attempts=119 conflicts=79 renewal_max_gap_ms=891.8 verified=true
+partitions=1024 contenders=100 attempts=1466 conflicts=1363 renewal_max_gap_ms=4097.5 verified=false
+worker 96 update 0: registry publication outcome unknown: control transition trn_0000000000000000001453
