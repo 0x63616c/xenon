@@ -136,6 +136,7 @@ class Runtime:
         topology={'members':{name:{'address':address,'incarnation':incarnation}},'partitions':{p:{'node':name,'data_prefix':'data/'+p} for p in case['partitions']}}
         path=self.evidence/(phase+'-topology.json');path.write_text(json.dumps(topology))
         self.run([bundle['artifacts']['xenon-topology']['path'],str(path)],env=env)
+        self.run([self.sdk,'--mode','partition-ready','--storage-address','127.0.0.1:17935','--storage-partition','global','--readiness-timeout','60s'],90,env)
         server=self.launch(phase+'-temporal',[bundle['artifacts']['xenon-temporal']['path'],'--config',str(SCENARIO/'config/temporal-a.json')],env)
         self.phase_processes=[node,server]
         server.line('TEMPORAL_STARTED',timeout=120);self.wait(lambda:self.probe('health'))
