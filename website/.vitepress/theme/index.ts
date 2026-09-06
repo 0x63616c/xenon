@@ -6,6 +6,7 @@ import Cloud from "./Cloud.vue";
 import DefaultTheme from "vitepress/theme";
 import Home from "./Home.vue";
 import Architecture from "./Architecture.vue";
+import TemporalMutationDemo from "./TemporalMutationDemo.vue";
 import "./style.css";
 export default {
   extends: DefaultTheme,
@@ -17,5 +18,6 @@ export default {
     app.component("XenonBlog", Blog);
     app.component("XenonRoutingDemo", RoutingDemo);
     app.component("XenonArchitecture", Architecture);
+    app.component("TemporalMutationDemo", TemporalMutationDemo);
   },
 };

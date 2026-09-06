@@ -66,6 +66,7 @@ try {
       "blog/",
       "blog/one-address-many-owners.html",
       "blog/when-a-reply-disappears.html",
+      "blog/one-mutation-then-a-queue.html",
     ]) {
       await page.goto(new URL(path, base).href, { waitUntil: "networkidle" });
       if (!(await page.locator("h1").count()))
@@ -101,6 +102,26 @@ try {
         await page
           .getByText("forwards the unchanged operation to owner A.", {
             exact: false,
+          })
+          .waitFor();
+      }
+      if (path === "blog/one-mutation-then-a-queue.html") {
+        await page.getByRole("tab", { name: "2. Persist" }).click();
+        await page
+          .getByRole("heading", {
+            name: "Give persistence one complete update",
+          })
+          .waitFor();
+        if (
+          (await page
+            .getByRole("tab", { name: "2. Persist" })
+            .getAttribute("aria-selected")) !== "true"
+        )
+          throw new Error("Temporal mutation stage did not select");
+        await page.getByRole("button", { name: "Next stage" }).click();
+        await page
+          .getByRole("heading", {
+            name: "Notify only after an update may have committed",
           })
           .waitFor();
       }
