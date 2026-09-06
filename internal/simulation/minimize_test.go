@@ -40,7 +40,7 @@ func reduceConfig(t *testing.T) MinimizeConfig {
 	return MinimizeConfig{Clock: WallClock{}, MaxDuration: time.Minute, AttemptBudget: time.Second, MaxAttempts: 200, MaxProposals: 100, Simulation: true, Directory: filepath.Join(t.TempDir(), "minimize")}
 }
 func reduceScenario() Scenario {
-	return Scenario{Version: 1, Kind: "controlled-reduction", Workload: []byte("abcdefghijklmnopqrstu"), Faults: []byte("abc")}
+	return Scenario{Version: 1, Kind: "controlled-reduction", Workload: []byte("abcdefghijklmnopqrstuv"), Faults: []byte("abc")}
 }
 func TestMinimizeRunnerPreservesSameFailureAndReplay(t *testing.T) {
 	calls := 0
@@ -70,7 +70,7 @@ func TestMinimizeRunnerPreservesSameFailureAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Complete || !result.OriginalVerified || len(result.Best.Workload) != 2 || len(result.Best.Faults) != 0 || len(original.Workload) != 21 {
+	if !result.Complete || !result.OriginalVerified || len(result.Best.Workload) != 2 || len(result.Best.Faults) != 0 || len(original.Workload)-len(result.Best.Workload) < 20 {
 		t.Fatalf("bad reduction: %+v", result)
 	}
 	if calls != len(result.Attempts) {
@@ -94,7 +94,7 @@ func (f predicateFunc) Evaluate(c context.Context, s Scenario, d time.Duration) 
 	return f(c, s, d)
 }
 func TestMinimizeRejectsIntermittentAndStopsPending(t *testing.T) {
-	for _, mode := range []string{"trace", "fingerprint", "pending", "cleanup", "budget"} {
+	for _, mode := range []string{"trace", "malformed_trace", "fingerprint", "pending", "cleanup", "budget"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
 			cfg := reduceConfig(t)
@@ -103,11 +103,13 @@ func TestMinimizeRejectsIntermittentAndStopsPending(t *testing.T) {
 			}
 			result, err := Minimize(t.Context(), cfg, reduceScenario(), reduceFingerprint, byteSpace{}, predicateFunc(func(context.Context, Scenario, time.Duration) (PredicateResult, error) {
 				calls++
-				r := PredicateResult{Fingerprint: reduceFingerprint, TraceSHA256: "stable", CleanupVerified: true}
+				r := PredicateResult{Fingerprint: reduceFingerprint, TraceSHA256: hash([]byte("stable")), CleanupVerified: true}
 				if calls > 3 {
 					switch mode {
 					case "trace":
-						r.TraceSHA256 = string(rune(calls))
+						r.TraceSHA256 = hash([]byte(fmt.Sprint(calls)))
+					case "malformed_trace":
+						r.TraceSHA256 = "not-a-hash"
 					case "fingerprint":
 						r.Fingerprint.Mechanism = "different"
 					case "pending":
@@ -151,7 +153,7 @@ func TestMinimizeInjectedDeadlineAndCancellationPreserveOriginal(t *testing.T) {
 					close(entered)
 					<-release
 					close(returned)
-					return PredicateResult{CleanupVerified: true, Fingerprint: reduceFingerprint, TraceSHA256: "stable"}, nil
+					return PredicateResult{CleanupVerified: true, Fingerprint: reduceFingerprint, TraceSHA256: hash([]byte("stable"))}, nil
 				}))
 				finished <- result{out, err}
 			}()

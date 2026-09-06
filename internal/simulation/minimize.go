@@ -2,6 +2,7 @@ package simulation
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -168,7 +169,7 @@ func Minimize(ctx context.Context, cfg MinimizeConfig, original Scenario, target
 				return false, nil
 			}
 			if cfg.Simulation {
-				if receipt.TraceSHA256 == "" || (repeat > 0 && trace != receipt.TraceSHA256) {
+				if decoded, err := hex.DecodeString(receipt.TraceSHA256); err != nil || len(decoded) != 32 || (repeat > 0 && trace != receipt.TraceSHA256) {
 					return false, nil
 				}
 				trace = receipt.TraceSHA256
