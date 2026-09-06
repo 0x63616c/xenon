@@ -259,6 +259,12 @@ func Step(previous State, event Event) (State, []Effect) {
 	}
 	if p := s.publication; p != nil {
 		resolution, err := registry.Reconcile(s.config.Key, p.expected, p.write, event.Record, nil)
+		// A retained reservation does not confirm its readiness publication.
+		// If the prewrite version remains, preserve the exact ambiguous attempt.
+		if p.ready && !part.Ready && resolution == registry.RetrySameWrite {
+			p.retry = true
+			return s, nil
+		}
 		// The retained tuple proves CURRENT reservation authority across unrelated
 		// coordinator/renewal publications. It does not prove the old envelope's
 		// historical outcome. Never replace it merely because that envelope changed.

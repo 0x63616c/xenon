@@ -1,6 +1,7 @@
 package partitions
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -182,5 +183,48 @@ func TestStopRetainsOpenAndRejectsOldIncarnation(t *testing.T) {
 	s, es = step(s, Event{Kind: CloseCompleted, Effect: cl.ID})
 	if s.Phase != Stopped || len(s.Pending()) != 0 {
 		t.Fatal("not stopped")
+	}
+}
+
+func TestUnknownReadyReconcilesUnchangedAndNewerControl(t *testing.T) {
+	for _, newer := range []bool{false, true} {
+		t.Run(fmt.Sprintf("newer=%t", newer), func(t *testing.T) {
+			s, op, r := opening(t)
+			s, es := step(s, Event{Kind: OpenCompleted, Effect: op.ID, HasWriter: true})
+			read := only(t, es, ReadControl)
+			s, es = step(s, Event{Kind: ReadCompleted, Effect: read.ID, Record: r, Transition: tid(30)})
+			original := only(t, es, PublishControl)
+			s, es = step(s, Event{Kind: PublishCompleted, Effect: original.ID, Err: &registry.UnknownOutcome{Key: testKey, Transition: original.Write.Transition, Cause: context.Canceled}})
+			read = only(t, es, ReadControl)
+			if newer {
+				w, err := snap(t, r).ChangeCoordinator(tid(31), cluster.CoordinatorChange{Expected: r.Version, Incarnation: otherInc, Generation: 2})
+				if err != nil {
+					t.Fatal(err)
+				}
+				r = encoded(t, r.Version, w)
+			}
+			s, es = step(s, Event{Kind: ReadCompleted, Effect: read.ID, Record: r, Transition: tid(32)})
+			if !newer {
+				if len(es) != 0 {
+					t.Fatalf("read retried before Poll: %+v", es)
+				}
+				s, es = step(s, Event{Kind: Poll})
+			}
+			next := only(t, es, PublishControl)
+			if !newer {
+				if next.Expected != original.Expected || next.Write.Transition != original.Write.Transition || next.Write.Digest != original.Write.Digest || !bytes.Equal(next.Write.Body, original.Write.Body) {
+					t.Fatal("unknown ready attempt changed")
+				}
+			} else if next.Expected != r.Version || next.Write.Transition != tid(32) {
+				t.Fatal("newer control did not reconcile current readiness")
+			}
+			if s.Handle() != op.ID || s.Attempt() != op.Open {
+				t.Fatal("reconciliation replaced native reservation")
+			}
+			s, es = step(s, Event{Kind: PublishCompleted, Effect: next.ID, Record: encoded(t, next.Expected, next.Write)})
+			if s.Phase != Ready || s.Handle() != op.ID || len(es) != 0 {
+				t.Fatal("retained writer did not become ready")
+			}
+		})
 	}
 }
