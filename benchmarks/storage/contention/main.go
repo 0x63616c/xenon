@@ -102,6 +102,22 @@ type summary struct {
 	Error                                                                                    string `json:",omitempty"`
 }
 
+// Include wrapped SDK/transport causes; the registry intentionally keeps its
+// public Error short, which is insufficient for research failure provenance.
+func detail(err error) string {
+	if err == nil {
+		return ""
+	}
+	text := err.Error()
+	if multi, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range multi.Unwrap() {
+			text += " | " + detail(cause)
+		}
+	} else if cause := errors.Unwrap(err); cause != nil {
+		text += " | " + detail(cause)
+	}
+	return text
+}
 func read(ctx context.Context, s registry.Store, key registry.Key) (registry.Record, Control, error) {
 	r, e := s.Read(ctx, key)
 	if e != nil {
@@ -216,7 +232,7 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 					ev := event{Worker: worker, Update: update, Attempt: attempt, Start: began, End: time.Since(start).Nanoseconds(), Expected: r.Version, Version: updated.Version, Transition: w.Transition, Digest: fmt.Sprintf("%x", w.Digest), Outcome: "success"}
 					var conflict *registry.Conflict
 					if e != nil {
-						ev.Outcome = "unexpected: " + e.Error()
+						ev.Outcome = "unexpected: " + detail(e)
 						if errors.As(e, &conflict) {
 							ev.Outcome = "conflict"
 						}
@@ -301,7 +317,7 @@ func runCase(c config, partitions, contenders int, out string) (summary, error) 
 		firstErr = errors.New("missing success or renewal")
 	}
 	if firstErr != nil {
-		result.Error = firstErr.Error()
+		result.Error = detail(firstErr)
 	}
 	return result, firstErr
 }
