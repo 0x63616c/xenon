@@ -20,6 +20,14 @@ def check_children(children, expected_stops, names):
         if code is not None and child.pid not in expected_stops and (name != 'omes' or code != 0):
             raise ScenarioInvariant('background process exited unexpectedly: '+name+' ('+str(code)+')')
 
+def kill_and_collect(process):
+    if process.poll() is None:
+        try:os.killpg(process.pid,signal.SIGKILL)
+        except ProcessLookupError:pass
+    # Reap and retain output even if the process exited between poll and kill.
+    return process.communicate(timeout=10)
+
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--development',action='store_true');args=parser.parse_args()
     receipt=ROOT/'.local/evidence'/('agent-'+time.strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:6]);receipt.mkdir(parents=True)
@@ -49,15 +57,14 @@ def main():
                 check_children(children,expected_stops,child_names)
                 left=end-time.monotonic()
                 if left<=0:
-                    timed_out=True;os.killpg(p.pid,signal.SIGKILL);output,_=p.communicate(timeout=10);break
+                    timed_out=True;output,_=kill_and_collect(p);break
                 try:output,_=p.communicate(timeout=min(1,left));break
                 except subprocess.TimeoutExpired:pass
         except BaseException as error:
             interrupted=error
             output=''
             try:
-                if p.poll() is None:os.killpg(p.pid,signal.SIGKILL)
-                output,_=p.communicate(timeout=10)
+                output,_=kill_and_collect(p)
             except Exception as cleanup_error:
                 report.setdefault('command_cleanup_errors',[]).append(str(cleanup_error))
         path=receipt/('command-'+str(len(report['commands']))+'.log');path.write_text(output)

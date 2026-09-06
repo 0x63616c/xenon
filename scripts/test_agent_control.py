@@ -5,6 +5,9 @@ import importlib.util
 import json
 from pathlib import Path
 import struct
+import subprocess
+import sys
+from unittest.mock import patch
 from types import SimpleNamespace
 import unittest
 
@@ -60,6 +63,26 @@ class AgentControlTests(unittest.TestCase):
         child.poll=lambda:0
         smoke.check_children([child],set(),{1:'omes'})
         with self.assertRaises(smoke.ScenarioInvariant):smoke.check_children([child],set(),{1:'worker'})
+
+    def test_exit_between_poll_and_kill_still_reaps_and_keeps_output(self):
+        child=subprocess.Popen([sys.executable,'-c',
+            'import sys; sys.stdin.read(1); print("preserved child output", flush=True)'],
+            stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+            text=True,start_new_session=True)
+        def exited_before_kill(pid,signal):
+            self.assertEqual(pid,child.pid)
+            child.stdin.write('x');child.stdin.flush()
+            child.wait(timeout=5)
+            raise ProcessLookupError('already exited')
+        try:
+            with patch.object(smoke.os,'killpg',side_effect=exited_before_kill) as kill:
+                output,_=smoke.kill_and_collect(child)
+            kill.assert_called_once()
+            self.assertEqual(child.returncode,0)
+            self.assertEqual(output,'preserved child output\n')
+        finally:
+            if child.poll() is None:child.kill()
+            child.communicate(timeout=5)
 
 
 if __name__=='__main__':unittest.main()
