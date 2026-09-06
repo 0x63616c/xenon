@@ -23,15 +23,17 @@ This is one declared crash scenario, not the full fault/workload matrix. Earlier
 
 ## Fuzz and mixed workloads
 
-The original-corpus fuzz attempt at `90327c9` passed real Nexus readiness across all four history shards, then its first saved input reached the unchanged 900-second timeout. No complete corpus round passed. Pinned Omes generator and Go-worker inspection identified missing signal-acceptance metadata: numbered signals containing child/Nexus actions and the final return were skipped. Original input bytes and failed evidence are preserved. A separately versioned correction with explicit provenance and worker regression controls is under development.
+The original-corpus fuzz attempt at `90327c9` passed real Nexus readiness across all four history shards, then its first saved input reached the unchanged 900-second timeout. No complete corpus round passed. Pinned Omes generator and Go-worker inspection identified missing signal-acceptance metadata: numbered signals containing child/Nexus actions and the final return were skipped. Original input bytes and failed evidence are preserved. A separately versioned correction preserves both corpora and now passes the actual worker controls, including two late signals reaching the same fallback workflow. The extended corrected soak remains unverified.
 
-The mixed-workload controller and history oracle are implemented but still await live execution. Its 240 baseline parent/child runs are distinct from additional Nexus handler workflows; source-derived checks must account for both. Remaining native cut stages, movement and measurement scenarios are not implied by the passing smoke.
+The real mixed run at `50d12aa` failed during the workload: a retrying heartbeat activity exhausted its attempts, before the history oracle ran. The reviewed execution-durability change passed the integrated storage checks; its effect on that workload still needs a rerun. The oracle accounts for 240 baseline parent/child runs and 480 Nexus handler runs.
+
+The visibility-movement attempt at `ed7cd1e` reached its existing deadline while seeding the frozen dataset, before any movement. Bounded seeding across the four independent partitions is now implemented and race-tested; a new live run is in progress at this checkpoint. Remaining native cut stages and complete measurement scenarios are not implied by the passing smoke.
 
 The repository's `docs/design/verification-matrix.md` retains exact component receipts and the integration ledger.
 
 ## Component evidence
 
-The repository contains registered proofs for native transactions and fencing, S3 ownership, Rust/Go stored-data compatibility, persistence families, visibility semantics, outcome capacity and process cuts. The integrated candidate also passed the Go race suite and the registered runtime-measurement controls.
+The repository contains registered proofs for native transactions and fencing, S3 ownership, Rust/Go stored-data compatibility, persistence families, visibility semantics, outcome capacity and process cuts. The clean `31e84b8` candidate passed all 59 registered storage commands, including managed execution recovery and final-journal fencing. The visibility cursor/seed controls passed all three race commands. These results supplement earlier Go race and measurement-component checks.
 
 A component proof establishes its own declared assertions. It does not establish every Temporal feature, arbitrary workloads, production performance or real AWS behavior. [Local development](./development.md) explains how to rerun a named proof and inspect its receipt.
 
@@ -50,6 +52,6 @@ The saved corpus and workload helpers are committed. Their existence is not evid
 
 ## External and product boundaries
 
-Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI remains blocked: checks on integration PRs #55 and #66 report that jobs did not start because of account payments or the spending limit. This was checked against the `90327c9` candidate on September 5, 2026; local checks do not waive required hosted checks. At that checkpoint both PRs were open and `main` remained at `457fad9`. The integrated code and this site therefore describe a delivery candidate, not a release already merged to main.
+Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI remains blocked: checks on integration PRs #55 and #66 report that jobs did not start because of account payments or the spending limit. The September 6, 2026 UTC audit confirmed the same pre-execution billing error on both integration PRs; local checks do not waive required hosted checks. Both PRs remain open. Main is `c9432a6`, which adds branding assets and does not contain the persistence integration. The integrated code and this site therefore describe a delivery candidate, not a release already merged to main.
 
 There is no published performance benchmark, production availability commitment, automatic rebalancer, public source release or available Xenon Cloud service.
