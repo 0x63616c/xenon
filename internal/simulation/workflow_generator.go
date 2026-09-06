@@ -1,0 +1,295 @@
+package simulation
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	_ "embed"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"time"
+)
+
+//go:embed workflow_normalizer.go.txt
+var workflowInspectorSource []byte
+
+const WorkflowInputKind = "omes-corrected-workflow-input-v1"
+const omesGeneratorCommit = "c6978ba39aa03551ce28974117e8d7ecf983d2b3"
+const omesGeneratorConfig = "8a118eb7c1a86135e3e21b3799f980418b94838f986d922c1352b8eb4d735ea8"
+
+type WorkflowTool struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+type WorkflowGeneratorBundle struct {
+	Version                    int                     `json:"version"`
+	OmesCommit                 string                  `json:"omes_commit"`
+	APICommit                  string                  `json:"api_commit"`
+	GeneratorSourceSHA256      string                  `json:"generator_source_sha256"`
+	CargoLockSHA256            string                  `json:"cargo_lock_sha256"`
+	NormalizerSourceSHA256     string                  `json:"normalizer_source_sha256"`
+	InspectorSourceSHA256      string                  `json:"inspector_source_sha256"`
+	CompatibilityOverlaySHA256 string                  `json:"compatibility_overlay_sha256"`
+	WorkerSDK                  string                  `json:"worker_sdk"`
+	WorkerSHA256               string                  `json:"worker_sha256"`
+	Tools                      map[string]WorkflowTool `json:"tools"`
+}
+type GeneratedWorkflow struct {
+	Input        []byte `json:"input"`
+	SHA256       string `json:"sha256"`
+	Operations   int    `json:"operations"`
+	Depth        int    `json:"depth"`
+	WorkloadSeed uint64 `json:"workload_seed"`
+}
+
+// WorkflowGenerator prepares fresh inputs only. It invokes pinned leaf generator
+// tools, never Temporal, workers, storage engines or a live fault scheduler.
+type WorkflowGenerator struct {
+	directory string
+	bundle    WorkflowGeneratorBundle
+	info      GeneratorInfo
+}
+
+func NewWorkflowGenerator(directory string) (*WorkflowGenerator, error) {
+	directory, err := filepath.Abs(directory)
+	if err != nil {
+		return nil, err
+	}
+	directory, err = filepath.EvalSymlinks(directory)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(filepath.Join(directory, "generator.json"))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > 1<<20 {
+		return nil, errors.New("generator manifest exceeds 1 MiB")
+	}
+	var bundle WorkflowGeneratorBundle
+	if err = strictJSON(raw, &bundle); err != nil {
+		return nil, err
+	}
+	if bundle.Version != 1 || bundle.OmesCommit != omesGeneratorCommit || bundle.APICommit != "d96bd55e87799e9f6a33a1c40a56cfa932566bdf" || bundle.GeneratorSourceSHA256 != "c6333d94427a7bc2b55731cfa9b4f9ff9b7145017ef816a1ae5c4a9ba5c220ca" || bundle.CargoLockSHA256 != "3924e08587393d264993a5dade6e894b620ff44619f15a8d6d2f46d9ee61809a" || bundle.NormalizerSourceSHA256 != "529a56005dafde138773d420cec66a631bb4caadef50427ba575d388f87f7a32" || bundle.WorkerSDK != "v1.48.0" || len(bundle.WorkerSHA256) != 64 || bundle.CompatibilityOverlaySHA256 != "cdb70939ac3a6f0449534421dd13579984c69fcb1c5b737c72d744a63b47bc09" || bundle.InspectorSourceSHA256 != hash(workflowInspectorSource) || len(bundle.Tools) != 4 {
+		return nil, errors.New("unsupported Omes generator/worker compatibility bundle")
+	}
+	g := &WorkflowGenerator{directory: directory, bundle: bundle, info: GeneratorInfo{"omes-seeded-corrected-v1", hash(raw), []string{WorkflowInputKind, "fresh-seeded-inputs", "corrected-signal-contract", "no-fault-exploration", "no-workflow-execution"}}}
+	if err = g.verify(); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+func (g *WorkflowGenerator) Info() GeneratorInfo {
+	out := g.info
+	out.Capabilities = append([]string(nil), out.Capabilities...)
+	return out
+}
+func (g *WorkflowGenerator) verify() error {
+	for _, name := range []string{"generator", "normalize", "config", "worker"} {
+		tool, ok := g.bundle.Tools[name]
+		if !ok || !filepath.IsLocal(tool.Path) || len(tool.SHA256) != 64 {
+			return errors.New("missing or unsafe generator tool")
+		}
+		path := filepath.Join(g.directory, tool.Path)
+		actual, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(g.directory, actual)
+		if err != nil || !filepath.IsLocal(relative) {
+			return errors.New("generator tool escapes bundle")
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		h := sha256.New()
+		_, copyErr := io.Copy(h, file)
+		closeErr := file.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if hex.EncodeToString(h.Sum(nil)) != tool.SHA256 {
+			return fmt.Errorf("generator %s changed", name)
+		}
+		if name == "worker" && tool.SHA256 != g.bundle.WorkerSHA256 {
+			return errors.New("compatible worker hash mismatch")
+		}
+		if name == "config" && tool.SHA256 != omesGeneratorConfig {
+			return errors.New("unsupported generator configuration")
+		}
+	}
+	return nil
+}
+func workflowBounds(l WorkloadLimits) error {
+	if l.MaxOperations != 2048 || l.MaxDepth != 64 || l.MaxPayloadBytes != 1<<20 || len(l.Features) != 1 || l.Features[0] != WorkflowInputKind {
+		return errors.New("unsupported workflow generation bounds/features; require registered 2048 operations/64 depth/1 MiB profile")
+	}
+	return nil
+}
+func (g *WorkflowGenerator) Next(ctx context.Context, r GenerateRequest) (Scenario, error) {
+	if err := workflowBounds(r.Limits); err != nil {
+		return Scenario{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return Scenario{}, err
+	}
+	if err := g.verify(); err != nil {
+		return Scenario{}, err
+	}
+	scratch, err := os.MkdirTemp("", "xenon-workflow-input-")
+	if err != nil {
+		return Scenario{}, err
+	}
+	defer os.RemoveAll(scratch)
+	raw, err := workflowTool(ctx, filepath.Join(g.directory, g.bundle.Tools["generator"].Path), "generate", "--explicit-seed", strconv.FormatUint(r.WorkloadSeed, 10), "--generator-config-override", filepath.Join(g.directory, g.bundle.Tools["config"].Path), "--nexus-endpoint", "xenon-fuzz")
+	if err != nil {
+		return Scenario{}, err
+	}
+	input := filepath.Join(scratch, "original.proto")
+	normalized := filepath.Join(scratch, "normalized.proto")
+	if err = os.WriteFile(input, raw, 0600); err != nil {
+		return Scenario{}, err
+	}
+	stats, err := workflowTool(ctx, filepath.Join(g.directory, g.bundle.Tools["normalize"].Path), input, normalized)
+	if err != nil {
+		return Scenario{}, err
+	}
+	var measured struct {
+		Operations int `json:"operations"`
+		Depth      int `json:"depth"`
+	}
+	if err = strictJSON(stats, &measured); err != nil {
+		return Scenario{}, err
+	}
+	raw, err = os.ReadFile(normalized)
+	if err != nil {
+		return Scenario{}, err
+	}
+	if len(raw) == 0 || len(raw) > r.Limits.MaxPayloadBytes || measured.Operations < 1 || measured.Operations > r.Limits.MaxOperations || measured.Depth < 1 || measured.Depth > r.Limits.MaxDepth {
+		return Scenario{}, errors.New("generated input exceeds declared bounds")
+	}
+	if err = g.verify(); err != nil {
+		return Scenario{}, err
+	}
+	workload, _ := json.Marshal(GeneratedWorkflow{raw, hash(raw), measured.Operations, measured.Depth, r.WorkloadSeed})
+	// The fault stream identity is retained separately, but this generator does
+	// not claim to generate/inject faults. A real schedule driver remains required.
+	faults, _ := json.Marshal(struct {
+		Seed uint64 `json:"seed"`
+		Mode string `json:"mode"`
+	}{r.FaultSeed, "none; fault exploration not implemented"})
+	return Scenario{1, WorkflowInputKind, workload, []byte(`{"version":1,"runtime":"not-started","nexus_endpoint":"xenon-fuzz","sdk":"v1.48.0"}`), faults}, nil
+}
+
+type boundedToolOutput struct{ bytes.Buffer }
+
+func (w *boundedToolOutput) Write(p []byte) (int, error) {
+	if w.Len()+len(p) > 4<<20 {
+		return 0, errors.New("generator tool output exceeds 4 MiB")
+	}
+	return w.Buffer.Write(p)
+}
+func workflowTool(parent context.Context, program string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, program, args...)
+	var out, diagnostics boundedToolOutput
+	command.Stdout = &out
+	command.Stderr = &diagnostics
+	if err := command.Run(); err != nil {
+		return nil, fmt.Errorf("workflow input tool: %w: %s", err, diagnostics.String())
+	}
+	return out.Bytes(), nil
+}
+
+// WorkflowPreparationDriver checks saved input artifacts only. It is explicitly
+// not a workflow runner: no successful preparation is a runtime correctness pass.
+type WorkflowPreparationDriver struct{ prepared bool }
+
+func (d *WorkflowPreparationDriver) Validate(s Scenario, l WorkloadLimits) error {
+	if err := workflowBounds(l); err != nil {
+		return err
+	}
+	if s.Version != 1 || s.Kind != WorkflowInputKind {
+		return errors.New("unsupported workflow input scenario")
+	}
+	var input GeneratedWorkflow
+	if err := strictJSON(s.Workload, &input); err != nil {
+		return err
+	}
+	if len(input.Input) == 0 || len(input.Input) > l.MaxPayloadBytes || hash(input.Input) != input.SHA256 || input.Operations < 1 || input.Operations > l.MaxOperations || input.Depth < 1 || input.Depth > l.MaxDepth {
+		return errors.New("invalid saved workflow input bounds/hash")
+	}
+	return nil
+}
+func (d *WorkflowPreparationDriver) Run(ctx context.Context, s Scenario, emit func(json.RawMessage) error) error {
+	d.prepared = false
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var input GeneratedWorkflow
+	if err := strictJSON(s.Workload, &input); err != nil {
+		return err
+	}
+	raw, _ := json.Marshal(struct{ Event, InputSHA256, Execution string }{"workflow-input-prepared", input.SHA256, "not-executed"})
+	if err := emit(raw); err != nil {
+		return err
+	}
+	d.prepared = true
+	return nil
+}
+func (d *WorkflowPreparationDriver) Settle(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !d.prepared {
+		return errors.New("workflow input was not prepared")
+	}
+	return nil
+}
+func (d *WorkflowPreparationDriver) Cleanup(context.Context) error { return nil }
+
+// ArtifactDriver selects only implemented component/preparation kinds. Real
+// workflow execution cannot be silently substituted with this preparation driver.
+type ArtifactDriver struct{ selected Driver }
+
+func (d *ArtifactDriver) Validate(s Scenario, l WorkloadLimits) error {
+	switch s.Kind {
+	case CoupledKind:
+		d.selected = &CoupledDriver{}
+	case WorkflowInputKind:
+		d.selected = &WorkflowPreparationDriver{}
+	default:
+		return errors.New("unsupported artifact kind")
+	}
+	return d.selected.Validate(s, l)
+}
+func (d *ArtifactDriver) Run(ctx context.Context, s Scenario, emit func(json.RawMessage) error) error {
+	if d.selected == nil {
+		return errors.New("artifact not validated")
+	}
+	return d.selected.Run(ctx, s, emit)
+}
+func (d *ArtifactDriver) Settle(ctx context.Context) error {
+	if d.selected == nil {
+		return errors.New("artifact not validated")
+	}
+	return d.selected.Settle(ctx)
+}
+func (d *ArtifactDriver) Cleanup(ctx context.Context) error {
+	if d.selected == nil {
+		return nil
+	}
+	return d.selected.Cleanup(ctx)
+}

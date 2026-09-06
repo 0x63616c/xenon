@@ -1,0 +1,37 @@
+// Combined at build time with the unchanged accepted normalizer, whose main is
+// renamed normalizeMain. No historical corpus or normalizer file is modified.
+package main
+
+import (
+ "encoding/json"
+ "fmt"
+ "os"
+ pb "github.com/temporalio/omes/loadgen/kitchensink"
+ common "go.temporal.io/api/common/v1"
+ "google.golang.org/protobuf/proto"
+ "google.golang.org/protobuf/reflect/protoreflect"
+)
+func main(){
+ normalizeMain()
+ raw,err:=os.ReadFile(os.Args[2]);if err!=nil{panic(err)}
+ if len(raw)==0||len(raw)>1<<20{panic("generated payload bound")}
+ input:=new(pb.TestInput);if err=proto.Unmarshal(raw,input);err!=nil{panic(err)}
+ operations,depth:=0,0
+ var walk func(protoreflect.Message,int)error
+ walk=func(m protoreflect.Message,d int)error{
+  if d>64{return fmt.Errorf("generated depth bound")};if d>depth{depth=d}
+  switch x:=m.Interface().(type){
+  case *pb.Action,*pb.ClientAction,*pb.WithStartClientAction:
+   operations++;if operations>2048{return fmt.Errorf("generated operation bound")}
+  case *common.Payload:
+   if string(x.Metadata["encoding"])=="binary/protobuf"&&string(x.Metadata["messageType"])=="temporal.omes.kitchen_sink.WorkflowInput"{
+    child:=new(pb.WorkflowInput);if err:=proto.Unmarshal(x.Data,child);err!=nil{return err}
+    return walk(child.ProtoReflect(),d+1)
+   }
+  }
+  return children(m,func(child protoreflect.Message)error{return walk(child,d+1)})
+ }
+ if err=walk(input.ProtoReflect(),1);err!=nil{panic(err)}
+ if operations<1{panic("generated no operations")}
+ if err=json.NewEncoder(os.Stdout).Encode(struct{Operations int `json:"operations"`;Depth int `json:"depth"`}{operations,depth});err!=nil{panic(err)}
+}

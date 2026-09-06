@@ -105,7 +105,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 			return err
 		}
 		result, err := simulation.Replay(cmd.Context(), artifact, runner)
-		return simulationResult(cmd, development, "exact-coupled-replay", result, err)
+		return simulationResult(cmd, development, "exact-component-artifact-replay", result, err)
 	}
 	return []*cobra.Command{test, search, replay}
 }
@@ -121,7 +121,7 @@ func simulationRunner(directory string, development bool, info buildinfo.Info, c
 	if err != nil {
 		return nil, err
 	}
-	return &simulation.Runner{Driver: &simulation.CoupledDriver{}, Clock: clock, Directory: absolute, Provenance: simulation.Provenance{Source: info.Revision, Versions: map[string]string{"toolchain": info.Go, "native": "modeled; no native engine executed", "images": "none", "build_modified": info.Modified}}}, nil
+	return &simulation.Runner{Driver: &simulation.ArtifactDriver{}, Clock: clock, Directory: absolute, Provenance: simulation.Provenance{Source: info.Revision, Versions: map[string]string{"toolchain": info.Go, "native": "modeled; no native engine executed", "images": "none", "build_modified": info.Modified}}}, nil
 }
 func readScenario(path string) ([]byte, error) {
 	f, err := os.Open(path)

@@ -39,7 +39,7 @@ func TestSimulationCLIAndExactArtifactReplay(t *testing.T) {
 	artifact := filepath.Join(evidence, "case-00000000000000000000", "scenario.json")
 	replay := filepath.Join(t.TempDir(), "replay")
 	code, out, diagnostics = runSimulationCLI(t, context.Background(), "replay", "--artifact", artifact, "--evidence", replay, "--development")
-	if code != 0 || diagnostics != "" || out.Result.Completed != 1 || out.Mode != "exact-coupled-replay" {
+	if code != 0 || diagnostics != "" || out.Result.Completed != 1 || out.Mode != "exact-component-artifact-replay" {
 		t.Fatal(code, out, diagnostics)
 	}
 	first, err := os.ReadFile(filepath.Join(evidence, "case-00000000000000000000", "trace.jsonl"))
@@ -101,7 +101,7 @@ func TestSimulationCanceledAndBudgetAreNotPasses(t *testing.T) {
 	}
 }
 func TestSimulationHelpDoesNotReadInputsOrStartBackend(t *testing.T) {
-	for _, args := range [][]string{{"test", "--help"}, {"test", "simulation", "--help"}, {"search", "--help"}, {"replay", "--help"}} {
+	for _, args := range [][]string{{"test", "--help"}, {"test", "simulation", "--help"}, {"search", "--help"}, {"replay", "--help"}, {"generate", "workflow", "--help"}} {
 		var out, diagnostics bytes.Buffer
 		code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, agent.Config) error { t.Fatal("backend started"); return nil })
 		if code != 0 || diagnostics.Len() != 0 || !strings.Contains(out.String(), "Usage:") {
