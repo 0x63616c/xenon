@@ -310,7 +310,10 @@ func TestShardTransportBoundsAndTypes(t *testing.T) {
 					t.Fatalf("%T %v", e, e)
 				}
 			case codes.OK:
-				if !errors.Is(e, context.DeadlineExceeded) {
+				// The server may close the HTTP/2 stream with CANCEL when its
+				// derived deadline fires before the client timer. Both paths must
+				// remain typed and bounded; exact remote mappings are tested below.
+				if !errors.Is(e, context.DeadlineExceeded) && !errors.Is(e, context.Canceled) {
 					t.Fatalf("hung invocation: %v", e)
 				}
 				if time.Since(started) > time.Second {

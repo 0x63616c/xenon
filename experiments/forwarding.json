@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "name": "forwarding",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "internal/routing/router.go",
+    "internal/routing/router_test.go",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "scripts/test_prove.py",
+    ".github/workflows/ci.yaml",
+    "proof/forwarding/README.md"
+  ],
+  "fault_schedule": "Fixed partition and operation IDs; initial unreachable route; drop first completed local response; cyclic two-node directory;20ms slow-call deadline. Loopback ports allocated by OS.",
+  "assertions": [
+    "Complete operation envelope unchanged across actual gRPC forwarding.",
+    "Stale route refresh reaches owner; in-memory recorded response prevents a second logical test execution.",
+    "Router retains the incoming context deadline without creating a fresh timeout; caller cancellation reaches the forwarded destination.",
+    "Cycles and invalid hop counts fail within bounded attempts; missing deadline rejected; stalled local call respects deadline.",
+    "Closed router rejects new local admissions."
+  ],
+  "limitations": [
+    "Transport component only; test resolver and recorded response are in-memory fixtures, not S3 authority or durable replay proof.",
+    "Production ownership manager, process integration and live scale-out remain required."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingReplayAndRefresh",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingReplayAndRefresh"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingLoopsAndDeadline",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingLoopsAndDeadline"
+      ]
+    },
+    {
+      "runner": "go-test-routing",
+      "filter": "TestForwardingClosedAdmission",
+      "exact": true,
+      "expected_tests": [
+        "TestForwardingClosedAdmission"
+      ]
+    }
+  ]
+}

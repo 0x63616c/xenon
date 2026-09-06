@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"net"
 	"time"
 
@@ -31,7 +32,7 @@ type ClusterStore struct {
 var _ p.ClusterMetadataStore = (*ClusterStore)(nil)
 
 func NewClusterStore(address, partition string) (*ClusterStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,12 @@ func (s *ClusterStore) Close() {
 	}
 }
 func (s *ClusterStore) GetName() string { return "xenon" }
-func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand) (*wire.ClusterResult, error) {
+func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand) (traceResult *wire.ClusterResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "cluster")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)

@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "name": "go-shard-compat",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 ",
+    "protoc": "libprotoc 36"
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proof/go-shard/README.md",
+    ".github/workflows/ci.yaml",
+    "test/compatibility/rust/crates/xenon-node/Cargo.toml",
+    "test/compatibility/rust/crates/xenon-node/build.rs",
+    "test/compatibility/rust/crates/xenon-node/src/lib.rs",
+    "test/compatibility/rust/crates/xenon-node/src/main.rs",
+    "deploy/compat.compose.yaml",
+    "proof/go-shard-compat/case.json",
+    "proof/go-shard-compat/README.md",
+    "internal/adapter/shard_compatibility_test.go",
+    "scripts/shard-compat-proof.py"
+  ],
+  "fault_schedule": "proof/go-shard-compat/case.json: Rust durable writes, SIGKILL, Go recovery/replay/update, SIGKILL, Rust recovery/replay.",
+  "assertions": [
+    "Rust-written shard bytes and durable outcomes are recovered and replayed by Go.",
+    "Go-written shard bytes and outcomes are recovered and replayed by Rust.",
+    "Changed payload reuse fails and replay preserves newer state.",
+    "Scoped emulator resources are removed."
+  ],
+  "limitations": [
+    "Pinned same-version shard schema only; no general migration guarantee.",
+    "Local S3 emulator only; no real AWS or full Temporal boot claim."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "cargo-build-node"
+    },
+    {
+      "runner": "go-shard-compat",
+      "filter": "TestShardStoredCompatibility",
+      "exact": true,
+      "expected_tests": [
+        "TestShardStoredCompatibility",
+        "TestShardStoredCompatibility/RustWrites",
+        "TestShardStoredCompatibility/GoReadsReplaysAndWrites",
+        "TestShardStoredCompatibility/RustReadsReplaysGoWrites"
+      ]
+    }
+  ]
+}

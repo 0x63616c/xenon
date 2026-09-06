@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "name": "visibility-movement",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "scripts/ministack-runtime.py",
+    "cmd/xenon-sdk-probe/main.go",
+    "cmd/xenon-visibility-probe/main.go",
+    "cmd/xenon-visibility-probe/barrier.go",
+    "cmd/xenon-visibility-probe/barrier_test.go",
+    "proof/visibility/frozen.json",
+    "proof/acceptance/full-profile.json",
+    "test/scenarios/ministack/visibility-movement.json",
+    "proof/visibility/movement.md",
+    "cmd/xenon-visibility-probe/seed.go",
+    "cmd/xenon-visibility-probe/seed_test.go",
+    "proof/visibility/seed-concurrency.md"
+  ],
+  "fault_schedule": "Real filesystem cursor release control, wrong token and missing release deadline. Runtime movement itself is not executed by this component proof.",
+  "assertions": [
+    "First-page barrier cannot resume until exact controller token; missing release is bounded.",
+    "Only declared page-size1,7,100 check overrides are admitted; seed/mutate remain all-size.",
+    "Exactly four seed workers are admitted for the four fixed partitions; records serialize within each partition.",
+    "Seed peer failures join admitted writes and preserve acknowledged counts without partial success."
+  ],
+  "limitations": [
+    "No live stack execution in component control.",
+    "Runtime scenario must execute separately against real S3 emulator owners."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-visibility-barrier",
+      "filter": "TestVisibilityMovementBarrier",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityMovementBarrier/page_sizes",
+        "TestVisibilityMovementBarrier/release",
+        "TestVisibilityMovementBarrier/wrong_token",
+        "TestVisibilityMovementBarrier/deadline",
+        "TestVisibilityMovementBarrier/late_release",
+        "TestVisibilityMovementBarrier"
+      ]
+    },
+    {
+      "runner": "go-test-visibility-barrier",
+      "filter": "TestSeedPartitions",
+      "exact": true,
+      "expected_tests": [
+        "TestSeedPartitions"
+      ]
+    },
+    {
+      "runner": "go-test-visibility-barrier",
+      "filter": "TestSeedPartitionsFailureJoinsPeers",
+      "exact": true,
+      "expected_tests": [
+        "TestSeedPartitionsFailureJoinsPeers"
+      ]
+    }
+  ]
+}

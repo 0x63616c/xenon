@@ -149,7 +149,10 @@
   border-radius: 14px;
   background: #ffffffc9;
   color: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 .start-here a:hover {
   border-color: #9dc8f0;
@@ -163,8 +166,14 @@
   font-weight: 650;
   letter-spacing: 0.08em;
 }
-.start-here strong { font-size: 14px; }
-.start-here small { color: #707780; font-size: 11px; line-height: 1.35; }
+.start-here strong {
+  font-size: 14px;
+}
+.start-here small {
+  color: #707780;
+  font-size: 11px;
+  line-height: 1.35;
+}
 .primary {
   display: inline-flex;
   align-items: center;

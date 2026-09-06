@@ -3,11 +3,11 @@
   "backend": "memory",
   "timeout_seconds_per_command": 600,
   "inputs": [
-    "Cargo.toml",
-    "Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
     "rust-toolchain.toml",
-    "crates/slatedb-probe/Cargo.toml",
-    "crates/slatedb-probe/src/lib.rs"
+    "test/compatibility/rust/crates/slatedb-probe/Cargo.toml",
+    "test/compatibility/rust/crates/slatedb-probe/src/lib.rs"
   ],
   "limitations": [
     "Actual SlateDB over in-memory object_store; no real-S3 semantics claim.",

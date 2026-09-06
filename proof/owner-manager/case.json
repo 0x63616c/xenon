@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "endpoint": "http://127.0.0.1:19004",
+  "bucket": "xenon-owner-manager-proof",
+  "schedule": [
+    "two_partition_any_ingress",
+    "explicit_member_activation",
+    "move_and_replay",
+    "same_member_replacement",
+    "stale_captured_read",
+    "two_finite_delayed_openers",
+    "topology_ready_race",
+    "process_kill_recovery"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "command": [
+    "python3",
+    "scripts/ministack-runtime.py",
+    "--lost-directory-cas"
+  ],
+  "status": "NOT_EXECUTED",
+  "partition": "matching",
+  "node": "c",
+  "state": "opening",
+  "recovery_seconds": 120,
+  "require_active_omes": true,
+  "require_exact_get_reconciliation": true,
+  "require_ready_and_local_dispatch": true,
+  "full_acceptance": false
+}

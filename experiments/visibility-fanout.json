@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "name": "visibility-fanout",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "internal/adapter/visibility.go",
+    "internal/adapter/visibility_fanout_test.go",
+    "cmd/xenon-sdk-probe/main.go",
+    "proof/visibility/fanout.md"
+  ],
+  "fault_schedule": "Each actual loopback visibility partition handler holds until all4 independently entered; one separatecase returns InvalidArgument while siblings await controlled release.",
+  "assertions": [
+    "LIST initial partition reads and COUNT all4 execute concurrently before release.",
+    "A partition error joins outstanding client calls without peer cancellation and never returns partial success."
+  ],
+  "limitations": [
+    "Deterministic RPC control, not real SlateDB/S3 performance or a completed cold-runtime rerun.",
+    "Live cross-partition semantics and existing30s deadline retained; no snapshot claim."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-fanout",
+      "filter": "TestVisibilityIndependentFanout",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityIndependentFanout/list",
+        "TestVisibilityIndependentFanout/count",
+        "TestVisibilityIndependentFanout/failure",
+        "TestVisibilityIndependentFanout"
+      ]
+    }
+  ]
+}

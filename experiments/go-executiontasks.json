@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "name": "go-executiontasks",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md",
+    "proto/xenon/v1/execution.proto",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "proof/execution/case.json",
+    "proof/execution/README.md",
+    "docs/research/execution-contract.md",
+    "proto/xenon/v1/historytasks.proto",
+    "gen/xenon/v1/historytasks.pb.go",
+    "gen/xenon/v1/historytasks_grpc.pb.go",
+    "internal/adapter/historytasks.go",
+    "internal/node/historytasks.go",
+    "proto/xenon/v1/executiontasks.proto",
+    "gen/xenon/v1/executiontasks.pb.go",
+    "gen/xenon/v1/executiontasks_grpc.pb.go",
+    "internal/adapter/executiontasks.go",
+    "internal/adapter/execution_store.go",
+    "internal/adapter/executiontasks_integration_test.go",
+    "internal/adapter/executiontasks_upstream_test.go",
+    "internal/node/executiontasks.go",
+    "internal/node/executiontasks_test.go",
+    "proof/executiontasks/case.json",
+    "proof/executiontasks/README.md",
+    "docs/research/executiontasks-contract.md"
+  ],
+  "fault_schedule": "Declared lost completed DLQ put response; Add task batch inserts a fresh key before duplicate abort; deleted DLQ put replay after reopen; competing native writer fences old replay.",
+  "assertions": [
+    "Full pinned low-level ExecutionStore composes real components over one Go RPC connection.",
+    "Pinned 15-test ExecutionMutableStateTaskSuite runs through actual gRPC using committed random seed.",
+    "AddHistoryTasks guards shard range and atomically inserts all task categories with duplicate rollback.",
+    "Replication DLQ first insert is immutable across duplicate puts, with exact int64 IDs and unknown protobuf fields preserved.",
+    "Reads and range deletion honor [minimum,maximum); empty tail includes admitted MaxInt64.",
+    "Byte-bounded pagination, source-cluster isolation, response loss/replay, reopen and fencing are asserted."
+  ],
+  "limitations": [
+    "Memory object-store component proof; S3/process-crash, routing, Temporal boot and Omes remain separate gates.",
+    "Upstream task suite is covered, not all workflow/history persistence suites.",
+    "Request transport limit2MiB, page limit3MiB and bounded journal capacity remain explicit constraints."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestExecutionTasksRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestExecutionTasksRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestExecutionTasksUpstream",
+      "exact": true,
+      "expected_tests": [
+        "TestExecutionTasksUpstream",
+        "TestExecutionTasksUpstream/TestAddGetCompleteImmediateTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetRangeCompleteImmediateTasks_Multiple",
+        "TestExecutionTasksUpstream/TestAddGetCompleteScheduledTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetRangeCompleteScheduledTasks_Multiple",
+        "TestExecutionTasksUpstream/TestAddGetCompleteTransferTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetTransferTasks_Multiple",
+        "TestExecutionTasksUpstream/TestAddGetCompleteTimerTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetTimerTasks_Multiple",
+        "TestExecutionTasksUpstream/TestAddGetCompleteReplicationTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetReplicationTasks_Multiple",
+        "TestExecutionTasksUpstream/TestAddGetCompleteVisibilityTask_Single",
+        "TestExecutionTasksUpstream/TestAddGetVisibilityTasks_Multiple",
+        "TestExecutionTasksUpstream/TestIsReplicationDLQEmpty",
+        "TestExecutionTasksUpstream/TestGetTimerTasksOrdered",
+        "TestExecutionTasksUpstream/TestGetScheduledTasksOrdered"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerExecutionTasksRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerExecutionTasksRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerExecutionTasksBytePages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerExecutionTasksBytePages"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerExecutionRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerExecutionRecovery"
+      ]
+    }
+  ]
+}

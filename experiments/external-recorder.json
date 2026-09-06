@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "name": "external-recorder",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "internal/proof/recorder/recorder.go",
+    "internal/proof/recorder/recorder_test.go",
+    "cmd/xenon-trace-recorder/main.go",
+    "proof/external-recorder.md"
+  ],
+  "fault_schedule": "Discard acknowledged registration response then replay; SIGKILL registered producer after observed work-finished barrier without terminal delivery; independently SIGKILL recorder process after a synced registration. Separate exact sequence/capacity and malformed-file controls.",
+  "assertions": [
+    "Identical registration retry retains one record; conflicting identity, sequence gaps and capacity overflow reject.",
+    "Producer death leaves exact terminal-unobserved set without fabricated durations; unknowns cannot close steady phase.",
+    "Recorder death and malformed or unclosed journal fail offline validation.",
+    "100 completed registrations in closed steady family satisfy sample eligibility."
+  ],
+  "limitations": [
+    "No adapter hook or runtime controller integration; no full acceptance PASS.",
+    "Producer work in control is synthetic, not a Temporal operation.",
+    "Registration acknowledgment loss is deliberately discarded client response, not injected packet loss."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderKillAndLostAcknowledgment",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderKillAndLostAcknowledgment"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderSequenceCapacityAndSteady",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderSequenceCapacityAndSteady"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderRejectsMissingFooter",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderRejectsMissingFooter"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderCompletedPopulationAndMalformedJournal",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderCompletedPopulationAndMalformedJournal"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderProcessLoss",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderProcessLoss"
+      ]
+    },
+    {
+      "runner": "go-test-recorder",
+      "filter": "TestRecorderMeasurementLinkage",
+      "exact": true,
+      "expected_tests": [
+        "TestRecorderMeasurementLinkage"
+      ]
+    }
+  ]
+}

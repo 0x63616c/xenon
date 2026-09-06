@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/processcut"
+	"github.com/google/uuid"
 	"regexp"
 	"sync/atomic"
 	"time"
@@ -25,6 +27,9 @@ type Config struct {
 	OperationTimeout time.Duration
 	AdmissionTimeout time.Duration
 	MaxAdmitted      int
+	// Authority runs under the partition gate before every operation. When set,
+	// all returned results also require a nonempty durable native barrier.
+	Authority func(context.Context) error
 }
 
 func DefaultConfig(partition string) Config {
@@ -43,6 +48,9 @@ type Owner struct {
 	quarantined atomic.Bool
 	active      atomic.Int32
 	destroyed   atomic.Bool
+	// Only the gate-owning native worker accesses cut/cutReady.
+	cut      *processcut.Invocation
+	cutReady bool
 }
 
 func NewOwner(db *native.Db, c Config) (*Owner, error) {
@@ -51,6 +59,7 @@ func NewOwner(db *native.Db, c Config) (*Owner, error) {
 	}
 	return &Owner{db: db, config: c, gate: make(chan struct{}, 1), admitted: make(chan struct{}, c.MaxAdmitted)}, nil
 }
+func (o *Owner) Retire()                       { o.quarantined.Store(true) }
 func (o *Owner) Quarantined() bool             { return o.quarantined.Load() }
 func (o *Owner) ActiveNativeOperations() int32 { return o.active.Load() }
 
@@ -134,8 +143,18 @@ func (o *Owner) Execute(ctx context.Context, request *wire.ShardRequest) (*wire.
 // may outlive ctx; it must never export native handles. Logical persisted errors
 // belong in the encoded result, while Unavailable means uncertain native state.
 func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, error)) ([]byte, error) {
+	return o.run(ctx, operation, false)
+}
+
+// committedJournalResult is true only through runJournalResult or the private
+// execution runner. Both construct the entire callback and return only the final
+// durable journal outcome, with no caller code or database reads after commit.
+func (o *Owner) run(ctx context.Context, operation func(*native.Db) ([]byte, error), committedJournalResult bool) ([]byte, error) {
 	if operation == nil {
 		return nil, status.Error(codes.InvalidArgument, "nil operation")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if o.quarantined.Load() {
 		return nil, status.Error(codes.Unavailable, "partition requires recovery")
@@ -155,6 +174,12 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	case <-timer.C:
 		return nil, status.Error(codes.ResourceExhausted, "partition admission timeout")
 	}
+	// A ready gate and a canceled context may both win the select. Reject
+	// before starting authority/native work; no uncertain operation exists yet.
+	if err := ctx.Err(); err != nil {
+		<-o.gate
+		return nil, err
+	}
 	if o.quarantined.Load() {
 		<-o.gate
 		return nil, status.Error(codes.Unavailable, "partition requires recovery")
@@ -170,10 +195,30 @@ func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, err
 	defer close(decision)
 	o.active.Add(1)
 	go func() {
-		result, err := operation(o.db)
+		o.cut = processcut.FromContext(ctx)
+		o.cutReady = false
+
+		var result []byte
+		var err error
+		if o.config.Authority != nil {
+			err = o.config.Authority(ctx)
+		}
+		if err != nil {
+			err = status.Errorf(codes.Unavailable, "ownership authority unavailable: %v", err)
+		} else {
+			result, err = operation(o.db)
+			if err == nil && o.config.Authority != nil && !committedJournalResult {
+				err = o.authorityBarrier()
+			}
+		}
+		if err == nil && o.cutReady {
+			err = o.cutStage(processcut.BeforeReply)
+		}
 		if status.Code(err) == codes.Unavailable {
 			o.quarantined.Store(true)
 		}
+		o.cut = nil
+		o.cutReady = false
 		o.active.Add(-1)
 		// Publish completion before releasing gate, preventing timeout/admission races.
 		done <- outcome{result, err}
@@ -288,4 +333,18 @@ func copyShard(result *wire.ShardResult, shard *wire.StoredShard) {
 	result.RangeId = shard.RangeId
 	result.Data = shard.Data
 	result.Encoding = shard.Encoding
+}
+
+// authorityBarrier overwrites one reserved key. Even read/replay-only operations
+// must touch the WAL and await durability to detect a delayed opener's fence.
+func (o *Owner) authorityBarrier() error {
+	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
+	if err != nil {
+		return backend(err)
+	}
+	defer tx.Destroy()
+	if err = put(tx, "v1/ownership/read-barrier", []byte(uuid.NewString())); err != nil {
+		return err
+	}
+	return commit(tx)
 }

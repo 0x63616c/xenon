@@ -1,0 +1,1 @@
+{"Records":2000,"PageSizes":[1,7,100],"Flush":"1ms","Namespace":"11111111-1111-1111-1111-111111111111","recipe":"i=0..1999; run UUID suffix hex(i+1), workflow frozen-%04d, type i%4, status i%4+1, start 2026-01-02T03:04:05Z+i microseconds; final three memos 1100000 x bytes"}

@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "name": "go-matching",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    "proto/xenon/v1/cluster.proto",
+    "gen/xenon/v1/cluster.pb.go",
+    "gen/xenon/v1/cluster_grpc.pb.go",
+    "internal/node/cluster.go",
+    "internal/node/cluster_test.go",
+    "internal/adapter/cluster.go",
+    "internal/adapter/cluster_test.go",
+    "proof/go-cluster/case.json",
+    "proof/go-cluster/README.md",
+    ".github/workflows/ci.yaml",
+    "proto/xenon/v1/matching.proto",
+    "gen/xenon/v1/matching.pb.go",
+    "gen/xenon/v1/matching_grpc.pb.go",
+    "internal/node/matching.go",
+    "internal/node/matching_test.go",
+    "internal/adapter/matching.go",
+    "proof/go-matching/case.json",
+    "proof/go-matching/README.md"
+  ],
+  "fault_schedule": "proof/go-matching/case.json; deterministic completed-response loss, stale and duplicate batch rollback, subqueue pages/completion, reopened outcome replay.",
+  "assertions": [
+    "Eight legacy matching queue/tasks operations cross real Go adapter gRPC into the official native SlateDB owner.",
+    "Stale range and duplicate batches leave no partial writes across subqueues.",
+    "Sorted bounded task pages, completion limits, and byte-bounded queue/task pages preserve blobs.",
+    "Completed-response retry and reopened outcome replay preserve state and identity."
+  ],
+  "limitations": [
+    "Memory object store only; no real S3/process kill/full Temporal boot claim.",
+    "Five namespace user-data/build-ID TaskStore methods remain required issue40; FairTaskStore excluded.",
+    "Single shared matching partition; dynamic routing/global distributed listing remains later scope.",
+    "Max request command1800KiB, blob1MiB, page/completion limit1000, encoded response3MiB. Sticky expiry follows pinned SQL behavior (blob metadata, no storage TTL)."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRPC"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerMatchingBytePages",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerMatchingBytePages"
+      ]
+    }
+  ]
+}

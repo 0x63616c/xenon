@@ -4,6 +4,7 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
@@ -20,6 +21,7 @@ import (
 )
 
 type ShardStore struct {
+	historyPartitions  []string
 	connection         *grpc.ClientConn
 	client             wire.ShardPersistenceClient
 	partition, cluster string
@@ -31,7 +33,7 @@ var _ persistence.ShardStore = (*ShardStore)(nil)
 // NewShardStore creates a wrapper for one configured logical partition. It does
 // not claim dynamic routing or expose a factory for unimplemented stores.
 func NewShardStore(address, partition, cluster string) (*ShardStore, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +43,12 @@ func (s *ShardStore) Close()                 { _ = s.connection.Close() }
 func (s *ShardStore) GetName() string        { return "xenon" }
 func (s *ShardStore) GetClusterName() string { return s.cluster }
 
-func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (*wire.ShardResult, error) {
+func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (traceResult *wire.ShardResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "shard")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
 	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
 	defer cancel()
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)
@@ -49,7 +56,11 @@ func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (*w
 		return nil, err
 	}
 	digest := sha256.Sum256(payload)
-	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, command.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
 	// The identity is allocated once per invocation and retained across transport retries.
 	for attempt := 0; attempt < 3; attempt++ {
 		response, callErr := s.client.Execute(ctx, request)

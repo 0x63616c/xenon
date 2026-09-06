@@ -1,0 +1,14 @@
+{
+ "schema":1,
+ "status":"NOT_EXECUTED",
+ "fixture":"proof/visibility/frozen.json",
+ "build":["go","build","-o",".local/bin/xenon-visibility-probe","./cmd/xenon-visibility-probe"],
+ "commands":[
+  [".local/bin/xenon-visibility-probe","--mode","seed","--checkpoint","before-movement","--output",".local/evidence/visibility-before.json"],
+  [".local/bin/xenon-visibility-probe","--mode","check","--checkpoint","after-history-and-visibility-movement","--output",".local/evidence/visibility-after.json"],
+  [".local/bin/xenon-visibility-probe","--mode","mutate","--checkpoint","concurrent-mutation","--output",".local/evidence/visibility-mutation.json"]
+ ],
+ "controller_obligations":["existing namespace and healthy real Temporal frontend", "record source and binary hashes", "perform and independently observe actual history and vis-v1-0 moves between checkpoints", "compare namespace_id, fixture_sha256, verified set_sha256/groups before and after", "retain raw command failures; no report means no oracle pass", "fresh scoped S3 run; synthetic visibility documents are not actual workflow histories"],
+ "per_api_timeout_seconds":30,
+ "command_timeout_seconds":900
+}

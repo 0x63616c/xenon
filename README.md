@@ -17,11 +17,11 @@
 
 Xenon is an experiment in running Temporal persistence on object storage. It keeps Temporal's workflow engine, SDKs, and UI, while exploring S3 as the sole durable application-storage layer.
 
-The project is building toward an end-to-end proof with existing Temporal SDKs, Omes, visibility, dynamic storage-node scale-out, and crash recovery from disposable local disks. The current design uses a gRPC persistence adapter, partitioned Go storage nodes, and SlateDB backed directly by S3.
+The project is building toward an end-to-end proof with existing Temporal SDKs, Omes, visibility, dynamic storage-node scale-out, and crash recovery from disposable local disks. The current runtime is one Go `xenon` agent: it embeds Temporal Server, exposes Temporal's compatible API, and owns the routed SlateDB-backed persistence service behind that API.
 
 ## Status
 
-Xenon has implemented persistence components and an ownership controller, with integration and end-to-end acceptance still in progress. Passing component tests and a bounded smoke scenario are useful evidence, but they do not make Xenon a supported Temporal backend.
+Xenon has implemented the combined agent, persistence components, and ownership controller, with full end-to-end acceptance still in progress. A clean three-agent component run passed active ownership movement, whole-agent crash/restart, and recovery from S3 after all local state was discarded. Passing component tests do not make Xenon a supported Temporal backend.
 
 See the [verification matrix](docs/design/verification-matrix.md) for the evidence ledger and open gates. The [Wayfinder map](https://github.com/0x63616c/xenon/issues/1) tracks the delivery work.
 
@@ -40,6 +40,7 @@ Requirements: Go 1.27.1, Rust 1.94.0 through `rustup`, Python 3, Git, platform C
 python3 scripts/prove.py go-runtime-stores
 python3 scripts/prove.py owner-manager
 python3 scripts/prove.py go-visibility
+python3 scripts/agent-smoke.py
 ```
 
 These proofs use pinned local dependencies and write evidence under `.local/evidence/`. They do not validate real AWS S3 or establish full Temporal compatibility.

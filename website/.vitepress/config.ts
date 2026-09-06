@@ -7,9 +7,7 @@ export default defineConfig({
   base: process.env.SITE_BASE || "/",
   cleanUrls: false,
   appearance: false,
-  head: [
-    ["meta", { name: "theme-color", content: "#f5c518" }],
-  ],
+  head: [["meta", { name: "theme-color", content: "#f5c518" }]],
   themeConfig: {
     logo: "/xenon.svg",
     siteTitle: "Xenon",

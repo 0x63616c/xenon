@@ -3,7 +3,10 @@ import { withBase } from "vitepress";
 </script>
 <template>
   <main class="x-home">
-    <aside class="construction-banner" aria-label="Xenon is in active development">
+    <aside
+      class="construction-banner"
+      aria-label="Xenon is in active development"
+    >
       <span aria-hidden="true">⚠</span>
       <strong>UNDER CONSTRUCTION</strong>
       <span>Experimental software — follow the build as it takes shape.</span>
@@ -24,13 +27,16 @@ import { withBase } from "vitepress";
       </div>
       <nav class="start-here" aria-label="Start here">
         <a :href="withBase('/docs/')">
-          <span>01</span><strong>Understand</strong><small>Architecture and constraints</small>
+          <span>01</span><strong>Understand</strong
+          ><small>Architecture and constraints</small>
         </a>
         <a :href="withBase('/docs/status.html')">
-          <span>02</span><strong>Verify</strong><small>Evidence and open gates</small>
+          <span>02</span><strong>Verify</strong
+          ><small>Evidence and open gates</small>
         </a>
         <a href="https://github.com/0x63616c/xenon">
-          <span>03</span><strong>Follow</strong><small>Source and roadmap</small>
+          <span>03</span><strong>Follow</strong
+          ><small>Source and roadmap</small>
         </a>
       </nav>
       <div

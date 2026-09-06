@@ -1,36 +1,40 @@
 # Verification status
 
-**Xenon is an experimental backend, not a production-ready service.** This page separates the recorded `ae1f663` smoke result from the later integration work through `90327c9` on September 5, 2026. It is a checkpoint, not a live dashboard.
+**Xenon is an experimental backend.** This checkpoint records the passing integrated crash-and-recovery run, the later unified-agent component proof, and the remaining delivery gates. It is not a live dashboard or production certification.
 
-## Recorded integrated smoke
+## Passing crash-and-recovery run
 
-The run `20260905T222810Z-xenon-ministack-cd6027cd9cf8` finished with `proof_pass: false`.
+Run `20260905T235225Z-xenon-ministack-e1a79483dbf2` finished with `proof_pass: true` and successful cleanup.
 
 | Gate | Observed result |
 | --- | --- |
-| Two Temporal instances serving | Passed |
-| SDK activities, retry, child, timers, signal, update and Continue-As-New | Exact result and two-run history checks passed |
-| Active Xenon owner killed and replaced | Passed in this scenario |
-| Temporal instance killed with an existing SDK client | Recovered within the declared observation budget |
-| Twenty Omes simple workflows | Completed before cold restart |
-| Node C added and matching moved | Local successful operations observed on C |
-| Unchanged UI list, filter, detail and event history | Passed before cold restart |
-| Fresh local node directories; cluster metadata recovered through stable ingress | Passed |
-| Both cold Temporal instances and exact SDK history recovery | Passed |
-| Single SDK workflow visibility after cold restart | Passed |
-| Twenty Omes visibility records after cold restart | **Failed: repeated probe deadlines** |
-| UI after cold restart | Not reached |
-| Scoped cleanup | Completed |
+| Two Temporal instances and two initial Xenon nodes | Serving real SDK work |
+| Real workflow update cut after AwaitDurable | Exact operation, process and stage recorded; owner killed with SIGKILL |
+| Fresh owner replacement | Same SDK update acknowledged after recovery |
+| Temporal instance killed with an existing SDK client | Recovered within the declared budget |
+| SDK activity retry, child, timers, signal, update and Continue-As-New | Exact result and two-run histories verified |
+| Twenty Omes simple workflows | Completed |
+| Node C added during Omes work; matching moved | Local successful operations observed on C |
+| Temporal UI list, filter, detail and event history | Passed before and after cold restart |
+| All local state discarded; S3 retained | Both Temporal instances restarted; recovered histories matched the original hashes |
+| Cold visibility | SDK workflow and all twenty Omes records verified |
 
-The cold Omes visibility probe was terminated at its 20-second command limit on five attempts before the outer progress deadline failed. The record does not establish missing data or a specific query bug; that cause remains under investigation. Earlier successful stages do not turn the overall result into a pass.
+This is one declared crash scenario, not the full fault/workload matrix. Earlier failed smoke receipts remain failed; the cold visibility deadline observed at `ae1f663` did not recur in this passing run.
 
-## Later integration and fuzz startup
+The later clean unified-agent component run at `7b5e76a` started three identical
+`xenon` processes, moved a live history partition to the joining process, proved
+that process served the partition, killed and restarted one complete agent, then
+discarded every agent's local state. Recovered Temporal histories matched the
+pre-shutdown histories. This proves that declared component scenario; it does
+not replace the larger workload, upgrade, packaging, or real-AWS gates.
 
-The first real fuzz-soak attempt at `281bc2c` (`20260905T230543Z-xenon-ministack-96ea9ccced55`) failed during the functional Nexus readiness workflow. The endpoint existed, but **no saved corpus input executed**. Matching admission behavior and missing Nexus HTTP configuration were investigated; bounded diagnostics and targeted fixes do not establish a completed fuzz pass.
+## Fuzz and mixed workloads
 
-Concurrent initial visibility reads and cancellation of sibling reads after a failed partition have been integrated after targeted testing. A complete cold smoke rerun is still required. The larger fault profile remains open. The repository's `docs/design/verification-matrix.md` retains the detailed integration ledger and exact component receipts.
+The original-corpus fuzz attempt at `90327c9` passed real Nexus readiness across all four history shards, then its first saved input reached the unchanged 900-second timeout. No complete corpus round passed. Pinned Omes generator and Go-worker inspection identified missing signal-acceptance metadata: numbered signals containing child/Nexus actions and the final return were skipped. Original input bytes and failed evidence are preserved. A separately versioned correction with explicit provenance and worker regression controls is under development.
 
-The integrated controller also exposes separate frozen mixed-workload and exact native process-cut modes. Their implementation and helper controls are not completed runtime receipts. These modes do not combine into the full acceptance profile automatically.
+The mixed-workload controller and history oracle are implemented but still await live execution. Its 240 baseline parent/child runs are distinct from additional Nexus handler workflows; source-derived checks must account for both. Remaining native cut stages, movement and measurement scenarios are not implied by the passing smoke.
+
+The repository's `docs/design/verification-matrix.md` retains exact component receipts and the integration ledger.
 
 ## Component evidence
 
@@ -53,6 +57,6 @@ The saved corpus and workload helpers are committed. Their existence is not evid
 
 ## External and product boundaries
 
-Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI remains blocked: checks on integration PRs #55 and #66 report that jobs did not start because of account payments or the spending limit. This was checked against the `90327c9` candidate on September 5, 2026; local checks do not waive required hosted checks. At that checkpoint both PRs were open and `main` remained at `457fad9`. The integrated code and this site therefore describe a delivery candidate, not a release already merged to main.
+Real AWS S3 validation still needs an authorized target and external credentials. MinIO success cannot substitute for that gate. Hosted CI recovered on September 5, 2026: the unified-agent revision passed all nine persistence jobs, including the full proof, process-cut, S3 crash, ownership, maintenance, stored-data compatibility, and Go-binding gates. Integration into `main` is tracked separately from those component results.
 
-There is no published performance benchmark, production availability commitment, automatic rebalancer, or available Xenon Cloud service.
+There is no published performance benchmark, production availability commitment, automatic failed-member rebalancer, or available Xenon Cloud service. The source is public experimental software under the MIT License.

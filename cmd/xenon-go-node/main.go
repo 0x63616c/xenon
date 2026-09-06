@@ -1,12 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/node"
+	"github.com/0x63616c/xenon/internal/ownership"
+	"github.com/0x63616c/xenon/internal/processcut"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	native "slatedb.io/slatedb-go/uniffi"
 	"strconv"
@@ -14,6 +21,11 @@ import (
 )
 
 func main() {
+	cut := processCut()
+	if os.Getenv("XENON_TOPOLOGY_PREFIX") != "" {
+		managedMain(cut)
+		return
+	}
 	backend := os.Getenv("XENON_BACKEND")
 	if backend == "" {
 		backend = "s3"
@@ -61,13 +73,7 @@ func main() {
 		log.Fatal(result.err)
 	}
 	config := node.DefaultConfig(partition)
-	if value := os.Getenv("XENON_MAX_OUTCOMES"); value != "" {
-		limit, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			log.Fatal(err)
-		}
-		config.MaxOutcomes = limit
-	}
+	config.MaxOutcomes = outcomeLimit()
 	owner, err := node.NewOwner(result.db, config)
 	if err != nil {
 		log.Fatal(err)
@@ -80,14 +86,120 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	server := grpc.NewServer(grpc.MaxRecvMsgSize(2 * 1024 * 1024))
+	options := []grpc.ServerOption{grpc.MaxRecvMsgSize(2 * 1024 * 1024)}
+	if cut != nil {
+		options = append(options, grpc.UnaryInterceptor(cut.Interceptor()))
+	}
+	server := grpc.NewServer(options...)
 	wire.RegisterShardPersistenceServer(server, owner)
+	wire.RegisterQueuePersistenceServer(server, &node.QueueServer{Owner: owner})
+	wire.RegisterQueueV2PersistenceServer(server, &node.QueueV2Server{Owner: owner})
+	wire.RegisterHistoryPersistenceServer(server, &node.HistoryServer{Owner: owner})
+	wire.RegisterExecutionPersistenceServer(server, &node.ExecutionServer{Owner: owner})
+	wire.RegisterExecutionTasksPersistenceServer(server, &node.ExecutionTasksServer{Owner: owner})
+	wire.RegisterHistoryTasksPersistenceServer(server, &node.HistoryTasksServer{Owner: owner})
 	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
+	wire.RegisterMatchingPersistenceServer(server, &node.MatchingServer{Owner: owner})
 	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
+	wire.RegisterNexusPersistenceServer(server, &node.NexusServer{Owner: owner})
+	wire.RegisterVisibilityPersistenceServer(server, &node.VisibilityServer{Owner: owner})
 	fmt.Printf("READY %s\n", listener.Addr())
 	// Process replacement, including SIGTERM, ends the embedded runtime together.
 	// Never call Destroy on a database while a timed-out native call remains active.
 	if err = server.Serve(listener); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func managedMain(cut *processcut.Controller) {
+	topology, err := ownership.Environment()
+	if err != nil {
+		log.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", os.Getenv("XENON_LISTEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	address := os.Getenv("XENON_ADVERTISE")
+	if address == "" {
+		address = listener.Addr().String()
+	}
+	manager, err := ownership.NewManager(topology, os.Getenv("XENON_NODE"), address, "s3://"+os.Getenv("XENON_BUCKET"), outcomeLimit())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if address := os.Getenv("XENON_METRICS_LISTEN"); address != "" {
+		l, e := net.Listen("tcp", address)
+		if e != nil {
+			log.Fatal(e)
+		}
+		metrics := &http.Server{Handler: manager.OutcomesHandler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
+		go func() {
+			if e := metrics.Serve(l); e != nil && e != http.ErrServerClosed {
+				log.Fatal(e)
+			}
+		}()
+	}
+	server, router := manager.ServerWithProcessCut(cut)
+	defer router.Close()
+	go manager.Run(context.Background())
+	identity := manager.Identity()
+	fmt.Printf("INGRESS %s %s %s\n", identity.Node, identity.Incarnation, identity.Address)
+	if err = server.Serve(listener); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func outcomeLimit() uint64 {
+	limit := node.DefaultConfig("").MaxOutcomes
+	if text := os.Getenv("XENON_MAX_OUTCOMES"); text != "" {
+		value, e := strconv.ParseUint(text, 10, 64)
+		if e != nil || value == 0 {
+			log.Fatal("XENON_MAX_OUTCOMES must be a positive uint64")
+		}
+		limit = value
+	}
+	return limit
+}
+
+func processCut() *processcut.Controller {
+	path := os.Getenv("XENON_PROCESS_CUT_PLAN")
+	if path == "" {
+		return nil
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		log.Fatal("process-cut plan unavailable")
+	}
+	defer f.Close()
+	data, e := io.ReadAll(io.LimitReader(f, 4097))
+	if e != nil || len(data) > 4096 {
+		log.Fatal("process-cut plan exceeds bound")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var plan processcut.Plan
+	if e = decoder.Decode(&plan); e != nil {
+		log.Fatal("invalid process-cut plan")
+	}
+	if e = decoder.Decode(new(any)); e != io.EOF {
+		log.Fatal("trailing process-cut plan")
+	}
+	cut, e := processcut.New(plan)
+	if e != nil {
+		log.Fatal(e)
+	}
+	listener, e := net.Listen("tcp", plan.Listen)
+	if e != nil {
+		log.Fatal(e)
+	}
+	server := &http.Server{Handler: cut, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second, IdleTimeout: 5 * time.Second, MaxHeaderBytes: 4096}
+	go func() {
+		if e := server.Serve(listener); e != nil {
+			log.Fatal("process-cut control stopped")
+		}
+	}()
+	fmt.Printf("CUT_CONTROL %s\n", listener.Addr())
+	return cut
 }

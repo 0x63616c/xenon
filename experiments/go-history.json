@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "name": "go-history",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "test/compatibility/rust/Cargo.toml",
+    "test/compatibility/rust/Cargo.lock",
+    "rust-toolchain.toml",
+    "go.mod",
+    "go.sum",
+    "proto/xenon/v1/persistence.proto",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "proof/shard/case.json",
+    "scripts/generate-proto.sh",
+    "scripts/test-shard.sh",
+    "tools/protoc.json",
+    "scripts/install-protoc.py",
+    "scripts/test_prove.py",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "cmd/xenon-go-node/main.go",
+    "proof/go-shard/case.json",
+    "proto/xenon/v1/metadata.proto",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "proof/namespace/case.json",
+    "internal/node/metadata_test.go",
+    ".github/workflows/ci.yaml",
+    "proof/go-shard/README.md",
+    "proto/xenon/v1/history.proto",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "proof/history/case.json",
+    "proof/history/README.md",
+    "docs/research/history-contract.md"
+  ],
+  "fault_schedule": "Committed proxy drops first completed append response; native journal callback stages new branch and node then aborts; reopen and competing writer fence replay.",
+  "assertions": [
+    "All seven history methods cross actual gRPC to the Go native owner.",
+    "Forward and reverse multipage reads return complete node/transaction sequences; metadata-only preserves ordering.",
+    "Exact-key append uses PostgreSQL upsert semantics.",
+    "New branch/tree/node abort together; acknowledged tree and nodes reopen together with durable replay.",
+    "Fork and deletion boundaries preserve ancestry guard and opaque tree information.",
+    "Lost completed append response retries unchanged identity; fenced owner cannot replay.",
+    "Bounded large-node pagination preserves continuation; append timeout types match selected SQL paths."
+  ],
+  "limitations": [
+    "Memory object store only; no S3/process-crash proof.",
+    "History component only, not full ExecutionStore or Temporal boot.",
+    "GetAllHistoryTreeBranches covers configured partition; adapter routing/global fanout remains a later gate.",
+    "Pinned PostgreSQL reverse and metadata-only query defects corrected explicitly; no broad SQL parity claim."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryRPC"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryTimeoutTypes",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryTimeoutTypes"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestHistoryByteBoundedPagination",
+      "exact": true,
+      "expected_tests": [
+        "TestHistoryByteBoundedPagination"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerHistoryRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerHistoryRecovery"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,223 @@
+{
+  "schema": 1,
+  "name": "go-visibility",
+  "backend": "memory",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    ".github/workflows/ci.yaml",
+    "test/compatibility/rust/Cargo.lock",
+    "test/compatibility/rust/Cargo.toml",
+    "cmd/xenon-go-node/main.go",
+    "test/compatibility/rust/crates/xenon-node/build.rs",
+    "docs/design/visibility.md",
+    "docs/research/execution-contract.md",
+    "docs/research/executiontasks-contract.md",
+    "docs/research/history-contract.md",
+    "docs/research/visibility-contract.md",
+    "gen/xenon/v1/execution.pb.go",
+    "gen/xenon/v1/execution_grpc.pb.go",
+    "gen/xenon/v1/executiontasks.pb.go",
+    "gen/xenon/v1/executiontasks_grpc.pb.go",
+    "gen/xenon/v1/history.pb.go",
+    "gen/xenon/v1/history_grpc.pb.go",
+    "gen/xenon/v1/historytasks.pb.go",
+    "gen/xenon/v1/historytasks_grpc.pb.go",
+    "gen/xenon/v1/metadata.pb.go",
+    "gen/xenon/v1/metadata_grpc.pb.go",
+    "gen/xenon/v1/persistence.pb.go",
+    "gen/xenon/v1/persistence_grpc.pb.go",
+    "gen/xenon/v1/query.pb.go",
+    "gen/xenon/v1/visibility.pb.go",
+    "gen/xenon/v1/visibility_grpc.pb.go",
+    "go.mod",
+    "go.sum",
+    "internal/adapter/execution.go",
+    "internal/adapter/execution_codec.go",
+    "internal/adapter/execution_integration_test.go",
+    "internal/adapter/execution_store.go",
+    "internal/adapter/executiontasks.go",
+    "internal/adapter/executiontasks_integration_test.go",
+    "internal/adapter/executiontasks_upstream_test.go",
+    "internal/adapter/history.go",
+    "internal/adapter/history_integration_test.go",
+    "internal/adapter/historytasks.go",
+    "internal/adapter/metadata.go",
+    "internal/adapter/metadata_integration_test.go",
+    "internal/adapter/shard.go",
+    "internal/adapter/shard_integration_test.go",
+    "internal/adapter/visibility.go",
+    "internal/adapter/visibility_integration_test.go",
+    "internal/node/execution.go",
+    "internal/node/execution_test.go",
+    "internal/node/executiontasks.go",
+    "internal/node/executiontasks_test.go",
+    "internal/node/history.go",
+    "internal/node/history_test.go",
+    "internal/node/historytasks.go",
+    "internal/node/journal.go",
+    "internal/node/metadata.go",
+    "internal/node/metadata_test.go",
+    "internal/node/shard.go",
+    "internal/node/shard_test.go",
+    "internal/node/visibility.go",
+    "internal/node/visibility_test.go",
+    "internal/query/convert.go",
+    "internal/query/convert_test.go",
+    "internal/temporalstore/visibility_factory.go",
+    "internal/temporalstore/visibility_factory_test.go",
+    "internal/visibility/document.go",
+    "internal/visibility/evaluate.go",
+    "internal/visibility/evaluate_test.go",
+    "internal/visibility/text.go",
+    "internal/visibility/text_test.go",
+    "proof/execution/README.md",
+    "proof/execution/case.json",
+    "proof/executiontasks/README.md",
+    "proof/executiontasks/case.json",
+    "proof/go-shard/README.md",
+    "proof/go-shard/case.json",
+    "proof/history/README.md",
+    "proof/history/case.json",
+    "proof/namespace/case.json",
+    "proof/shard/case.json",
+    "proof/visibility/case.json",
+    "proof/visibility/oracle-cases.json",
+    "proof/visibility/oracle-pins.json",
+    "proof/visibility/oracle-scalars.json",
+    "proof/visibility/oracle.md",
+    "proof/visibility/schema-budget.json",
+    "proto/xenon/v1/execution.proto",
+    "proto/xenon/v1/executiontasks.proto",
+    "proto/xenon/v1/history.proto",
+    "proto/xenon/v1/historytasks.proto",
+    "proto/xenon/v1/metadata.proto",
+    "proto/xenon/v1/persistence.proto",
+    "proto/xenon/v1/query.proto",
+    "proto/xenon/v1/visibility.proto",
+    "rust-toolchain.toml",
+    "scripts/build-go-node.py",
+    "scripts/generate-proto.sh",
+    "scripts/install-protoc.py",
+    "scripts/test-shard.sh",
+    "scripts/test_prove.py",
+    "scripts/visibility-oracle.py",
+    "tools/protoc.json",
+    "tools/slatedb-native.json"
+  ],
+  "fault_schedule": "Five real memory-backed Go processes: drop completed START response, retry exact identity; one unavailable partition; native competing owner after close/reopen; terminal deletion and byte-capped global merge.",
+  "assertions": [
+    "Full unchanged pinned VisibilityPersistenceSuite passes through a genuine Temporal visibility manager and actual Go service processes.",
+    "All seven attribute types, direct schema additions, CHASM aliases/divisions, four-partition keyset merge and fanout failure are checked.",
+    "Terminal tombstones, index deletion, empty-vs-zero identity separation, durable outcome replay and fenced old-owner rejection survive reopening.",
+    "Saved PostgreSQL Text expectations and exact integer/decimal/null semantics pass pure-Go tests.",
+    "Repeated bounded schema additions reject aggregate response overflow before commit; unchanged schema and rejected outcome survive reopen, and oversized legacy GET fails closed."
+  ],
+  "limitations": [
+    "Memory object-store component and process RPC proof; managed S3 topology, Temporal boot/Omes and real-S3 remain separate gates.",
+    "The separate PostgreSQL oracle script executes the pinned host-specific ephemeral database fixture; saved oracle cases run in this portable Go manifest.",
+    "Terminal deletion prevents same-run repair/reindex by design. Documents cap at2MiB, results at3MiB; journal retention remains bounded and no expiry is invented."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestVisibilityUpstream",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityUpstream",
+        "TestVisibilityUpstream/TestBasicVisibility",
+        "TestVisibilityUpstream/TestBasicVisibilityTimeSkew",
+        "TestVisibilityUpstream/TestBasicVisibilityShortWorkflow",
+        "TestVisibilityUpstream/TestVisibilityPagination",
+        "TestVisibilityUpstream/TestFilteringByStartTime",
+        "TestVisibilityUpstream/TestFilteringByType",
+        "TestVisibilityUpstream/TestFilteringByWorkflowID",
+        "TestVisibilityUpstream/TestFilteringByStatus",
+        "TestVisibilityUpstream/TestDeleteWorkflow",
+        "TestVisibilityUpstream/TestUpsertWorkflowExecution",
+        "TestVisibilityUpstream/TestGetWorkflowExecution",
+        "TestVisibilityUpstream/TestAdvancedVisibilityPagination",
+        "TestVisibilityUpstream/TestCountWorkflowExecutions",
+        "TestVisibilityUpstream/TestCountGroupByWorkflowExecutions"
+      ]
+    },
+    {
+      "runner": "go-test-shard",
+      "filter": "TestVisibilityRPC",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityRPC"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilityRecovery",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilityRecovery"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilityEmptyIdentity",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilityEmptyIdentity"
+      ]
+    },
+    {
+      "runner": "go-test-visibility",
+      "filter": "TestVisibilityTypedEvaluation",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityTypedEvaluation"
+      ]
+    },
+    {
+      "runner": "go-test-visibility",
+      "filter": "TestTextPostgreSQLOracle",
+      "exact": true,
+      "expected_tests": [
+        "TestTextPostgreSQLOracle"
+      ]
+    },
+    {
+      "runner": "go-test-factory",
+      "filter": "TestVisibilityFactoryConfiguration",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityFactoryConfiguration"
+      ]
+    },
+    {
+      "runner": "go-test-visibility",
+      "filter": "TestVisibilitySystemTimeSentinel",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilitySystemTimeSentinel"
+      ]
+    },
+    {
+      "runner": "go-test-visibility",
+      "filter": "TestVisibilityCustomTimeRounding",
+      "exact": true,
+      "expected_tests": [
+        "TestVisibilityCustomTimeRounding"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilitySchemaBudget",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilitySchemaBudget"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "NOT_EXECUTED",
+  "command": [
+    "python3",
+    "scripts/ministack-runtime.py",
+    "--visibility-movement"
+  ],
+  "records": 2000,
+  "page_sizes": [
+    1,
+    7,
+    100
+  ],
+  "move_partitions": [
+    "history-0",
+    "vis-v1-0"
+  ],
+  "destination": "c",
+  "cursor_pause_seconds": 120,
+  "minimum_completed_operations_before_scale": 20,
+  "minimum_local_operations_per_node": 10,
+  "require_active_workflow": true,
+  "both_frontends_public_persistence_calls": true,
+  "separate_mutation_records": 20,
+  "full_acceptance": false
+}
