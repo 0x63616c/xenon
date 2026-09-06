@@ -1,0 +1,69 @@
+# syntax=docker/dockerfile:1
+
+ARG RUST_TOOLCHAIN=1.94.0
+ARG RUNTIME_THREADS=2
+
+FROM golang:1.27.1-bullseye AS builder
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG RUST_TOOLCHAIN
+ARG RUNTIME_THREADS
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    CARGO_HOME=/usr/local/cargo \
+    CARGO_NET_GIT_FETCH_WITH_CLI=true \
+    CARGO_TERM_COLOR=never \
+    RUSTUP_HOME=/usr/local/rustup \
+    GOWORK=off \
+    GOFLAGS=-mod=readonly \
+    CGO_ENABLED=1 \
+    LD_LIBRARY_PATH=/workspace/.local/slatedb-native-target/debug \
+    DYLD_LIBRARY_PATH=/workspace/.local/slatedb-native-target/debug \
+    SLATEDB_UNIFFI_RUNTIME_THREADS=${RUNTIME_THREADS}
+
+WORKDIR /workspace
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        python3 \
+        gcc \
+        make \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://sh.rustup.rs | bash -s -- -y --default-toolchain ${RUST_TOOLCHAIN} --profile minimal
+ENV PATH=/usr/local/cargo/bin:$PATH
+RUN rustc --version
+
+COPY . .
+
+RUN python3 scripts/build-go-node.py
+
+FROM debian:12-slim AS runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && groupadd --system --gid 65532 xenon \
+    && useradd --system --uid 65532 --gid xenon --create-home --home-dir /opt/xenon --shell /usr/sbin/nologin xenon \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LD_LIBRARY_PATH=/usr/local/lib/slatedb
+
+WORKDIR /opt/xenon
+
+COPY --from=builder /workspace/.local/bin/xenon /usr/local/bin/xenon
+COPY --from=builder /workspace/.local/slatedb-native-target/debug/libslatedb_uniffi.so /usr/local/lib/slatedb/libslatedb_uniffi.so
+COPY --from=builder /workspace/deploy/agent.example.json /etc/xenon/agent.example.json
+
+RUN /usr/local/bin/xenon version \
+    && /usr/local/bin/xenon check-config --config /etc/xenon/agent.example.json
+
+USER xenon
+ENTRYPOINT ["/usr/local/bin/xenon"]
+CMD ["start", "--config", "/etc/xenon/agent.example.json"]

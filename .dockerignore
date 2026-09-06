@@ -1,0 +1,11 @@
+.git
+.github
+.local
+.venv
+.idea
+.vscode
+**/node_modules
+tmp
+target
+website/node_modules
+website/.vite
