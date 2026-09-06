@@ -31,7 +31,8 @@
             "address": "127.0.0.1:17935",
             "index": "xenon-visibility",
             "schema_partition": "global"
-          }
+          },
+          "indexName": "xenon-visibility"
         }
       }
     }

@@ -2,6 +2,8 @@ package temporalruntime
 
 import (
 	"github.com/0x63616c/xenon/internal/agent"
+	"github.com/0x63616c/xenon/internal/temporalstore"
+	"go.temporal.io/server/common/searchattribute"
 	"testing"
 )
 
@@ -38,5 +40,25 @@ func TestGeneratedConfigurationKeepsTemporalBehindAgent(t *testing.T) {
 	cfg.Persistence.DataStores["xenon-default"].CustomDataStoreConfig.Options["address"] = "modified"
 	if other.Persistence.DataStores["xenon-default"].CustomDataStoreConfig.Options["address"] == "modified" {
 		t.Fatal("configuration shared between agents")
+	}
+}
+
+// Temporal's startup metadata initializer uses DataStore.GetIndexName, while
+// workflow validation uses the visibility store's index. They must be identical
+// before the first process starts, without relying on a later probe seed.
+func TestStartupSearchAttributeIndexMatchesVisibilityStore(t *testing.T) {
+	c := agent.Config{Cluster: "example", Node: "a", Bucket: "bucket", Prefix: "example", BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: 17233, PublicAddress: "127.0.0.1:17233", PublicHTTPAddress: "127.0.0.1:17242", HistoryShards: 4}
+	cfg, err := Configuration(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ds := cfg.Persistence.GetVisibilityStoreConfig()
+	visibility, err := (temporalstore.VisibilityFactory{}).NewVisibilityStore(*ds.CustomDataStoreConfig, searchattribute.NewTestProvider(), nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer visibility.Close()
+	if ds.GetIndexName() == "" || ds.GetIndexName() != visibility.GetIndexName() {
+		t.Fatalf("startup seeds index %q, runtime reads %q", ds.GetIndexName(), visibility.GetIndexName())
 	}
 }
