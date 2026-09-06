@@ -18,16 +18,15 @@ import (
 // linearization, native completion and delivery are separately scheduled actions.
 // Native epochs are a model assumption; this does not qualify real SlateDB.
 type CoupledScenario struct {
-	Version            int                     `json:"version"`
-	ProductionRevision string                  `json:"production_revision"`
-	Toolchain          string                  `json:"toolchain"`
-	Initial            cluster.Control         `json:"initial"`
-	Slots              []ids.PartitionID       `json:"slots"`
-	Placement          cluster.PlacementConfig `json:"placement"`
-	Actors             []CoupledActor          `json:"actors"`
-	RequiredPartition  ids.PartitionID         `json:"required_partition"`
-	RequiredOwner      ids.IncarnationID       `json:"required_owner"`
-	Steps              []CoupledInput          `json:"steps"`
+	Version              int               `json:"version"`
+	ProductionRevision   string            `json:"production_revision"`
+	Toolchain            string            `json:"toolchain"`
+	Initial              cluster.Control   `json:"initial"`
+	ExpectedLayoutDigest [32]byte          `json:"expected_layout_digest"`
+	Actors               []CoupledActor    `json:"actors"`
+	RequiredPartition    ids.PartitionID   `json:"required_partition"`
+	RequiredOwner        ids.IncarnationID `json:"required_owner"`
+	Steps                []CoupledInput    `json:"steps"`
 }
 type CoupledActor struct {
 	Name        string            `json:"name"`
@@ -100,9 +99,9 @@ func RunCoupled(scenario CoupledScenario, negative string) (CoupledResult, error
 		var err error
 		switch actor.Kind {
 		case "cluster":
-			machine.cluster, err = cluster.NewState(cluster.ControllerConfig{Key: coupledKey, Incarnation: actor.Incarnation, MaxControlBytes: coupledLimit, RenewalInterval: 5 * time.Nanosecond, SuspectAfter: 20 * time.Nanosecond, Placement: scenario.Placement, Slots: scenario.Slots})
+			machine.cluster, err = cluster.NewState(cluster.ControllerConfig{Key: coupledKey, Incarnation: actor.Incarnation, MaxControlBytes: coupledLimit, RenewalInterval: 5 * time.Nanosecond, SuspectAfter: 20 * time.Nanosecond, ExpectedLayoutDigest: scenario.ExpectedLayoutDigest})
 		case "partition":
-			machine.partition, err = partitions.NewState(partitions.ControllerConfig{Key: coupledKey, Incarnation: actor.Incarnation, Partition: actor.Partition, MaxControlBytes: coupledLimit})
+			machine.partition, err = partitions.NewState(partitions.ControllerConfig{Key: coupledKey, Incarnation: actor.Incarnation, Partition: actor.Partition, MaxControlBytes: coupledLimit, ExpectedLayoutDigest: scenario.ExpectedLayoutDigest})
 		default:
 			err = fmt.Errorf("unknown actor kind")
 		}

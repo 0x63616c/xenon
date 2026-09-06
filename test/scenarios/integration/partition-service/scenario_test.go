@@ -53,6 +53,9 @@ func TestPartitionNativeShardReplay(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			if err := s.ValidateLayout(f.layoutDigest); err != nil {
+				return err
+			}
 			current := s.Control().Partitions[partition]
 			if !current.Ready || current.Desired.Incarnation != attempt.Incarnation || current.AssignmentRevision != attempt.AssignmentRevision || current.Generation != attempt.Generation || current.Reservation != attempt.Reservation {
 				return cluster.ErrStaleControl
@@ -143,12 +146,13 @@ func (s *sequence) transition() identity.TransitionID {
 }
 
 type fixture struct {
-	t      *testing.T
-	config config
-	store  registry.Store
-	engine p.Engine
-	ids    *sequence
-	ctx    context.Context
+	layoutDigest [32]byte
+	t            *testing.T
+	config       config
+	store        registry.Store
+	engine       p.Engine
+	ids          *sequence
+	ctx          context.Context
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -191,7 +195,12 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := cluster.Control{Format: 1, Cluster: "clu_0000000000000000000001", Coordinator: cluster.Coordinator{Incarnation: ownerA, Generation: 1}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]cluster.PartitionControl{partition: {Path: t.Name() + "/data", Desired: owner(ownerA), AssignmentRevision: 1}}}
+	layout := cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: []cluster.PhysicalPartition{{LogicalName: "shard", ID: partition, Path: t.Name() + "/data"}}}
+	f.layoutDigest, err = layout.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := cluster.Control{Format: cluster.ControlFormat, Layout: &layout, Cluster: "clu_0000000000000000000001", Coordinator: cluster.Coordinator{Incarnation: ownerA, Generation: 1}, AssignmentRevision: 1, Partitions: map[identity.PartitionID]cluster.PartitionControl{partition: {Path: t.Name() + "/data", Desired: owner(ownerA), AssignmentRevision: 1}}}
 	w, err := cluster.BootstrapWrite(key, f.ids.transition(), c, 1<<20)
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +244,7 @@ func (f *fixture) replace(s cluster.Snapshot, w registry.Write, err error) {
 }
 func (f *fixture) service(i identity.IncarnationID, engine p.Engine) *p.Service {
 	f.t.Helper()
-	s, err := p.NewService(f.ctx, p.ControllerConfig{Key: key, Partition: partition, Incarnation: i, MaxControlBytes: 1 << 20}, f.store, engine, f.ids)
+	s, err := p.NewService(f.ctx, p.ControllerConfig{ExpectedLayoutDigest: f.layoutDigest, Key: key, Partition: partition, Incarnation: i, MaxControlBytes: 1 << 20}, f.store, engine, f.ids)
 	if err != nil {
 		f.t.Fatal(err)
 	}

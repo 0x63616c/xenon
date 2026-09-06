@@ -29,24 +29,21 @@ const (
 	PublishControl
 )
 
-// ControllerConfig is an experimental explicit layout input. Production
-// activation must persist/validate Placement and Slots in an immutable layout.
+// ControllerConfig pins an explicitly configured immutable persisted layout.
 // FreshNamespace is an operator assertion of isolated fresh storage, not something
 // inferred from NotFound. Bootstrap is never used to repair a missing live key.
 type ControllerConfig struct {
-	Key             registry.Key
-	Incarnation     identity.IncarnationID
-	MaxControlBytes int
-	RenewalInterval time.Duration
-	SuspectAfter    time.Duration
-	Placement       PlacementConfig
-	Slots           []identity.PartitionID
-	FreshNamespace  bool
-	Bootstrap       *Control
+	Key                  registry.Key
+	Incarnation          identity.IncarnationID
+	MaxControlBytes      int
+	RenewalInterval      time.Duration
+	SuspectAfter         time.Duration
+	ExpectedLayoutDigest [32]byte
+	FreshNamespace       bool
+	Bootstrap            *Control
 }
 
 func (c ControllerConfig) clone() ControllerConfig {
-	c.Slots = slices.Clone(c.Slots)
 	if c.Bootstrap != nil {
 		b := c.Bootstrap.clone()
 		c.Bootstrap = &b
@@ -124,17 +121,12 @@ type State struct {
 }
 
 func NewState(c ControllerConfig) (State, error) {
-	if registry.ValidateKey(c.Key) != nil || c.Incarnation.Validate() != nil || c.MaxControlBytes <= 0 || c.RenewalInterval <= 0 || c.SuspectAfter <= c.RenewalInterval || c.Placement.Validate() != nil || validateSlots(c.Slots) != nil || (c.Bootstrap != nil) != c.FreshNamespace {
+	if registry.ValidateKey(c.Key) != nil || c.Incarnation.Validate() != nil || c.MaxControlBytes <= 0 || c.RenewalInterval <= 0 || c.SuspectAfter <= c.RenewalInterval || c.ExpectedLayoutDigest == ([32]byte{}) || (c.Bootstrap != nil) != c.FreshNamespace {
 		return State{}, ErrInvalidController
 	}
 	if c.Bootstrap != nil {
-		if c.Bootstrap.validate() != nil || c.Bootstrap.Coordinator.Incarnation != c.Incarnation || len(c.Slots) != len(c.Bootstrap.Partitions) {
+		if c.Bootstrap.validate() != nil || c.Bootstrap.Coordinator.Incarnation != c.Incarnation || (Snapshot{control: *c.Bootstrap}).ValidateLayout(c.ExpectedLayoutDigest) != nil {
 			return State{}, ErrInvalidController
-		}
-		for _, id := range c.Slots {
-			if _, ok := c.Bootstrap.Partitions[id]; !ok {
-				return State{}, ErrInvalidController
-			}
 		}
 	}
 	return State{config: c.clone()}, nil

@@ -142,7 +142,7 @@ func TestCoupledCheckerRejectsUnauthorizedReservation(t *testing.T) {
 				entry.Input.Actor = "writer-target"
 			case "wrong partition actor":
 				actor := checker.actors[entry.Input.Actor]
-				actor.Partition = scenario.Slots[1]
+				actor.Partition = scenario.Initial.Layout.Partitions[1].ID
 				checker.actors[entry.Input.Actor] = actor
 			case "generation jump":
 				part.Generation++

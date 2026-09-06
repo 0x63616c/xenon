@@ -25,6 +25,9 @@
     "reject_changed_digest_and_exhausted_capacity_verify_one_outcome",
     "fourth_case_delay_a_before_native_open",
     "b_ready_and_acknowledged_then_old_a_actually_opens",
-    "old_a_retired_b_observes_fence_reopens_and_recovers"
+    "old_a_retired_b_observes_fence_reopens_and_recovers",
+    "fifth_case_cluster_nexus_namespace_share_native_writer_and_journal",
+    "move_owner_replay_three_operations_check_outcome_count_three",
+    "new_operations_read_each_recovered_catalog_state"
   ]
 }

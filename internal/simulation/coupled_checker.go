@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/0x63616c/xenon/internal/cluster"
 	ids "github.com/0x63616c/xenon/internal/identity"
@@ -98,6 +99,9 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 			return err
 		}
 		actor := c.actors[e.Input.Actor]
+		if !reflect.DeepEqual(before.Layout, after.Layout) || before.Format != after.Format || before.Cluster != after.Cluster {
+			return fmt.Errorf("layout: immutable configuration changed")
+		}
 		if len(before.Partitions) != len(after.Partitions) {
 			return fmt.Errorf("layout: database set changed")
 		}

@@ -14,7 +14,7 @@ budgets. Go and Rust versions come from `tools/slatedb-native.json`. A fresh
 checkout needs those declared toolchains, Docker, Python 3, and network access to
 the pinned sources/images; unavailable tools fail the run.
 
-Four tests call the production partition `Service`, `Step`, S3 registry adapter,
+Five tests call the production partition `Service`, `Step`, S3 registry adapter,
 cluster control mutation functions, and native SlateDB engine:
 
 1. Owner A reserves, opens and becomes ready. A native transaction atomically
@@ -36,6 +36,10 @@ cluster control mutation functions, and native SlateDB engine:
 4. A native Open is delayed before it executes, then released after B acknowledges
    a write. The obsolete opener fences B; A retires without becoming ready, and B
    reserves and opens again to recover its acknowledged data.
+
+5. Cluster metadata, Nexus and namespace services share one native writer and
+   journal. After movement, all three outcomes replay unchanged, the journal still
+   contains three operations, and fresh read operations recover all catalog data.
 
 Each test has separate registry/database prefixes in a fresh run-owned bucket.
 The runner saves the source revision, dirty status, input/config hashes, native
@@ -65,3 +69,14 @@ cases at clean revision `87690e5`, after renewal/checker fixes, canonical-ID
 compatibility fixes, cluster metadata extraction and origin-only routing changes.
 All cases and cleanup passed with unchanged inputs. The cases still exercise the
 shard family and partition services; they do not establish complete runtime routing.
+
+The [five-case catalog receipt](evidence/5c196b8-minio/report.json) records all five
+cases passed at clean revision `5c196b8`. Cluster, Nexus and namespace services
+share a native writer/journal, replay across ownership movement without duplicate
+outcomes, and recover application data through fresh read operations. Cleanup and
+input-hash checks passed. This remains a service composition proof.
+
+The [format-2 composed receipt](evidence/f11269b-minio/report.json) passes all five
+cases at clean `f11269b` with required layout pins in controllers and persistence
+admission. Input hashes remained unchanged and cleanup passed. This validates
+the new format on explicitly provisioned test storage, not legacy-state cutover.

@@ -52,6 +52,7 @@ type PartitionControl struct {
 // Control is the complete bounded publication unit. Heartbeats are advisory
 // separate records. No transient addresses belong in application data or tokens.
 type Control struct {
+	Layout             *Layout                                   `json:"layout,omitempty"`
 	Format             uint32                                    `json:"format"`
 	Cluster            identity.ClusterID                        `json:"cluster"`
 	Coordinator        Coordinator                               `json:"coordinator"`
@@ -60,11 +61,33 @@ type Control struct {
 	Partitions         map[identity.PartitionID]PartitionControl `json:"partitions"`
 }
 
-func (c Control) clone() Control { c.Partitions = maps.Clone(c.Partitions); return c }
+func (c Control) clone() Control {
+	c.Partitions = maps.Clone(c.Partitions)
+	if c.Layout != nil {
+		l := c.Layout.clone()
+		c.Layout = &l
+	}
+	return c
+}
 
 func (c Control) validate() error {
-	if c.Format != 1 || c.Cluster.Validate() != nil || c.Coordinator.Incarnation.Validate() != nil || c.Coordinator.Generation == 0 || c.AssignmentRevision == 0 || len(c.Partitions) == 0 {
+	if (c.Format != 1 && c.Format != ControlFormat) || c.Cluster.Validate() != nil || c.Coordinator.Incarnation.Validate() != nil || c.Coordinator.Generation == 0 || c.AssignmentRevision == 0 || len(c.Partitions) == 0 {
 		return ErrInvalidControl
+	}
+	if c.Format == 1 {
+		if c.Layout != nil {
+			return ErrLayoutMismatch
+		}
+	} else {
+		if c.Layout == nil || c.Layout.Validate() != nil || len(c.Layout.Partitions) != len(c.Partitions) {
+			return ErrLayoutMismatch
+		}
+		for _, physical := range c.Layout.Partitions {
+			p, ok := c.Partitions[physical.ID]
+			if !ok || p.Path != physical.Path {
+				return ErrLayoutMismatch
+			}
+		}
 	}
 	paths := make(map[string]bool, len(c.Partitions))
 	if c.ActiveMove != "" {
@@ -147,6 +170,9 @@ func DecodeControl(key registry.Key, r registry.Record, maxBytes int) (Snapshot,
 }
 
 func controlWrite(key registry.Key, expected registry.Version, id identity.TransitionID, c Control, maxBytes int) (registry.Write, error) {
+	if c.Format != ControlFormat {
+		return registry.Write{}, ErrLayoutMismatch
+	}
 	if err := c.validate(); err != nil {
 		return registry.Write{}, err
 	}

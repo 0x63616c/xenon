@@ -67,3 +67,40 @@ coordination decisions and deterministic simulations retain injected elapsed tim
 Review identified and corrected native workload first-failure cancellation and
 supervisor cleanup races; historical receipts remain bound to their original
 source revisions, and corrected-run receipts must not be inferred from them.
+
+## Immutable layout activation gate
+
+The coordinator's delegated implementation decision accepts a required format-2
+control record. A user-priority advocate and an independent adversarial reviewer
+agreed that keeping layout in the existing bounded whole-record CAS preserves
+stable transaction domains without a second manifest fetch or publication
+protocol. This is a delegated decision under the existing authorization, not a
+claim of additional personal approval by Calum.
+
+`Control.Layout` stores layout version 1, the pinned planner configuration, and
+an explicit ordered list of `{logical_name, id, path}` physical partitions. Every
+name, ID and path is unique, paths cannot overlap, and the list must exactly match
+the existing `Control.Partitions` ID/path mapping. Every owner/coordinator
+mutation preserves it. There is no default count, sorting on restart, logical-name
+inference, database grouping, path rewrite, or online layout update API.
+
+Hosts configure `ExpectedLayoutDigest` before startup, using `Layout.Digest()` on
+the complete validated explicit layout. SHA-256 covers the control/layout
+versions, planner settings, list order, logical names, IDs and paths. A zero pin
+is invalid. The configured digest must not be replaced with a digest learned from
+loaded state. This compact pin avoids copying the full expected layout into every
+partition driver. The full layout remains in the authoritative control record;
+there is no separate manifest or mutable digest reference.
+
+Both controller drivers validate the format and pin before reconciliation retries
+or activation. The cluster controller derives its planner settings and slot order
+from the validated persisted layout. Layout slices are copied on ingress/egress.
+A partition layout mismatch prevents readiness and retains an outstanding native
+open until completion, then closes its handle. Format 1 remains decodable for
+inspection only; new control mutations and service activation reject it.
+
+This gate does not perform or authorize legacy cutover. Existing cluster-name,
+history-count, protocol manifest checks and the offline old-agent exclusion and
+migration procedure remain required until explicitly replaced by reviewed,
+executed compatibility evidence. A populated legacy cluster cannot synthesize
+names/order and upgrade itself merely because a new binary starts.
