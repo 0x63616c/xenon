@@ -131,3 +131,16 @@ Go/native environment, run the three commands above, and compare their saved
 `trace.jsonl` files. Unit contracts also execute these exact command paths against
 real saved production-Step bytes, checking finite limits, bad-effect failure,
 replay, canceled/budget exit codes, JSON streams, and backend-free help.
+
+The executable smoke harness makes these assertions automatically, including
+byte-identical traces and actual nonzero failure/budget exits:
+
+```sh
+python3 scripts/cli-simulation-proof.py --binary .local/xenon \
+  --source "$(git rev-parse HEAD)" --evidence /tmp/xenon-cli-proof
+```
+
+Build `.local/xenon` from that clean revision first. Retain the resulting
+`receipt.json` and case artifacts. The harness removes AWS credentials from child
+environments and accepts the repository's existing native loader environment;
+linking the binary does not execute a native storage scenario.
