@@ -1,0 +1,16 @@
+s3-1  | INFO: Formatting 1st pool, 1 set(s), 1 drives per set.
+s3-1  | INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.
+s3-1  | MinIO Object Storage Server
+s3-1  | Copyright: 2015-2026 MinIO, Inc.
+s3-1  | License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+s3-1  | Version: RELEASE.2025-04-22T22-12-26Z (go1.24.2 linux/arm64)
+s3-1  | 
+s3-1  | API: http://192.168.172.2:9000  http://127.0.0.1:9000 
+s3-1  | WebUI: http://192.168.172.2:43453 http://127.0.0.1:43453  
+s3-1  | 
+s3-1  | Docs: https://docs.min.io
+s3-1  | INFO: 
+s3-1  |  You are running an older version of MinIO released 4 months before the latest release 
+s3-1  |  Update: Run `mc admin update ALIAS` 
+s3-1  | 
+s3-1  | 

@@ -1,0 +1,1 @@
+ok  	github.com/0x63616c/xenon/benchmarks/placement	1.503s
