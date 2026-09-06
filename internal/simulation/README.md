@@ -19,11 +19,28 @@ its existing native transaction, accounting, family check and process-cut commit
 hooks; the scenario supplies an atomic in-memory durable store and controlled
 crash. Native handles and Owner admission are unchanged.
 
-This is a **replay decision unit proof**, not the full deterministic coordination
-acceptance gate. It does not yet simulate production ownership movement, routing,
-deadlines, native durability completion scheduling or stale-owner admission. It
-also does not replace native lifecycle, real-stack or real-S3 tests. Accounting
-is a no-op test effect; production accounting remains in its existing transaction.
+`coordination_test.go` adds the first coupled deterministic proof. It loads the
+committed schedule at
+`test/scenarios/simulation/lost-response-crash-move.json` and drives production
+`Join`, `TopologyStore`, `Membership.Step`, `Router.Interceptor`, and
+`replay.Run`. The schedule loses both bounded forwarding responses, crashes the
+owner, advances logical time to eviction, and retries through the same endpoint.
+The independent checks require one mutation, the original durable result,
+movement to the surviving owner, changed-input rejection, stale-owner rejection,
+preserved forwarding fields, and an exact event trace. Negative controls prove
+the checkers reject a missing atomic outcome and a stale-owner acknowledgement.
+
+Run it with retained provenance from a clean checkout:
+
+```sh
+python3 scripts/prove.py simulation
+```
+
+The coupled proof uses an in-memory conditional-S3 implementation and the same
+atomic durability model as the replay unit proof. It does not replace native
+SlateDB lifecycle or real-S3 tests. The fixed schedule has no random decisions;
+seed zero records that fact. Workload generation, schedule minimization, native
+durability-completion ordering, and broader schedule coverage remain open.
 
 For retained evidence, save the exact source revision, hash this schedule and
 `internal/replay/replay.go`, record `go version`, and retain verbose test output.

@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "name": "simulation",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "internal/simulation/coordination_test.go",
+    "internal/simulation/replay_test.go",
+    "internal/replay/replay.go",
+    "internal/routing/router.go",
+    "internal/ownership/join.go",
+    "internal/ownership/membership.go",
+    "internal/ownership/topology.go",
+    "test/scenarios/simulation/lost-response-crash-move.json"
+  ],
+  "fault_schedule": "The committed JSON fixture supplies fixed identities, input, logical time, failure timeout, and exact expected trace. The first two owner responses are lost, node B crashes, logical time advances to eviction, then the same request retries through the stable endpoint.",
+  "assertions": [
+    "Production routing, topology, membership and replay decisions execute under the fixed schedule.",
+    "The acknowledged mutation and original result survive response loss, owner crash and ownership movement without a second application.",
+    "Forwarding preserves operation identity, input digest, deadline, method and bounded hop metadata; typed failures are preserved.",
+    "Changed input is rejected, the stale owner cannot acknowledge, and the operation makes bounded progress after movement.",
+    "Independent negative controls reject missing atomic outcomes and stale-owner acknowledgement."
+  ],
+  "limitations": [
+    "In-memory conditional S3 and transactional durability model; native SlateDB and real S3 remain separate fault gates.",
+    "The fixed first proof has no random choices; seed zero records that fact. Workload generation and schedule minimization remain future coverage."
+  ],
+  "commands": [
+    {"runner": "go-node-build"},
+    {
+      "runner": "go-test-simulation",
+      "filter": "TestDeterministicCoordinationLostResponseCrashMove",
+      "exact": true,
+      "expected_tests": ["TestDeterministicCoordinationLostResponseCrashMove"]
+    },
+    {
+      "runner": "go-test-simulation",
+      "filter": "TestCheckerRejectsNonAtomicOutcome",
+      "exact": true,
+      "expected_tests": ["TestCheckerRejectsNonAtomicOutcome"]
+    },
+    {
+      "runner": "go-test-simulation",
+      "filter": "TestCheckerRejectsStaleOwnerAcknowledgement",
+      "exact": true,
+      "expected_tests": ["TestCheckerRejectsStaleOwnerAcknowledgement"]
+    }
+  ]
+}

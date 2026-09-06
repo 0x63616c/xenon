@@ -34,6 +34,7 @@ jobs:
       - run: python3 scripts/validate_acceptance.py
       - run: python3 scripts/prove.py primitive
       - run: python3 scripts/prove.py ownership
+      - run: python3 scripts/prove.py simulation
       - run: cargo run --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked -p slatedb-probe
       - run: python3 scripts/prove.py shard
       - run: python3 scripts/prove.py go-runtime-stores

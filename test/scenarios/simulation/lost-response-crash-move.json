@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "seed": 0,
+  "operation_id": "stable-operation",
+  "input": "increment",
+  "logical_start_unix": 1000,
+  "request_deadline_unix": 4102444800,
+  "failure_timeout_seconds": 15,
+  "expected_trace": [
+    "join:a",
+    "join:b",
+    "submit:stable-endpoint",
+    "owner-b:commit",
+    "transport:drop-response",
+    "owner-b:replay",
+    "transport:drop-response",
+    "node-b:crash",
+    "membership:observe",
+    "membership:evict-b",
+    "retry:stable-endpoint",
+    "owner-a:replay",
+    "retry:original-result",
+    "changed-input:rejected",
+    "stale-owner:rejected"
+  ]
+}
