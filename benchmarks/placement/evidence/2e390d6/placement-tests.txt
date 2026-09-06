@@ -1,0 +1,8 @@
+=== RUN   TestMeasurements
+    placement_test.go:285: 276 deterministic snapshots checked across repeated joins/departures and workload skew
+--- PASS: TestMeasurements (22.38s)
+=== RUN   TestRendezvousRemoveProbe
+    placement_test.go:296: pinned mutable Remove is unusable: runtime error: index out of range [3] with length 3
+--- PASS: TestRendezvousRemoveProbe (0.00s)
+PASS
+ok  	github.com/0x63616c/xenon/benchmarks/placement	23.578s

@@ -1,0 +1,1402 @@
+{
+  "schema": 1,
+  "project": "xenon-layout-b893c28f7ceb",
+  "status": "passed",
+  "cases": [
+    {
+      "index": 0,
+      "writers": 1,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "1"
+      ],
+      "operations": 256,
+      "loaded_seconds": 26.032348958,
+      "operations_per_second": 9.833918576192437,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 1630.477583,
+        "p95": 1638.017834,
+        "p99": 1640.66
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 101.647791,
+        "p95": 106.922417,
+        "p99": 109.630125
+      },
+      "rss": {
+        "baseline": {
+          "samples": 18,
+          "min_bytes": 16580608,
+          "max_bytes": 16580608,
+          "median_bytes": 16580608
+        },
+        "idle": {
+          "samples": 18,
+          "min_bytes": 42467328,
+          "max_bytes": 42483712,
+          "median_bytes": 42483712
+        },
+        "loaded": {
+          "samples": 235,
+          "min_bytes": 43286528,
+          "max_bytes": 45514752,
+          "median_bytes": 45072384
+        },
+        "takeover": {
+          "samples": 4,
+          "min_bytes": 47267840,
+          "max_bytes": 50233344,
+          "median_bytes": 49446912
+        },
+        "reopen": {
+          "samples": 1,
+          "min_bytes": 50855936,
+          "max_bytes": 50855936,
+          "median_bytes": 50855936
+        },
+        "recovered_idle": {
+          "samples": 17,
+          "min_bytes": 50855936,
+          "max_bytes": 50855936,
+          "median_bytes": 50855936
+        }
+      },
+      "idle_rss_delta_bytes": 25903104,
+      "loaded_peak_delta_bytes": 28934144,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 1.68
+      },
+      "s3": {
+        "open": {
+          "attempts": 33,
+          "request_body_bytes_read": 524,
+          "response_body_bytes_written": 4918,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 4,
+          "methods": {
+            "PUT": 7,
+            "HEAD": 9,
+            "GET": 17
+          }
+        },
+        "idle": {
+          "attempts": 35,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 16734,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 4,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 35
+          }
+        },
+        "loaded": {
+          "attempts": 338,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 33390,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 82
+          }
+        },
+        "takeover": {
+          "attempts": 1373,
+          "request_body_bytes_read": 20186,
+          "response_body_bytes_written": 285787,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 8,
+            "HEAD": 283,
+            "GET": 1082
+          }
+        },
+        "reopen": {
+          "attempts": 73,
+          "request_body_bytes_read": 1207,
+          "response_body_bytes_written": 163848,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 6,
+            "HEAD": 9,
+            "GET": 58
+          }
+        },
+        "recovered_idle": {
+          "attempts": 4,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 1620,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 4
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          57277208
+        ],
+        "total_ns": 57282708
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          350860459
+        ],
+        "per_writer_with_verification_ns": [
+          454151959
+        ],
+        "total_ns": 454153458
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          30517459
+        ],
+        "per_writer_with_verification_ns": [
+          136165125
+        ],
+        "total_ns": 136167500
+      }
+    },
+    {
+      "index": 1,
+      "writers": 4,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "4"
+      ],
+      "operations": 256,
+      "loaded_seconds": 6.493418125,
+      "operations_per_second": 39.42453651866135,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 406.859625,
+        "p95": 423.56125,
+        "p99": 440.038334
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 101.482334,
+        "p95": 113.885291,
+        "p99": 132.495542
+      },
+      "rss": {
+        "baseline": {
+          "samples": 18,
+          "min_bytes": 16629760,
+          "max_bytes": 29638656,
+          "median_bytes": 16629760
+        },
+        "idle": {
+          "samples": 17,
+          "min_bytes": 45891584,
+          "max_bytes": 45957120,
+          "median_bytes": 45940736
+        },
+        "loaded": {
+          "samples": 57,
+          "min_bytes": 46841856,
+          "max_bytes": 47710208,
+          "median_bytes": 47480832
+        },
+        "takeover": {
+          "samples": 10,
+          "min_bytes": 48627712,
+          "max_bytes": 52150272,
+          "median_bytes": 50757632
+        },
+        "reopen": {
+          "samples": 6,
+          "min_bytes": 52215808,
+          "max_bytes": 52625408,
+          "median_bytes": 52543488
+        },
+        "recovered_idle": {
+          "samples": 18,
+          "min_bytes": 52625408,
+          "max_bytes": 52641792,
+          "median_bytes": 52625408
+        }
+      },
+      "idle_rss_delta_bytes": 29310976,
+      "loaded_peak_delta_bytes": 31080448,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 0.0
+      },
+      "s3": {
+        "open": {
+          "attempts": 227,
+          "request_body_bytes_read": 2096,
+          "response_body_bytes_written": 67009,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 1,
+          "methods": {
+            "PUT": 28,
+            "HEAD": 36,
+            "GET": 163
+          }
+        },
+        "idle": {
+          "attempts": 51,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 22029,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 1,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 51
+          }
+        },
+        "loaded": {
+          "attempts": 336,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 32598,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 80
+          }
+        },
+        "takeover": {
+          "attempts": 1607,
+          "request_body_bytes_read": 18849,
+          "response_body_bytes_written": 363262,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 30,
+            "HEAD": 323,
+            "GET": 1254
+          }
+        },
+        "reopen": {
+          "attempts": 280,
+          "request_body_bytes_read": 4828,
+          "response_body_bytes_written": 250192,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 24,
+            "HEAD": 36,
+            "GET": 220
+          }
+        },
+        "recovered_idle": {
+          "attempts": 16,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 6480,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 16
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          54118459,
+          33699333,
+          33791792,
+          32869292
+        ],
+        "total_ns": 154483416
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          253896292,
+          221829875,
+          239531625,
+          189857125
+        ],
+        "per_writer_with_verification_ns": [
+          359909625,
+          284238750,
+          278461583,
+          275760417
+        ],
+        "total_ns": 1198373167
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          59310834,
+          71974334,
+          53369209,
+          88824458
+        ],
+        "per_writer_with_verification_ns": [
+          164556000,
+          175918125,
+          169154709,
+          193700666
+        ],
+        "total_ns": 703332417
+      }
+    },
+    {
+      "index": 2,
+      "writers": 16,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "16"
+      ],
+      "operations": 256,
+      "loaded_seconds": 2.296781458,
+      "operations_per_second": 111.46032162020354,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 100.7325,
+        "p95": 166.29275,
+        "p99": 719.987333
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 100.255166,
+        "p95": 166.152625,
+        "p99": 719.8725
+      },
+      "rss": {
+        "baseline": {
+          "samples": 17,
+          "min_bytes": 16580608,
+          "max_bytes": 16580608,
+          "median_bytes": 16580608
+        },
+        "idle": {
+          "samples": 17,
+          "min_bytes": 51838976,
+          "max_bytes": 52002816,
+          "median_bytes": 51920896
+        },
+        "loaded": {
+          "samples": 21,
+          "min_bytes": 53559296,
+          "max_bytes": 55951360,
+          "median_bytes": 55394304
+        },
+        "takeover": {
+          "samples": 26,
+          "min_bytes": 56557568,
+          "max_bytes": 60030976,
+          "median_bytes": 58605568
+        },
+        "reopen": {
+          "samples": 21,
+          "min_bytes": 60391424,
+          "max_bytes": 60719104,
+          "median_bytes": 60555264
+        },
+        "recovered_idle": {
+          "samples": 17,
+          "min_bytes": 60719104,
+          "max_bytes": 60735488,
+          "median_bytes": 60735488
+        }
+      },
+      "idle_rss_delta_bytes": 35340288,
+      "loaded_peak_delta_bytes": 39370752,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 3.66
+      },
+      "s3": {
+        "open": {
+          "attempts": 1020,
+          "request_body_bytes_read": 8384,
+          "response_body_bytes_written": 317113,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 2,
+          "methods": {
+            "PUT": 112,
+            "HEAD": 144,
+            "GET": 764
+          }
+        },
+        "idle": {
+          "attempts": 98,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 41469,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 2,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 98
+          }
+        },
+        "loaded": {
+          "attempts": 334,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 31698,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 78
+          }
+        },
+        "takeover": {
+          "attempts": 2687,
+          "request_body_bytes_read": 34641,
+          "response_body_bytes_written": 726410,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 122,
+            "HEAD": 493,
+            "GET": 2072
+          }
+        },
+        "reopen": {
+          "attempts": 1128,
+          "request_body_bytes_read": 19312,
+          "response_body_bytes_written": 605416,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 96,
+            "HEAD": 144,
+            "GET": 888
+          }
+        },
+        "recovered_idle": {
+          "attempts": 68,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 27576,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 68
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          44345708,
+          36459666,
+          37196125,
+          37556375,
+          40329959,
+          30433750,
+          30521375,
+          29294375,
+          28249125,
+          33113834,
+          31722000,
+          39948125,
+          39173875,
+          31931917,
+          33772000,
+          36660167
+        ],
+        "total_ns": 560727541
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          358023417,
+          153642458,
+          61573584,
+          60543542,
+          57741833,
+          74702333,
+          90087875,
+          65518458,
+          62075417,
+          57570292,
+          55378250,
+          56278041,
+          60770959,
+          69028292,
+          103266583,
+          63672708
+        ],
+        "per_writer_with_verification_ns": [
+          481156375,
+          414938083,
+          146115792,
+          140420500,
+          140680041,
+          152743666,
+          185141708,
+          149071958,
+          141647667,
+          141347375,
+          138607958,
+          140796416,
+          143797750,
+          152919250,
+          149669208,
+          146453708
+        ],
+        "total_ns": 2965513375
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          74599375,
+          42650125,
+          36282208,
+          49484041,
+          64728458,
+          43731625,
+          36184000,
+          42720500,
+          80787833,
+          36143750,
+          36698375,
+          37843875,
+          33852666,
+          33300417,
+          35936708,
+          36931166
+        ],
+        "per_writer_with_verification_ns": [
+          180002625,
+          148759417,
+          146963542,
+          157223250,
+          168536791,
+          151037000,
+          141755375,
+          148282750,
+          186433292,
+          143419375,
+          145192292,
+          146074291,
+          140188458,
+          138721625,
+          142230417,
+          142291083
+        ],
+        "total_ns": 2427119125
+      }
+    },
+    {
+      "index": 3,
+      "writers": 16,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "16"
+      ],
+      "operations": 256,
+      "loaded_seconds": 1.62455425,
+      "operations_per_second": 157.58168740748422,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 101.346042,
+        "p95": 127.174625,
+        "p99": 167.829709
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 101.207,
+        "p95": 127.084917,
+        "p99": 167.723709
+      },
+      "rss": {
+        "baseline": {
+          "samples": 17,
+          "min_bytes": 16580608,
+          "max_bytes": 16580608,
+          "median_bytes": 16580608
+        },
+        "idle": {
+          "samples": 17,
+          "min_bytes": 51331072,
+          "max_bytes": 51658752,
+          "median_bytes": 51544064
+        },
+        "loaded": {
+          "samples": 15,
+          "min_bytes": 53084160,
+          "max_bytes": 55476224,
+          "median_bytes": 54591488
+        },
+        "takeover": {
+          "samples": 20,
+          "min_bytes": 57376768,
+          "max_bytes": 60325888,
+          "median_bytes": 59195392
+        },
+        "reopen": {
+          "samples": 21,
+          "min_bytes": 60342272,
+          "max_bytes": 60833792,
+          "median_bytes": 60719104
+        },
+        "recovered_idle": {
+          "samples": 17,
+          "min_bytes": 60833792,
+          "max_bytes": 60850176,
+          "median_bytes": 60850176
+        }
+      },
+      "idle_rss_delta_bytes": 34963456,
+      "loaded_peak_delta_bytes": 38895616,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 3.26
+      },
+      "s3": {
+        "open": {
+          "attempts": 1022,
+          "request_body_bytes_read": 8384,
+          "response_body_bytes_written": 317971,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 2,
+          "methods": {
+            "PUT": 112,
+            "HEAD": 144,
+            "GET": 766
+          }
+        },
+        "idle": {
+          "attempts": 96,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 40611,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 2,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 96
+          }
+        },
+        "loaded": {
+          "attempts": 312,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 22770,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 56
+          }
+        },
+        "takeover": {
+          "attempts": 2646,
+          "request_body_bytes_read": 40480,
+          "response_body_bytes_written": 706634,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 128,
+            "HEAD": 496,
+            "GET": 2022
+          }
+        },
+        "reopen": {
+          "attempts": 1128,
+          "request_body_bytes_read": 19312,
+          "response_body_bytes_written": 606136,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 96,
+            "HEAD": 144,
+            "GET": 888
+          }
+        },
+        "recovered_idle": {
+          "attempts": 76,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 30888,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 76
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          57329375,
+          41722208,
+          43281375,
+          36976125,
+          37654542,
+          34019125,
+          36058291,
+          37442166,
+          34268125,
+          42449500,
+          40125792,
+          40091166,
+          43559709,
+          40617541,
+          36467083,
+          38403084
+        ],
+        "total_ns": 640471334
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          64571333,
+          61920208,
+          58768042,
+          58232875,
+          57411083,
+          60134250,
+          54991792,
+          67028834,
+          59434292,
+          59140000,
+          82971459,
+          56217416,
+          58490000,
+          57749542,
+          57167750,
+          59283875
+        ],
+        "per_writer_with_verification_ns": [
+          143279042,
+          140266083,
+          142277042,
+          141815209,
+          139530916,
+          143347166,
+          139267542,
+          149380959,
+          139856208,
+          142326750,
+          166160792,
+          141436875,
+          142263791,
+          140993458,
+          139737083,
+          140176334
+        ],
+        "total_ns": 2292120583
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          32769792,
+          32536917,
+          31755167,
+          31081583,
+          31537125,
+          33037875,
+          32816500,
+          32699042,
+          31147667,
+          31725042,
+          37779500,
+          34826750,
+          32328458,
+          109108750,
+          34887791,
+          34198458
+        ],
+        "per_writer_with_verification_ns": [
+          138328833,
+          137588667,
+          136578875,
+          136970375,
+          136066000,
+          138000625,
+          139937209,
+          139108334,
+          137046000,
+          139628792,
+          144150333,
+          141285541,
+          138652166,
+          217564042,
+          141592958,
+          141448333
+        ],
+        "total_ns": 2303952458
+      }
+    },
+    {
+      "index": 4,
+      "writers": 4,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "4"
+      ],
+      "operations": 256,
+      "loaded_seconds": 6.477694959,
+      "operations_per_second": 39.52023082598509,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 406.782542,
+        "p95": 410.4525,
+        "p99": 421.401333
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 101.493,
+        "p95": 104.576125,
+        "p99": 116.178791
+      },
+      "rss": {
+        "baseline": {
+          "samples": 17,
+          "min_bytes": 16809984,
+          "max_bytes": 16809984,
+          "median_bytes": 16809984
+        },
+        "idle": {
+          "samples": 18,
+          "min_bytes": 45481984,
+          "max_bytes": 45580288,
+          "median_bytes": 45514752
+        },
+        "loaded": {
+          "samples": 56,
+          "min_bytes": 46465024,
+          "max_bytes": 47284224,
+          "median_bytes": 46923776
+        },
+        "takeover": {
+          "samples": 5,
+          "min_bytes": 49414144,
+          "max_bytes": 51249152,
+          "median_bytes": 50774016
+        },
+        "reopen": {
+          "samples": 5,
+          "min_bytes": 52183040,
+          "max_bytes": 52592640,
+          "median_bytes": 52232192
+        },
+        "recovered_idle": {
+          "samples": 18,
+          "min_bytes": 52592640,
+          "max_bytes": 52609024,
+          "median_bytes": 52609024
+        }
+      },
+      "idle_rss_delta_bytes": 28704768,
+      "loaded_peak_delta_bytes": 30474240,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 1.7
+      },
+      "s3": {
+        "open": {
+          "attempts": 226,
+          "request_body_bytes_read": 2096,
+          "response_body_bytes_written": 67009,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 28,
+            "HEAD": 36,
+            "GET": 162
+          }
+        },
+        "idle": {
+          "attempts": 52,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 22029,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 52
+          }
+        },
+        "loaded": {
+          "attempts": 332,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 30942,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 76
+          }
+        },
+        "takeover": {
+          "attempts": 1602,
+          "request_body_bytes_read": 18833,
+          "response_body_bytes_written": 361514,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 30,
+            "HEAD": 323,
+            "GET": 1249
+          }
+        },
+        "reopen": {
+          "attempts": 280,
+          "request_body_bytes_read": 4828,
+          "response_body_bytes_written": 250192,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 24,
+            "HEAD": 36,
+            "GET": 220
+          }
+        },
+        "recovered_idle": {
+          "attempts": 16,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 6480,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 16
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          55185333,
+          33651625,
+          42761542,
+          33539750
+        ],
+        "total_ns": 165140625
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          111284667,
+          112820000,
+          107477208,
+          110627125
+        ],
+        "per_writer_with_verification_ns": [
+          142209625,
+          142293500,
+          237899791,
+          140706208
+        ],
+        "total_ns": 663111416
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          31144750,
+          31548792,
+          49917125,
+          37410291
+        ],
+        "per_writer_with_verification_ns": [
+          137197458,
+          141012083,
+          158966458,
+          142951500
+        ],
+        "total_ns": 580131167
+      }
+    },
+    {
+      "index": 5,
+      "writers": 1,
+      "argv": [
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/.local/bin/layout-measure",
+        "-config",
+        "/private/tmp/xenon-storage-layout-feasibility-20260906/benchmarks/storage/layout/case.json",
+        "-writers",
+        "1"
+      ],
+      "operations": 256,
+      "loaded_seconds": 26.030418708,
+      "operations_per_second": 9.834647796937773,
+      "end_to_end_ms": {
+        "count": 256,
+        "p50": 1630.025458,
+        "p95": 1637.008958,
+        "p99": 1639.294084
+      },
+      "own_durable_ms": {
+        "count": 256,
+        "p50": 101.433583,
+        "p95": 106.049833,
+        "p99": 110.152166
+      },
+      "rss": {
+        "baseline": {
+          "samples": 17,
+          "min_bytes": 16826368,
+          "max_bytes": 16826368,
+          "median_bytes": 16826368
+        },
+        "idle": {
+          "samples": 17,
+          "min_bytes": 42352640,
+          "max_bytes": 42385408,
+          "median_bytes": 42385408
+        },
+        "loaded": {
+          "samples": 228,
+          "min_bytes": 43302912,
+          "max_bytes": 45285376,
+          "median_bytes": 44924928
+        },
+        "takeover": {
+          "samples": 4,
+          "min_bytes": 47480832,
+          "max_bytes": 50741248,
+          "median_bytes": 49758208
+        },
+        "reopen": {
+          "samples": 1,
+          "min_bytes": 51167232,
+          "max_bytes": 51167232,
+          "median_bytes": 51167232
+        },
+        "recovered_idle": {
+          "samples": 18,
+          "min_bytes": 51216384,
+          "max_bytes": 51232768,
+          "median_bytes": 51232768
+        }
+      },
+      "idle_rss_delta_bytes": 25559040,
+      "loaded_peak_delta_bytes": 28459008,
+      "cpu_samples": {
+        "first_seconds": 0.0,
+        "last_seconds": 1.5
+      },
+      "s3": {
+        "open": {
+          "attempts": 33,
+          "request_body_bytes_read": 524,
+          "response_body_bytes_written": 6199,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 1,
+          "methods": {
+            "PUT": 7,
+            "HEAD": 9,
+            "GET": 17
+          }
+        },
+        "idle": {
+          "attempts": 35,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 15453,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 1,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 35
+          }
+        },
+        "loaded": {
+          "attempts": 338,
+          "request_body_bytes_read": 143312,
+          "response_body_bytes_written": 33390,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 256,
+            "HEAD": 0,
+            "GET": 82
+          }
+        },
+        "takeover": {
+          "attempts": 1373,
+          "request_body_bytes_read": 20186,
+          "response_body_bytes_written": 285787,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 8,
+            "HEAD": 283,
+            "GET": 1082
+          }
+        },
+        "reopen": {
+          "attempts": 73,
+          "request_body_bytes_read": 1207,
+          "response_body_bytes_written": 163848,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 6,
+            "HEAD": 9,
+            "GET": 58
+          }
+        },
+        "recovered_idle": {
+          "attempts": 4,
+          "request_body_bytes_read": 0,
+          "response_body_bytes_written": 1620,
+          "transport_errors": 0,
+          "canceled": 0,
+          "aborted": 0,
+          "inflight_at_start": 0,
+          "inflight_at_end": 0,
+          "methods": {
+            "PUT": 0,
+            "HEAD": 0,
+            "GET": 4
+          }
+        }
+      },
+      "open": {
+        "event": "open_result",
+        "per_writer_ns": [
+          47430708
+        ],
+        "total_ns": 47433250
+      },
+      "takeover": {
+        "event": "takeover_result",
+        "per_writer_native_open_ns": [
+          345366375
+        ],
+        "per_writer_with_verification_ns": [
+          457380375
+        ],
+        "total_ns": 457382750
+      },
+      "reopen": {
+        "event": "reopen_result",
+        "per_writer_native_open_ns": [
+          26567250
+        ],
+        "per_writer_with_verification_ns": [
+          134074542
+        ],
+        "total_ns": 134077750
+      }
+    }
+  ],
+  "source_revision": "017b1ca73ed4c16801da505cc4929f488d755949",
+  "platform": {
+    "system": "Darwin",
+    "release": "25.3.0",
+    "machine": "arm64",
+    "logical_cpus": 12
+  },
+  "dirty": "",
+  "config": {
+    "schema": 1,
+    "logical_shards": 16,
+    "rounds": 16,
+    "payload_bytes": 256,
+    "idle_ms": 2000,
+    "case_timeout_seconds": 120,
+    "layouts": [
+      1,
+      4,
+      16,
+      16,
+      4,
+      1
+    ],
+    "rss_sample_ms": 100,
+    "max_rss_mib": 1536,
+    "docker": "29.4.0",
+    "compose": "5.1.2",
+    "go": "go version go1.27.1",
+    "rust": "rustc 1.94.0",
+    "minio_compose": "test/scenarios/integration/native-engine/compose.yaml",
+    "gomaxprocs": 4
+  },
+  "input_hashes": {
+    "benchmarks/storage/layout/case.json": "d016609d531fb247ed025b812ccc4633b8201f3b7a977ff598fa36417d50a0d3",
+    "benchmarks/storage/layout/run.py": "a5540daf64ac952f959671bcf0e04a87fef34c44ceff78962190b5dd1f8c4fa9",
+    "benchmarks/storage/layout/main.go": "7cc73b60ba517fa6f3a6d0c411d27643ee3f4cff821c06811244c88d107ddd2b",
+    "benchmarks/storage/layout/test_run.py": "45c4cb13a99f82aa5da648559c5ea3ca79bd6a648cc0a2ea91754e3c0a823b25",
+    "benchmarks/storage/layout/README.md": "6539feeed908c33f184e876e7ee597e9951a3eb97771b5b9152c81f3baac13a4",
+    "test/scenarios/integration/native-engine/compose.yaml": "4bd72c952096b4ba6b69755555b8ee8188bc70aff37d12204ec34789ae9c5271",
+    "scripts/build-go-node.py": "4a9d439c799c113c075c8adaa726d6290061194064b7656a645ba0ed6b759f48",
+    "tools/slatedb-native.json": "16148c4dbe475ada2ea4eba95880de11156af6483fafaf1d04fb7a013e21e816",
+    "go.mod": "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79",
+    "go.sum": "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1",
+    "rust-toolchain.toml": "d3c8887dfc80164497209239779196b11a208a9c2a6394f2fa5a5f4c60980096",
+    "internal/partitions/engine.go": "8d057f53fef69b614248b4534af949ff853f2a67b5489aec42ab49f9b2a6aae2",
+    "internal/partitions/slatedb/engine_test.go": "a792c6e3e9ce40404ccac10eddbba105831eca80cc154370b003b52f35bf8bf3",
+    "internal/partitions/slatedb/engine.go": "45044e5480162bc7d49576b34fff6372dfd27fa89dda2ce06a26f48f8c0fcf8a",
+    "internal/proof/s3meter/cas_loss_s3_test.go": "cc196fdea626edacb1c43c570142ee238982af5d41308a5fc17604316779f143",
+    "internal/proof/s3meter/proxy.go": "2b606620578840947785492add4b0a50c8cddf5c2db7c26f373b07c7bf07b13d",
+    "internal/proof/s3meter/proxy_test.go": "a833704ef0490317bb62dc10fea85411a8b833da835c1268f23e952397f84620",
+    "internal/proof/s3meter/cas_loss.go": "0638e89f4919718b6dc3207a74fb23aeb0780e704d288434100f218f9cd59bdd",
+    "internal/proof/s3meter/s3_test.go": "a73e81673fe0b862465eeaa3dd027ae7eb9abc48b5ac5135bae37e0a208947b7",
+    "internal/proof/s3meter/cas_loss_test.go": "abf56ec5a55995a2e115c1ca7f712ab0f6579004c5d655a2f11deeaa543b2c4e",
+    "internal/identity/ids_test.go": "68ee1904b4811da763915738dc2015a58424f09ddac888157392b99ccca7336d",
+    "internal/identity/ids.go": "f0da3cc57d9e8d9b2cabdbb58f7f65f2e12c707bfd7513cb48e9b007a62e5cb9"
+  },
+  "versions": {
+    "go": "go version go1.27.1 darwin/arm64",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "docker": "29.4.0",
+    "compose": "5.1.2"
+  },
+  "native_build": {
+    "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+    "source_clean": true,
+    "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+    "binding_module": "slatedb.io/slatedb-go",
+    "binding_version": "v0.16.0",
+    "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+    "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+    "shared_library_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+    "node_binary": ".local/bin/xenon-go-node",
+    "node_binary_sha256": "071aa775e4001566ec980dd05f482a3c3d774bb85498b9cc8cb8be8ff9b02a7d",
+    "agent_binary": ".local/bin/xenon",
+    "agent_binary_sha256": "aa0ef2a9b2d6fd269eea163e55bccbd5734fbbf7077508e9eea40632607e13d1",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "binary_sha256": "0a4980a5898d4bef1431eaf8d9b57fd8d86ae33a13f0d5c271644159a0d49d29",
+  "cleanup": "passed"
+}

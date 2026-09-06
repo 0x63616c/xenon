@@ -1,0 +1,22 @@
+{
+  "source_revision": "2e390d6643470f9efff9dc6ba259c63adc3d4308",
+  "tracked_dirty": false,
+  "platform": "macOS-26.3-arm64-arm-64bit-Mach-O",
+  "toolchain": "go version go1.27.1 darwin/arm64",
+  "gomaxprocs": 1,
+  "bench_iterations": 100,
+  "bench_repetitions": 3,
+  "input_hashes": {
+    "go.mod": "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79",
+    "go.sum": "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1",
+    "internal/ownership/join.go": "9bddc6605f3b992945d61e928f45add4bf3cc248c03d84ec9a50b71e5a6fb500",
+    "internal/registry/envelope.go": "ccc1ce2f4d75da9aec5ac71ee35389cc9207fcc2ace2bd7bc7816e7e6b55ea0a",
+    "benchmarks/placement/placement_test.go": "b45285b7b8c6e9f1e776c0144fe68cccdb706bb7b7a7fbf5e63df3b0ea95779d",
+    "benchmarks/placement/go.mod": "a3468674eaebcd26f2dd1aaa111f7ad6ee2ef4b8181b1da4e1ec4e43ba288899",
+    "benchmarks/placement/go.sum": "3b6d971921c2868bdd13c3b0ca42f29a22aad0170e81e917437bc1606dc922ec",
+    "benchmarks/storage/control_record_test.go": "036a7b06a24142c3455c16a25ea7a66630462ffc41213ab677cc5c77cb088fc8",
+    "benchmarks/placement/scenarios.json": "b9d5e9ffabd083afd65774dffbc14154c85230c634eb488072914031bef11a4a",
+    "benchmarks/storage/control_record.json": "09913f47280b32eae20b45a0453374b693092ef8f50ba1189b524164af96cd16",
+    "benchmarks/placement/run.sh": "9326ac0ff089eb548d4e63c1741389b2a20b017d5d4879b552f02fd95e955754"
+  }
+}

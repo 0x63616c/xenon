@@ -1,0 +1,8 @@
+=== RUN   TestControlRecordMeasurements
+    control_record_test.go:160: partitions=64 instances=100 payload_bytes=35769 envelope_bytes=47910 within_1MiB=true
+    control_record_test.go:160: partitions=256 instances=100 payload_bytes=142329 envelope_bytes=189990 within_1MiB=true
+    control_record_test.go:160: partitions=1024 instances=100 payload_bytes=568569 envelope_bytes=758310 within_1MiB=true
+    control_record_test.go:160: partitions=4096 instances=100 payload_bytes=2273529 envelope_bytes=3031590 within_1MiB=false
+--- PASS: TestControlRecordMeasurements (0.97s)
+PASS
+ok  	github.com/0x63616c/xenon/benchmarks/storage	2.169s
