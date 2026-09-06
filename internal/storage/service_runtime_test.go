@@ -201,3 +201,26 @@ func TestReadinessPreservesParentBudgetAndPermanentFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestReadinessRejectsSuccessAfterParentEnds(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		ctx, cancel := context.WithCancel(context.Background())
+		if deadline {
+			cancel()
+			ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond)
+		}
+		calls := 0
+		err := waitForReadiness(ctx, time.Millisecond, func(context.Context) error {
+			calls++
+			if !deadline {
+				cancel()
+			}
+			<-ctx.Done()
+			return nil
+		})
+		cancel()
+		if !errors.Is(err, ctx.Err()) || calls != 1 {
+			t.Fatal("expired observation reported success", err, calls)
+		}
+	}
+}

@@ -285,6 +285,9 @@ func waitForReadiness(ctx context.Context, interval time.Duration, observe func(
 			return errors.Join(err, last)
 		}
 		err := observe(ctx)
+		if ctx.Err() != nil {
+			return errors.Join(ctx.Err(), err, last)
+		}
 		if err == nil {
 			return nil
 		}
