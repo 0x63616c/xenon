@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "experiment": "native-engine-contracts",
+  "commit": "615b4f2e8a50ff39771e391627af03918160f462",
+  "result": "passed",
+  "proof_pass": true,
+  "reproducible_clean_checkout": true,
+  "backend": "s3-emulator",
+  "platform": {
+    "system": "Darwin",
+    "release": "25.3.0",
+    "machine": "arm64"
+  },
+  "config_sha256": {
+    "experiments/native-engine-contracts.json": "51c2c9167edae0545963e51ec67f15e58623d4b855087bd38aa14e098d88ac81",
+    "scripts/prove.py": "ddd3ed9e17369d433648ff98c7e0c1e052ffff3bb08aac3956e9631d894f435f",
+    "go.mod": "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79",
+    "go.sum": "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1",
+    "rust-toolchain.toml": "d3c8887dfc80164497209239779196b11a208a9c2a6394f2fa5a5f4c60980096",
+    "tools/slatedb-native.json": "16148c4dbe475ada2ea4eba95880de11156af6483fafaf1d04fb7a013e21e816",
+    "scripts/build-go-node.py": "4a9d439c799c113c075c8adaa726d6290061194064b7656a645ba0ed6b759f48",
+    "scripts/native-engine-proof.py": "4905c841770e1aaa8881a64194d0ae988366cbb55a7469f94eb08db94ca6d382",
+    "internal/partitions/engine.go": "a984a5dca92700b6940173f93c3200f5746de1aa202e8af5903f99258c4e9033",
+    "internal/partitions/slatedb/engine.go": "539fc902c549a4c13247bcb9f9b3a921628c8b837360f4048e4205f6a9e79fcc",
+    "internal/partitions/slatedb/engine_test.go": "f4946f64a4d38487ff8e7f1541b17c6789387bed342930c0e626f09fafce780a",
+    "internal/identity/ids.go": "f0da3cc57d9e8d9b2cabdbb58f7f65f2e12c707bfd7513cb48e9b007a62e5cb9",
+    "test/scenarios/integration/native-engine/compose.yaml": "4bd72c952096b4ba6b69755555b8ee8188bc70aff37d12204ec34789ae9c5271",
+    "test/scenarios/integration/native-engine/case.json": "4eb1db36bd9f32e2a7b143b314c53a91c2b267d1d98f922936cad889b32e9380",
+    "test/scenarios/integration/native-engine/README.md": "8dc1769d0d87f3716d894763c200eb113e80cb7917bfbaa766d895c2de76e20d"
+  },
+  "tool_versions": {
+    "git": "git version 2.55.0",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "python": "Python 3.14.7",
+    "go": "go version go1.27.1 darwin/arm64"
+  },
+  "native_build": {
+    "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+    "source_clean": true,
+    "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+    "binding_module": "slatedb.io/slatedb-go",
+    "binding_version": "v0.16.0",
+    "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+    "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+    "shared_library_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+    "node_binary": ".local/bin/xenon-go-node",
+    "node_binary_sha256": "8643823a99d8b6da988c079ee7058d8ba362751d89d873059b1b9b50341df412",
+    "agent_binary": ".local/bin/xenon",
+    "agent_binary_sha256": "477b695d02414975d3f764d66fe16db834c0a109eee590bfd2ce3034c2eaffef",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "assertions": [
+    "Atomic conditional reads/scans, mutation and outcome writes recover together; aborted writes/deletes do not leak.",
+    "Writer-scoped mutation receipts reject foreign handles; admission excludes another transaction until native durability.",
+    "Read/replay-only operations use a nonempty native WAL barrier; typed fencing retires the writer permanently.",
+    "Caller cancellation and Close cannot destroy pending handles or roll back dispatched commits; manual flush drains and acknowledged data recovers.",
+    "A finite delayed stale open can displace a current writer; a fresh current open recovers pre-fence writes and makes progress.",
+    "Native suite executes through pinned SlateDB Rust core against pinned MinIO S3 and removes only its scoped resources."
+  ],
+  "limitations": [
+    "MinIO S3-emulator evidence is not AWS qualification.",
+    "No production controller/service cutover, registry authority validation, arbitrary OS scheduling, process-kill schedule, or scale claim.",
+    "Native/Rust/OS timing is real; deterministic driver clock qualification is separate."
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "scripts/build-go-node.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 27.353,
+      "output": "command-1.log",
+      "output_sha256": "f3cee754ebafa7d50e1a094743c69d81133144e59024d310ec7571acee75bf12",
+      "expected_tests": []
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "scripts/native-engine-proof.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 12.469,
+      "output": "command-2.log",
+      "output_sha256": "154f24321c521d5ef1a3fffa1ab411f0bda9f2ad63caa0743172d00857d27819",
+      "expected_tests": [
+        "TestNativeEngineAtomicRecovery",
+        "TestNativeEngineFence",
+        "TestNativeEnginePendingLifecycle",
+        "TestNativeEngineReadBarrier",
+        "TestNativeEngineCanceledBeforeDispatch",
+        "TestNativeEngineOpen",
+        "TestNativeEngineCanceledReadRetains"
+      ]
+    }
+  ],
+  "source_result_sha256": "28b340f02c064a685ba5d863243f2bbf64bf3c0d1a2f662228ce32eba3c9449d",
+  "source_evidence_directory": ".local/evidence/20260906T160147Z-native-engine-contracts-9c6cfdf4",
+  "note": "Executed clean revision is the commit above. This evidence receipt is committed afterward; it does not claim later revisions were executed. Full logs are retained in the source evidence directory; the manifest recreates the test."
+}

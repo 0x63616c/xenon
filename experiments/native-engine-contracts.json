@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "name": "native-engine-contracts",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 600,
+  "required_tool_prefixes": {
+    "rustc": "rustc 1.94.0 ",
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "rust-toolchain.toml",
+    "tools/slatedb-native.json",
+    "scripts/build-go-node.py",
+    "scripts/native-engine-proof.py",
+    "internal/partitions/engine.go",
+    "internal/partitions/slatedb/engine.go",
+    "internal/partitions/slatedb/engine_test.go",
+    "internal/identity/ids.go",
+    "test/scenarios/integration/native-engine/compose.yaml",
+    "test/scenarios/integration/native-engine/case.json",
+    "test/scenarios/integration/native-engine/README.md",
+    "test/scenarios/integration/native-engine/negative-controls.py",
+    "scripts/test_prove.py"
+  ],
+  "fault_schedule": "test/scenarios/integration/native-engine/case.json; bounded native test transitions; manual WAL flush disables native flush timer for pending durability cases.",
+  "assertions": [
+    "Atomic conditional reads/scans, mutation and outcome writes recover together; aborted writes/deletes do not leak.",
+    "Writer-scoped mutation receipts reject foreign handles; admission excludes another transaction until native durability.",
+    "Read/replay-only operations use a nonempty native WAL barrier; typed fencing retires the writer permanently.",
+    "Caller cancellation and Close cannot destroy pending handles or roll back dispatched commits; manual flush drains and acknowledged data recovers.",
+    "A finite delayed stale open can displace a current writer; a fresh current open recovers pre-fence writes and makes progress.",
+    "Native suite executes through pinned SlateDB Rust core against pinned MinIO S3 and removes only its scoped resources.",
+    "Canceled native Open retains its calling effect through completion and cleanup, preserving cleanup errors.",
+    "A staged obsolete writer attempts an actual user commit after takeover; native fencing rejects it and the mutation is absent after reopening.",
+    "Four production adapter source mutations must each fail their named invariant: stale commit success, premature durable read, omitted replay result and close while in use.",
+    "Parent-owned scoped Compose identity permits bounded fallback cleanup if the native child exits or is killed."
+  ],
+  "limitations": [
+    "MinIO S3-emulator evidence is not AWS qualification.",
+    "No production controller/service cutover, registry authority validation, arbitrary OS scheduling, process-kill schedule, or scale claim.",
+    "Native/Rust/OS timing is real; deterministic driver clock qualification is separate."
+  ],
+  "commands": [
+    {
+      "runner": "go-node-build"
+    },
+    {
+      "runner": "go-test-engine",
+      "filter": "TestNativeEngine",
+      "exact": false,
+      "expected_tests": [
+        "TestNativeEngineAtomicRecovery",
+        "TestNativeEngineFence",
+        "TestNativeEnginePendingLifecycle",
+        "TestNativeEngineReadBarrier",
+        "TestNativeEngineCanceledBeforeDispatch",
+        "TestNativeEngineOpen",
+        "TestNativeEngineCanceledReadRetains",
+        "TestNativeEngineCanceledOpenRetains"
+      ]
+    }
+  ]
+}

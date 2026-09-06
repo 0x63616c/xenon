@@ -1,0 +1,5 @@
+--- FAIL: TestSyncSyscallBoundaries (0.00s)
+    store_test.go:389: write must sync file then directory []
+FAIL
+FAIL	github.com/0x63616c/xenon/internal/registry/filesystem	0.005s
+FAIL

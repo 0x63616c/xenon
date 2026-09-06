@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "name": "registry-contracts",
+  "backend": "s3-emulator",
+  "timeout_seconds_per_command": 300,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "internal/registry/store.go",
+    "internal/registry/envelope.go",
+    "internal/registry/contracttest/contract.go",
+    "internal/registry/s3/store.go",
+    "internal/registry/s3/store_test.go",
+    "internal/registry/s3/integration_test.go",
+    "deploy/directory.compose.yaml",
+    "scripts/directory-proof.py",
+    "scripts/test_prove.py",
+    "test/scenarios/registry/s3.json",
+    "docs/design/registry-s3.md",
+    "internal/registry/filesystem/store.go",
+    "internal/registry/filesystem/store_test.go",
+    "test/scenarios/registry-filesystem/negative-controls.py",
+    "docs/design/registry-filesystem-qualification.md"
+  ],
+  "fault_schedule": "test/scenarios/registry/s3.json; deterministic signed HTTP response loss/cancellation immediately after successful real PUT, including a subsequent conditional writer before readback. Unit HTTP 409/412/500/503 controls.",
+  "assertions": [
+    "Shared real-backend create/replace races admit exactly one winner.",
+    "Replays preserve identity/digest; immediate changed-digest reuse is invalid; stale versions and same-payload ABA cannot publish.",
+    "Exactly one SDK mutation attempt even when client configured for four retries.",
+    "Committed loss reconciles exact bytes; later record, before-commit loss and cancellation after dispatch remain unknown.",
+    "Bounded strict reads reject oversized/corrupt objects; reopening independent client reads published state.",
+    "Scoped pinned MinIO resources cleaned.",
+    "The same shared contract suite passes for the local filesystem adapter.",
+    "Filesystem process death after rename recovers file and directory durability; cross-process CAS and restart preserve exact versions."
+  ],
+  "limitations": [
+    "Local pinned MinIO only; no real AWS qualification.",
+    "Namespace must exclude deletes, lifecycle expiry and out-of-band writers.",
+    "No production format migration or caller wiring.",
+    "S3 durability assumes successful service response; no emulator-server crash durability test.",
+    "Callers must retain UnknownOutcome across separate invocations and use registry.Reconcile; no historical receipt journal.",
+    "Filesystem results apply only to the executed local platform; NFS/SMB remain unqualified. Source omission controls and pinned Linux qualification run through their separately documented runners."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-registry",
+      "filter": "registry",
+      "exact": false,
+      "expected_tests": [
+        "TestSingleMutationAttempt/Conflict",
+        "TestSingleMutationAttempt/Precondition_Failed",
+        "TestSingleMutationAttempt/Internal_Server_Error",
+        "TestSingleMutationAttempt/Service_Unavailable",
+        "TestSingleMutationAttempt",
+        "TestBoundedStrictRead/c",
+        "TestBoundedStrictRead/x",
+        "TestBoundedStrictRead",
+        "TestConfigAndWriteBounds",
+        "TestReadErrorClassification/NoSuchKey",
+        "TestReadErrorClassification/NoSuchBucket",
+        "TestReadErrorClassification/AccessDenied",
+        "TestReadErrorClassification"
+      ]
+    },
+    {
+      "runner": "go-test-registry",
+      "filter": "filesystem",
+      "exact": false,
+      "expected_tests": [
+        "TestContract/create_race",
+        "TestContract/replace_replay_no_aba",
+        "TestContract/replace_race",
+        "TestContract/validation_cancellation",
+        "TestContract",
+        "TestRecoveryErrorsAndProtocol/write-file-synced",
+        "TestRecoveryErrorsAndProtocol/renamed",
+        "TestRecoveryErrorsAndProtocol/directory-synced",
+        "TestRecoveryErrorsAndProtocol",
+        "TestContainmentCorruptionCancellation",
+        "TestProcessCrashRecoveryAndCAS",
+        "TestSyncSyscallBoundaries",
+        "TestCancellationAfterRenameAndSyncFailure"
+      ]
+    },
+    {
+      "runner": "s3-directory",
+      "filter": "TestS3Registry",
+      "exact": true,
+      "expected_tests": [
+        "TestS3Registry/shared_contract/create_race",
+        "TestS3Registry/shared_contract/replace_replay_no_aba",
+        "TestS3Registry/shared_contract/replace_race",
+        "TestS3Registry/shared_contract/validation_cancellation",
+        "TestS3Registry/shared_contract",
+        "TestS3Registry/lost_commit",
+        "TestS3Registry/lost_commit_later_record",
+        "TestS3Registry/lost_before_commit",
+        "TestS3Registry/cancel_after_dispatch",
+        "TestS3Registry/corrupt_read",
+        "TestS3Registry/oversized_read",
+        "TestS3Registry/reopen",
+        "TestS3Registry"
+      ]
+    }
+  ]
+}

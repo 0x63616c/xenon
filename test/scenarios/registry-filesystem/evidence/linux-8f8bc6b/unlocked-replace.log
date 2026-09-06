@@ -1,0 +1,5 @@
+--- FAIL: TestProcessCrashRecoveryAndCAS (0.03s)
+    store_test.go:343: unlocked replace crossed held CAS RESULT {"Record":{"Body":"eyJmb3JtYXQiOjEsImtleSI6InByb2Nlc3MvY29udHJvbCIsImV4cGVjdGVkIjoiWm5NeE9qRT0iLCJ0cmFuc2l0aW9uIjoidHJuXzAwMDAwMDAwMDAwMDAwMDAwMDAwMDMiLCJkaWdlc3QiOiJjYzhmMmY3OTQ3YjkwYzhhMjE4MmYwODhmYjYyNzQwZTU5MjU5NmI5NWNiZTZmMTdhN2EzNGJjOWVkMDgyZjUyIiwiYm9keSI6IllnPT0ifQ==","Version":"fs1:2"},"Error":""}
+FAIL
+FAIL	github.com/0x63616c/xenon/internal/registry/filesystem	0.033s
+FAIL

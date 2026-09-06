@@ -19,8 +19,10 @@ def execute(argv, env, timeout=120):
     return result.stdout.strip()
 
 def main():
-    cfg = json.loads((ROOT / "proof/directory/case.json").read_text())
-    if cfg["schema"] != 1 or cfg["backend"] != "s3-emulator" or cfg["endpoint"] != "http://127.0.0.1:19003":
+    registry = len(sys.argv) == 2 and sys.argv[1] == "registry"
+    if len(sys.argv) > 1 and not registry: raise RuntimeError("unknown directory proof profile")
+    cfg = json.loads((ROOT / ("test/scenarios/registry/s3.json" if registry else "proof/directory/case.json")).read_text())
+    if cfg["schema"] != 1 or cfg.get("backend", "s3-emulator") != "s3-emulator" or cfg["endpoint"] != "http://127.0.0.1:19003":
         raise RuntimeError("unregistered directory fixture")
     project = os.environ["XENON_DIRECTORY_PROJECT"]
     if not re.fullmatch(r"xenon-directory-[a-f0-9]{12}", project):
@@ -38,7 +40,7 @@ def main():
             except OSError:
                 if time.monotonic()>=deadline: raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
-        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/directory","-run","^TestS3Directory$"],cwd=ROOT,env=env,timeout=200)
+        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s",("./internal/registry/s3" if registry else "./internal/directory"),"-run",("^TestS3Registry$" if registry else "^TestS3Directory$")],cwd=ROOT,env=env,timeout=200)
         if completed.returncode: raise RuntimeError("cross-language directory assertion failed")
     finally:
         execute([*compose,"down","--volumes"],env)

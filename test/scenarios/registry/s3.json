@@ -1,0 +1,1 @@
+{"schema":1,"endpoint":"http://127.0.0.1:19003","bucket":"xenon-registry-proof","deadline_seconds":90,"schedule":["shared_contract","lost_commit","lost_commit_later_record","lost_before_commit","cancel_after_dispatch","corrupt_read","oversized_read","reopen"]}

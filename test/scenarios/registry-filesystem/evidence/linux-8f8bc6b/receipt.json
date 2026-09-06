@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "status": "passed",
+  "executed_utc": "2026-09-06T16:08:25.131785+00:00",
+  "source_revision": "8f8bc6be33bc6ea5969c0946bbfeeea74765fc2f",
+  "image": "golang@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b",
+  "resolved_from_tag": "golang:1.27.1-bookworm",
+  "image_id": "sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b",
+  "platform": "linux/arm64",
+  "filesystem": "overlayfs",
+  "test_data_path": "/proof-tmp",
+  "source_delivery": "Shallow exact-revision checkout copied into container /work; no bind mounts.",
+  "environment": [
+    "8f8bc6be33bc6ea5969c0946bbfeeea74765fc2f",
+    "go version go1.27.1 linux/arm64",
+    "Python 3.11.2",
+    "Linux d6782557eb36 7.0.5-orbstack-00330-ge3df4e19b0a0-dirty #1 SMP PREEMPT Sun May 10 11:47:42 UTC 2026 aarch64 GNU/Linux",
+    "filesystem=overlayfs",
+    "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"",
+    "NAME=\"Debian GNU/Linux\"",
+    "VERSION_ID=\"12\"",
+    "VERSION=\"12 (bookworm)\"",
+    "VERSION_CODENAME=bookworm",
+    "ID=debian",
+    "HOME_URL=\"https://www.debian.org/\"",
+    "SUPPORT_URL=\"https://www.debian.org/support\"",
+    "BUG_REPORT_URL=\"https://bugs.debian.org/\"",
+    "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79  go.mod",
+    "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1  go.sum",
+    "50f5f102677fc24c0b6773989318205114ecc3a8db5e3a8ebc436c5dfc0a0c12  internal/registry/filesystem/store.go",
+    "decc8a110987a2150bac4f4766e538c8aba51ea607d9960ed7c402ae6ecefc5d  internal/registry/filesystem/store_test.go"
+  ],
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "-count=1",
+    "-timeout=90s",
+    "-v",
+    "./internal/registry/filesystem"
+  ],
+  "primary_exit_code": 0,
+  "final_exit_code": 0,
+  "cleanup": "Owned container removed; disposable source checkout removed; evidence retained.",
+  "negative_controls": [
+    {
+      "name": "missing-fsync",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "-run=^TestSyncSyscallBoundaries$",
+        "./internal/registry/filesystem"
+      ],
+      "returncode": 1,
+      "caught": true,
+      "mutated_source_sha256": "cd6cbb0e207a6bc030e1de06bec622ee4d15a2eb44708d31e19cee1965ed5fac"
+    },
+    {
+      "name": "unlocked-replace",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "-run=^TestProcessCrashRecoveryAndCAS$",
+        "./internal/registry/filesystem"
+      ],
+      "returncode": 1,
+      "caught": true,
+      "mutated_source_sha256": "8a00eef98191654fe9da8c0e099699c1b12cecb95859af25e831d6e9e885b86f"
+    },
+    {
+      "name": "missing-read-recovery",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "-run=^TestSyncSyscallBoundaries$",
+        "./internal/registry/filesystem"
+      ],
+      "returncode": 1,
+      "caught": true,
+      "mutated_source_sha256": "4a8c097ad99a1fc4c2943e7e046da1c1928dc1a29dbe645d8860578f3a152902"
+    }
+  ],
+  "input_hashes": {
+    "internal/registry/contracttest/contract.go": "e4f65c8a1c37b4c1dda2e177f78b5bc532377b5a85b1d4923bcfd9a1cb029dd9",
+    "internal/registry/envelope.go": "ccc1ce2f4d75da9aec5ac71ee35389cc9207fcc2ace2bd7bc7816e7e6b55ea0a",
+    "internal/registry/envelope_test.go": "fcd3a6f3cddfc3189fc84152e153c93902aab12b7b80a5609e3c586e0809f936",
+    "internal/registry/filesystem/store.go": "50f5f102677fc24c0b6773989318205114ecc3a8db5e3a8ebc436c5dfc0a0c12",
+    "internal/registry/filesystem/store_test.go": "decc8a110987a2150bac4f4766e538c8aba51ea607d9960ed7c402ae6ecefc5d",
+    "internal/registry/s3/integration_test.go": "dcc221bf080bb9a3f8124a76fa6bd7c487c5bf8607d612a845b69a04ee7ecc10",
+    "internal/registry/s3/store.go": "90712c3299bfbaa7dd7fb5a0ed06bf41bf4fe58b7e76a6f72a00e277844a8118",
+    "internal/registry/s3/store_test.go": "797b7b6b74860828ca71308a91a2a1abfc011809ee69a9e65b1e91b708d4e872",
+    "internal/registry/store.go": "c3e05faa7d7ecf45c9d46134f787e691c2348af50149e9c8f45a8ec500b06941"
+  },
+  "runner_sha256": "6491d6bc5164e22df482f70bdbeb75b9faffc21aaa51259c4dd2792567d54661",
+  "log_hashes": {
+    "go-test.log": "5ace88f90de50acdb3b1d14a6577494de710cef63774d778d8fe50f488823386",
+    "missing-fsync.log": "3d4e9dc31c86f9d3f6026a56cb33438df71427725cc50d0c0b8e624c807d0a3c",
+    "missing-read-recovery.log": "853d8244d426d72b5d607af8b4920cecaa64d6b455f4b35a2b44f961e88b6479",
+    "unlocked-replace.log": "da9c8da11c0891c64214d0d274e176e7acec8c7c26ae37159c0c59db120a2966"
+  },
+  "scope": "Executed Linux arm64 container overlayfs process-crash/CAS/read-recovery evidence only; not power-loss, server-failover, NFS/SMB or engine qualification."
+}

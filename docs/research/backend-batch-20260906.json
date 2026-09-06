@@ -1,0 +1,367 @@
+{
+  "source_revision": "188917509208fd6cf3dcf2784e29817f7c9fa432",
+  "independent_review": "Approved composed source at this revision; original three findings resolved.",
+  "checks": {
+    "registry": {
+      "schema": 1,
+      "experiment": "registry-contracts",
+      "commit": "188917509208fd6cf3dcf2784e29817f7c9fa432",
+      "dirty_status": "",
+      "reproducible_clean_checkout": true,
+      "backend": "s3-emulator",
+      "result": "passed",
+      "proof_pass": true,
+      "platform": {
+        "system": "Darwin",
+        "release": "25.3.0",
+        "machine": "arm64"
+      },
+      "python": {
+        "version": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14"
+      },
+      "commands": [
+        {
+          "argv": [
+            "go",
+            "test",
+            "-race",
+            "-json",
+            "-count=1",
+            "./internal/registry/s3"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "elapsed_seconds": 1.87,
+          "output": "command-1.log",
+          "output_sha256": "8df3f97bc9cef5254cac7d6cef0414c353c4a5cb0a953c700b93f1d079611778",
+          "expected_tests": [
+            "TestSingleMutationAttempt/Conflict",
+            "TestSingleMutationAttempt/Precondition_Failed",
+            "TestSingleMutationAttempt/Internal_Server_Error",
+            "TestSingleMutationAttempt/Service_Unavailable",
+            "TestSingleMutationAttempt",
+            "TestBoundedStrictRead/c",
+            "TestBoundedStrictRead/x",
+            "TestBoundedStrictRead",
+            "TestConfigAndWriteBounds",
+            "TestReadErrorClassification/NoSuchKey",
+            "TestReadErrorClassification/NoSuchBucket",
+            "TestReadErrorClassification/AccessDenied",
+            "TestReadErrorClassification"
+          ]
+        },
+        {
+          "argv": [
+            "go",
+            "test",
+            "-race",
+            "-json",
+            "-count=1",
+            "-timeout=90s",
+            "-run",
+            "^Test(Contract|RecoveryErrorsAndProtocol|ContainmentCorruptionCancellation|ProcessCrashRecoveryAndCAS|SyncSyscallBoundaries|CancellationAfterRenameAndSyncFailure)$",
+            "./internal/registry/filesystem"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "elapsed_seconds": 4.82,
+          "output": "command-2.log",
+          "output_sha256": "359ec0a6327bc78c6a34bb732a4481fd6d8a442c75130e02bf5c0b24a4a3aa24",
+          "expected_tests": [
+            "TestContract/create_race",
+            "TestContract/replace_replay_no_aba",
+            "TestContract/replace_race",
+            "TestContract/validation_cancellation",
+            "TestContract",
+            "TestRecoveryErrorsAndProtocol/write-file-synced",
+            "TestRecoveryErrorsAndProtocol/renamed",
+            "TestRecoveryErrorsAndProtocol/directory-synced",
+            "TestRecoveryErrorsAndProtocol",
+            "TestContainmentCorruptionCancellation",
+            "TestProcessCrashRecoveryAndCAS",
+            "TestSyncSyscallBoundaries",
+            "TestCancellationAfterRenameAndSyncFailure"
+          ]
+        },
+        {
+          "argv": [
+            "/opt/homebrew/opt/python@3.14/bin/python3.14",
+            "scripts/directory-proof.py",
+            "registry"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "elapsed_seconds": 3.616,
+          "output": "command-3.log",
+          "output_sha256": "b1e0fd8e11ba2c03bb949d4d4f22563f5cda19323ae4dc8a691a451fdcf38945",
+          "expected_tests": [
+            "TestS3Registry/shared_contract/create_race",
+            "TestS3Registry/shared_contract/replace_replay_no_aba",
+            "TestS3Registry/shared_contract/replace_race",
+            "TestS3Registry/shared_contract/validation_cancellation",
+            "TestS3Registry/shared_contract",
+            "TestS3Registry/lost_commit",
+            "TestS3Registry/lost_commit_later_record",
+            "TestS3Registry/lost_before_commit",
+            "TestS3Registry/cancel_after_dispatch",
+            "TestS3Registry/corrupt_read",
+            "TestS3Registry/oversized_read",
+            "TestS3Registry/reopen",
+            "TestS3Registry"
+          ]
+        }
+      ],
+      "config_sha256": {
+        "experiments/registry-contracts.json": "c2bd02928c814c4cb2ab89a6d9af4b20a79f3a4f14594791f7af55bcaf8aee8a",
+        "scripts/prove.py": "db28b64ca68ed368683fac72b5e13b542aabae303705842f1013ba50cd143759",
+        "go.mod": "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79",
+        "go.sum": "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1",
+        "internal/registry/store.go": "c3e05faa7d7ecf45c9d46134f787e691c2348af50149e9c8f45a8ec500b06941",
+        "internal/registry/envelope.go": "ccc1ce2f4d75da9aec5ac71ee35389cc9207fcc2ace2bd7bc7816e7e6b55ea0a",
+        "internal/registry/contracttest/contract.go": "e4f65c8a1c37b4c1dda2e177f78b5bc532377b5a85b1d4923bcfd9a1cb029dd9",
+        "internal/registry/s3/store.go": "90712c3299bfbaa7dd7fb5a0ed06bf41bf4fe58b7e76a6f72a00e277844a8118",
+        "internal/registry/s3/store_test.go": "797b7b6b74860828ca71308a91a2a1abfc011809ee69a9e65b1e91b708d4e872",
+        "internal/registry/s3/integration_test.go": "dcc221bf080bb9a3f8124a76fa6bd7c487c5bf8607d612a845b69a04ee7ecc10",
+        "deploy/directory.compose.yaml": "107ee7022c2b3c3086554c17416515f58b5db5ac64aa99058dd98c073f0b0417",
+        "scripts/directory-proof.py": "1962395f70e37edfe729cec22116131a227674597dd4adf6edaad62378f55510",
+        "scripts/test_prove.py": "a2413f6f9ff9100b19577d1b3db94b126dc348ab3614d8c7d8a2313e3c09e109",
+        "test/scenarios/registry/s3.json": "9f068d03ee63361adb8b0e7ca7d4622ab9a37ada8a3dad6dc06dd2fb4c6fbb12",
+        "docs/design/registry-s3.md": "3dcf58abb8402a9fd805c3421ca88ece84b64e76ed0d7beb2444feade6de7174",
+        "internal/registry/filesystem/store.go": "50f5f102677fc24c0b6773989318205114ecc3a8db5e3a8ebc436c5dfc0a0c12",
+        "internal/registry/filesystem/store_test.go": "decc8a110987a2150bac4f4766e538c8aba51ea607d9960ed7c402ae6ecefc5d",
+        "test/scenarios/registry-filesystem/negative-controls.py": "832776d248aefd9e31edfbb66cede92eac2b553b1f612cc0d4db50b834e29f25",
+        "docs/design/registry-filesystem-qualification.md": "28c0c29fb79b012745eb08a000cea7a4cea882a2964e9172fed343284ad458ab"
+      },
+      "tool_versions": {
+        "git": "git version 2.55.0",
+        "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+        "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+        "python": "Python 3.14.7",
+        "go": "go version go1.27.1 darwin/arm64"
+      },
+      "assertions": [
+        "Shared real-backend create/replace races admit exactly one winner.",
+        "Replays preserve identity/digest; immediate changed-digest reuse is invalid; stale versions and same-payload ABA cannot publish.",
+        "Exactly one SDK mutation attempt even when client configured for four retries.",
+        "Committed loss reconciles exact bytes; later record, before-commit loss and cancellation after dispatch remain unknown.",
+        "Bounded strict reads reject oversized/corrupt objects; reopening independent client reads published state.",
+        "Scoped pinned MinIO resources cleaned.",
+        "The same shared contract suite passes for the local filesystem adapter.",
+        "Filesystem process death after rename recovers file and directory durability; cross-process CAS and restart preserve exact versions."
+      ],
+      "limitations": [
+        "Local pinned MinIO only; no real AWS qualification.",
+        "Namespace must exclude deletes, lifecycle expiry and out-of-band writers.",
+        "No production format migration or caller wiring.",
+        "S3 durability assumes successful service response; no emulator-server crash durability test.",
+        "Callers must retain UnknownOutcome across separate invocations and use registry.Reconcile; no historical receipt journal.",
+        "Filesystem results apply only to the executed local platform; NFS/SMB remain unqualified. Source omission controls and pinned Linux qualification run through their separately documented runners."
+      ],
+      "cargo_config_sha256": {},
+      "cleanup": {
+        "project": "xenon-directory-b21764137abb",
+        "exit_code": 0,
+        "timed_out": false
+      }
+    },
+    "native": {
+      "schema": 1,
+      "experiment": "native-engine-contracts",
+      "commit": "188917509208fd6cf3dcf2784e29817f7c9fa432",
+      "dirty_status": "",
+      "reproducible_clean_checkout": true,
+      "backend": "s3-emulator",
+      "result": "passed",
+      "proof_pass": true,
+      "platform": {
+        "system": "Darwin",
+        "release": "25.3.0",
+        "machine": "arm64"
+      },
+      "python": {
+        "version": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+        "executable": "/opt/homebrew/opt/python@3.14/bin/python3.14"
+      },
+      "commands": [
+        {
+          "argv": [
+            "/opt/homebrew/opt/python@3.14/bin/python3.14",
+            "scripts/build-go-node.py"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "elapsed_seconds": 18.682,
+          "output": "command-1.log",
+          "output_sha256": "95d974d5ad1e9e3666bd511809f9d6dc6850aae8b8812e78c5ab2f349f0db302",
+          "expected_tests": []
+        },
+        {
+          "argv": [
+            "/opt/homebrew/opt/python@3.14/bin/python3.14",
+            "scripts/native-engine-proof.py"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "elapsed_seconds": 12.822,
+          "output": "command-2.log",
+          "output_sha256": "68464c3f571cf61e2b3469b7cecc3631b528fa3c6793e3f191f7aa4be1d33ba9",
+          "expected_tests": [
+            "TestNativeEngineAtomicRecovery",
+            "TestNativeEngineFence",
+            "TestNativeEnginePendingLifecycle",
+            "TestNativeEngineReadBarrier",
+            "TestNativeEngineCanceledBeforeDispatch",
+            "TestNativeEngineOpen",
+            "TestNativeEngineCanceledReadRetains",
+            "TestNativeEngineCanceledOpenRetains"
+          ]
+        }
+      ],
+      "config_sha256": {
+        "experiments/native-engine-contracts.json": "c56bcba27c939d85991498d8546db7494b270d764429038cdc29d92bc33262cf",
+        "scripts/prove.py": "db28b64ca68ed368683fac72b5e13b542aabae303705842f1013ba50cd143759",
+        "go.mod": "635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79",
+        "go.sum": "8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1",
+        "rust-toolchain.toml": "d3c8887dfc80164497209239779196b11a208a9c2a6394f2fa5a5f4c60980096",
+        "tools/slatedb-native.json": "16148c4dbe475ada2ea4eba95880de11156af6483fafaf1d04fb7a013e21e816",
+        "scripts/build-go-node.py": "4a9d439c799c113c075c8adaa726d6290061194064b7656a645ba0ed6b759f48",
+        "scripts/native-engine-proof.py": "ecbedd8e1674bb63d20be6d3c4290058f133f374568f1679cb334c12d86401f3",
+        "internal/partitions/engine.go": "8d057f53fef69b614248b4534af949ff853f2a67b5489aec42ab49f9b2a6aae2",
+        "internal/partitions/slatedb/engine.go": "45044e5480162bc7d49576b34fff6372dfd27fa89dda2ce06a26f48f8c0fcf8a",
+        "internal/partitions/slatedb/engine_test.go": "a792c6e3e9ce40404ccac10eddbba105831eca80cc154370b003b52f35bf8bf3",
+        "internal/identity/ids.go": "f0da3cc57d9e8d9b2cabdbb58f7f65f2e12c707bfd7513cb48e9b007a62e5cb9",
+        "test/scenarios/integration/native-engine/compose.yaml": "4bd72c952096b4ba6b69755555b8ee8188bc70aff37d12204ec34789ae9c5271",
+        "test/scenarios/integration/native-engine/case.json": "db504304308428fbd44fb54ab7761a81d02d38004d0c845846d2deed2058d93b",
+        "test/scenarios/integration/native-engine/README.md": "9132e8d4c88f815fabfb8fcfea4f978aab09268ae5684e8491dbfd225cbcc391",
+        "test/scenarios/integration/native-engine/negative-controls.py": "18ce8d02f560a7de5ca41e8eda74de9f6bf09a3c9e81c143ddeab769835e9961",
+        "scripts/test_prove.py": "a2413f6f9ff9100b19577d1b3db94b126dc348ab3614d8c7d8a2313e3c09e109"
+      },
+      "tool_versions": {
+        "git": "git version 2.55.0",
+        "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+        "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+        "python": "Python 3.14.7",
+        "go": "go version go1.27.1 darwin/arm64"
+      },
+      "assertions": [
+        "Atomic conditional reads/scans, mutation and outcome writes recover together; aborted writes/deletes do not leak.",
+        "Writer-scoped mutation receipts reject foreign handles; admission excludes another transaction until native durability.",
+        "Read/replay-only operations use a nonempty native WAL barrier; typed fencing retires the writer permanently.",
+        "Caller cancellation and Close cannot destroy pending handles or roll back dispatched commits; manual flush drains and acknowledged data recovers.",
+        "A finite delayed stale open can displace a current writer; a fresh current open recovers pre-fence writes and makes progress.",
+        "Native suite executes through pinned SlateDB Rust core against pinned MinIO S3 and removes only its scoped resources.",
+        "Canceled native Open retains its calling effect through completion and cleanup, preserving cleanup errors.",
+        "A staged obsolete writer attempts an actual user commit after takeover; native fencing rejects it and the mutation is absent after reopening.",
+        "Four production adapter source mutations must each fail their named invariant: stale commit success, premature durable read, omitted replay result and close while in use.",
+        "Parent-owned scoped Compose identity permits bounded fallback cleanup if the native child exits or is killed."
+      ],
+      "limitations": [
+        "MinIO S3-emulator evidence is not AWS qualification.",
+        "No production controller/service cutover, registry authority validation, arbitrary OS scheduling, process-kill schedule, or scale claim.",
+        "Native/Rust/OS timing is real; deterministic driver clock qualification is separate."
+      ],
+      "cargo_config_sha256": {},
+      "native_build": {
+        "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+        "source_clean": true,
+        "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+        "binding_module": "slatedb.io/slatedb-go",
+        "binding_version": "v0.16.0",
+        "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+        "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+        "shared_library_sha256": "330df1be1181d969bf54a581f77c0f2aa7cebdf8f35a6b4dcd6e975490382a26",
+        "node_binary": ".local/bin/xenon-go-node",
+        "node_binary_sha256": "ebeb122e659103606be2ac71506703a74ff80317ba9e7c776182e3c83b74a4b8",
+        "agent_binary": ".local/bin/xenon",
+        "agent_binary_sha256": "60bc2e492e1b8c96d9bddeeb0cc662a674ceee3dda939159f5f97a37814d71d4",
+        "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+        "go": "go version go1.27.1 darwin/arm64",
+        "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+      },
+      "node_binary_sha256": "ebeb122e659103606be2ac71506703a74ff80317ba9e7c776182e3c83b74a4b8",
+      "cleanup": {
+        "project": "xenon-native-31acd4173ca6",
+        "exit_code": 0,
+        "timed_out": false
+      }
+    },
+    "linux_filesystem": {
+      "command": "bash test/scenarios/registry-filesystem/run-linux.sh FRESH_EVIDENCE_DIRECTORY 188917509208fd6cf3dcf2784e29817f7c9fa432",
+      "environment": "188917509208fd6cf3dcf2784e29817f7c9fa432\ngo version go1.27.1 linux/arm64\nPython 3.11.2\nLinux 10af6579ff19 7.0.5-orbstack-00330-ge3df4e19b0a0-dirty #1 SMP PREEMPT Sun May 10 11:47:42 UTC 2026 aarch64 GNU/Linux\nfilesystem=overlayfs\nPRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n635a502566fc1c5af6466b1edcad4c1208c849ef5216744e6a1e0d3d3be89b79  go.mod\n8c47497194708a6460749a927b7937c793b69def966544170fafbf81921ce4b1  go.sum\n50f5f102677fc24c0b6773989318205114ecc3a8db5e3a8ebc436c5dfc0a0c12  internal/registry/filesystem/store.go\ndecc8a110987a2150bac4f4766e538c8aba51ea607d9960ed7c402ae6ecefc5d  internal/registry/filesystem/store_test.go\n",
+      "source_revision": "188917509208fd6cf3dcf2784e29817f7c9fa432",
+      "image": "golang@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b",
+      "exit_code": 0,
+      "go_log_sha256": "038ea320f72a32d4547adfa72abcee12e98b699012082246921515386f9c49ce",
+      "negative_controls": {
+        "source_revision": "188917509208fd6cf3dcf2784e29817f7c9fa432",
+        "platform": "Linux-7.0.5-orbstack-00330-ge3df4e19b0a0-dirty-aarch64-with-glibc2.36",
+        "toolchain": "go1.27.1",
+        "results": [
+          {
+            "name": "missing-fsync",
+            "command": [
+              "go",
+              "test",
+              "-race",
+              "-count=1",
+              "-timeout=60s",
+              "-run=^TestSyncSyscallBoundaries$",
+              "./internal/registry/filesystem"
+            ],
+            "returncode": 1,
+            "caught": true,
+            "mutated_source_sha256": "cd6cbb0e207a6bc030e1de06bec622ee4d15a2eb44708d31e19cee1965ed5fac"
+          },
+          {
+            "name": "unlocked-replace",
+            "command": [
+              "go",
+              "test",
+              "-race",
+              "-count=1",
+              "-timeout=60s",
+              "-run=^TestProcessCrashRecoveryAndCAS$",
+              "./internal/registry/filesystem"
+            ],
+            "returncode": 1,
+            "caught": true,
+            "mutated_source_sha256": "8a00eef98191654fe9da8c0e099699c1b12cecb95859af25e831d6e9e885b86f"
+          },
+          {
+            "name": "missing-read-recovery",
+            "command": [
+              "go",
+              "test",
+              "-race",
+              "-count=1",
+              "-timeout=60s",
+              "-run=^TestSyncSyscallBoundaries$",
+              "./internal/registry/filesystem"
+            ],
+            "returncode": 1,
+            "caught": true,
+            "mutated_source_sha256": "4a8c097ad99a1fc4c2943e7e046da1c1928dc1a29dbe645d8860578f3a152902"
+          }
+        ],
+        "input_hashes": {
+          "internal/registry/contracttest/contract.go": "e4f65c8a1c37b4c1dda2e177f78b5bc532377b5a85b1d4923bcfd9a1cb029dd9",
+          "internal/registry/envelope.go": "ccc1ce2f4d75da9aec5ac71ee35389cc9207fcc2ace2bd7bc7816e7e6b55ea0a",
+          "internal/registry/envelope_test.go": "fcd3a6f3cddfc3189fc84152e153c93902aab12b7b80a5609e3c586e0809f936",
+          "internal/registry/filesystem/store.go": "50f5f102677fc24c0b6773989318205114ecc3a8db5e3a8ebc436c5dfc0a0c12",
+          "internal/registry/filesystem/store_test.go": "decc8a110987a2150bac4f4766e538c8aba51ea607d9960ed7c402ae6ecefc5d",
+          "internal/registry/s3/integration_test.go": "dcc221bf080bb9a3f8124a76fa6bd7c487c5bf8607d612a845b69a04ee7ecc10",
+          "internal/registry/s3/store.go": "90712c3299bfbaa7dd7fb5a0ed06bf41bf4fe58b7e76a6f72a00e277844a8118",
+          "internal/registry/s3/store_test.go": "797b7b6b74860828ca71308a91a2a1abfc011809ee69a9e65b1e91b708d4e872",
+          "internal/registry/store.go": "c3e05faa7d7ecf45c9d46134f787e691c2348af50149e9c8f45a8ec500b06941"
+        },
+        "status": "passed"
+      }
+    }
+  },
+  "limits": [
+    "Foundation adapters/seam only; production service cutover remains pending.",
+    "Local macOS and Linux container overlayfs plus MinIO; no AWS, NFS/SMB, power-loss or capacity qualification.",
+    "Existing unified-agent CI readiness failure remains open."
+  ]
+}

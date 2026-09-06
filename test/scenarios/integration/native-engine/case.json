@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "backend": "s3-emulator",
+  "bucket": "native-engine-contracts",
+  "docker": "29.4.0",
+  "compose": "5.1.2",
+  "test_timeout_seconds": 120,
+  "schedule": [
+    "atomic_commit_abort_reopen",
+    "fence_read_barrier",
+    "delayed_stale_open_recover",
+    "manual_wal_cancel_await_close_flush_reopen",
+    "empty_read_manual_wal_barrier",
+    "cancel_before_dispatch",
+    "public_open_metadata",
+    "cancel_native_read_retain_handle",
+    "stale_user_commit_after_takeover",
+    "cancel_open_retains_completion",
+    "production_source_negative_controls"
+  ]
+}
