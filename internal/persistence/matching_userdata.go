@@ -1,13 +1,13 @@
-package node
+package persistence
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 func userDataPrefix(namespace []byte) string {
@@ -16,13 +16,13 @@ func userDataPrefix(namespace []byte) string {
 func buildPrefix(namespace []byte, build string) string {
 	return "v1/matching/build/" + hex.EncodeToString(namespace) + "/" + hex.EncodeToString([]byte(build)) + "/"
 }
-func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+func applyMatchingUserData(ctx context.Context, tx ClusterTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
 	r := new(wire.MatchingResult)
 	prefix := userDataPrefix(c.NamespaceId)
 	switch c.Kind {
 	case wire.MatchingCommand_GET_USER_DATA:
 		v := new(wire.MatchingUserRecord)
-		exists, e := loadCluster(tx, prefix+c.Queue, v)
+		exists, e := loadCluster(ctx, tx, prefix+c.Queue, v)
 		if e != nil {
 			return nil, e
 		}
@@ -36,7 +36,7 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 		// every failure before staging: journaled logical failures must commit no data.
 		for _, u := range c.Updates {
 			v := new(wire.MatchingUserRecord)
-			exists, e := loadCluster(tx, prefix+u.Queue, v)
+			exists, e := loadCluster(ctx, tx, prefix+u.Queue, v)
 			if e != nil {
 				return nil, e
 			}
@@ -46,7 +46,7 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 			seen := map[string]bool{}
 			for _, id := range u.BuildIdsAdded {
 				key := buildPrefix(c.NamespaceId, id) + u.Queue
-				old, e := get(tx, key)
+				old, e := tx.Get(ctx, []byte(key))
 				if e != nil {
 					return nil, e
 				}
@@ -61,13 +61,13 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 				return nil, e
 			}
 			for _, id := range u.BuildIdsAdded {
-				if e := put(tx, buildPrefix(c.NamespaceId, id)+u.Queue, []byte{1}); e != nil {
+				if e := tx.Put([]byte(buildPrefix(c.NamespaceId, id)+u.Queue), []byte{1}); e != nil {
 					return nil, e
 				}
 			}
 			for _, id := range u.BuildIdsRemoved {
 				if e := tx.Delete([]byte(buildPrefix(c.NamespaceId, id) + u.Queue)); e != nil {
-					return nil, backend(e)
+					return nil, e
 				}
 			}
 		}
@@ -79,7 +79,7 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 		}
 		var last []byte
 		truncated := false
-		e := scanCluster(tx, prefix, func(key, value []byte) (bool, error) {
+		e := scanCluster(ctx, tx, prefix, func(key, value []byte) (bool, error) {
 			if bytes.Compare(key, c.Token) <= 0 {
 				return false, nil
 			}
@@ -89,7 +89,7 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 			}
 			v := new(wire.MatchingUserRecord)
 			if e := proto.Unmarshal(value, v); e != nil {
-				return false, backend(e)
+				return false, clusterEncodingError(e)
 			}
 			r.UserData = append(r.UserData, v)
 			r.Token = append([]byte(nil), key...)
@@ -107,7 +107,7 @@ func applyMatchingUserData(tx *native.DbTransaction, c *wire.MatchingCommand) (*
 		}
 		return r, e
 	case wire.MatchingCommand_GET_BY_BUILD, wire.MatchingCommand_COUNT_BY_BUILD:
-		e := scanCluster(tx, buildPrefix(c.NamespaceId, c.BuildId), func(key, value []byte) (bool, error) {
+		e := scanCluster(ctx, tx, buildPrefix(c.NamespaceId, c.BuildId), func(key, value []byte) (bool, error) {
 			r.Count++
 			if c.Kind == wire.MatchingCommand_GET_BY_BUILD {
 				r.QueueNames = append(r.QueueNames, string(key))
