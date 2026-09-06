@@ -16,6 +16,19 @@
       "volumes": [
         "objects:/data"
       ]
+    },
+    "ui": {
+      "image": "temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a",
+      "environment": {
+        "TEMPORAL_ADDRESS": "host.docker.internal:17233",
+        "TEMPORAL_CORS_ORIGINS": "http://127.0.0.1:18080"
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ],
+      "ports": [
+        "127.0.0.1:18080:8080"
+      ]
     }
   },
   "volumes": {

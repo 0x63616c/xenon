@@ -1,14 +1,44 @@
 {
   "schema": 1,
-  "scope": "combined agent SDK workflow, automatic join, process restart and cold history recovery; not full acceptance",
+  "scope": "combined agent SDK and Omes workflows, Temporal HTTP/UI surfaces, automatic join, process restart and cold history recovery; not full acceptance",
   "agents": [
     "a",
     "b",
     "c"
   ],
+  "namespace": "xenon-ministack",
+  "ui_port": 18080,
+  "omes_command": [
+    "run-scenario-with-worker",
+    "--server-address",
+    "127.0.0.1:17233",
+    "--namespace",
+    "xenon-ministack",
+    "--scenario",
+    "workflow_with_single_noop_activity",
+    "--language",
+    "go",
+    "--run-id",
+    "xenon-agent-omes",
+    "--iterations",
+    "20",
+    "--max-concurrent",
+    "2",
+    "--max-iteration-attempts",
+    "1",
+    "--timeout",
+    "5m",
+    "--version",
+    "v1.48.0",
+    "--max-iterations-per-second",
+    "0.25",
+    "--retain-temp-dir",
+    "--dir-name",
+    "prepared"
+  ],
   "faults": [
-    "add c at await-control",
-    "SIGKILL b then restart same node ID",
+    "add c while SDK and Omes workflows are active",
+    "SIGKILL b while Omes is active then restart same node ID",
     "stop all then restart a,b,c with disposable process state"
   ],
   "run": [

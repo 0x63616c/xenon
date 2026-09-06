@@ -26,7 +26,7 @@ jobs:
           aws --version
           docker version
           docker compose version
-      - name: Run declared three-agent movement, eviction, and cold-recovery proof
+      - name: Run unified SDK, Omes, UI, movement, eviction, and cold-recovery proof
         run: |
           docker compose -f test/scenarios/agent/compose.json pull
           python3 scripts/agent-smoke.py
