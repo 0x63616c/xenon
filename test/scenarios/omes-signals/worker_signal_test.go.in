@@ -31,7 +31,7 @@ func TestXenonSignalMetadataContract(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
-			env.SetWorkflowExecutionTimeout(6 * time.Second)
+			env.SetWorkflowRunTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			env.RegisterDelayedCallback(func() {
@@ -65,7 +65,7 @@ func TestXenonOptionalSignalContract(t *testing.T) {
 		t.Run(fmt.Sprint(delivered), func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
-			env.SetWorkflowExecutionTimeout(6 * time.Second)
+			env.SetWorkflowRunTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			env.RegisterDelayedCallback(func() {
@@ -93,7 +93,7 @@ func TestXenonOptionalSignalContract(t *testing.T) {
 func TestXenonRequiredSignalStillDrains(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
-	env.SetWorkflowExecutionTimeout(6 * time.Second)
+	env.SetWorkflowRunTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(2, "ok")) }, time.Second)
@@ -112,7 +112,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 	signal := &pb.DoSignal_DoSignalActions{SignalId: 1, Variant: &pb.DoSignal_DoSignalActions_DoActionsInMain{DoActionsInMain: &pb.ActionSet{Actions: []*pb.Action{{Variant: &pb.Action_ContinueAsNew{ContinueAsNew: can}}}}}}
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
-	env.SetWorkflowExecutionTimeout(6 * time.Second)
+	env.SetWorkflowRunTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", signal) }, time.Second)
@@ -129,7 +129,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 		t.Fatal("CAN successor metadata changed")
 	}
 	env = suite.NewTestWorkflowEnvironment()
-	env.SetWorkflowExecutionTimeout(6 * time.Second)
+	env.SetWorkflowRunTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() {
@@ -152,7 +152,7 @@ func TestXenonCANSignalScope(t *testing.T) {
 func TestXenonOptionalDeliveryExecutes(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
-	env.SetWorkflowExecutionTimeout(6 * time.Second)
+	env.SetWorkflowRunTimeout(6 * time.Second)
 	env.SetDataConverter(clioptions.OmesDataConverter())
 	env.RegisterWorkflow(KitchenSinkWorkflow)
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("do_actions_signal", returnSignal(3, "optional-executed")) }, time.Second)
@@ -175,7 +175,7 @@ func TestXenonOptionalCancellationAndNoHandlerDrain(t *testing.T) {
 		t.Run(fmt.Sprint(cancelled), func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
-			env.SetWorkflowExecutionTimeout(6 * time.Second)
+			env.SetWorkflowRunTimeout(6 * time.Second)
 			env.SetDataConverter(clioptions.OmesDataConverter())
 			env.RegisterWorkflow(KitchenSinkWorkflow)
 			choice := &pb.AwaitableChoice{}

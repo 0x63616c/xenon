@@ -17,8 +17,13 @@ def main():
  def run(argv,cwd=ROOT,expected=0):
   process=subprocess.Popen([str(v) for v in argv],cwd=cwd,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
   try:out,err=process.communicate(timeout=120)
-  except BaseException:
-   os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=10);raise
+  except BaseException as error:
+   try:os.killpg(process.pid,signal.SIGKILL)
+   except ProcessLookupError:pass
+   out,err=process.communicate(timeout=10)
+   log=evidence/('command-'+str(len(report['commands']))+'.log');log.write_bytes(out+err)
+   report['commands'].append({'argv':[str(v) for v in argv],'exit_code':process.returncode,'timed_out':isinstance(error,subprocess.TimeoutExpired),'log':log.name,'sha256':sha(log)})
+   raise
   q=subprocess.CompletedProcess(argv,process.returncode,out,err)
   log=evidence/('command-'+str(len(report['commands']))+'.log');log.write_bytes(q.stdout+q.stderr)
   report['commands'].append({'argv':[str(v) for v in argv],'exit_code':q.returncode,'log':log.name,'sha256':sha(log)})
