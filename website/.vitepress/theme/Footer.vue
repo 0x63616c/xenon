@@ -50,7 +50,7 @@ const groups = [
     </div>
     <div class="footer-bottom">
       <span>© 2026 Xenon. All rights reserved.</span
-      ><a :href="withBase('/docs/')">Temporal persistence. Object storage.</a>
+      ><a :href="withBase('/docs/')">Temporal, backed by S3.</a>
     </div>
   </footer>
 </template>
