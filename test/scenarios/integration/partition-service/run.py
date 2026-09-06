@@ -182,7 +182,7 @@ def main():
         if report["dirty_status"] and not args.allow_dirty:
             raise RuntimeError("commit scenario inputs before proof; --allow-dirty is development only")
         paths = [ROOT / name for name in ("go.mod", "go.sum", "rust-toolchain.toml", "tools/slatedb-native.json", "scripts/build-go-node.py", "scripts/prove.py", COMPOSE)]
-        for folder in (HERE, ROOT / "internal/partitions", ROOT / "internal/cluster", ROOT / "internal/registry", ROOT / "internal/identity", ROOT / "internal/persistence", ROOT / "internal/replay", ROOT / "gen/xenon/v1"):
+        for folder in (HERE, ROOT / "internal/partitions", ROOT / "internal/cluster", ROOT / "internal/registry", ROOT / "internal/identity", ROOT / "internal/persistence", ROOT / "gen/xenon/v1"):
             paths.extend(p for p in folder.rglob("*") if p.is_file() and p.suffix in (".go", ".py", ".json", ".md"))
         report["input_sha256"] = {str(p.relative_to(ROOT)): digest(p) for p in sorted(set(paths))}
         report["versions"] = {"docker": execute(["docker", "version", "--format", "{{.Server.Version}}"], env),

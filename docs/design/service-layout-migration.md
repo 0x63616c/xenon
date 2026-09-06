@@ -12,15 +12,14 @@ AwaitDurable path. Compatibility type aliases preserve its JSON/API consumers.
 The service package has no dependency on the retiring replay package or native
 SlateDB bindings.
 
-The temporary `internal/replay` package contains only a forwarding function and
-type alias. Its remaining Go importers are exactly
-`internal/simulation/replay_test.go` and `internal/simulation/coordination_test.go`.
-They are left untouched during concurrent simulation work. Their next mechanical
-migration can replace `replay.Run`/`replay.Effects` with
-`persistence.RunReplay`/`persistence.ReplayEffects`, update the historical README
-and remove the shim. Active experiment input manifests include the relocated
-implementation; historical evidence retains its original source hashes. The
-native composition runner already hashes all of `internal/persistence`.
+The forwarding-only `internal/replay` package has now been removed after
+verifying that it had no production callers. Its last two importers,
+`internal/simulation/replay_test.go` and `internal/simulation/coordination_test.go`,
+call `persistence.RunReplay` and use `persistence.ReplayEffects` directly. The
+fixed schedules, independent assertions and expected traces are unchanged.
+Active experiment inputs and the native composition runner reference the sole
+implementation in `internal/persistence`; historical evidence retains its
+original source hashes.
 
 This is not completion of the required repository layout. Remaining concrete
 moves include `internal/adapter` and `internal/temporalstore` into
@@ -37,3 +36,15 @@ race suite, existing native owner outcome capacity/legacy and journal/family
 collision tests, and `scripts/check-layout.py` manifest checks. The checker still
 checks input integrity, not completion of every required package move. No new
 real-S3, capacity or complete service-layout acceptance is claimed by this batch.
+
+The shim-removal follow-up runs the replay and coupled lost-response/crash/move
+regressions plus independent non-atomic-outcome and stale-owner negative controls
+under the race detector:
+
+```sh
+go test -race ./internal/persistence ./internal/simulation -run 'Replay|DeterministicCoordinationLostResponseCrashMove|CheckerRejectsNonAtomicOutcome|CheckerRejectsStaleOwnerAcknowledgement' -count=1
+python3 scripts/check-layout.py
+```
+
+Use the pinned native loader environment when linking simulation's historical
+owner dependencies; these focused tests open no native engine or external service.

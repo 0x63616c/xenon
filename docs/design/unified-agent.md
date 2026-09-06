@@ -65,7 +65,7 @@ an internal readiness flag.
 - `internal/temporalstore` and `internal/adapter` adapt persistence contracts.
 - `internal/storage` assembles ownership, routing and the current embedded engine.
 - `internal/node` still implements operation semantics using native transactions.
-- `internal/replay` shares journal decisions with a controlled replay test.
+- `internal/persistence` shares journal decisions with a controlled replay test.
 
 SlateDB is the current implementation behind S3 durability, not a customer-facing
 product requirement or an interchangeable-engine framework. Native transaction

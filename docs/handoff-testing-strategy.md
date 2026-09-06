@@ -41,7 +41,7 @@ Do not create a second simulated Xenon implementation. The existing production s
 Run:
 
 ```sh
-GOTOOLCHAIN=go1.27.1 go test -count=1 -v ./internal/replay ./internal/simulation
+GOTOOLCHAIN=go1.27.1 go test -count=1 -v ./internal/persistence ./internal/simulation
 python3 scripts/prove.py simulation
 ```
 

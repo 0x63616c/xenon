@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/0x63616c/xenon/internal/replay"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -34,8 +34,8 @@ func copyState(s map[string][]byte) map[string][]byte {
 	return r
 }
 func (d *disk) begin() *transaction { return &transaction{d, copyState(d.durable)} }
-func (tx *transaction) effects() replay.Effects {
-	return replay.Effects{
+func (tx *transaction) effects() persistence.ReplayEffects {
+	return persistence.ReplayEffects{
 		Get: func(k string) ([]byte, error) { return bytes.Clone(tx.staged[k]), nil },
 		Put: func(k string, v []byte) error { tx.staged[k] = bytes.Clone(v); return nil },
 		Apply: func() (*wire.StoredOutcome, error) {
@@ -82,7 +82,7 @@ func scenario(t *testing.T, broken bool) error {
 	digest := sha256.Sum256([]byte("increment"))
 	// 1. Begin and durably commit production mutation + outcome.
 	owner := d.begin()
-	_, err := replay.Run(owner.effects(), "stable-operation", digest[:], 10)
+	_, err := persistence.RunReplay(owner.effects(), "stable-operation", digest[:], 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func scenario(t *testing.T, broken bool) error {
 	if replacement.staged["uncommitted"] != nil {
 		t.Fatal("volatile state survived crash")
 	}
-	result, err := replay.Run(replacement.effects(), "stable-operation", digest[:], 10)
+	result, err := persistence.RunReplay(replacement.effects(), "stable-operation", digest[:], 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func scenario(t *testing.T, broken bool) error {
 	}
 	changed := sha256.Sum256([]byte("different command"))
 	tx := d.begin()
-	_, err = replay.Run(tx.effects(), "stable-operation", changed[:], 10)
+	_, err = persistence.RunReplay(tx.effects(), "stable-operation", changed[:], 10)
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatal("changed digest accepted", err)
 	}
