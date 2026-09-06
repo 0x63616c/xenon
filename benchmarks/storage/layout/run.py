@@ -67,12 +67,19 @@ def execute_case(binary, writers, index, env, cfg, evidence):
             code=child.wait(timeout=2)
             if code or not events or events[-1].get('event')!='passed': raise RuntimeError(f"case failed: exit={code}; see {log}")
         finally:
-            if child.poll() is None:
-                os.killpg(child.pid,signal.SIGKILL)
+            primary=sys.exception()
+            try:
+                if child.poll() is None:
+                    try: os.killpg(child.pid,signal.SIGKILL)
+                    except ProcessLookupError: pass # child exited after poll
                 child.wait(timeout=5)
-            reader.join(timeout=2)
-            child.stdout.close()
-            (evidence/f"case-{index}-samples.json").write_text(json.dumps(samples,indent=2)+'\n')
+            except BaseException as cleanup_error:
+                (evidence/f"case-{index}-cleanup-error.json").write_text(json.dumps({'pid':child.pid,'error':str(cleanup_error)})+'\n')
+                if primary is None: raise
+            finally:
+                reader.join(timeout=2)
+                child.stdout.close()
+                (evidence/f"case-{index}-samples.json").write_text(json.dumps(samples,indent=2)+'\n')
     phases={e['phase']:e for e in events if e.get('event')=='phase'}
     workload=next(e for e in events if e.get('event')=='workload_result')
     operations=workload['operations']

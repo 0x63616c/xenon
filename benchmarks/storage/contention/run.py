@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import signal
 import subprocess
 import sys
 import time
@@ -85,6 +86,13 @@ def main():
                 provenance['cleanup_exit_code'] = cleanup.returncode
                 if cleanup.returncode:
                     code = 1
+                else:
+                    remaining = {}
+                    for resource, argv in [('containers',['docker','ps','-aq']),('volumes',['docker','volume','ls','-q']),('networks',['docker','network','ls','-q'])]:
+                        query = subprocess.run(argv+['--filter','label=com.docker.compose.project='+project],cwd=ROOT,check=True,capture_output=True,text=True,timeout=10)
+                        if query.stdout.strip(): remaining[resource]=query.stdout.split()
+                    provenance['remaining_resources']=remaining
+                    if remaining: code = 1
             except Exception as exc:
                 (out / 'cleanup.log').write_text(repr(exc) + '\n')
                 provenance['cleanup_exit_code'] = None
@@ -101,4 +109,7 @@ def main():
     return code
 
 if __name__ == '__main__':
+    def interrupted(signum, frame):
+        raise InterruptedError('contention runner interrupted: '+str(signum))
+    signal.signal(signal.SIGTERM, interrupted)
     raise SystemExit(main())

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import run
 
@@ -43,5 +44,18 @@ class SupervisorTests(unittest.TestCase):
             self.assertIn('primary invariant',(root/'case-0-writers-1.jsonl').read_text())
             samples=json.loads((root/'case-0-samples.json').read_text())
             with self.assertRaises(ProcessLookupError): os.kill(samples[-1]['pid'],0)
+
+    def test_exit_race_does_not_replace_primary_or_skip_samples(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            binary=self.fake(root,'import time\nprint(\'{"event":"failure","error":"primary invariant"}\',flush=True)\ntime.sleep(30)\n')
+            kill=os.killpg
+            def exit_before_signal(pid, signum):
+                kill(pid, signum)
+                raise ProcessLookupError('modeled exit between poll and signal')
+            with mock.patch.object(run.os,'killpg',side_effect=exit_before_signal):
+                with self.assertRaisesRegex(RuntimeError,'workload failure: primary invariant'):
+                    run.execute_case(binary,1,0,os.environ.copy(),{'case_timeout_seconds':2,'rss_sample_ms':10,'max_rss_mib':256},root)
+            self.assertTrue((root/'case-0-samples.json').exists())
 
 if __name__=='__main__': unittest.main()

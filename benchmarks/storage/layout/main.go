@@ -88,10 +88,14 @@ func run() (result error) {
 	}
 	writers := make([]p.Writer, *physical)
 	defer func() {
+		if result != nil {
+			emit(map[string]any{"event": "failure", "error": result.Error()})
+		}
 		for _, w := range writers {
 			if w != nil {
 				err := w.Close(context.Background())
 				if err != nil && !errors.Is(err, p.ErrFenced) {
+					emit(map[string]any{"event": "failure", "error": err.Error()})
 					result = errors.Join(result, err)
 				}
 			}
