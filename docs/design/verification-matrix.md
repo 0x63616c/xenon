@@ -109,3 +109,5 @@ and then exited during Temporal membership initialization with
 returning zero. See [the unchanged receipt and fatal record](../../test/scenarios/agent/evidence/ced487c-minio-failed/README.md).
 The host/routing component passes do not establish successful active join,
 cold recovery or sustained fuzzing on this runtime.
+
+Follow-up clean service runs remain **FAILED**: [495819c](../../test/scenarios/agent/evidence/495819c-minio-failed/README.md) passed node join but exposed an agent health cancellation race after B was killed. [7df6453](../../test/scenarios/agent/evidence/7df6453-minio-failed/README.md) passed join, B crash/eviction/restart, Omes20/UI and SDK results, then A's storage readiness timed out on full cold restart. Both scoped teardowns succeeded. These stage successes do not establish cold recovery or full acceptance.
