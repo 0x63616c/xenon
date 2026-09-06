@@ -34,45 +34,40 @@ func (e *Engine) Open(ctx context.Context, r p.OpenRequest) (p.Writer, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	type result struct {
-		w   *writer
-		err error
-	}
-	done := make(chan result, 1)
-	decision := make(chan bool, 1)
-	go func() {
+	return completeOpen(ctx, func() (*writer, error) {
 		store, err := native.ObjectStoreResolve(e.backend)
-		var db *native.Db
-		if err == nil {
-			builder := native.NewDbBuilder(r.Path, store)
-			db, err = builder.Build()
-			builder.Destroy()
-			store.Destroy()
+		if err != nil {
+			return nil, translate(err)
 		}
-		var w *writer
-		if err == nil {
-			w = newWriter(db)
+		defer store.Destroy()
+		builder := native.NewDbBuilder(r.Path, store)
+		defer builder.Destroy()
+		db, err := builder.Build()
+		if err != nil {
+			return nil, translate(err)
 		}
-		done <- result{w, translate(err)}
-		if <-decision && w != nil {
-			_ = w.Close(context.Background())
+		return newWriter(db), nil
+	})
+}
+
+// completeOpen keeps native Build and any late cleanup on the caller's effect.
+// The binding has no cancellation API: after dispatch, cancellation cannot return
+// until native completion and handle cleanup. Drivers may run this call in their
+// owned worker, but must retain its effect until it returns (or terminate process).
+func completeOpen(ctx context.Context, build func() (*writer, error)) (p.Writer, error) {
+	w, err := build()
+	if canceled := ctx.Err(); canceled != nil {
+		if w != nil {
+			// This is a drain, not a new operation budget. Close must finish before
+			// the Open effect completes, including any close failure.
+			err = errors.Join(err, w.Close(context.Background()))
 		}
-	}()
-	select {
-	case v := <-done:
-		if err := ctx.Err(); err != nil {
-			decision <- true
-			return nil, &p.UnknownOutcome{Cause: err}
-		}
-		decision <- false
-		if v.err != nil {
-			return nil, v.err
-		}
-		return v.w, nil
-	case <-ctx.Done():
-		decision <- true
-		return nil, &p.UnknownOutcome{Cause: ctx.Err()}
+		return nil, &p.UnknownOutcome{Cause: errors.Join(canceled, err)}
 	}
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
 type writer struct {

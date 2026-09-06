@@ -7,7 +7,8 @@ import signal
 import subprocess
 import time
 import urllib.request
-import uuid
+import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,7 +22,9 @@ def main():
     cfg = json.loads((ROOT / "test/scenarios/integration/native-engine/case.json").read_text())
     if cfg["schema"] != 1 or cfg["backend"] != "s3-emulator":
         raise RuntimeError("invalid native fixture")
-    project = "xenon-native-" + uuid.uuid4().hex[:12]
+    project = os.environ["XENON_NATIVE_PROJECT"]
+    if not re.fullmatch(r"xenon-native-[a-f0-9]{12}", project):
+        raise RuntimeError("invalid parent-owned native project")
     env = os.environ.copy()
     compose = ["docker", "compose", "--project-name", project, "-f", "test/scenarios/integration/native-engine/compose.yaml"]
     versions = {"docker": execute(["docker", "version", "--format", "{{.Server.Version}}"], env), "compose": execute(["docker", "compose", "version", "--short"], env)}
@@ -50,6 +53,11 @@ def main():
         completed = subprocess.run(["go", "test", "-race", "-json", "-count=1", "-timeout", str(cfg["test_timeout_seconds"])+"s", "./internal/partitions/slatedb", "-run", "^TestNativeEngine"], cwd=ROOT, env=env, timeout=cfg["test_timeout_seconds"]+10)
         if completed.returncode:
             raise RuntimeError("native engine contract assertion failed")
+        controls = subprocess.run([sys.executable, "test/scenarios/integration/native-engine/negative-controls.py",
+                                   "--evidence", str(Path(env["XENON_NATIVE_EVIDENCE"]) / "negative-controls")],
+                                  cwd=ROOT, env=env, timeout=240)
+        if controls.returncode:
+            raise RuntimeError("native source mutation control failed")
     except BaseException as error:
         primary = error
         print(json.dumps({"primary_failure": str(error)}), flush=True)

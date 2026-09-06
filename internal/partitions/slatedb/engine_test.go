@@ -98,6 +98,9 @@ func TestNativeEngineAtomicRecovery(t *testing.T) {
 	stage(t, tx, "state", "one")
 	stage(t, tx, "outcome", "digest/result")
 	r := finish(t, w, tx)
+	if read(t, w, "outcome") != "digest/result" {
+		t.Fatal("lost replay result")
+	}
 	tx = begin(t, w)
 	value, err := tx.Get(context.Background(), []byte("state"))
 	if err != nil || string(value) != "one" {
@@ -144,10 +147,27 @@ func TestNativeEngineFence(t *testing.T) {
 	tx := begin(t, old)
 	stage(t, tx, "state", "acknowledged")
 	finish(t, old, tx)
+	// Stage an actual user mutation before takeover, then try to commit through
+	// the old native handle after its writer epoch has been displaced.
+	staleTx := begin(t, old)
+	stage(t, staleTx, "stale-user", "must-not-recover")
 	replacement := open("db", false)
+	staleReceipt, staleErr := staleTx.Commit(context.Background())
+	if staleErr == nil {
+		staleErr = old.AwaitDurable(context.Background(), staleReceipt)
+	}
+	if staleErr == nil {
+		t.Fatal("stale user mutation was acknowledged")
+	}
+	if !errors.Is(staleErr, p.ErrFenced) {
+		t.Fatal("stale user commit missed native fence", staleErr)
+	}
+	if got := read(t, replacement, "stale-user"); got != "" {
+		t.Fatal("stale user mutation recovered", got)
+	}
 	_, err := old.ReadDurable(context.Background(), p.ReadRequest{Keys: [][]byte{[]byte("state")}})
-	if !errors.Is(err, p.ErrFenced) {
-		t.Fatal("read/replay barrier missed native fence", err)
+	if !errors.Is(err, p.ErrRetired) {
+		t.Fatal("read/replay barrier admitted retired writer", err)
 	}
 	if _, err = old.Begin(context.Background()); !errors.Is(err, p.ErrRetired) {
 		t.Fatal("fence not terminal", err)
@@ -169,6 +189,9 @@ func TestNativeEngineFence(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := open("db", false)
+	if read(t, current, "stale-user") != "" {
+		t.Fatal("stale user mutation survived reopen")
+	}
 	if read(t, current, "new") != "owner" {
 		t.Fatal("late-open recovery lost acknowledged value")
 	}
@@ -363,5 +386,56 @@ func TestNativeEngineCanceledReadRetains(t *testing.T) {
 	defer stop()
 	if err := w.Close(drain); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNativeEngineCanceledOpenRetains(t *testing.T) {
+	_, open := setup(t)
+	w := open("db", false)
+	entered, release := make(chan struct{}), make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := completeOpen(ctx, func() (*writer, error) {
+			// Represents a native Build completion withheld from its calling effect.
+			close(entered)
+			<-release
+			return w, nil
+		})
+		done <- err
+	}()
+	<-entered
+	cancel()
+	select {
+	case err := <-done:
+		t.Fatal("canceled open abandoned its pending effect", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+	if w.retired.Load() {
+		t.Fatal("late native handle cleaned before completion")
+	}
+	close(release)
+	select {
+	case err := <-done:
+		var unknown *p.UnknownOutcome
+		if !errors.As(err, &unknown) || !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("open completion failed to drain")
+	}
+	if !w.closed {
+		t.Fatal("open completed before late handle cleanup")
+	}
+	if _, err := w.Begin(context.Background()); !errors.Is(err, p.ErrRetired) {
+		t.Fatal("late writer escaped", err)
+	}
+	// A failed late cleanup must remain observable in the completed Open effect.
+	closeFailure := errors.New("late close failed")
+	failed := newWriter(nil)
+	failed.closed, failed.closeErr = true, closeFailure
+	_, err := completeOpen(ctx, func() (*writer, error) { return failed, nil })
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, closeFailure) {
+		t.Fatal("late close failure lost", err)
 	}
 }

@@ -17,6 +17,9 @@ type OpenRequest struct {
 	Generation         uint64
 }
 
+// Open retains ownership of a dispatched native open through completion and any
+// cancellation cleanup. Drivers must keep its effect pending until the call
+// returns; canceling its context does not guarantee prompt return.
 type Engine interface {
 	Open(context.Context, OpenRequest) (Writer, error)
 }

@@ -101,7 +101,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(cleanup["timed_out"], cleanup_mode == "timeout")
 
     def test_setup_failure_survives_cleanup_in_every_branch(self):
-        for name in ("go-shard-compat", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut", "crash"):
+        for name in ("native-engine-contracts", "go-shard-compat", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut", "crash"):
             for mode in ("failure", "timeout", "exception", "success"):
                 with self.subTest(experiment=name, cleanup=mode):
                     self.run_cleanup_case(name, "setup", mode)
@@ -117,6 +117,54 @@ class RunnerTests(unittest.TestCase):
             for mode in ("failure", "timeout", "exception", "success"):
                 with self.subTest(experiment=name, cleanup=mode):
                     self.run_cleanup_case(name, "pass", mode)
+
+    def test_native_child_kill_keeps_parent_cleanup_identity(self):
+        for cleanup_exit, cleanup_timeout in ((0, False), (23, False), (0, True)):
+            with self.subTest(cleanup_exit=cleanup_exit, cleanup_timeout=cleanup_timeout), tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
+                root = Path(folder).resolve()
+                (root / "experiments").mkdir()
+                (root / "scripts").mkdir()
+                (root / "scripts/prove.py").write_text("# fixture\n")
+                manifest = json.loads((prove.ROOT / "experiments/native-engine-contracts.json").read_text())
+                manifest.update(inputs=[], required_tool_prefixes={})
+                (root / "experiments/native-engine-contracts.json").write_text(json.dumps(manifest))
+                real_run = prove.run_process
+                project = None
+                cleanup_called = False
+
+                def run(argv, timeout, env, cwd):
+                    nonlocal project, cleanup_called
+                    if argv[-1:] == ["scripts/build-go-node.py"]:
+                        (root / ".local/go-node-build.json").write_text(json.dumps({"node_binary_sha256": "fixture"}))
+                        return 0, "", False
+                    if argv[-1:] == ["scripts/native-engine-proof.py"]:
+                        project = env["XENON_NATIVE_PROJECT"]
+                        self.assertRegex(project, r"^xenon-native-[a-f0-9]{12}$")
+                        self.assertTrue(Path(env["XENON_NATIVE_EVIDENCE"]).is_dir())
+                        # Execute an actual abruptly killed child: no child finally.
+                        return real_run([sys.executable, "-c", "import os,signal;print('native child entered',flush=True);os.kill(os.getpid(),signal.SIGKILL)"], 10, env, cwd)
+                    if argv[:2] == ["docker", "compose"]:
+                        cleanup_called = True
+                        self.assertEqual(argv[argv.index("--project-name")+1], project)
+                        self.assertIn("test/scenarios/integration/native-engine/compose.yaml", argv)
+                        self.assertEqual(timeout, 60)
+                        return cleanup_exit, "cleanup", cleanup_timeout
+                    return 0, "fixture tool version", False
+
+                stack.enter_context(patch.object(prove, "ROOT", root))
+                stack.enter_context(patch.object(sys, "argv", ["prove.py", "native-engine-contracts"]))
+                stack.enter_context(patch.object(prove, "cargo_configs", return_value=[]))
+                stack.enter_context(patch.object(prove.subprocess, "check_output", side_effect=["a"*40, ""]))
+                stack.enter_context(patch.object(prove, "run_process", side_effect=run))
+                self.assertEqual(prove.main(), 1)
+                self.assertTrue(cleanup_called)
+                receipt = next((root / ".local/evidence").glob("*/result.json"))
+                report = json.loads(receipt.read_text())
+                self.assertEqual(report["error"], "command 2 failed (exit=-9, timeout=False); see command-2.log")
+                self.assertFalse(report["proof_pass"])
+                self.assertEqual(report["cleanup"]["exit_code"], cleanup_exit)
+                self.assertEqual(report["cleanup"]["timed_out"], cleanup_timeout)
+                self.assertIn("native child entered", (receipt.parent / "command-2.log").read_text())
 
     def test_dirty_development_can_never_be_proof_pass(self):
         self.assertEqual(prove.classify_success(True), ("development-passed", False))

@@ -292,6 +292,8 @@ def main():
         env["XENON_COMPAT_PROJECT"] = "xenon-compat-" + uuid.uuid4().hex[:12]
         if [item[2] for item in commands] != ["go-node-build", "cargo-build-node", "go-shard-compat"]:
             raise ValueError("compatibility proof requires both builds then registered fixture")
+    if args.name == "native-engine-contracts":
+        env["XENON_NATIVE_PROJECT"] = "xenon-native-" + uuid.uuid4().hex[:12]
     if args.name == "process-cut":
         env["XENON_PROCESS_CUT_PROJECT"] = "xenon-process-cut-" + uuid.uuid4().hex[:12]
     if args.name == "maintenance":
@@ -309,6 +311,8 @@ def main():
     run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + args.name + "-" + uuid.uuid4().hex[:8]
     evidence = ROOT / ".local" / "evidence" / run_id
     evidence.mkdir(parents=True)
+    if args.name == "native-engine-contracts":
+        env["XENON_NATIVE_EVIDENCE"] = str(evidence)
     report = {"schema": 1, "experiment": args.name, "commit": sha, "dirty_status": dirty,
               "reproducible_clean_checkout": not bool(dirty), "backend": manifest["backend"], "result": "failed", "proof_pass": False,
               "platform": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
@@ -461,14 +465,14 @@ def main():
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
                 report.update(result="failed", proof_pass=False)
                 report.setdefault("error", "compatibility Compose cleanup failed")
-        if args.name in ("registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut"):
-            env_key = {"registry-contracts":"XENON_DIRECTORY_PROJECT", "directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT", "s3-meter":"XENON_S3_METER_PROJECT", "cas-loss":"XENON_S3_METER_PROJECT", "process-cut":"XENON_PROCESS_CUT_PROJECT"}[args.name]
-            compose_path = "deploy/" + ("s3-meter" if args.name=="cas-loss" else "directory" if args.name=="registry-contracts" else args.name) + ".compose.yaml"
+        if args.name in ("native-engine-contracts", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut"):
+            env_key = {"native-engine-contracts":"XENON_NATIVE_PROJECT", "registry-contracts":"XENON_DIRECTORY_PROJECT", "directory":"XENON_DIRECTORY_PROJECT", "owner-manager":"XENON_OWNER_MANAGER_PROJECT", "maintenance":"XENON_MAINTENANCE_PROJECT", "s3-meter":"XENON_S3_METER_PROJECT", "cas-loss":"XENON_S3_METER_PROJECT", "process-cut":"XENON_PROCESS_CUT_PROJECT"}[args.name]
+            compose_path = "test/scenarios/integration/native-engine/compose.yaml" if args.name == "native-engine-contracts" else "deploy/" + ("s3-meter" if args.name=="cas-loss" else "directory" if args.name=="registry-contracts" else args.name) + ".compose.yaml"
             try:
                 code, output, expired = run_process(["docker", "compose", "--project-name", env[env_key], "-f", compose_path, "down", "--volumes"], 60, env, ROOT)
-                report["cleanup"] = {"exit_code": code, "timed_out": expired}
+                report["cleanup"] = {"project": env[env_key], "exit_code": code, "timed_out": expired}
             except Exception as error:
-                report["cleanup"] = {"exit_code": -1, "timed_out": False, "error": str(error)}
+                report["cleanup"] = {"project": env[env_key], "exit_code": -1, "timed_out": False, "error": str(error)}
             if report["cleanup"]["exit_code"] or report["cleanup"]["timed_out"]:
                 report.update(result="failed", proof_pass=False)
                 report.setdefault("error", "directory cleanup failed")
