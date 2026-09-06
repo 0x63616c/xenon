@@ -13,6 +13,12 @@ import (
 // automatic instance-profile discovery is a separate deployment integration.
 func Environment() (*TopologyStore, error) {
 	bucket, prefix := os.Getenv("XENON_BUCKET"), os.Getenv("XENON_TOPOLOGY_PREFIX")
+	return FromEnvironment(bucket, prefix)
+}
+
+// FromEnvironment keeps credentials external while taking cluster storage
+// location from the unified agent configuration, without mutating process env.
+func FromEnvironment(bucket, prefix string) (*TopologyStore, error) {
 	region := os.Getenv("AWS_DEFAULT_REGION")
 	if region == "" {
 		region = os.Getenv("AWS_REGION")

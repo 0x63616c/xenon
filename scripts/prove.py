@@ -38,6 +38,11 @@ def classify_success(dirty):
     return ("development-passed", False) if dirty else ("passed", True)
 
 
+def version_matches(output, required):
+    """Accept the pinned version line even when a tool manager emits diagnostics first."""
+    return any(line.strip().startswith(required) for line in output.splitlines())
+
+
 def cargo_configs(root, env):
     # Cargo searches the invocation directory and ancestors, then CARGO_HOME.
     dirs = [root, *root.parents]
@@ -327,7 +332,7 @@ def main():
                 raise ValueError(f"cannot record tool version: {tool}")
             report["tool_versions"][tool] = output.strip()
             required = manifest.get("required_tool_prefixes", {}).get(tool)
-            if required and not output.strip().startswith(required):
+            if required and not version_matches(output, required):
                 raise ValueError(f"tool version mismatch: {tool} requires {required}")
         for index, (argv, expected, runner) in enumerate(commands, 1):
             print(f"[{index}/{len(commands)}] {' '.join(argv)}", flush=True)

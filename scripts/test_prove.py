@@ -11,6 +11,11 @@ import prove
 
 
 class RunnerTests(unittest.TestCase):
+    def test_tool_version_allows_toolchain_manager_diagnostics(self):
+        output = "info: syncing pinned channel\nrustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc"
+        self.assertTrue(prove.version_matches(output, "rustc 1.94.0 "))
+        self.assertFalse(prove.version_matches(output, "rustc 1.93.0 "))
+
     def test_meter_registered_commands(self):
         manifest = json.loads((prove.ROOT / "experiments/s3-meter.json").read_text())
         for spec in manifest["commands"]:

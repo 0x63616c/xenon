@@ -1,0 +1,14 @@
+{
+  "cluster": "xenon",
+  "node": "agent-a",
+  "bucket": "your-bucket",
+  "prefix": "xenon/development",
+  "bind_ip": "127.0.0.1",
+  "advertise_ip": "127.0.0.1",
+  "base_port": 7233,
+  "public_address": "127.0.0.1:7233",
+  "public_http_address": "127.0.0.1:7242",
+  "diagnostics_address": "127.0.0.1:7250",
+  "history_shards": 4,
+  "bootstrap": true
+}

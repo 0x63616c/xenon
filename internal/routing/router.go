@@ -26,10 +26,29 @@ type Resolver interface {
 	Resolve(ctx context.Context, partition string, refresh bool) (Route, error)
 }
 type Local func(context.Context, string, proto.Message) (proto.Message, error)
+
+// Invoke sends one complete operation. Nil uses the production gRPC transport.
+// Implementations honor ctx and fill response without modifying request. Their
+// lifecycle belongs to the caller; Router.Close closes only its own gRPC pool.
+type Invoke func(ctx context.Context, address, method string, request, response proto.Message) error
+
+// Event contains only bounded routing categories, never operation IDs or payloads.
+// Attempt is zero-based and Code is the resulting gRPC status.
+type Event struct {
+	Kind    string // resolve, local, forward
+	Attempt int
+	Code    codes.Code
+}
+
 type Router struct {
-	Node        string
-	Directory   Resolver
-	Local       Local
+	Node      string
+	Directory Resolver
+	Local     Local
+	// Configure before serving; do not mutate while requests are active.
+	Invoke Invoke
+	// Events is optional, caller-owned, and must remain open while serving.
+	// Delivery is nonblocking and lossy: exporters cannot stall routing.
+	Events      chan<- Event
 	mu          sync.Mutex
 	connections map[string]*grpc.ClientConn
 	closed      bool
@@ -58,11 +77,15 @@ func (r *Router) connection(address string) (*grpc.ClientConn, error) {
 	}
 	// Keep a bounded disposable pool even when owner addresses change repeatedly.
 	if len(r.connections) >= 64 {
-		for k, c := range r.connections {
-			_ = c.Close()
-			delete(r.connections, k)
-			break
+		// Stable lexical eviction avoids map iteration affecting routing effects.
+		var victim string
+		for key := range r.connections {
+			if victim == "" || key < victim {
+				victim = key
+			}
 		}
+		_ = r.connections[victim].Close()
+		delete(r.connections, victim)
 	}
 	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if e != nil {
@@ -73,6 +96,15 @@ func (r *Router) connection(address string) (*grpc.ClientConn, error) {
 	}
 	r.connections[address] = c
 	return c, nil
+}
+
+func (r *Router) emit(kind string, attempt int, err error) {
+	if r.Events != nil {
+		select {
+		case r.Events <- Event{Kind: kind, Attempt: attempt, Code: status.Code(err)}:
+		default:
+		}
+	}
 }
 
 // Interceptor operates only on protobuf messages exposing stable GetPartition.
@@ -117,6 +149,7 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 				return nil, status.FromContextError(e).Err()
 			}
 			route, e := r.Directory.Resolve(ctx, req.GetPartition(), attempt > 0)
+			r.emit("resolve", attempt, e)
 			if e != nil {
 				return nil, e
 			}
@@ -125,6 +158,7 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			}
 			if route.Node == r.Node {
 				response, e := r.Local(ctx, info.FullMethod, req)
+				r.emit("local", attempt, e)
 				if status.Code(e) == codes.Unavailable && attempt == 0 {
 					continue
 				}
@@ -137,16 +171,23 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			if response == nil {
 				return nil, status.Error(codes.Unimplemented, "unknown persistence method")
 			}
-			c, e := r.connection(route.Address)
-			if e != nil {
-				return nil, e
+			invoke := r.Invoke
+			if invoke == nil {
+				c, err := r.connection(route.Address)
+				if err != nil {
+					return nil, err
+				}
+				invoke = func(ctx context.Context, _, method string, request, response proto.Message) error {
+					return c.Invoke(ctx, method, request, response)
+				}
 			}
 			// Copy metadata rather than nesting the incoming routing counter. The same
 			// message instance preserves operation identity/digest and opaque payloads.
 			md, _ := metadata.FromIncomingContext(ctx)
 			md = md.Copy()
 			md.Set(hopHeader, strconv.Itoa(hops+1))
-			e = c.Invoke(metadata.NewOutgoingContext(ctx, md), info.FullMethod, req, response)
+			e = invoke(metadata.NewOutgoingContext(ctx, md), route.Address, info.FullMethod, req, response)
+			r.emit("forward", attempt, e)
 			if e == nil {
 				return response, nil
 			}

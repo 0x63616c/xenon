@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      temporal:
+        patterns:
+          - go.temporal.io/*
+      slatedb-bindings:
+        patterns:
+          - slatedb.io/slatedb-go
