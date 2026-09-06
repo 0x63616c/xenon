@@ -19,6 +19,17 @@ class Clock:
 
 
 class TenMinuteTests(unittest.TestCase):
+    def test_failure_history_identity_comes_only_from_first_failure(self):
+        from test_agent_control import smoke
+        with tempfile.TemporaryDirectory() as directory:
+            log=Path(directory)/'omes.log'
+            log.write_text('iteration 4 failed: workflow execution error (type: kitchenSink, workflowID: exact-workflow, runID: exact-run): heartbeat\niteration 2 failed: workflow execution error (workflowID: other, runID: other-run)\n')
+            with self.assertRaises(smoke.ScenarioInvariant) as observed:smoke.OmesLog(log).check()
+            self.assertEqual(observed.exception.workflow,['exact-workflow','exact-run'])
+            log.write_text('iteration 4 failed: connection lost\niteration 2 failed: workflow execution error (workflowID: other, runID: other-run)\n')
+            with self.assertRaises(smoke.ScenarioInvariant) as observed:smoke.OmesLog(log).check()
+            self.assertIsNone(observed.exception.workflow)
+
     def test_exact_corpus_and_declared_profile(self):
         expanded = expand(ROOT)
         self.assertEqual(expanded['profile']['workload_seconds'], 600)

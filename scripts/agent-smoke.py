@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 SCENARIO=ROOT/'test/scenarios/agent'
 
 class ScenarioInvariant(RuntimeError):
-    pass
+    workflow = None
 
 
 def check_children(children, expected_stops, names):
@@ -30,7 +30,14 @@ class OmesLog:
             stream.seek(self.offset);data=stream.read((1<<20)+1);self.offset=stream.tell()
         if len(data)>1<<20:raise ScenarioInvariant('Omes log burst exceeds 1 MiB')
         text=self.tail+data
-        if self.failure.search(text):raise ScenarioInvariant('terminal Omes iteration failure; see '+str(self.path))
+        match=self.failure.search(text)
+        if match:
+            error=ScenarioInvariant('terminal Omes iteration failure; see '+str(self.path))
+            identity=re.search(rb'workflowID: ([^,\r\n]+), runID: ([^,)\r\n]+)[,)]',text[match.start():].split(b'\n',1)[0])
+            if identity:
+                try:error.workflow=[part.decode('utf-8',errors='strict') for part in identity.groups()]
+                except UnicodeDecodeError:pass
+            raise error
         self.tail=text[-4096:]
 
 
@@ -402,7 +409,8 @@ def main():
     except BaseException as e:
         report['status']='failed'
         report['error']=type(e).__name__+': '+str(e)
-        save('first-failure.json',{'status':report['status'],'error':report['error'],'events':report['events']})
+        if getattr(e,'workflow',None):report['failed_workflow']=e.workflow
+        save('first-failure.json',{'status':report['status'],'error':report['error'],'events':report['events'],'workflow':report.get('failed_workflow')})
     finally:
         expected_stops.update(p.pid for p in children)
         cleanup=[]
@@ -411,6 +419,13 @@ def main():
             # recovery deadlines. Failure observations cannot replace first cause.
             try:
                 deadline=time.monotonic()+agent_case['failure_diagnostics_seconds']
+                if report.get('failed_workflow'):
+                    workflow,run_id=report['failed_workflow']
+                    try:
+                        run([str(sdk),'--mode','failure-history','--namespace',agent_case['namespace'],
+                             '--workflow-id',workflow,'--run-id',run_id,'--readiness-timeout','3s'],timeout=4)
+                        report['failure_history']='captured'
+                    except Exception as error:report['failure_history']=type(error).__name__+': '+str(error)
                 configs={name:json.loads((SCENARIO/(name+'.json')).read_text()) for name in agent_case['agents']}
                 report['failure_diagnostics']=capture_failure_diagnostics(run,configs,
                     ['aws','--endpoint-url',env['AWS_ENDPOINT'],'s3api','get-object','--bucket','xenon-agent-proof',

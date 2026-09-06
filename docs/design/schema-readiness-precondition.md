@@ -41,3 +41,19 @@ require count validation despite an apparently complete operator response,
 exercise pending propagation and cancellation, and verify direct instance
 addressing with the unchanged remaining deadline. They use injected clients and
 no live proof endpoints.
+
+## Failure history diagnostics
+
+The agent supervisor now extracts an exact workflow/run identity only from the first
+terminal Omes error line, when the pinned log format supplies one. It preserves
+the primary failure before attempting a read-only history capture. The probe uses
+a three-second child budget inside the existing fifteen-second failure diagnostic
+budget, at most sixteen pages and four MiB of history JSON. Each page is emitted
+immediately; partial pages survive a later error. It never follows Continue-As-New
+or decides workload success. Missing/unparseable identities and unavailable histories
+remain explicit gaps, and cannot mask the original failure or bypass cleanup.
+
+The earlier `688e4af` mixed40 failure predates this capture; its event IDs do not
+by themselves establish whether admission, persistence or worker scheduling caused
+the heartbeat deadline. Controls cover exact-run pagination, partial failure,
+cancellation/page ceilings, and first-error identity selection.

@@ -51,7 +51,7 @@ func run() error {
 		return partitionReady(*storage, *storagePartition, *readinessTimeout)
 	}
 	budget := 5 * time.Minute
-	if *mode == "schema-ready" {
+	if *mode == "schema-ready" || *mode == "failure-history" {
 		if *readinessTimeout <= 0 {
 			return fmt.Errorf("schema readiness requires a positive budget")
 		}
@@ -66,6 +66,8 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "failure-history":
+		return captureFailureHistory(ctx, c.WorkflowService(), *namespace, *id, *runID, emit)
 	case "schema-ready":
 		result, err := schemaReadiness(ctx, c.OperatorService(), c.WorkflowService(), *namespace)
 		if err != nil {
