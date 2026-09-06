@@ -15,6 +15,13 @@ const posts = [
     path: "when-a-reply-disappears",
     graphic: "durability",
   },
+  {
+    category: "Temporal internals",
+    title: "One mutation, then a queue.",
+    copy: "A source-guided tour of how History turns a workflow change into persisted state and follow-on work.",
+    path: "one-mutation-then-a-queue",
+    graphic: "temporal",
+  },
 ];
 </script>
 <template>
@@ -35,6 +42,11 @@ const posts = [
           <template v-if="post.graphic === 'routing'"
             ><span>Request</span><i>↓</i>
             <div><b>A</b><b>B</b><b>C</b></div></template
+          ><template v-else-if="post.graphic === 'temporal'"
+            ><span>State change</span><i>↓</i
+            ><span class="record"
+              >Mutation<br /><small>Tasks included.</small></span
+            ></template
           ><template v-else
             ><span>Commit</span><i>→</i
             ><span class="record"
