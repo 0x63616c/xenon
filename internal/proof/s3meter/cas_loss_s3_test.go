@@ -63,7 +63,7 @@ func TestCASLossSignedS3(t *testing.T) {
 		t.Fatalf("real lost response not reconciled: %v receipt=%+v", err, p.CASLossSnapshot())
 	}
 	if moved.Record().Node != "c" || !p.CASLossSnapshot().ReconciledGET {
-		t.Fatal("no exact GET reconciliation")
+		t.Fatalf("no exact GET reconciliation; receipt=%+v", p.CASLossSnapshot())
 	}
 	final, err := d.Ready(ctx, moved)
 	if err != nil {
