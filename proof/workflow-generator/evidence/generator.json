@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "omes_commit": "c6978ba39aa03551ce28974117e8d7ecf983d2b3",
+  "api_commit": "d96bd55e87799e9f6a33a1c40a56cfa932566bdf",
+  "generator_source_sha256": "c6333d94427a7bc2b55731cfa9b4f9ff9b7145017ef816a1ae5c4a9ba5c220ca",
+  "cargo_lock_sha256": "3924e08587393d264993a5dade6e894b620ff44619f15a8d6d2f46d9ee61809a",
+  "normalizer_source_sha256": "529a56005dafde138773d420cec66a631bb4caadef50427ba575d388f87f7a32",
+  "inspector_source_sha256": "6c99182dc744ddcb55fddc61d22f1d3c1e9f9f650de4b374bc4a1cf418eb2fe0",
+  "compatibility_overlay_sha256": "cdb70939ac3a6f0449534421dd13579984c69fcb1c5b737c72d744a63b47bc09",
+  "worker_sdk": "v1.48.0",
+  "worker_sha256": "7fc792a18fda630a7e2b610ed8fd7dbc2266a99b0812832cffb21b4c260f5183",
+  "tools": {
+    "generator": {
+      "path": "generate",
+      "sha256": "bbe04160ffd7a41e67c34e593ea7cc21c4a1c01198e39296cd5281e89c1ee8b2"
+    },
+    "normalize": {
+      "path": "normalize",
+      "sha256": "c91d7edb4e53dc9a6c8e4294ba256012e2a31b99340fe26f9f853c736e2974dc"
+    },
+    "config": {
+      "path": "config.json",
+      "sha256": "8a118eb7c1a86135e3e21b3799f980418b94838f986d922c1352b8eb4d735ea8"
+    },
+    "worker": {
+      "path": "worker/source/workers/go/prepared/program",
+      "sha256": "7fc792a18fda630a7e2b610ed8fd7dbc2266a99b0812832cffb21b4c260f5183"
+    }
+  }
+}
