@@ -1,0 +1,18 @@
+{
+  "project": "https://github.com/floriankarsten/space-grotesk",
+  "revision": "03507d024a01282884232081fc6011c09ff4e849",
+  "files": {
+    "SpaceGrotesk.ttf": {
+      "source": "fonts/ttf/SpaceGrotesk[wght].ttf",
+      "sha256": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72"
+    },
+    "SpaceGrotesk.woff2": {
+      "source": "fonts/woff2/SpaceGrotesk[wght].woff2",
+      "sha256": "8e085aa438094f11487a836652edd5c054fa6a96f63fc7c282105ee3a4b08c07"
+    },
+    "OFL.txt": {
+      "source": "OFL.txt",
+      "sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
+    }
+  }
+}

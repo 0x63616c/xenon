@@ -1,6 +1,6 @@
 # The path to durable state
 
-Follow a request, look inside a Go node, or inspect an ownership move. Select a stage to see the contract it enforces.
+Follow a request, look inside a Go node, or inspect an ownership move. Select an element to see its role and the contract it enforces. The service address routes into the node pool; SlateDB runs inside the node that owns a partition.
 
 <XenonArchitecture />
 
@@ -31,10 +31,18 @@ Node addresses are not stored in application keys or page tokens. The S3 directo
 
 Topology and the directory are different S3 objects. Their checks are not a cross-object atomic transaction. The admission protocol accounts for that race instead of treating READY alone as authority.
 
-## A shareable overview
+## Choosing object storage
 
-[Open the standalone SVG](/architecture-overview.svg) for a compact diagram that can be saved or embedded. It describes the implemented architecture, not a performance result.
+Xenon currently uses **S3-compatible object storage**. The local proofs use MinIO;
+Amazon S3 is a deployment target whose real-service acceptance gate remains open.
+Other S3-compatible services require provider-specific validation, including the
+conditional operations used by ownership and topology records.
 
-![Xenon architecture overview](/architecture-overview.svg)
+SlateDB itself supports additional APIs, including GCS and Azure Blob Storage
+([upstream storage support](https://slatedb.io/docs/get-started/quickstart/)).
+Xenon's current ownership layer uses the AWS S3 client and S3 conditional writes;
+those other APIs are not implemented Xenon backends. Local files are not a durable
+backend for Xenon. The provider branches in the diagrams are alternatives, not
+replication across multiple providers.
 
 For recovery boundaries and the unresolved runtime gate, continue to [operations](./operations.md) and [verification status](./status.md).

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
+import SystemDiagram from "./SystemDiagram.vue";
+import Icon from "./ArchitectureIcon.vue";
 const view = ref("path"),
   selected = ref(0);
 const views = {
@@ -37,10 +39,10 @@ const views = {
         "A partition has a shared admission gate and its own SlateDB handle. The handler checks conditions and records data plus its durable result in one transaction. A nonempty durable barrier checks fencing before publishing a result.",
       ],
       [
-        "S3 object storage",
+        "S3-compatible object storage",
         "Data + directory + topology",
         "Durable state outlives compute",
-        "SlateDB persists application state directly to S3. Conditional S3 objects record topology intentions and owner generations. Metadata prefixes are disjoint from engine data prefixes. Local caches can be rebuilt; S3 is the durable authority.",
+        "SlateDB persists application state directly to object storage. Xenon currently uses the S3 API for both engine data and conditional ownership/topology objects. MinIO is used by the local proofs; real Amazon S3 and other providers still need their own acceptance runs. SlateDB supports additional object-store APIs, but Xenon has not implemented the corresponding ownership layers. Local disks remain disposable.",
       ],
     ],
   },
@@ -152,6 +154,8 @@ function tabKey(event) {
       <button
         v-for="(entry, key) in views"
         :key="key"
+        :id="`architecture-tab-${key}`"
+        aria-controls="architecture-panel"
         role="tab"
         :aria-selected="view === key"
         :tabindex="view === key ? 0 : -1"
@@ -161,25 +165,221 @@ function tabKey(event) {
         {{ entry.label }}
       </button>
     </div>
-    <div class="arch-stage" :aria-label="views[view].label">
-      <template v-for="(node, index) in nodes" :key="view + index"
-        ><button
-          class="arch-node"
-          :class="{ selected: index === selected, engine: index === 4 }"
-          :aria-pressed="index === selected"
-          @click="selected = index"
+    <div
+      id="architecture-panel"
+      class="architecture-canvas"
+      role="tabpanel"
+      :aria-labelledby="`architecture-tab-${view}`"
+    >
+      <SystemDiagram
+        v-if="view === 'path'"
+        interactive
+        :selected="selected"
+        @select="selected = $event"
+      />
+      <div v-else-if="view === 'node'" class="node-interior">
+        <div class="diagram-caption">
+          <Icon name="server" />
+          <div>
+            <strong>Inside one Go node</strong
+            ><span
+              >One admission gate and SlateDB handle per owned partition.</span
+            >
+          </div>
+        </div>
+        <button
+          class="operation-envelope map-hotspot"
+          :class="{ chosen: selected === 0 }"
+          data-stage="0"
+          :aria-pressed="selected === 0"
+          @click="selected = 0"
         >
-          <strong>{{ node[0] }}</strong
-          ><span>{{ node[1] }}</span>
+          <Icon name="packet" /><span
+            ><strong>A complete operation arrives</strong
+            ><small>Typed gRPC request · identity + input digest</small></span
+          >
         </button>
-        <div
-          v-if="index < nodes.length - 1"
-          class="arch-arrow"
-          aria-hidden="true"
+        <div class="flow-stem" aria-hidden="true">↓</div>
+        <button
+          class="admission-gate map-hotspot"
+          :class="{ chosen: selected === 1 }"
+          data-stage="1"
+          :aria-pressed="selected === 1"
+          @click="selected = 1"
         >
-          ↓
-        </div></template
-      >
+          <Icon name="gate" /><span
+            ><strong>Ownership gate</strong
+            ><small>Fresh authority required before admission</small></span
+          ><span class="gate-rule" aria-hidden="true"></span>
+        </button>
+        <div class="flow-stem" aria-hidden="true">↓</div>
+        <button
+          class="outcome-journal map-hotspot"
+          :class="{ chosen: selected === 2 }"
+          data-stage="2"
+          :aria-pressed="selected === 2"
+          @click="selected = 2"
+        >
+          <Icon name="journal" /><span
+            ><strong>Have we seen this operation?</strong
+            ><small
+              >Look up its durable outcome by identity + digest.</small
+            ></span
+          >
+        </button>
+        <div class="operation-branches">
+          <div>
+            <span class="branch-label">NEW OPERATION ↓</span
+            ><button
+              class="transaction-sheet map-hotspot"
+              :class="{ chosen: selected === 3 }"
+              data-stage="3"
+              :aria-pressed="selected === 3"
+              @click="selected = 3"
+            >
+              <span class="sheet-heading"
+                ><Icon name="layers" /><strong>One transaction</strong></span
+              ><span>Check conditions</span><span>Apply state changes</span
+              ><span>Record the outcome</span><small>Atomic in SlateDB</small>
+            </button>
+          </div>
+          <div class="replay-branch">
+            <span class="branch-label">SAME ID + DIGEST ↓</span
+            ><span class="replay-result"
+              ><Icon name="document" /><strong>Recorded result</strong
+              ><small>Skip reapplying the mutation</small></span
+            ><span class="replay-line" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="branch-merge" aria-hidden="true"></div>
+        <button
+          class="durability-barrier map-hotspot"
+          :class="{ chosen: selected === 4 }"
+          data-stage="4"
+          :aria-pressed="selected === 4"
+          @click="selected = 4"
+        >
+          <Icon name="shield" /><span
+            ><strong>Wait for durability + check fencing</strong
+            ><small>Required for new work, reads and replay.</small></span
+          >
+        </button>
+        <div class="flow-stem" aria-hidden="true">↓</div>
+        <button
+          class="operation-result map-hotspot"
+          :class="{ chosen: selected === 5 }"
+          data-stage="5"
+          :aria-pressed="selected === 5"
+          @click="selected = 5"
+        >
+          <span><Icon name="check" /><strong>Reply when safe</strong></span
+          ><span>Uncertain native work?<br /><b>Quarantine the owner.</b></span>
+        </button>
+      </div>
+      <div v-else class="recovery-map">
+        <div class="diagram-caption">
+          <Icon name="route" />
+          <div>
+            <strong>Move a partition, keep its identity</strong
+            ><span
+              >Explicit administration starts a move. This is not an automatic
+              election.</span
+            >
+          </div>
+        </div>
+        <button
+          class="admin-command map-hotspot"
+          :class="{ chosen: selected === 0 }"
+          data-stage="0"
+          :aria-pressed="selected === 0"
+          @click="selected = 0"
+        >
+          <Icon name="terminal" /><span
+            ><small>TOPOLOGY INTENTION</small
+            ><strong>Assign partition P2 to node B</strong></span
+          >
+        </button>
+        <div class="flow-stem" aria-hidden="true">↓</div>
+        <button
+          class="ownership-record map-hotspot"
+          :class="{ chosen: selected === 1 }"
+          data-stage="1"
+          :aria-pressed="selected === 1"
+          @click="selected = 1"
+        >
+          <Icon name="document" /><span
+            ><strong>Reserve a fresh generation</strong
+            ><small>Conditional ownership record in object storage</small></span
+          ><span class="generation-stamp">n → n+1</span>
+        </button>
+        <div class="migration-scene">
+          <div class="retired-node">
+            <Icon name="server" /><strong>Node A</strong
+            ><span class="partition-chip">P2</span
+            ><small>Old writer is fenced<br />by the new opener.</small>
+          </div>
+          <div class="migration-arrow">
+            <span>same P2</span><b aria-hidden="true">→</b
+            ><small>State is recovered<br />from object storage.</small>
+          </div>
+          <div class="replacement-node">
+            <button
+              class="replacement-open map-hotspot"
+              :class="{ chosen: selected === 2 }"
+              data-stage="2"
+              :aria-pressed="selected === 2"
+              @click="selected = 2"
+            >
+              <Icon name="server" /><strong>Node B</strong
+              ><span class="partition-chip">P2 + SlateDB</span
+              ><small
+                >Open from durable state.<br />Fence the previous writer.</small
+              >
+            </button>
+            <button
+              class="ready-record map-hotspot"
+              :class="{ chosen: selected === 3 }"
+              data-stage="3"
+              :aria-pressed="selected === 3"
+              @click="selected = 3"
+            >
+              <strong>READY</strong
+              ><small
+                >Recheck activation.<br />Publish the exact reservation.</small
+              >
+            </button>
+          </div>
+        </div>
+        <button
+          class="route-refresh map-hotspot"
+          :class="{ chosen: selected === 4 }"
+          data-stage="4"
+          :aria-pressed="selected === 4"
+          @click="selected = 4"
+        >
+          <Icon name="route" /><span
+            ><strong>The service address stays the same</strong
+            ><small
+              >Refresh stale routes. Retry with the same operation
+              identity.</small
+            ></span
+          >
+        </button>
+        <div class="flow-stem" aria-hidden="true">↓</div>
+        <button
+          class="recovery-receipt map-hotspot"
+          :class="{ chosen: selected === 5 }"
+          data-stage="5"
+          :aria-pressed="selected === 5"
+          @click="selected = 5"
+        >
+          <Icon name="journal" /><span
+            ><strong>Verify the recovered state</strong
+            ><small>Saved histories · results · visibility</small
+            ><b>Full recovery acceptance remains open.</b></span
+          >
+        </button>
+      </div>
     </div>
     <div class="arch-inspector" aria-live="polite">
       <span class="eyebrow"

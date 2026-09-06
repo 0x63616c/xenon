@@ -1,7 +1,7 @@
 # Xenon site
 
 VitePress renders the curated `docs/guide/` tree. `prepare.mjs` copies only that
-content into ignored `.content/`. The static output is `website/dist/`; the repo,
+content and the shared `assets/brand/` exports into ignored `.content/`. The static output is `website/dist/`; the repo,
 private source files, runtime evidence and `.local/` are never included.
 
 ```sh
@@ -25,8 +25,8 @@ npm run test:ui -- http://localhost:4178/ ../.local/site-qa
 ```
 
 The test uses new isolated browser contexts at 1440×1000, 820×1180 and 390×844. It checks
-ten pages, overflow, script/network errors and the three interactive architecture
-views, and retains full-page screenshots. This is website QA, not Xenon runtime
+ten pages, overflow, script/network errors and the homepage role selectors and three interactive architecture
+views, image loading, the loaded Space Grotesk font and browser icons, and retains full-page screenshots. This is website QA, not Xenon runtime
 acceptance. Review the screenshots in addition to checking the JSON receipt.
 
 For a GitHub Pages project path, build and preview with `SITE_BASE=/xenon/` and pass
@@ -39,3 +39,6 @@ a private repository does not itself guarantee a private Pages website.
 
 No public deployment, source release or Cloud availability is authorized by this
 branch. Hosted CI billing remains an external gate, not a locally waived check.
+
+The navbar, hero, endpoint diagram and footer use the shared [Xenon brand](../docs/brand.md).
+Regenerate assets from the repository root with `python3 scripts/build-brand.py`.

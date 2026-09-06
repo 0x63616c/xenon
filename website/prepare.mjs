@@ -10,3 +10,20 @@ cpSync(
   new URL("./.content/", import.meta.url),
   { recursive: true },
 );
+
+// Publish the shared artwork, keeping the legacy symbol URL working.
+cpSync(
+  new URL("../assets/brand/", import.meta.url),
+  new URL("./.content/public/brand/", import.meta.url),
+  { recursive: true },
+);
+cpSync(
+  new URL("../assets/brand/mark.svg", import.meta.url),
+  new URL("./.content/public/xenon.svg", import.meta.url),
+);
+
+// Carry the bundled typeface license alongside the compiled font asset.
+cpSync(
+  new URL("../assets/fonts/OFL.txt", import.meta.url),
+  new URL("./.content/public/brand/SPACE-GROTESK-LICENSE.txt", import.meta.url),
+);
