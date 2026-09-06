@@ -1,3 +1,15 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/banner-dark.svg">
+  <img src="assets/brand/banner.svg" alt="Xenon — Temporal persistence. Built on object storage. In development." width="100%">
+</picture>
+
+<p align="center">
+  <a href="docs/design/technical.md">Technical design</a> ·
+  <a href="docs/design/verification-matrix.md">Verification status</a> ·
+  <a href="https://github.com/0x63616c/xenon/issues/1">Roadmap</a> ·
+  <a href="docs/brand.md">Brand assets</a>
+</p>
+
 # Xenon
 
 Experimental S3-backed persistence for Temporal, with Go storage nodes embedding SlateDB through its official Go bindings.
