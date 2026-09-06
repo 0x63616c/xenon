@@ -41,7 +41,7 @@ def main():
         'config': str(config_path.relative_to(ROOT)),
         'docker': capture(['docker', 'version', '--format', '{{.Server.Version}}']),
         'compose': capture(['docker', 'compose', 'version']), 'image_pin': IMAGE,
-        'command': 'go build -o EVIDENCE/probe ./benchmarks/storage/contention; EVIDENCE/probe benchmarks/storage/contention/config.json EVIDENCE',
+        'command': ['go build -o EVIDENCE/probe ./benchmarks/storage/contention', ['EVIDENCE/probe', str(config_path.relative_to(ROOT)), 'EVIDENCE']],
         'utc_started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'scope': 'real local MinIO registry contention; synthetic owner fields; not production cluster capacity, real AWS S3, or deterministic simulation',
     }
