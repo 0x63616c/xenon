@@ -16,23 +16,39 @@ def release(path, receipt):
     temporary.write_text(json.dumps({'session':receipt['session'],'record':receipt['record']}))
     os.replace(temporary,path)
 
+def dispatch_after_ready(metrics, successful, wait, node, incarnation, minimum_generation, timeout):
+    # Counts are process-lifetime totals. Establish a fresh baseline only after
+    # observing the desired READY generation, then require subsequent work.
+    observed = None
+    count = None
+    def check():
+        nonlocal observed, count
+        snapshot = metrics(node)
+        record = snapshot['partitions'].get('matching', {}).get('owner_record', {})
+        if snapshot.get('incarnation') != incarnation or record.get('incarnation') != incarnation or record.get('node') != node:
+            raise RuntimeError('baseline owner incarnation mismatch')
+        generation = record.get('generation', 0)
+        if record.get('state') != 'ready' or generation <= minimum_generation:
+            observed = None
+            count = None
+            return False
+        current = successful(snapshot, 'matching')
+        if observed != generation:
+            observed, count = generation, current
+            return False
+        return snapshot if current > count else False
+    return wait(check, timeout)
+
 def exercise(directory, session, members, assignments, publish, metrics, successful, wait, event, omes):
     baseline=assignments['matching']['node']
     assignments['matching']['node']='c';publish()
     paused=wait(lambda:read_receipt(directory/'receipt.json',session,members['c']['incarnation']),30)
     if paused['events']!=['paused-before-build'] or paused['record']['state']!='opening':raise RuntimeError('not a real before-Build reservation')
+    if paused['record']['address']!=members['c']['address'] or paused['record']['data_prefix']!=assignments['matching']['data_prefix']:raise RuntimeError('undeclared stale reservation address/prefix')
     if omes.process.poll() is not None:raise RuntimeError('Omes stopped before delayed reservation')
     assignments['matching']['node']=baseline;publish()
-    before=successful(metrics(baseline),'matching')
-    def serving(min_generation, min_count):
-        snapshot=metrics(baseline)
-        record=snapshot['partitions'].get('matching',{}).get('owner_record',{})
-        if record.get('state')=='ready' and record.get('generation',0)>min_generation and successful(snapshot,'matching')>min_count:
-            return snapshot
-        return False
-    ready=wait(lambda:serving(paused['record']['generation'],before),60)
+    ready=dispatch_after_ready(metrics,successful,wait,baseline,members[baseline]['incarnation'],paused['record']['generation'],60)
     generation=ready['partitions']['matching']['owner_record']['generation']
-    count=successful(ready,'matching')
     if omes.process.poll() is not None:raise RuntimeError('Omes stopped before stale release')
     deadline=time.monotonic()+120
     def remaining():
@@ -47,7 +63,7 @@ def exercise(directory, session, members, assignments, publish, metrics, success
         return False
     terminal=wait(retired,remaining())
     if terminal['record']!=paused['record']:raise RuntimeError('delayed reservation changed')
-    recovered=wait(lambda:serving(generation,count),remaining())
+    recovered=dispatch_after_ready(metrics,successful,wait,baseline,members[baseline]['incarnation'],generation,remaining())
     remaining()
     if successful(metrics('c'),'matching')!=0:raise RuntimeError('superseded C served matching')
     result={'reservation':terminal,'baseline_ready':ready,'recovered':recovered,'recovery_seconds':120-remaining(),'full_acceptance':False}
