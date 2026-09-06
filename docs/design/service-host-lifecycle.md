@@ -50,7 +50,7 @@ agent runs that next using the committed fresh agent scenario.
 
 The composed run `agent-20260906T114456-274d67` at `ced487c` failed when
 Temporal's ringpop startup called `UpsertClusterMembership` after C's successful
-readiness probe. Global routing returned `no ready partition owner`. The saved
+Temporal frontend health check (not the app `/readyz` probe). Global routing returned `no ready partition owner`. The saved
 pre-join control was ready on B; no post-failure control survived, so the exact
 assignment versus writer reactivation cause is unproven. Both can legitimately
 make admission temporarily unavailable. A readiness probe cannot promise that
