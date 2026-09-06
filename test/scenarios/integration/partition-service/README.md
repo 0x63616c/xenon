@@ -75,3 +75,8 @@ cases passed at clean revision `5c196b8`. Cluster, Nexus and namespace services
 share a native writer/journal, replay across ownership movement without duplicate
 outcomes, and recover application data through fresh read operations. Cleanup and
 input-hash checks passed. This remains a service composition proof.
+
+The [format-2 composed receipt](evidence/f11269b-minio/report.json) passes all five
+cases at clean `f11269b` with required layout pins in controllers and persistence
+admission. Input hashes remained unchanged and cleanup passed. This validates
+the new format on explicitly provisioned test storage, not legacy-state cutover.
