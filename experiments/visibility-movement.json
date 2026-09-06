@@ -37,6 +37,7 @@
         "TestVisibilityMovementBarrier/release",
         "TestVisibilityMovementBarrier/wrong_token",
         "TestVisibilityMovementBarrier/deadline",
+        "TestVisibilityMovementBarrier/late_release",
         "TestVisibilityMovementBarrier"
       ]
     }

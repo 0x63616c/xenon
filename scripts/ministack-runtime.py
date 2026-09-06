@@ -300,7 +300,7 @@ def main():
             assignments['history-0']['node']='c';assignments['vis-v1-0']['node']='c'
             publish(movement_remaining())
             probe('storage-ready','--readiness-timeout',str(max(1,int(movement_remaining()-1)))+'s',timeout=movement_remaining())
-            release.write_text(token);event('visibility-cursor-released-after-movement',incarnation=members['c']['incarnation'])
+            staged_release=release.with_suffix('.tmp');staged_release.write_text(token);os.replace(staged_release,release);event('visibility-cursor-released-after-movement',incarnation=members['c']['incarnation'])
             # Both actual frontends serve persistence-backed calls after movement.
             for address in ['127.0.0.1:18233','127.0.0.1:19233']:
                 probe('phase','--address',address,timeout=min(20,movement_remaining()))

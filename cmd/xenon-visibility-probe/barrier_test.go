@@ -37,6 +37,18 @@ func TestVisibilityMovementBarrier(t *testing.T) {
 			t.Fatal("accepted wrong controller token")
 		}
 	})
+	t.Run("late_release", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "release")
+		if err := os.WriteFile(path, []byte("exact"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := pageBarrier(ctx, path, "exact"); !errors.Is(err, context.Canceled) {
+			t.Fatalf("late release accepted: %v", err)
+		}
+	})
+
 	t.Run("deadline", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 		defer cancel()

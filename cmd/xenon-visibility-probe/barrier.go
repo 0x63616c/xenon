@@ -15,8 +15,14 @@ func pageBarrier(ctx context.Context, path, token string) error {
 	ticker := time.NewTicker(25 * time.Millisecond)
 	defer ticker.Stop()
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		raw, err := os.ReadFile(path)
 		if err == nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if string(raw) != token {
 				return fmt.Errorf("movement release token mismatch")
 			}
