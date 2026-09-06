@@ -66,7 +66,7 @@ func NewWorkflowGenerator(directory string) (*WorkflowGenerator, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, err := os.ReadFile(filepath.Join(directory, "generator.json"))
+	raw, err := readWorkflowFile(filepath.Join(directory, "generator.json"), 1<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +92,13 @@ func (g *WorkflowGenerator) Info() GeneratorInfo {
 	return out
 }
 func (g *WorkflowGenerator) verify() error {
+	manifest, err := readWorkflowFile(filepath.Join(g.directory, "generator.json"), 1<<20)
+	if err != nil {
+		return err
+	}
+	if hash(manifest) != g.info.SHA256 {
+		return errors.New("generator manifest changed")
+	}
 	for _, name := range []string{"generator", "normalize", "config", "worker"} {
 		tool, ok := g.bundle.Tools[name]
 		if !ok || !filepath.IsLocal(tool.Path) || len(tool.SHA256) != 64 {
@@ -172,7 +179,7 @@ func (g *WorkflowGenerator) Next(ctx context.Context, r GenerateRequest) (Scenar
 	if err = strictJSON(stats, &measured); err != nil {
 		return Scenario{}, err
 	}
-	raw, err = os.ReadFile(normalized)
+	raw, err = readWorkflowFile(normalized, 1<<20)
 	if err != nil {
 		return Scenario{}, err
 	}
@@ -220,6 +227,19 @@ type WorkflowPreparationDriver struct{ prepared bool }
 func (d *WorkflowPreparationDriver) Validate(s Scenario, l WorkloadLimits) error {
 	if err := workflowBounds(l); err != nil {
 		return err
+	}
+	if !bytes.Equal(s.Topology, []byte(`{"version":1,"runtime":"not-started","nexus_endpoint":"xenon-fuzz","sdk":"v1.48.0"}`)) {
+		return errors.New("unsupported workflow topology")
+	}
+	var faults struct {
+		Seed uint64 `json:"seed"`
+		Mode string `json:"mode"`
+	}
+	if err := strictJSON(s.Faults, &faults); err != nil {
+		return err
+	}
+	if faults.Mode != "none; fault exploration not implemented" {
+		return errors.New("unsupported workflow fault schedule")
 	}
 	if s.Version != 1 || s.Kind != WorkflowInputKind {
 		return errors.New("unsupported workflow input scenario")
@@ -292,4 +312,20 @@ func (d *ArtifactDriver) Cleanup(ctx context.Context) error {
 		return nil
 	}
 	return d.selected.Cleanup(ctx)
+}
+
+func readWorkflowFile(path string, limit int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > limit {
+		return nil, errors.New("workflow artifact file exceeds bound")
+	}
+	return raw, nil
 }

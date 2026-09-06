@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func workflowTestBundle(t *testing.T) string {
@@ -112,5 +113,40 @@ func TestActualPreparedWorkflowGenerator(t *testing.T) {
 		}
 		previous = first.Workload
 		t.Logf("seed=%d workload_sha256=%s generator_identity=%s", seed, hash(first.Workload), generator.Info().SHA256)
+	}
+}
+
+func TestGeneratedWorkflowUsesSharedEnvelopeAndReplayWithoutTools(t *testing.T) {
+	directory := workflowTestBundle(t)
+	generator, err := NewWorkflowGenerator(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence := filepath.Join(t.TempDir(), "generation")
+	runner := &Runner{Driver: &WorkflowPreparationDriver{}, Clock: WallClock{}, Directory: evidence, Provenance: Provenance{Source: "test-source", Versions: map[string]string{"toolchain": "test", "native": "not-executed", "images": "none"}}}
+	config := SearchConfig{MaxCases: 2, MaxDuration: time.Second, MaxInFlight: 1, SettleBudget: time.Second, CleanupBudget: time.Second, MaxTraceBytes: 1 << 20, Limits: workflowLimits(), WorkloadSeed: 42, FaultSeed: 99}
+	result, err := Search(context.Background(), config, generator, runner)
+	if err != nil || result.Completed != 2 {
+		t.Fatal(result, err)
+	}
+	if err = os.Rename(directory, directory+"-unavailable"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Rename(directory+"-unavailable", directory)
+	replay := filepath.Join(t.TempDir(), "replay")
+	runner.Directory = replay
+	runner.Driver = &ArtifactDriver{}
+	casePath := "case-00000000000000000000"
+	result, err = Replay(context.Background(), filepath.Join(evidence, casePath, "scenario.json"), runner)
+	if err != nil || result.Completed != 1 {
+		t.Fatal(result, err)
+	}
+	first, err := os.ReadFile(filepath.Join(evidence, casePath, "trace.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(filepath.Join(replay, casePath, "trace.jsonl"))
+	if err != nil || !bytes.Equal(first, second) {
+		t.Fatal("replay changed or invoked absent generator", err)
 	}
 }
