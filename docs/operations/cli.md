@@ -8,7 +8,7 @@ they are not advertised as implemented commands.
 ```sh
 xenon --help
 xenon version
-xenon check-config --config test/scenarios/agent/a.json
+xenon check-config --config deploy/agent.example.json
 xenon start --config /path/to/agent.json
 xenon completion bash > xenon.bash
 xenon completion zsh > _xenon
@@ -16,8 +16,9 @@ xenon completion fish > xenon.fish
 xenon completion powershell > xenon.ps1
 ```
 
-The example scenario configuration is a local proof fixture, not a production
-configuration recommendation. Completion output is generated on stdout; install
+The packaged example includes the explicit format 2 service layout for a fresh
+namespace. Copy it and configure your bucket, prefix, immutable layout paths and
+node identity before starting; it is not an existing-state migration recipe. Completion output is generated on stdout; install
 it according to `xenon completion <shell> --help`. Commands never prompt.
 
 ## Configuration and output contract

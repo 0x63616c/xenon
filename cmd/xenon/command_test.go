@@ -157,3 +157,14 @@ func TestOutputFailureCannotStart(t *testing.T) {
 		t.Fatal(code, &diagnostics)
 	}
 }
+
+// Exercise the exact file copied by Dockerfile.unified-agent, not a separate
+// scenario fixture that can stay valid while the shipped example goes stale.
+func TestPackagedExamplePassesCLIValidation(t *testing.T) {
+	var out, diagnostics bytes.Buffer
+	code := execute(context.Background(), []string{"check-config", "--config", "../../deploy/agent.example.json"}, forbiddenInput{t}, &out, &diagnostics,
+		func(context.Context, agent.Config) error { t.Fatal("validation started backend"); return nil })
+	if code != 0 || out.String() != "XENON_CONFIG_VALID\n" || diagnostics.Len() != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
+	}
+}
