@@ -119,6 +119,9 @@ func run() error {
 	activity := flag.Bool("require-activity-per-run", false, "require completed activity in each run")
 	mixed := flag.Bool("mixed-profile", false, "validate frozen mixed40 history semantics")
 	flag.Parse()
+	if *mixed && *exact != 0 {
+		return fmt.Errorf("mixed captures the entire queue; omit exact-runs and use internal baseline/Nexus counts")
+	}
 	if *mixed && *runID != "xenon-full-mixed" {
 		return fmt.Errorf("mixed profile requires declared run ID")
 	}
@@ -228,7 +231,11 @@ func run() error {
 		if *mixed {
 			histories[runs[i].RunID] = h
 		}
-		runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
+		if *mixed {
+			runs[i].Events, runs[i].NextRun, err = inspectMixed(h, statuses[runs[i].RunID])
+		} else {
+			runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
+		}
 		if err != nil {
 			return err
 		}
@@ -254,11 +261,11 @@ func run() error {
 		return err
 	}
 	if *mixed {
-		if err := mixedSemantics(runs, histories); err != nil {
+		if err := mixedAllSemantics(runs, histories, *namespace); err != nil {
 			return err
 		}
 	}
-	report := map[string]any{"mixed_semantics_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories and continue-as-new successor graph; terminal result payloads retained, semantic result values not checked"}
+	report := map[string]any{"mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories and continue-as-new successor graph; terminal result payloads retained, semantic result values not checked"}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err

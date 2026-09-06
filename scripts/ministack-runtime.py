@@ -267,10 +267,11 @@ def main():
             report['mixed']=validate_mixed_result(ROOT,evidence/'mixed')
             inventory=wait(lambda:probe('mixed-inventory',timeout=15),60)
             report['mixed']['visibility_inventory']=inventory
+            wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-full-mixed'").get('count')==720,60)
             # The audit's existing 15-minute bound is separate from the frozen
             # 900-second workload deadline, which has already been enforced.
             signal.alarm(930)
-            run([str(ROOT/'.local/bin/xenon-omes-oracle'),'--address',probe_flags[1],'--namespace',case['namespace'],'--omes-run-id','xenon-full-mixed','--mixed-profile','--exact-runs','240','--output',str(evidence/'mixed-histories')],910)
+            run([str(ROOT/'.local/bin/xenon-omes-oracle'),'--address',probe_flags[1],'--namespace',case['namespace'],'--omes-run-id','xenon-full-mixed','--mixed-profile','--output',str(evidence/'mixed-histories')],910)
             history_report=evidence/'mixed-histories/result.json'
             report['mixed']['history_oracle']={'result':json.loads(history_report.read_text()),'sha256':sha(history_report)}
             checkpoint('mixed-finished')
