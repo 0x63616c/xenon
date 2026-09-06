@@ -2,7 +2,7 @@
   "schema": 1,
   "name": "simulation",
   "backend": "memory",
-  "timeout_seconds_per_command": 120,
+  "timeout_seconds_per_command": 600,
   "required_tool_prefixes": {
     "go": "go version go1.27.1 "
   },
