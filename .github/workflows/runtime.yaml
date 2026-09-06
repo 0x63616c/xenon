@@ -73,14 +73,36 @@ jobs:
           SCENARIO: ${{ matrix.scenario }}
         run: |
           set -o pipefail
-          # Reserve thirty minutes for setup, retained evidence and scoped cleanup.
+          # Reserve forty minutes for setup, bounded cleanup and retained evidence.
           # A hosted-runner cutoff is a failed proof, never a shorter passing soak.
           case "$SCENARIO" in
             after_await) args=(--process-cut-stage after_await) ;;
             smoke|omes-mixed|corrected-fuzz-soak|fuzz-soak|visibility-movement|delayed-owner|lost-directory-cas) args=("--$SCENARIO") ;;
             *) exit 2 ;;
           esac
-          timeout --signal=TERM --kill-after=60s 19800s python3 scripts/ministack-runtime.py "${args[@]}" 2>&1 | tee .local/ci/runtime.log
+          timeout --signal=TERM --kill-after=600s 19200s python3 scripts/ministack-runtime.py "${args[@]}" 2>&1 | tee .local/ci/runtime.log
+      - name: Verify scoped teardown and retain forced-cutoff diagnostics
+        if: always()
+        timeout-minutes: 5
+        run: |
+          mkdir -p .local/ci
+          exec > >(tee .local/ci/fallback-cleanup.log) 2>&1
+          status=0
+          shopt -s nullglob
+          for directory in .local/evidence/*-xenon-ministack-*; do
+            name=${directory##*/}
+            if [[ ! "$name" =~ ^[0-9]{8}T[0-9]{6}Z-(xenon-ministack-[a-f0-9]{12})$ ]]; then
+              echo "Unexpected evidence directory: $directory"; status=1; continue
+            fi
+            project=${BASH_REMATCH[1]}
+            docker compose --project-name "$project" -f test/scenarios/ministack/config/compose.json logs --no-color || status=1
+            timeout 120s docker compose --project-name "$project" -f test/scenarios/ministack/config/compose.json down --volumes || status=1
+            containers=$(docker ps -aq --filter "label=com.docker.compose.project=$project") || status=1
+            volumes=$(docker volume ls -q --filter "label=com.docker.compose.project=$project") || status=1
+            if [[ -n "$containers$volumes" ]]; then echo "Scoped resources survived teardown"; status=1; fi
+            if [[ ! -f "$directory/result.json" ]]; then echo "Controller did not retain a final receipt; this is not a proof pass"; status=1; fi
+          done
+          exit "$status"
       - name: Retain receipts, logs and screenshots even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
