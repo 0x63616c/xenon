@@ -55,7 +55,7 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 	var saved *wire.ShardResult
 	b := &Router{Node: "b"}
 	baddr := serve(t, b)
-	b.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"b", baddr}, nil })
+	b.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "b", Address: baddr}, nil })
 	b.Local = func(ctx context.Context, method string, m proto.Message) (proto.Message, error) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -87,9 +87,9 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 			mu.Lock()
 			refreshes++
 			mu.Unlock()
-			return Route{"b", baddr}, nil
+			return Route{Node: "b", Address: baddr}, nil
 		}
-		return Route{"b", baddr}, nil
+		return Route{Node: "b", Address: baddr}, nil
 	})
 	aaddr := serve(t, a)
 	if _, e := client(t, aaddr).Execute(ctx, req); e != nil {
@@ -104,8 +104,8 @@ func TestForwardingReplayAndRefresh(t *testing.T) {
 func TestForwardingLoopsAndDeadline(t *testing.T) {
 	a, b := &Router{Node: "a"}, &Router{Node: "b"}
 	aa, bb := serve(t, a), serve(t, b)
-	a.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"b", bb}, nil })
-	b.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"a", aa}, nil })
+	a.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "b", Address: bb}, nil })
+	b.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "a", Address: aa}, nil })
 	for _, r := range []*Router{a, b} {
 		r.Local = func(context.Context, string, proto.Message) (proto.Message, error) {
 			t.Error("loop executed")
@@ -127,14 +127,14 @@ func TestForwardingLoopsAndDeadline(t *testing.T) {
 	}
 	c := &Router{Node: "c"}
 	cc := serve(t, c)
-	c.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"c", cc}, nil })
+	c.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "c", Address: cc}, nil })
 	destinationCanceled := make(chan struct{}, 1)
 	c.Local = func(ctx context.Context, _ string, _ proto.Message) (proto.Message, error) {
 		<-ctx.Done()
 		destinationCanceled <- struct{}{}
 		return nil, status.FromContextError(ctx.Err()).Err()
 	}
-	forward := &Router{Node: "forward", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"c", cc}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) {
+	forward := &Router{Node: "forward", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "c", Address: cc}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) {
 		t.Error("nonowner executed")
 		return nil, nil
 	}}
@@ -154,7 +154,7 @@ func TestForwardingLoopsAndDeadline(t *testing.T) {
 func TestForwardingClosedAdmission(t *testing.T) {
 	r := &Router{Node: "a"}
 	address := serve(t, r)
-	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"a", address}, nil })
+	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "a", Address: address}, nil })
 	r.Local = func(context.Context, string, proto.Message) (proto.Message, error) {
 		t.Error("closed router executed")
 		return &wire.ShardResult{}, nil

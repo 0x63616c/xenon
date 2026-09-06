@@ -19,7 +19,10 @@ const hopHeader = "x-xenon-forward-hops"
 const maxHops = 1
 const maxOwnerAttempts = 3
 
-type Route struct{ Node, Address string }
+type Route struct {
+	Node, Address string
+	Expected      *ExpectedOwner
+}
 
 // Resolve must honor ctx. refresh bypasses disposable caches. Only ready owners
 // may be returned. Local dispatch must independently enforce ownership admission.
@@ -42,9 +45,11 @@ type Event struct {
 }
 
 type Router struct {
-	Node      string
-	Directory Resolver
-	Local     Local
+	// RequireAuthority enables strict full-tuple hints for the service runtime.
+	RequireAuthority bool
+	Node             string
+	Directory        Resolver
+	Local            Local
 	// Configure before serving; do not mutate while requests are active.
 	Invoke Invoke
 	// Events is optional, caller-owned, and must remain open while serving.
@@ -111,7 +116,14 @@ func (r *Router) emit(kind string, attempt int, err error) {
 // Interceptor operates only on protobuf messages exposing stable GetPartition.
 // reply creates the concrete response for a registered full RPC method.
 func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, _ grpc.UnaryHandler) (any, error) {
+	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, _ grpc.UnaryHandler) (response any, err error) {
+		var unresolved error
+		defer func() {
+			if err != nil && unresolved != nil {
+				response = nil
+				err = unresolved
+			}
+		}()
 		r.mu.Lock()
 		closed := r.closed
 		r.mu.Unlock()
@@ -145,6 +157,19 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 				hops = n
 			}
 		}
+		var forwarded ExpectedOwner
+		if r.RequireAuthority {
+			md, _ := metadata.FromIncomingContext(ctx)
+			if hops != 0 {
+				var err error
+				forwarded, err = decodeExpected(md)
+				if err != nil {
+					return nil, err
+				}
+			} else if len(md.Get(expectedOwnerHeader)) != 0 {
+				return nil, status.Error(codes.InvalidArgument, "expected owner metadata requires forwarded hop")
+			}
+		}
 		attempts := maxOwnerAttempts
 		if hops != 0 {
 			attempts = 1
@@ -161,9 +186,23 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			if route.Node == "" || route.Address == "" {
 				return nil, status.Error(codes.Unavailable, "no ready partition owner")
 			}
+			localContext := ctx
+			if r.RequireAuthority {
+				if route.Expected == nil || !route.Expected.valid() {
+					return nil, status.Error(codes.Unavailable, "missing route authority")
+				}
+				hint := *route.Expected
+				if hops != 0 {
+					hint = forwarded
+				}
+				localContext = withExpected(ctx, hint)
+			}
 			if route.Node == r.Node {
-				response, e := r.Local(ctx, info.FullMethod, req)
+				response, e := r.Local(localContext, info.FullMethod, req)
 				r.emit("local", attempt, e)
+				if unresolved == nil && isUnknownRouting(e) {
+					unresolved = e
+				}
 				if hops == 0 && retryable(e, req) && attempt+1 < attempts {
 					continue
 				}
@@ -191,8 +230,15 @@ func (r *Router) Interceptor(reply func(string) proto.Message) grpc.UnaryServerI
 			md, _ := metadata.FromIncomingContext(ctx)
 			md = md.Copy()
 			md.Set(hopHeader, strconv.Itoa(hops+1))
+			md.Delete(expectedOwnerHeader)
+			if r.RequireAuthority {
+				md.Set(expectedOwnerHeader, route.Expected.encode())
+			}
 			e = invoke(metadata.NewOutgoingContext(ctx, md), route.Address, info.FullMethod, req, response)
 			r.emit("forward", attempt, e)
+			if unresolved == nil && isUnknownRouting(e) {
+				unresolved = e
+			}
 			if e == nil {
 				return response, nil
 			}

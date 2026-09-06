@@ -49,3 +49,17 @@ func retryable(err error, request any) bool {
 	}
 	return false
 }
+
+// A later failed routing attempt cannot resolve an earlier unknown operation.
+func isUnknownRouting(err error) bool {
+	s, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	for _, detail := range s.Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Domain == errorDomain && info.Reason == "UNKNOWN_OUTCOME" {
+			return true
+		}
+	}
+	return false
+}

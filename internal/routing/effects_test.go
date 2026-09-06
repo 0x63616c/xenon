@@ -41,9 +41,9 @@ func TestInjectedTransportLostResponseRefresh(t *testing.T) {
 		}
 		refreshes = append(refreshes, refresh)
 		if refresh {
-			return Route{"replacement", "new"}, nil
+			return Route{Node: "replacement", Address: "new"}, nil
 		}
-		return Route{"prior", "old"}, nil
+		return Route{Node: "prior", Address: "old"}, nil
 	})
 	r.Invoke = func(c context.Context, address, method string, q, out proto.Message) error {
 		calls++
@@ -84,7 +84,7 @@ func TestInjectedTransportLostResponseRefresh(t *testing.T) {
 func TestInjectedTypedErrorAndSaturatedObserver(t *testing.T) {
 	calls := 0
 	expected := status.Error(codes.FailedPrecondition, "original typed failure")
-	r := &Router{Node: "a", Events: make(chan Event), Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"b", "b"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { t.Fatal("local"); return nil, nil }}
+	r := &Router{Node: "a", Events: make(chan Event), Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "b", Address: "b"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { t.Fatal("local"); return nil, nil }}
 	r.Invoke = func(context.Context, string, string, proto.Message, proto.Message) error { calls++; return expected }
 	_, err := r.Interceptor(func(string) proto.Message { return new(wire.ShardResult) })(logicalContext{context.Background(), time.Unix(123, 0)}, &wire.ShardRequest{Partition: "p"}, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
 	if err != expected || calls != 1 {
@@ -112,7 +112,7 @@ func TestPoolEvictionIsStable(t *testing.T) {
 func TestForwardedReceiverNeverForwardsOrRetries(t *testing.T) {
 	ctx := metadata.NewIncomingContext(logicalContext{context.Background(), time.Unix(123, 0)}, metadata.Pairs(hopHeader, "1"))
 	calls := 0
-	r := &Router{Node: "receiver", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"other", "other"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { calls++; return nil, StaleOwner() }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error {
+	r := &Router{Node: "receiver", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "other", Address: "other"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { calls++; return nil, StaleOwner() }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error {
 		t.Fatal("recursive forwarding")
 		return nil
 	}}
@@ -122,7 +122,9 @@ func TestForwardedReceiverNeverForwardsOrRetries(t *testing.T) {
 	if !retryable(err, req) || calls != 0 {
 		t.Fatalf("stale receiver: %v calls=%d", err, calls)
 	}
-	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"receiver", "receiver"}, nil })
+	r.Directory = directoryFunc(func(context.Context, string, bool) (Route, error) {
+		return Route{Node: "receiver", Address: "receiver"}, nil
+	})
 	_, err = invoke(ctx, req, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
 	if !retryable(err, req) || calls != 1 {
 		t.Fatalf("receiver retried: %v calls=%d", err, calls)
@@ -145,7 +147,7 @@ func TestOriginRetriesOnlyTypedSafeFailures(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
-			r := &Router{Node: "origin", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{"owner", "owner"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { t.Fatal("local"); return nil, nil }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error { calls++; return tc.failure }}
+			r := &Router{Node: "origin", Directory: directoryFunc(func(context.Context, string, bool) (Route, error) { return Route{Node: "owner", Address: "owner"}, nil }), Local: func(context.Context, string, proto.Message) (proto.Message, error) { t.Fatal("local"); return nil, nil }, Invoke: func(context.Context, string, string, proto.Message, proto.Message) error { calls++; return tc.failure }}
 			_, err := r.Interceptor(func(string) proto.Message { return new(wire.ShardResult) })(logicalContext{context.Background(), time.Unix(123, 0)}, &wire.ShardRequest{Partition: "p", OperationId: tc.id, CommandSha256: tc.digest}, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil)
 			if err != tc.failure || calls != tc.want {
 				t.Fatalf("error=%v calls=%d want=%d", err, calls, tc.want)
