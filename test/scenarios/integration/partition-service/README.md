@@ -53,3 +53,9 @@ failure-detector test, `cmd/xenon` acceptance, Temporal replay validation, or a
 capacity claim. Coordinator loss is represented by a replacement control CAS,
 not by killing a process. The shard case exercises the production persistence replay API; other persistence
 families and the complete Temporal runtime remain separate acceptance gates.
+
+The committed [four-case receipt](evidence/0d409d2-minio/report.json) records a clean
+`0d409d2` run with all four cases passed, unchanged inputs and successful cleanup.
+Its [test output](evidence/0d409d2-minio/tests.jsonl) includes direct recovered shard
+state validation. This is native service composition evidence, not full application
+activation or the ten-minute Temporal acceptance gate.
