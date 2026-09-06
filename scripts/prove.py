@@ -57,7 +57,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-mixed-oracle", "go-test-observer", "go-test-observer-adapter", "go-test-nexus-config", "go-check-nexus-config", "go-test-sdk-readiness", "go-test-visibility-barrier", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-cas-loss", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-mixed-oracle", "go-test-observer", "go-test-observer-adapter", "go-test-nexus-config", "go-check-nexus-config", "go-test-sdk-readiness", "go-test-visibility-barrier", "go-test-open-pause", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-cas-loss", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -75,7 +75,7 @@ def command(spec):
             raise ValueError("unregistered process-cut S3 fixture")
         return [sys.executable, "scripts/process-cut-proof.py", spec["filter"]]
     if runner == "python-measurements":
-        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout", "test_recorder_lifecycle", "test_corrected_fuzz"):
+        if not spec["exact"] or spec["filter"] not in ("test_runtime_measurements", "test_ministack_runtime", "test_resource_samples", "test_scenario_layout", "test_recorder_lifecycle", "test_corrected_fuzz", "test_delayed_owner"):
             raise ValueError("unregistered runtime measurement controls")
         return [sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", spec["filter"] + ".py", "-v"]
     if runner == "go-test-meter-cli":
@@ -130,6 +130,10 @@ def command(spec):
         if not spec["exact"] or spec["filter"] not in ("TestMixedSemantics", "TestMixedNexus", "TestMixedNexusCanceled"):
             raise ValueError("unregistered mixed oracle control")
         return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-omes-oracle", "-run", "^" + spec["filter"] + "$"]
+    if runner == "go-test-open-pause":
+        if not spec["exact"] or spec["filter"] != "TestOpenPause":
+            raise ValueError("unregistered opener pause control")
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/proof/openpause", "-run", "^TestOpenPause$"]
     if runner == "go-test-visibility-barrier":
         if not spec["exact"] or spec["filter"] not in ("TestVisibilityMovementBarrier", "TestSeedPartitions", "TestSeedPartitionsFailureJoinsPeers"):
             raise ValueError("unregistered visibility barrier control")
@@ -240,7 +244,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["corrected-fuzz-controls", "primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut"])
+    parser.add_argument("name", choices=["corrected-fuzz-controls", "primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "delayed-owner", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut"])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name == "go-bindings":
@@ -320,7 +324,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "delayed-owner", "nexus-http", "nexus-readiness", "visibility-fanout", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -378,6 +382,8 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
             elif runner == "go-test-mixed-oracle":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-omes-oracle")
+            elif runner == "go-test-open-pause":
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/proof/openpause")
             elif runner == "go-test-visibility-barrier":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-visibility-probe")
             elif runner == "go-test-sdk-readiness":

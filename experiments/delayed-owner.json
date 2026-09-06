@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "name": "delayed-owner",
+  "backend": "memory",
+  "timeout_seconds_per_command": 60,
+  "required_tool_prefixes": {
+    "go": "go version go1.27.1 "
+  },
+  "inputs": [
+    "go.mod",
+    "go.sum",
+    "scripts/prove.py",
+    "scripts/delayed_owner.py",
+    "scripts/ministack-runtime.py",
+    "internal/proof/openpause/pause.go",
+    "internal/proof/openpause/pause_test.go",
+    "internal/ownership/manager.go",
+    "cmd/xenon-go-node/main.go",
+    "test/scenarios/ministack/delayed-owner.md",
+    "scripts/test_delayed_owner.py"
+  ],
+  "fault_schedule": "Exact reservation metadata release, wrong incarnation, expired pause, one-shot terminal preservation.",
+  "assertions": [
+    "Expired or mismatched release cannot reach Build.",
+    "Later reservations cannot overwrite the terminal first reservation receipt."
+  ],
+  "limitations": [
+    "Component controls only; actual runtime delayed-owner mode NOT_EXECUTED."
+  ],
+  "commands": [
+    {
+      "runner": "go-test-open-pause",
+      "filter": "TestOpenPause",
+      "exact": true,
+      "expected_tests": [
+        "TestOpenPause/release",
+        "TestOpenPause/wrong",
+        "TestOpenPause/expired",
+        "TestOpenPause"
+      ]
+    },
+    {
+      "runner": "python-measurements",
+      "filter": "test_delayed_owner",
+      "exact": true,
+      "expected_tests": [
+        "test_receipt_binding",
+        "test_release_exact"
+      ]
+    }
+  ]
+}
