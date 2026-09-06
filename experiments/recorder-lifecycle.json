@@ -18,6 +18,7 @@
     "internal/rpctrace/observer_test.go",
     "internal/rpctrace/trace.go",
     "internal/adapter/recorder_trace_test.go",
+    "internal/adapter/retry.go",
     "proof/recorder-adapter.md",
     "internal/adapter/metadata.go",
     "internal/adapter/execution.go",

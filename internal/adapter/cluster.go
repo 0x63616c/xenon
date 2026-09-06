@@ -3,7 +3,6 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"github.com/0x63616c/xenon/internal/rpctrace"
 	"net"
 	"time"
@@ -13,11 +12,8 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -64,60 +60,11 @@ func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand
 		return nil, operationErr
 	}
 	req := &wire.ClusterRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: operation, CommandSha256: hash[:], Command: c}
-	// Ownership movement can outlast a few network attempts. Keep the same
-	// replay-protected operation within its ORIGINAL invocation/caller budget.
-	// A readiness probe cannot guarantee a later Temporal startup call avoids a gap.
-	var firstUnknown error
-	finish := func(err error) error {
-		if firstUnknown != nil {
-			return errors.Join(firstUnknown, err)
-		}
-		return err
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.ClusterResult, error) { return s.client.Execute(ctx, req) })
+	if e != nil {
+		return nil, e
 	}
-	delay := 20 * time.Millisecond
-	for {
-		if ctx.Err() != nil {
-			return nil, finish(ctx.Err())
-		}
-		r, e := s.client.Execute(ctx, req)
-		if e == nil {
-			if r == nil {
-				return nil, finish(serviceerror.NewInternal("nil cluster RPC response"))
-			}
-			return r, clusterError(r)
-		}
-		if status.Code(e) == codes.Unavailable && firstUnknown == nil {
-			for _, detail := range status.Convert(e).Details() {
-				if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Domain == "xenon.routing.v1" && info.Reason == "UNKNOWN_OUTCOME" {
-					firstUnknown = serviceerror.FromStatus(status.Convert(e))
-					break
-				}
-			}
-		}
-		if ctx.Err() != nil {
-			return nil, finish(ctx.Err())
-		}
-		switch status.Code(e) {
-		case codes.DeadlineExceeded:
-			return nil, finish(context.DeadlineExceeded)
-		case codes.Canceled:
-			return nil, finish(context.Canceled)
-		}
-		if status.Code(e) != codes.Unavailable {
-			return nil, finish(serviceerror.FromStatus(status.Convert(e)))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, finish(ctx.Err())
-		case <-time.After(delay):
-		}
-		if delay < 250*time.Millisecond {
-			delay *= 2
-			if delay > 250*time.Millisecond {
-				delay = 250 * time.Millisecond
-			}
-		}
-	}
+	return r, clusterError(r)
 }
 func clusterError(r *wire.ClusterResult) error {
 	switch r.Error {

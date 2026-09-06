@@ -37,6 +37,7 @@
     "go.mod",
     "go.sum",
     "internal/adapter/cluster.go",
+    "internal/adapter/retry.go",
     "internal/adapter/cluster_test.go",
     "internal/adapter/history.go",
     "internal/adapter/history_integration_test.go",

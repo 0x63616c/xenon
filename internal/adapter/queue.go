@@ -10,9 +10,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -59,42 +57,25 @@ func (q *Queue) invokeQueue(ctx context.Context, c *wire.QueueCommand) (traceRes
 		return nil, operationErr
 	}
 	req := &wire.QueueRequest{ProtocolVersion: 1, Partition: q.partition, OperationId: operation, CommandSha256: digest[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := q.client.Execute(ctx, req)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil queue result")
-			}
-			switch r.Error {
-			case wire.QueueResult_NONE:
-				return r, nil
-			case wire.QueueResult_UNAVAILABLE:
-				return nil, serviceerror.NewUnavailable(r.Message)
-			case wire.QueueResult_INTERNAL:
-				return nil, serviceerror.NewInternal(r.Message)
-			default:
-				return nil, serviceerror.NewInternal("unknown queue error")
-			}
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		case codes.Canceled:
-			return nil, context.Canceled
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.QueueResult, error) { return q.client.Execute(ctx, req) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil queue result")
+	}
+	switch r.Error {
+	case wire.QueueResult_NONE:
+		return r, nil
+	case wire.QueueResult_UNAVAILABLE:
+		return nil, serviceerror.NewUnavailable(r.Message)
+	case wire.QueueResult_INTERNAL:
+		return nil, serviceerror.NewInternal(r.Message)
+	default:
+		return nil, serviceerror.NewInternal("unknown queue error")
+	}
+
 }
 func queueBlob(kind wire.QueueCommand_Kind, b *commonpb.DataBlob) (*wire.QueueCommand, error) {
 	if b == nil {

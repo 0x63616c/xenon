@@ -12,9 +12,7 @@ import (
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -86,33 +84,16 @@ func (q *QueueV2) invoke(ctx context.Context, c *wire.QueueV2Command) (traceResu
 		return nil, operationErr
 	}
 	req := &wire.QueueV2Request{ProtocolVersion: 1, Partition: q.partition, OperationId: operation, CommandSha256: h[:], Command: c}
-	for i := 0; i < 3; i++ {
-		r, e := q.client.Execute(ctx, req)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil QueueV2 result")
-			}
-			return r, qv2Error(r)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.Canceled:
-			return nil, context.Canceled
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		}
-		if status.Code(e) != codes.Unavailable || i == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(i+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.QueueV2Result, error) { return q.client.Execute(ctx, req) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil QueueV2 result")
+	}
+	return r, qv2Error(r)
+
 }
 func (q *QueueV2) CreateQueue(ctx context.Context, r *p.InternalCreateQueueRequest) (*p.InternalCreateQueueResponse, error) {
 	if r == nil {

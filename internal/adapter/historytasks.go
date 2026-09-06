@@ -9,9 +9,7 @@ import (
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/service/history/tasks"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -61,33 +59,16 @@ func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.Hist
 		return nil, operationErr
 	}
 	q := &wire.HistoryTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := s.client.Execute(ctx, q)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil execution result")
-			}
-			return r, historyTasksError(r)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.Canceled:
-			return nil, context.Canceled
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.HistoryTasksResult, error) { return s.client.Execute(ctx, q) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil execution result")
+	}
+	return r, historyTasksError(r)
+
 }
 func historyTasksError(r *wire.HistoryTasksResult) error {
 	if r.Error == wire.HistoryTasksResult_NONE {

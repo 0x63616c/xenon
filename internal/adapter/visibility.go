@@ -21,9 +21,7 @@ import (
 	"go.temporal.io/server/common/searchattribute"
 	"go.temporal.io/server/common/searchattribute/sadefs"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"sort"
 	"sync"
@@ -65,6 +63,12 @@ func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string
 		return nil, traceBeginErr
 	}
 	defer func() { traceErr = traceFinish(traceErr) }()
+	if _, bounded := ctx.Deadline(); !bounded {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
+
 	raw, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	if e != nil {
 		return nil, e
@@ -75,33 +79,16 @@ func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string
 		return nil, operationErr
 	}
 	q := &wire.VisibilityRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: digest[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := s.client.Execute(ctx, q)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil visibility response")
-			}
-			return r, visibilityError(r)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.Canceled:
-			return nil, context.Canceled
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.VisibilityResult, error) { return s.client.Execute(ctx, q) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil visibility response")
+	}
+	return r, visibilityError(r)
+
 }
 func visibilityError(r *wire.VisibilityResult) error {
 	switch r.Error {

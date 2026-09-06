@@ -17,6 +17,7 @@
     "gen/xenon/v1/persistence.pb.go",
     "gen/xenon/v1/persistence_grpc.pb.go",
     "internal/adapter/shard.go",
+    "internal/adapter/retry.go",
     "internal/adapter/shard_integration_test.go",
     "proof/shard/case.json",
     "scripts/generate-proto.sh",

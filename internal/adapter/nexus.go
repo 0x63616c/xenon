@@ -11,9 +11,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -141,29 +139,11 @@ func (s *NexusStore) invokeNexus(ctx context.Context, command *wire.NexusCommand
 		return nil, operationErr
 	}
 	request := &wire.NexusRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: operation, CommandSha256: digest[:], Command: command}
-	for attempt := 0; attempt < 3; attempt++ {
-		result, callErr := s.client.Execute(ctx, request)
-		if callErr == nil {
-			return result, nexusError(result)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		// Remote cancellation may precede the local context timer.
-		switch status.Code(callErr) {
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		case codes.Canceled:
-			return nil, context.Canceled
-		}
-		if status.Code(callErr) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(callErr))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	result, callErr := retryOperation(ctx, func(ctx context.Context) (*wire.NexusResult, error) { return s.client.Execute(ctx, request) })
+	if callErr != nil {
+		return nil, callErr
 	}
-	panic("unreachable")
+
+	return result, nexusError(result)
+
 }

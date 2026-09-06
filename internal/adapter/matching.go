@@ -11,9 +11,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"math"
 	"sort"
@@ -74,33 +72,16 @@ func (s *MatchingStore) invokeMatching(ctx context.Context, c *wire.MatchingComm
 		return nil, operationErr
 	}
 	req := &wire.MatchingRequest{ProtocolVersion: version, Partition: s.partition, OperationId: operation, CommandSha256: hash[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := s.client.Execute(ctx, req)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil matching RPC response")
-			}
-			return r, matchingError(r)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		case codes.Canceled:
-			return nil, context.Canceled
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.MatchingResult, error) { return s.client.Execute(ctx, req) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil matching RPC response")
+	}
+	return r, matchingError(r)
+
 }
 
 func matchingError(r *wire.MatchingResult) error {

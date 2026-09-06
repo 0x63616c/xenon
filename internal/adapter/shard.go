@@ -13,9 +13,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -66,32 +64,13 @@ func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (tr
 	}
 	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: digest[:], Command: command}
 	// The identity is allocated once per invocation and retained across transport retries.
-	for attempt := 0; attempt < 3; attempt++ {
-		response, callErr := s.client.Execute(ctx, request)
-		if callErr == nil {
-			return response, logicalError(response)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		// A remote deadline can arrive before the local context timer fires.
-		// Normalize both paths to the same cancellation contract.
-		switch status.Code(callErr) {
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		case codes.Canceled:
-			return nil, context.Canceled
-		}
-		if status.Code(callErr) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(callErr))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	response, callErr := retryOperation(ctx, func(ctx context.Context) (*wire.ShardResult, error) { return s.client.Execute(ctx, request) })
+	if callErr != nil {
+		return nil, callErr
 	}
-	panic("unreachable")
+
+	return response, logicalError(response)
+
 }
 func logicalError(result *wire.ShardResult) error {
 	switch result.Error {

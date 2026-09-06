@@ -9,9 +9,7 @@ import (
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -62,33 +60,16 @@ func (s *WorkflowStore) invokeExecution(ctx context.Context, c *wire.ExecutionCo
 		return nil, operationErr
 	}
 	q := &wire.ExecutionRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := s.client.Execute(ctx, q)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil execution result")
-			}
-			return r, executionError(r)
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.Canceled:
-			return nil, context.Canceled
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.ExecutionResult, error) { return s.client.Execute(ctx, q) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil execution result")
+	}
+	return r, executionError(r)
+
 }
 func executionError(r *wire.ExecutionResult) error {
 	switch r.Error {

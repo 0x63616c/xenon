@@ -14,9 +14,7 @@ import (
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -69,46 +67,29 @@ func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand
 		return nil, operationErr
 	}
 	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
-	for attempt := 0; attempt < 3; attempt++ {
-		r, e := s.client.Execute(ctx, q)
-		if e == nil {
-			if r == nil {
-				return nil, serviceerror.NewInternal("nil history result")
-			}
-			switch r.Error {
-			case wire.HistoryResult_NONE:
-				return r, nil
-			case wire.HistoryResult_UNAVAILABLE:
-				return nil, serviceerror.NewUnavailable(r.Message)
-			case wire.HistoryResult_CONDITION_FAILED:
-				return nil, &p.ConditionFailedError{Msg: r.Message}
-			case wire.HistoryResult_INVALID_REQUEST:
-				return nil, &p.InvalidPersistenceRequestError{Msg: r.Message}
-			case wire.HistoryResult_APPEND_TIMEOUT:
-				return nil, &p.AppendHistoryTimeoutError{Msg: r.Message}
-			default:
-				return nil, serviceerror.NewInternal(r.Message)
-			}
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		switch status.Code(e) {
-		case codes.Canceled:
-			return nil, context.Canceled
-		case codes.DeadlineExceeded:
-			return nil, context.DeadlineExceeded
-		}
-		if status.Code(e) != codes.Unavailable || attempt == 2 {
-			return nil, serviceerror.FromStatus(status.Convert(e))
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 20 * time.Millisecond):
-		}
+	r, e := retryOperation(ctx, func(ctx context.Context) (*wire.HistoryResult, error) { return s.client.Execute(ctx, q) })
+	if e != nil {
+		return nil, e
 	}
-	panic("unreachable")
+
+	if r == nil {
+		return nil, serviceerror.NewInternal("nil history result")
+	}
+	switch r.Error {
+	case wire.HistoryResult_NONE:
+		return r, nil
+	case wire.HistoryResult_UNAVAILABLE:
+		return nil, serviceerror.NewUnavailable(r.Message)
+	case wire.HistoryResult_CONDITION_FAILED:
+		return nil, &p.ConditionFailedError{Msg: r.Message}
+	case wire.HistoryResult_INVALID_REQUEST:
+		return nil, &p.InvalidPersistenceRequestError{Msg: r.Message}
+	case wire.HistoryResult_APPEND_TIMEOUT:
+		return nil, &p.AppendHistoryTimeoutError{Msg: r.Message}
+	default:
+		return nil, serviceerror.NewInternal(r.Message)
+	}
+
 }
 func historyIDs(b *persistencespb.HistoryBranch) ([]byte, []byte, []byte, error) {
 	if b == nil {
