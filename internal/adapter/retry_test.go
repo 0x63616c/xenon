@@ -2,14 +2,20 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/proof/recorder"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"go.temporal.io/api/serviceerror"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -171,5 +177,47 @@ func TestVisibilityBoundsOnlyUnboundedCaller(t *testing.T) {
 	s := &VisibilityStore{client: wire.NewVisibilityPersistenceClient(conn)}
 	if _, err := s.invokeVisibility(ctx, "p", &wire.VisibilityCommand{}); !errors.Is(err, context.Canceled) || conn.calls != 0 {
 		t.Fatal(err, conn.calls)
+	}
+}
+
+func TestPermanentTransportErrorSurvivesObserverReportingFailure(t *testing.T) {
+	attempts := 0
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event recorder.Event
+		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+			t.Error(err)
+		}
+		if event.Measurement == "execute_attempt" && event.Kind == "register" {
+			attempts++
+		}
+		if event.Kind == "terminal" {
+			w.WriteHeader(500)
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	defer endpoint.Close()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := grpc.NewServer()
+	wire.RegisterShardPersistenceServer(server, &statusProxy{code: codes.InvalidArgument})
+	go server.Serve(listener)
+	defer server.Stop()
+	store, err := NewShardStore(listener.Addr().String(), "p", "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	observer, err := rpctrace.NewObserver(endpoint.URL, "producer", "proof")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err = store.invoke(rpctrace.WithObserver(ctx, observer), &wire.ShardCommand{})
+	if serviceerror.ToStatus(err).Code() != codes.InvalidArgument || observer.Failure() == nil || attempts != 1 {
+		t.Fatal("terminal status overwritten or retried", err, attempts)
 	}
 }
