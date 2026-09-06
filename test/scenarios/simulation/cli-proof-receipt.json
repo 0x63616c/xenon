@@ -1,0 +1,46 @@
+{
+  "source": "9611b68377328167c86e49c3030f5f6e3dd4f2d4",
+  "modified": "false",
+  "go": "go1.27.1",
+  "binary_sha256": "fcde9d00e94902829ed865ce2b110123823ee79ce5eda245a226eea1f93528a2",
+  "input_sha256": "6c02896b8e9bf97149a6b46dc63c296089ef23d1a5b14300e55d821de678a2d0",
+  "harness_sha256": "931100fc04695550d90a17b1fce7647d95871f26b109eecb51c73245df60bd4a",
+  "trace_sha256": "4ae29b2d8d9c7e31dce132f7ab424c1371a7b8698305e9be2c4b9493656bd8d9",
+  "results": [
+    {
+      "schema": 1,
+      "mode": "finite-coupled-corpus",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-scenario-runner-20260906/.local/cli-repro-proof/test"
+      }
+    },
+    {
+      "schema": 1,
+      "mode": "finite-coupled-corpus",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-scenario-runner-20260906/.local/cli-repro-proof/search"
+      }
+    },
+    {
+      "schema": 1,
+      "mode": "exact-coupled-replay",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-scenario-runner-20260906/.local/cli-repro-proof/replay"
+      }
+    }
+  ],
+  "controls": [
+    "budget exit 2",
+    "bad effect exit 1"
+  ],
+  "scope": "finite coupled component; no native resources opened"
+}
