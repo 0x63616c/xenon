@@ -60,7 +60,7 @@ func retryOperation[T proto.Message](ctx context.Context, invoke func(context.Co
 			}
 		}
 		if observationErr := rpctrace.ObservationError(ctx); observationErr != nil {
-			return zero, finish(observationErr)
+			return zero, finish(errors.Join(serviceerror.FromStatus(status.Convert(err)), observationErr))
 		}
 		if ctx.Err() != nil {
 			return zero, finish(ctx.Err())
