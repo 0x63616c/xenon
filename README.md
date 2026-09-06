@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/banner-dark.svg">
-  <img src="assets/brand/banner.svg" alt="Xenon — Temporal persistence. Built on object storage. In development." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/banner-counter.svg">
+  <img src="assets/brand/banner-counter.svg" alt="Xenon — Temporal persistence. Built on object storage. In development." width="100%">
 </picture>
 
 <p align="center">

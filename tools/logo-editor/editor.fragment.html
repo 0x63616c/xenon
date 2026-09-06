@@ -1,0 +1,274 @@
+<div id="xenon-motion">
+  <div class="xm-header"><span class="xm-brand">xenon</span><button data-action="pause">Pause</button></div>
+  <div class="xm-modes" aria-label="Animation options">
+    <button data-mode="stagger" aria-pressed="true">Staggered loop</button>
+    <button data-mode="spiral" aria-pressed="false">01 &nbsp; Spiral</button>
+    <button data-mode="counter" aria-pressed="false">02 &nbsp; Counter-spin</button>
+    <button data-mode="ripple" aria-pressed="false">03 &nbsp; Ripple</button>
+    <button data-mode="reveal" aria-pressed="false">04 &nbsp; Reveal</button>
+    <button data-mode="turn" aria-pressed="false">05 &nbsp; Spinner</button>
+    <button data-mode="idle" aria-pressed="false">06 &nbsp; Hover</button>
+    <button data-mode="assemble" aria-pressed="false">07 &nbsp; Assemble</button>
+  </div>
+  <div class="xm-stage" role="img" aria-label="Interactive three-dimensional rounded X logo with touching white layers and black outlines. Drag to rotate.">
+    <div class="xm-status" role="status">Loading 3D model...</div>
+    <div class="xm-corner">DRAG TO ROTATE</div>
+    <div class="xm-size"><canvas width="96" height="96" aria-label="Small loading icon preview"></canvas><span>ICON SCALE</span></div>
+  </div>
+  <div class="xm-caption" aria-live="polite">Top-down staggered turns. Each disc accelerates and settles on its own curve.</div>
+  <details open><summary>Easing &amp; timing</summary>
+    <div class="xm-controls">
+      <label>Edit curve<select data-curve-target><option value="all">All discs</option></select></label>
+      <label><span>Loop length <output data-value="cycle">2.50s</output></span><input data-setting="cycle" type="range" min="1" max="8" step="0.1" value="2.5"></label>
+      <label><span>Stagger <output data-value="stagger">0.10</output></span><input data-setting="stagger" type="range" min="0" max="0.5" step="0.01" value="0.10"></label>
+      <label><span>Moving time <output data-move-value>75% of loop</output></span><input data-curve-duration type="range" min="0.15" max="1" step="0.01" value="0.75"></label>
+    </div>
+    <svg class="xm-curve" role="img" aria-label="Editable easing graph. Horizontal axis is time; vertical axis is turn progress. Drag either circular handle or use the coordinate fields."></svg>
+    <div class="xm-curve-presets"><button data-ease="smooth">Smooth</button><button data-ease="snappy">Snappy</button><button data-ease="late">Late launch</button><button data-ease="glide">Long settle</button><button data-ease="linear">Linear</button></div>
+    <div class="xm-curve-fields"><label>Start X<input data-handle="x1" type="number" min="0" max="1" step="0.01" value="0.75"></label><label>Start Y<input data-handle="y1" type="number" min="0" max="1" step="0.01" value="0"></label><label>End X<input data-handle="x2" type="number" min="0" max="1" step="0.01" value="0.25"></label><label>End Y<input data-handle="y2" type="number" min="0" max="1" step="0.01" value="1"></label></div>
+  </details>
+  <details open><summary>Motion</summary><div class="xm-controls">
+    <label><span>Speed <output data-value="speed">1.00x</output></span><input data-setting="speed" type="range" min="0" max="3" step="0.05" value="1"></label>
+    <label><span>Twist per disc <output data-value="twist">24 deg</output></span><input data-setting="twist" type="range" min="0" max="90" step="1" value="24"></label>
+    <label><span>Speed difference <output data-value="spread">20%</output></span><input data-setting="spread" type="range" min="0" max="1" step="0.01" value="0.2"></label>
+    <label>Direction<select data-setting="direction"><option value="1">Clockwise</option><option value="-1" selected>Anticlockwise</option></select></label>
+  </div></details>
+  <details open><summary>Shape</summary><div class="xm-controls">
+    <label>Layers<select data-setting="layers"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+    <label><span>Spoke width <output data-value="spokes">120%</output></span><input data-setting="spokes" type="range" min="50" max="150" step="1" value="120"></label>
+    <label><span>Tip roundness <output data-value="roundness">85%</output></span><input data-setting="roundness" type="range" min="0" max="100" step="1" value="85"></label>
+    <label><span>Inner corners <output data-value="inner">54%</output></span><input data-setting="inner" type="range" min="0" max="100" step="1" value="54"></label>
+    <label><span>Disc thickness <output data-value="depth">0.58</output></span><input data-setting="depth" type="range" min="0.15" max="0.65" step="0.01" value="0.58"></label>
+    <label><span>Gap <output data-value="gap">Touching</output></span><input data-setting="gap" type="range" min="0" max="0.55" step="0.01" value="0"></label>
+    <label><span>Outline <output data-value="ink">0.064</output></span><input data-setting="ink" type="range" min="0.008" max="0.10" step="0.002" value="0.064"></label>
+  </div></details>
+  <details><summary>Camera &amp; finish</summary><div class="xm-controls">
+    <label><span>Elevation <output data-value="elevation">90 deg</output></span><input data-setting="elevation" type="range" min="5" max="90" step="1" value="90"></label>
+    <label><span>Orbit <output data-value="azimuth">0 deg</output></span><input data-setting="azimuth" type="range" min="-180" max="180" step="1" value="0"></label>
+    <label><span>Zoom <output data-value="zoom">1.00x</output></span><input data-setting="zoom" type="range" min="0.65" max="1.6" step="0.05" value="1"></label>
+    <label>Finish<select data-setting="finish"><option value="ink">Graphic</option><option value="porcelain">Porcelain</option></select></label>
+  </div></details>
+  <div class="xm-footer"><div><button data-action="restart">Restart</button><button data-action="top">Top view</button><button data-action="iso">Isometric</button><button data-action="invert" aria-pressed="false">Invert</button></div><div><button data-action="preset">Save motion settings</button><button data-action="export">Export current pose</button></div></div>
+</div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+#xenon-motion{--xm-bg:#fff;--xm-fg:#111;--xm-rule:#ddd;--xm-muted:#666;background:var(--xm-bg);color:var(--xm-fg);font-family:'Space Grotesk',sans-serif;padding:24px;box-sizing:border-box;color-scheme:light}
+#xenon-motion *{box-sizing:border-box}#xenon-motion .xm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}#xenon-motion .xm-brand{font-size:36px;font-weight:600;letter-spacing:-2px}#xenon-motion .xm-meta,#xenon-motion .xm-corner,#xenon-motion .xm-size span{font-size:10px;letter-spacing:1.8px;color:var(--xm-muted)}
+#xenon-motion button,#xenon-motion select{font:inherit;color:inherit;background:var(--xm-bg);border:1px solid var(--xm-rule);border-radius:0;cursor:pointer;min-height:38px;padding:8px 12px;font-size:12px}#xenon-motion button:hover{border-color:var(--xm-fg)}#xenon-motion button[aria-pressed=true]{background:var(--xm-fg);color:var(--xm-bg);border-color:var(--xm-fg)}
+#xenon-motion .xm-modes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}#xenon-motion .xm-modes button{text-align:left}
+#xenon-motion .xm-stage{position:relative;height:430px;touch-action:none;cursor:grab;overflow:hidden}#xenon-motion .xm-stage:active{cursor:grabbing}#xenon-motion .xm-stage>canvas{display:block;width:100%;height:100%}#xenon-motion .xm-status{position:absolute;inset:0;display:grid;place-items:center;font-size:13px}#xenon-motion .xm-status[hidden]{display:none}#xenon-motion .xm-corner{position:absolute;left:0;bottom:20px;pointer-events:none}#xenon-motion .xm-size{position:absolute;right:0;bottom:12px;display:flex;align-items:center;flex-direction:column;gap:4px;pointer-events:none}#xenon-motion .xm-size canvas{width:52px;height:52px}
+#xenon-motion .xm-caption{font-size:13px;min-height:42px;padding:10px 0 16px;border-bottom:1px solid var(--xm-rule)}#xenon-motion .xm-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding:12px 0 18px}#xenon-motion label{display:flex;flex-direction:column;gap:10px;font-size:12px;min-width:0}#xenon-motion label>span{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}#xenon-motion output{color:var(--xm-muted);font-variant-numeric:tabular-nums}#xenon-motion details{border-bottom:1px solid var(--xm-rule)}#xenon-motion summary{cursor:pointer;font-size:12px;font-weight:600;padding:13px 0}#xenon-motion input{width:100%;accent-color:var(--xm-fg);min-height:30px;margin:0}#xenon-motion .xm-footer{padding-top:16px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}#xenon-motion .xm-footer>div{display:flex;flex-wrap:wrap;gap:6px}
+#xenon-motion .xm-curve{width:100%;height:190px;display:block;touch-action:none;overflow:visible}#xenon-motion .xm-curve-presets{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#xenon-motion .xm-curve-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}#xenon-motion .xm-curve-fields input{font:inherit;color:inherit;background:var(--xm-bg);border:1px solid var(--xm-rule);padding:8px;min-width:0}
+@media(max-width:520px){#xenon-motion{padding:16px}#xenon-motion .xm-stage{height:330px}#xenon-motion .xm-modes{grid-template-columns:repeat(2,1fr)}#xenon-motion .xm-controls{grid-template-columns:1fr 1fr}#xenon-motion button,#xenon-motion select{min-height:44px}#xenon-motion .xm-corner{font-size:9px}#xenon-motion .xm-meta{font-size:9px}}
+</style>
+<script type="module">
+(async()=>{
+const root=document.getElementById('xenon-motion');
+const stage=root.querySelector('.xm-stage'),status=root.querySelector('.xm-status'),caption=root.querySelector('.xm-caption');
+try{
+const THREE=await import('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js');
+const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-3,3,3,-3,.01,100);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));stage.prepend(renderer.domElement);
+const iconCanvas=root.querySelector('.xm-size canvas'),iconContext=iconCanvas.getContext('2d');
+const model=new THREE.Group();scene.add(model);
+scene.add(new THREE.HemisphereLight(0xffffff,0x777777,2.4));
+const key=new THREE.DirectionalLight(0xffffff,3);key.position.set(-3,7,5);scene.add(key);
+const white=new THREE.MeshBasicMaterial({color:0xffffff,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+const porcelain=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,metalness:.08,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+const ink=new THREE.MeshBasicMaterial({color:0x080808});
+let count=3,depth=.58,line=.064,finish='ink',inverted=false,mode='stagger';
+let speed=1,twist=24*Math.PI/180,spread=.2,direction=-1,gap=0,zoom=1;
+let spokeWidth=1.2;
+let roundness=.85,innerRoundness=.54;
+let paused=matchMedia('(prefers-reduced-motion: reduce)').matches,time=0,last=performance.now(),azimuth=0,elevation=1.5705,manual=true;
+let cycle=2.5,stagger=.10,curveTarget='all';
+const curves=Array.from({length:8},()=>({x1:.75,y1:0,x2:.25,y2:1,duration:.75}));
+let meshes=[],rings=[],shapePoints=[],silhouettePoints=[],sideOutlines=[];
+let n;
+// A single continuous X face. Rounded caps become square as their radius falls.
+// Keep the outer footprint fixed while adjusting spoke width and corner radii.
+function makeShape(){
+const r=.43*spokeWidth,c=1.38-r*(Math.SQRT2-(Math.SQRT2-1)*roundness),k=r*Math.SQRT1_2;n=r*Math.SQRT2;
+const shape=new THREE.Shape(),q=r*roundness,d=Math.min(r*.45,(c-k)*.7)*innerRoundness;
+function cap(sx,sy){
+ const x=sx*c,y=sy*c,dx=sx*Math.SQRT1_2,dy=sy*Math.SQRT1_2,px=-dy,py=dx;
+ const a=Math.atan2(py,px),b=a-Math.PI/2;
+ shape.lineTo(x+px*r,y+py*r);
+ shape.lineTo(x+dx*(r-q)+px*r,y+dy*(r-q)+py*r);
+ if(q>0)shape.absarc(x+(dx+px)*(r-q),y+(dy+py)*(r-q),q,a,b,true);
+ shape.lineTo(x+dx*r-px*(r-q),y+dy*r-py*(r-q));
+ if(q>0)shape.absarc(x+(dx-px)*(r-q),y+(dy-py)*(r-q),q,b,a-Math.PI,true);
+ shape.lineTo(x-px*r,y-py*r);
+}
+shape.moveTo(d,n+d);cap(1,1);
+shape.lineTo(n+d,d);shape.quadraticCurveTo(n,0,n+d,-d);cap(1,-1);
+shape.lineTo(d,-n-d);shape.quadraticCurveTo(0,-n,-d,-n-d);cap(-1,-1);
+shape.lineTo(-n-d,-d);shape.quadraticCurveTo(-n,0,-n-d,d);cap(-1,1);
+shape.lineTo(-d,n+d);shape.quadraticCurveTo(0,n,d,n+d);shape.closePath();
+return shape;
+}
+// Flat miter-joined borders avoid tube-frame artifacts at the inward corners.
+function borderGeometry(points,height){
+ const p=points.filter((v,i)=>i===0||v.distanceToSquared(points[i-1])>1e-12);
+ if(p[0].distanceToSquared(p.at(-1))<1e-12)p.pop();
+ let area=0;for(let i=0;i<p.length;i++)area+=p[i].x*p[(i+1)%p.length].y-p[(i+1)%p.length].x*p[i].y;
+ const sign=area<0?1:-1,positions=[],indices=[];
+ for(let i=0;i<p.length;i++){
+ const a=p[(i+p.length-1)%p.length],b=p[i],c=p[(i+1)%p.length];
+ const t1=b.clone().sub(a).normalize(),t2=c.clone().sub(b).normalize();
+ const n1=new THREE.Vector2(sign*t1.y,-sign*t1.x),n2=new THREE.Vector2(sign*t2.y,-sign*t2.x);
+ const m=n1.add(n2).normalize(),offset=line/Math.max(.25,m.dot(n2));
+ positions.push(b.x-m.x*offset,height,-b.y+m.y*offset,b.x+m.x*offset,height,-b.y-m.y*offset);
+ const j=(i+1)%p.length;indices.push(2*i,2*j,2*i+1,2*i+1,2*j,2*j+1);
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
+}
+const flatInk=new THREE.MeshBasicMaterial({color:0x080808,side:THREE.DoubleSide});
+function rebuild(){
+ const shape=makeShape();shapePoints=shape.getPoints(48);
+ silhouettePoints=shapePoints.filter((p,i)=>i===0||p.distanceToSquared(shapePoints[i-1])>1e-12);
+ if(silhouettePoints[0].distanceToSquared(silhouettePoints.at(-1))<1e-12)silhouettePoints.pop();
+ const disposed=new Set();model.traverse(o=>{if(o.geometry&&!disposed.has(o.geometry)){disposed.add(o.geometry);o.geometry.dispose();}});model.clear();meshes=[];rings=[];sideOutlines=[];
+ const geometry=new THREE.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:false,curveSegments:48});geometry.rotateX(-Math.PI/2);
+ const bottom=borderGeometry(shapePoints,-.001);
+ const top=borderGeometry(shapePoints,depth+.001);
+ const sideLine=new THREE.CylinderGeometry(line*.85,line*.85,depth,8);
+ for(let i=0;i<count;i++){
+ const layer=new THREE.Group();layer.name='Xenon_disc_'+(i+1);layer.position.y=i*depth-count*depth/2;
+ const body=new THREE.Mesh(geometry,finish==='ink'?white:porcelain);layer.add(body);
+ layer.add(new THREE.Mesh(bottom,flatInk),new THREE.Mesh(top,flatInk));
+ const sides=Array.from({length:32},()=>{const edge=new THREE.Mesh(sideLine,ink);edge.visible=false;edge.name='Side_silhouette';layer.add(edge);return edge;});sideOutlines.push(sides);
+ // Vertical edges only at the four inward corners; rounded walls stay clean.
+ for(const [x,z] of (innerRoundness===0?[[0,n],[n,0],[0,-n],[-n,0]]:[])){
+ const edge=new THREE.Mesh(new THREE.CylinderGeometry(line*.65,line*.65,depth,6),ink);edge.position.set(x,depth/2,z);layer.add(edge);
+ }
+ model.add(layer);meshes.push(layer);
+ }
+}
+function colors(){const bg=inverted?0x080808:0xffffff,fg=inverted?0xffffff:0x080808;scene.background=new THREE.Color(bg);white.color.set(bg);porcelain.color.set(inverted?0x222222:0xffffff);ink.color.set(fg);flatInk.color.set(fg);root.style.setProperty('--xm-bg',inverted?'#080808':'#fff');root.style.setProperty('--xm-fg',inverted?'#fff':'#111');root.style.setProperty('--xm-rule',inverted?'#383838':'#ddd');root.style.setProperty('--xm-muted',inverted?'#aaa':'#666');root.style.colorScheme=inverted?'dark':'light';}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);const aspect=w/h,total=count*depth+(count-1)*gap,extent=Math.max(2.65,total/2+1.5,1.9/aspect)/zoom;camera.left=-extent*aspect;camera.right=extent*aspect;camera.top=extent;camera.bottom=-extent;camera.updateProjectionMatrix();}
+const ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*x*(x*(x*6-15)+10);};
+const descriptions={stagger:'Top-down staggered turns. Each disc accelerates and settles on its own curve.',spiral:'Each disc turns at a different speed, winding the stack into a spiral.',counter:'Alternating discs turn in opposite directions.',ripple:'A twisting wave travels up the stack, then unwinds.',reveal:'Flat mark to solid stack. Set Gap to zero for touching layers.',turn:'A measured quarter-turn with a short pause. Built for loading states.',idle:'A quiet tilt and float. The stack moves as one.',assemble:'An entrance animation: layers settle into your chosen spacing.'};
+function setMode(next){mode=next;time=0;if(mode==='reveal')manual=false;else manual=true;model.rotation.set(0,0,0);model.position.set(0,0,0);model.scale.setScalar(1);caption.textContent=descriptions[mode];root.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));}
+const cubic=(t,a,b)=>3*(1-t)*(1-t)*t*a+3*(1-t)*t*t*b+t*t*t;
+function curveEase(x,c){if(x<=0)return 0;if(x>=1)return 1;let lo=0,hi=1;for(let i=0;i<22;i++){const t=(lo+hi)/2;if(cubic(t,c.x1,c.x2)<x)lo=t;else hi=t;}return cubic((lo+hi)/2,c.y1,c.y2);}
+function pose(){
+ model.position.y=0;model.rotation.set(0,0,0);model.scale.setScalar(1);
+ const height=count*depth+(count-1)*gap;
+ for(let i=0;i<count;i++){
+ meshes[i].position.y=i*(depth+gap)-height/2;meshes[i].rotation.y=0;
+ if(mode==='stagger'){const phase=time/cycle-i*stagger,turn=Math.floor(phase),u=phase-turn;meshes[i].rotation.y=direction*Math.PI/2*(turn+curveEase(Math.min(1,u/curves[i].duration),curves[i]));}
+ if(mode==='spiral')meshes[i].rotation.y=direction*(time*.6*(1+i*spread)+i*twist);
+ if(mode==='counter')meshes[i].rotation.y=direction*((i%2?-1:1)*time*.7*(1+i*spread)+i*twist);
+ if(mode==='ripple')meshes[i].rotation.y=direction*(time*.3+Math.sin(time*1.3-i*(.35+spread*2))*twist*2);
+ }
+ if(mode==='turn'){const p=time/1.8;model.rotation.y=direction*(Math.floor(p)+ease(((p%1)-.2)/.65))*Math.PI/2;}
+ if(mode==='idle'){model.rotation.y=Math.sin(time*.55)*.18;model.position.y=Math.sin(time*1.2)*.055;}
+ if(mode==='assemble'){const p=time%7;for(let i=0;i<count;i++){const e=ease((p-i*.22)/1.25);meshes[i].position.y+=(1-e)*(i*.45+.3);meshes[i].rotation.y=direction*(1-e)*(i*twist);}}
+ if(!manual){
+ elevation=.75;azimuth=0;
+ if(mode==='reveal'){const p=time%9;const e=p<1?0:p<3?ease((p-1)/2):p<6?1:p<8?1-ease((p-6)/2):0;elevation=1.5705-e*.88;azimuth=.12*e;}
+ if(mode==='idle')elevation=.78+Math.sin(time*.7)*.055;
+ if(mode==='assemble')azimuth=.12;
+ }
+ camera.position.set(9*Math.cos(elevation)*Math.sin(azimuth),9*Math.sin(elevation),9*Math.cos(elevation)*Math.cos(azimuth));camera.lookAt(0,0,0);
+ updateSideOutlines();
+}
+// An extruded contour has vertical silhouette edges wherever adjoining wall
+// normals switch between facing toward and away from the orthographic camera.
+// Depth testing hides rear edges; recomputing per disc keeps rotating caps outlined.
+function updateSideOutlines(){
+ const points=silhouettePoints,N=points.length;
+ for(let disc=0;disc<count;disc++){
+ const edges=sideOutlines[disc];for(const edge of edges)edge.visible=false;
+ if(Math.hypot(camera.position.x,camera.position.z)<.01)continue;
+ const angle=model.rotation.y+meshes[disc].rotation.y,cos=Math.cos(angle),sin=Math.sin(angle);
+ const vx=cos*camera.position.x-sin*camera.position.z,vz=sin*camera.position.x+cos*camera.position.z;
+ const facing=points.map((p,i)=>{const next=points[(i+1)%N];return (next.y-p.y)*vx+(next.x-p.x)*vz;});
+ let used=0;
+ for(let i=0;i<N&&used<edges.length;i++){
+ let before=(i+N-1)%N,after=i;
+ for(let j=0;j<N&&Math.abs(facing[before])<1e-9;j++)before=(before+N-1)%N;
+ for(let j=0;j<N&&Math.abs(facing[after])<1e-9;j++)after=(after+1)%N;
+ if(facing[before]*facing[after]<0){const edge=edges[used++];edge.position.set(points[i].x,depth/2,-points[i].y);edge.visible=true;}
+ }
+ }
+}
+root.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+root.querySelector('[data-setting=layers]').addEventListener('change',e=>{count=+e.target.value;rebuild();resize();updateTargets();drawCurve();});
+root.querySelector('[data-setting=spokes]').addEventListener('input',e=>{spokeWidth=+e.target.value/100;rebuild();});
+root.querySelector('[data-setting=roundness]').addEventListener('input',e=>{roundness=+e.target.value/100;rebuild();});
+root.querySelector('[data-setting=inner]').addEventListener('input',e=>{innerRoundness=+e.target.value/100;rebuild();});
+root.querySelector('[data-setting=depth]').addEventListener('input',e=>{depth=+e.target.value;rebuild();resize();});
+root.querySelector('[data-setting=ink]').addEventListener('input',e=>{line=+e.target.value;rebuild();});
+root.querySelector('[data-setting=finish]').addEventListener('change',e=>{finish=e.target.value;rebuild();});
+root.querySelector('[data-setting=speed]').addEventListener('input',e=>speed=+e.target.value);
+root.querySelector('[data-setting=twist]').addEventListener('input',e=>twist=+e.target.value*Math.PI/180);
+root.querySelector('[data-setting=spread]').addEventListener('input',e=>spread=+e.target.value);
+root.querySelector('[data-setting=direction]').addEventListener('change',e=>direction=+e.target.value);
+root.querySelector('[data-setting=cycle]').addEventListener('input',e=>cycle=+e.target.value);
+root.querySelector('[data-setting=stagger]').addEventListener('input',e=>stagger=+e.target.value);
+root.querySelector('[data-setting=gap]').addEventListener('input',e=>{gap=+e.target.value;resize();});
+root.querySelector('[data-setting=zoom]').addEventListener('input',e=>{zoom=+e.target.value;resize();});
+root.querySelector('[data-setting=elevation]').addEventListener('input',e=>{manual=true;elevation=Math.min(1.5705,+e.target.value*Math.PI/180);});
+root.querySelector('[data-setting=azimuth]').addEventListener('input',e=>{manual=true;azimuth=+e.target.value*Math.PI/180;});
+root.querySelectorAll('input[data-setting]').forEach(input=>input.addEventListener('input',()=>{
+ const key=input.dataset.setting,value=+input.value,output=root.querySelector('[data-value='+key+']');
+ if(output)output.textContent=key==='cycle'?value.toFixed(2)+'s':['spokes','roundness','inner'].includes(key)?value+'%':key==='twist'||key==='elevation'||key==='azimuth'?value+' deg':key==='speed'||key==='zoom'?value.toFixed(2)+'x':key==='spread'?Math.round(value*100)+'%':key==='gap'&&value===0?'Touching':value.toFixed(key==='ink'?3:2);
+}));
+function syncCamera(){for(const [key,value] of [['elevation',Math.round(elevation*180/Math.PI)],['azimuth',Math.round(((azimuth*180/Math.PI+180)%360+360)%360-180)]]){root.querySelector('[data-setting='+key+']').value=value;root.querySelector('[data-value='+key+']').textContent=value+' deg';}}
+const pause=root.querySelector('[data-action=pause]');pause.textContent=paused?'Play':'Pause';pause.addEventListener('click',()=>{paused=!paused;pause.textContent=paused?'Play':'Pause';});
+root.querySelector('[data-action=restart]').addEventListener('click',()=>{time=0;});
+root.querySelector('[data-action=top]').addEventListener('click',()=>{manual=true;elevation=1.5705;azimuth=0;syncCamera();caption.textContent='Top view. Independent disc motion continues.';});
+root.querySelector('[data-action=iso]').addEventListener('click',()=>{manual=true;elevation=.66;azimuth=.12;syncCamera();caption.textContent='Isometric view. Drag to inspect; disc motion continues.';});
+root.querySelector('[data-action=invert]').addEventListener('click',e=>{inverted=!inverted;e.currentTarget.setAttribute('aria-pressed',String(inverted));colors();});
+let drag=null;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};manual=true;stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{if(!drag)return;azimuth-=(e.clientX-drag.x)*.008;elevation=Math.max(.06,Math.min(1.5705,elevation+(e.clientY-drag.y)*.008));drag={x:e.clientX,y:e.clientY};syncCamera();});
+stage.addEventListener('pointerup',()=>drag=null);stage.addEventListener('pointercancel',()=>drag=null);
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+root.querySelector('[data-action=preset]').addEventListener('click',()=>download(new Blob([JSON.stringify({version:2,mode,time,geometry:{layers:count,depth,gap,outline:line,spokeWidth,roundness,innerRoundness},motion:{speed,twistDegrees:twist*180/Math.PI,speedDifference:spread,direction,cycle,stagger,curves:curves.slice(0,count)},camera:{azimuth,elevation,zoom,manual},finish,inverted},null,2)],{type:'application/json'}),'xenon-motion-settings.json'));
+root.querySelector('[data-action=export]').addEventListener('click',async e=>{
+ const button=e.currentTarget;button.disabled=true;button.textContent='Exporting...';
+ const rest=model.clone(true);rest.updateMatrixWorld(true);
+ try{
+ const {GLTFExporter}=await import('https://esm.sh/three@0.180.0/examples/jsm/exporters/GLTFExporter.js');
+ const glb=await new GLTFExporter().parseAsync(rest,{binary:true});download(new Blob([glb],{type:'model/gltf-binary'}),'xenon-'+mode+'-pose.glb');
+ button.textContent='Export current pose';
+ }catch(error){button.textContent='Export failed; retry';caption.textContent='Could not export: '+error.message;}finally{button.disabled=false;}
+});
+const graph=root.querySelector('.xm-curve'),targetSelect=root.querySelector('[data-curve-target]');
+let graphWidth=480,handleDrag=null;
+function selectedCurve(){return curves[curveTarget==='all'?0:+curveTarget];}
+function editCurves(values){for(let i=0;i<curves.length;i++)if(curveTarget==='all'||i===+curveTarget)Object.assign(curves[i],values);syncCurveInputs();drawCurve();}
+function updateTargets(){targetSelect.innerHTML='<option value="all">All discs</option>'+Array.from({length:count},(_,i)=>'<option value="'+i+'">Disc '+(i+1)+(i===0?' (bottom)':i===count-1?' (top)':'')+'</option>').join('');if(curveTarget!=='all'&&+curveTarget>=count)curveTarget='all';targetSelect.value=curveTarget;syncCurveInputs();}
+function syncCurveInputs(){const c=selectedCurve();root.querySelectorAll('[data-handle]').forEach(input=>input.value=c[input.dataset.handle].toFixed(2));root.querySelector('[data-curve-duration]').value=c.duration;root.querySelector('[data-move-value]').textContent=Math.round(c.duration*100)+'% of loop';}
+function drawCurve(){
+ graphWidth=Math.max(250,graph.clientWidth);const w=graphWidth,h=190,p=30,W=w-2*p,H=h-2*p,c=selectedCurve(),X=x=>p+x*W,Y=y=>h-p-y*H;
+ let content='';for(let i=0;i<=4;i++){const v=i/4;content+='<path d="M '+X(v)+' '+Y(0)+' V '+Y(1)+' M '+X(0)+' '+Y(v)+' H '+X(1)+'" fill="none" stroke="var(--xm-rule)"/>';}
+ const path=curve=>'M '+X(0)+' '+Y(0)+' C '+X(curve.x1)+' '+Y(curve.y1)+' '+X(curve.x2)+' '+Y(curve.y2)+' '+X(1)+' '+Y(1);
+ for(let i=0;i<count;i++)content+='<path d="'+path(curves[i])+'" fill="none" stroke="var(--xm-muted)" stroke-opacity=".22" stroke-width="1.5"/>';
+ content+='<path d="M '+X(0)+' '+Y(0)+' L '+X(c.x1)+' '+Y(c.y1)+' M '+X(1)+' '+Y(1)+' L '+X(c.x2)+' '+Y(c.y2)+'" stroke="var(--xm-muted)" stroke-dasharray="4 4" fill="none"/><path d="'+path(c)+'" fill="none" stroke="var(--xm-fg)" stroke-width="3"/>';
+ for(const i of [1,2])content+='<circle cx="'+X(c['x'+i])+'" cy="'+Y(c['y'+i])+'" r="7" fill="var(--xm-bg)" stroke="var(--xm-fg)" stroke-width="2"/><circle data-drag="'+i+'" cx="'+X(c['x'+i])+'" cy="'+Y(c['y'+i])+'" r="21" fill="transparent" style="cursor:grab"/>';
+ content+='<circle data-playhead r="4" fill="var(--xm-fg)"/><text x="'+p+'" y="14" fill="var(--xm-muted)" font-size="11">Turn progress</text><text x="'+X(1)+'" y="184" text-anchor="end" fill="var(--xm-muted)" font-size="11">Time</text>';
+ graph.setAttribute('viewBox','0 0 '+w+' '+h);graph.innerHTML=content;
+}
+targetSelect.addEventListener('change',()=>{curveTarget=targetSelect.value;syncCurveInputs();drawCurve();});
+root.querySelector('[data-curve-duration]').addEventListener('input',e=>editCurves({duration:+e.target.value}));
+root.querySelectorAll('[data-handle]').forEach(input=>input.addEventListener('input',()=>{if(input.value===''||!Number.isFinite(+input.value))return;editCurves({[input.dataset.handle]:Math.max(0,Math.min(1,+input.value))});}));
+const curvePresets={smooth:[.42,0,.58,1],snappy:[.8,0,.18,1],late:[.85,0,.8,1],glide:[.12,.7,.2,1],linear:[0,0,1,1]};
+root.querySelectorAll('[data-ease]').forEach(button=>button.addEventListener('click',()=>{const [x1,y1,x2,y2]=curvePresets[button.dataset.ease];editCurves({x1,y1,x2,y2});}));
+graph.addEventListener('pointerdown',e=>{const handle=e.target.closest('[data-drag]');if(!handle)return;handleDrag=handle.dataset.drag;graph.setPointerCapture(e.pointerId);});
+graph.addEventListener('pointermove',e=>{if(!handleDrag)return;const rect=graph.getBoundingClientRect(),x=(e.clientX-rect.left)*graphWidth/rect.width,y=(e.clientY-rect.top)*190/rect.height;editCurves({['x'+handleDrag]:Math.max(0,Math.min(1,(x-30)/(graphWidth-60))),['y'+handleDrag]:Math.max(0,Math.min(1,(160-y)/130))});});
+graph.addEventListener('pointerup',()=>handleDrag=null);graph.addEventListener('pointercancel',()=>handleDrag=null);
+const graphObserver=new ResizeObserver(drawCurve);graphObserver.observe(graph);
+updateTargets();drawCurve();rebuild();colors();resize();status.hidden=true;
+const observer=new ResizeObserver(resize);observer.observe(stage);
+let visible=true;const visibility=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;});visibility.observe(root);
+let iconFrame=0;
+function frame(now){if(!root.isConnected){observer.disconnect();graphObserver.disconnect();visibility.disconnect();renderer.dispose();return;}requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.05);last=now;if(!visible)return;if(!paused)time+=dt*speed;pose();renderer.render(scene,camera);if(++iconFrame%3===0){const src=renderer.domElement,size=Math.min(src.width,src.height);iconContext.clearRect(0,0,96,96);iconContext.drawImage(src,(src.width-size)/2,(src.height-size)/2,size,size,0,0,96,96);const dot=graph.querySelector('[data-playhead]'),i=curveTarget==='all'?0:+curveTarget,c=curves[i],phase=time/cycle-i*stagger,x=Math.min(1,(phase-Math.floor(phase))/c.duration);if(dot){dot.setAttribute('cx',30+x*(graphWidth-60));dot.setAttribute('cy',160-curveEase(x,c)*130);}}}
+requestAnimationFrame(frame);
+}catch(error){status.hidden=false;status.textContent='3D preview could not load: '+error.message;status.setAttribute('role','alert');}
+})();
+</script>

@@ -1,16 +1,21 @@
 import { defineConfig } from "vitepress";
+const siteBase = process.env.SITE_BASE || "/";
 export default defineConfig({
   title: "Xenon",
   description:
     "Xenon brings S3-backed persistence to Temporal. Explore the architecture, recovery tests and developer documentation. Currently in development.",
   srcDir: ".content",
   outDir: "dist",
-  base: process.env.SITE_BASE || "/",
+  base: siteBase,
   cleanUrls: false,
   appearance: false,
-  head: [["meta", { name: "theme-color", content: "#f5c518" }]],
+  head: [
+    ["meta", { name: "theme-color", content: "#f5c518" }],
+    ["link", { rel: "icon", type: "image/svg+xml", href: `${siteBase}brand/favicon.svg` }],
+    ["link", { rel: "apple-touch-icon", href: `${siteBase}brand/apple-touch-icon.png` }],
+  ],
   themeConfig: {
-    logo: "/xenon.svg",
+    logo: "/brand/logo.svg",
     siteTitle: "Xenon",
     nav: [
       { text: "Architecture", link: "/docs/architecture" },
@@ -26,6 +31,7 @@ export default defineConfig({
           { text: "Overview", link: "/docs/" },
           { text: "Architecture", link: "/docs/architecture" },
           { text: "Verification status", link: "/docs/status" },
+          { text: "Brand and motion", link: "/brand" },
         ],
       },
       {
