@@ -31,24 +31,24 @@ func historyPartition(partitions []string, fallback string, shard int32) (string
 	}
 	return partitions[int(shard)%len(partitions)], nil
 }
-func NewPartitionedShardStore(address string, partitions []string, cluster string) (*ShardStore, error) {
+func NewPartitionedShardStore(address string, partitions []string, cluster string, options ...StoreOption) (*ShardStore, error) {
 	names, e := validateHistoryPartitions(partitions)
 	if e != nil {
 		return nil, e
 	}
-	s, e := NewShardStore(address, names[0], cluster)
+	s, e := NewShardStore(address, names[0], cluster, options...)
 	if e != nil {
 		return nil, e
 	}
 	s.historyPartitions = names
 	return s, nil
 }
-func NewPartitionedExecutionStore(address string, partitions []string) (*ExecutionStore, error) {
+func NewPartitionedExecutionStore(address string, partitions []string, options ...StoreOption) (*ExecutionStore, error) {
 	names, e := validateHistoryPartitions(partitions)
 	if e != nil {
 		return nil, e
 	}
-	s, e := NewExecutionStore(address, names[0])
+	s, e := NewExecutionStore(address, names[0], options...)
 	if e != nil {
 		return nil, e
 	}

@@ -6,10 +6,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/google/uuid"
-	"regexp"
 	"sync/atomic"
 	"time"
 
@@ -20,7 +20,14 @@ import (
 	native "slatedb.io/slatedb-go/uniffi"
 )
 
-var operationID = regexp.MustCompile(`^[a-zA-Z0-9-]{1,128}$`)
+// Temporary compatibility shim shared by all retiring operation handlers.
+type operationReferenceMatcher struct{}
+
+func (operationReferenceMatcher) MatchString(value string) bool {
+	return identity.ValidateOperationReference(value) == nil
+}
+
+var operationID operationReferenceMatcher
 
 type Config struct {
 	Partition        string

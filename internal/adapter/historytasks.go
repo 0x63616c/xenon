@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/rpctrace"
-	"github.com/google/uuid"
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/service/history/tasks"
@@ -19,6 +18,7 @@ import (
 
 // HistoryTasksStore implements history-task reads and completion.
 type HistoryTasksStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.HistoryTasksPersistenceClient
 	partition         string
@@ -26,12 +26,12 @@ type HistoryTasksStore struct {
 	historyPartitions []string
 }
 
-func NewHistoryTasksStore(address, partition string) (*HistoryTasksStore, error) {
+func NewHistoryTasksStore(address, partition string, options ...StoreOption) (*HistoryTasksStore, error) {
 	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
-	return &HistoryTasksStore{c, wire.NewHistoryTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
+	return &HistoryTasksStore{newOperationIDs(options...), c, wire.NewHistoryTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *HistoryTasksStore) Close() {
 	if s.connection != nil {
@@ -56,7 +56,11 @@ func (s *HistoryTasksStore) invokeHistoryTasks(ctx context.Context, c *wire.Hist
 	if routeErr != nil {
 		return nil, routeErr
 	}
-	q := &wire.HistoryTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	q := &wire.HistoryTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

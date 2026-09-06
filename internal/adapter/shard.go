@@ -8,7 +8,6 @@ import (
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
@@ -21,6 +20,7 @@ import (
 )
 
 type ShardStore struct {
+	operations         *operationIDs
 	historyPartitions  []string
 	connection         *grpc.ClientConn
 	client             wire.ShardPersistenceClient
@@ -32,12 +32,12 @@ var _ persistence.ShardStore = (*ShardStore)(nil)
 
 // NewShardStore creates a wrapper for one configured logical partition. It does
 // not claim dynamic routing or expose a factory for unimplemented stores.
-func NewShardStore(address, partition, cluster string) (*ShardStore, error) {
+func NewShardStore(address, partition, cluster string, options ...StoreOption) (*ShardStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
-	return &ShardStore{connection: conn, client: wire.NewShardPersistenceClient(conn), partition: partition, cluster: cluster, invocationTimeout: 30 * time.Second}, nil
+	return &ShardStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewShardPersistenceClient(conn), partition: partition, cluster: cluster, invocationTimeout: 30 * time.Second}, nil
 }
 func (s *ShardStore) Close()                 { _ = s.connection.Close() }
 func (s *ShardStore) GetName() string        { return "xenon" }
@@ -60,7 +60,11 @@ func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (tr
 	if routeErr != nil {
 		return nil, routeErr
 	}
-	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: command}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: digest[:], Command: command}
 	// The identity is allocated once per invocation and retained across transport retries.
 	for attempt := 0; attempt < 3; attempt++ {
 		response, callErr := s.client.Execute(ctx, request)

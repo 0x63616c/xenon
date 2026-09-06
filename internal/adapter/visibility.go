@@ -9,7 +9,6 @@ import (
 	qmodel "github.com/0x63616c/xenon/internal/query"
 	"github.com/0x63616c/xenon/internal/rpctrace"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
-	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
@@ -32,6 +31,7 @@ import (
 )
 
 type VisibilityStore struct {
+	operations             *operationIDs
 	connection             *grpc.ClientConn
 	client                 wire.VisibilityPersistenceClient
 	index, schemaPartition string
@@ -42,7 +42,7 @@ type VisibilityStore struct {
 
 var _ store.VisibilityStore = (*VisibilityStore)(nil)
 
-func NewVisibilityStore(address, index, schemaPartition string, provider searchattribute.Provider, mappers searchattribute.MapperProvider, registry *chasm.Registry) (*VisibilityStore, error) {
+func NewVisibilityStore(address, index, schemaPartition string, provider searchattribute.Provider, mappers searchattribute.MapperProvider, registry *chasm.Registry, options ...StoreOption) (*VisibilityStore, error) {
 	if address == "" || index == "" || schemaPartition == "" || provider == nil {
 		return nil, fmt.Errorf("visibility address, index, schema partition and type provider are required")
 	}
@@ -50,7 +50,7 @@ func NewVisibilityStore(address, index, schemaPartition string, provider searcha
 	if e != nil {
 		return nil, e
 	}
-	return &VisibilityStore{c, wire.NewVisibilityPersistenceClient(c), index, schemaPartition, provider, mappers, registry}, nil
+	return &VisibilityStore{newOperationIDs(options...), c, wire.NewVisibilityPersistenceClient(c), index, schemaPartition, provider, mappers, registry}, nil
 }
 func (s *VisibilityStore) Close() {
 	if s.connection != nil {
@@ -70,7 +70,11 @@ func (s *VisibilityStore) invokeVisibility(ctx context.Context, partition string
 		return nil, e
 	}
 	digest := sha256.Sum256(raw)
-	q := &wire.VisibilityRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: digest[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	q := &wire.VisibilityRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: digest[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

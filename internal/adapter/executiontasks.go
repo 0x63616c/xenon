@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/rpctrace"
-	"github.com/google/uuid"
 	"go.temporal.io/api/serviceerror"
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
@@ -20,6 +19,7 @@ import (
 
 // ExecutionTasksStore implements explicit task insertion and replication DLQ.
 type ExecutionTasksStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.ExecutionTasksPersistenceClient
 	partition         string
@@ -27,12 +27,12 @@ type ExecutionTasksStore struct {
 	historyPartitions []string
 }
 
-func NewExecutionTasksStore(address, partition string) (*ExecutionTasksStore, error) {
+func NewExecutionTasksStore(address, partition string, options ...StoreOption) (*ExecutionTasksStore, error) {
 	c, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
-	return &ExecutionTasksStore{c, wire.NewExecutionTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
+	return &ExecutionTasksStore{newOperationIDs(options...), c, wire.NewExecutionTasksPersistenceClient(c), partition, 30 * time.Second, nil}, nil
 }
 func (s *ExecutionTasksStore) Close() {
 	if s.connection != nil {
@@ -57,7 +57,11 @@ func (s *ExecutionTasksStore) invokeExecutionTasks(ctx context.Context, c *wire.
 	if routeErr != nil {
 		return nil, routeErr
 	}
-	q := &wire.ExecutionTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	q := &wire.ExecutionTasksRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

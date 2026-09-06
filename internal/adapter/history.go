@@ -24,6 +24,7 @@ import (
 // HistoryStore is only the seven-operation history component of ExecutionStore.
 // It deliberately does not claim to implement unfinished workflow operations.
 type HistoryStore struct {
+	operations        *operationIDs
 	historyPartitions []string
 	connection        *grpc.ClientConn
 	client            wire.HistoryPersistenceClient
@@ -32,12 +33,12 @@ type HistoryStore struct {
 	*p.HistoryBranchUtilImpl
 }
 
-func NewHistoryStore(address, partition string) (*HistoryStore, error) {
+func NewHistoryStore(address, partition string, options ...StoreOption) (*HistoryStore, error) {
 	conn, e := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if e != nil {
 		return nil, e
 	}
-	return &HistoryStore{connection: conn, client: wire.NewHistoryPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second, HistoryBranchUtilImpl: p.NewHistoryBranchUtil(serialization.NewSerializer())}, nil
+	return &HistoryStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewHistoryPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second, HistoryBranchUtilImpl: p.NewHistoryBranchUtil(serialization.NewSerializer())}, nil
 }
 func (s *HistoryStore) Close() {
 	if s.connection != nil {
@@ -63,7 +64,11 @@ func (s *HistoryStore) invokeHistory(ctx context.Context, c *wire.HistoryCommand
 	if routeErr != nil {
 		return nil, routeErr
 	}
-	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: partition, OperationId: uuid.NewString(), CommandSha256: d[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	q := &wire.HistoryRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: d[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, q)
 		if e == nil {

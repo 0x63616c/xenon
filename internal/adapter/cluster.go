@@ -8,7 +8,6 @@ import (
 	"time"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
@@ -23,6 +22,7 @@ import (
 // ClusterStore transports complete control-partition operations. The storage
 // handler must implement the pinned contract; this adapter does not emulate it.
 type ClusterStore struct {
+	operations        *operationIDs
 	connection        *grpc.ClientConn
 	client            wire.ClusterPersistenceClient
 	partition         string
@@ -31,12 +31,12 @@ type ClusterStore struct {
 
 var _ p.ClusterMetadataStore = (*ClusterStore)(nil)
 
-func NewClusterStore(address, partition string) (*ClusterStore, error) {
+func NewClusterStore(address, partition string, options ...StoreOption) (*ClusterStore, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
 	if err != nil {
 		return nil, err
 	}
-	return &ClusterStore{connection: conn, client: wire.NewClusterPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
+	return &ClusterStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewClusterPersistenceClient(conn), partition: partition, invocationTimeout: 30 * time.Second}, nil
 }
 func (s *ClusterStore) Close() {
 	if s.connection != nil {
@@ -57,7 +57,11 @@ func (s *ClusterStore) invokeCluster(ctx context.Context, c *wire.ClusterCommand
 		return nil, err
 	}
 	hash := sha256.Sum256(data)
-	req := &wire.ClusterRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: uuid.NewString(), CommandSha256: hash[:], Command: c}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	req := &wire.ClusterRequest{ProtocolVersion: 1, Partition: s.partition, OperationId: operation, CommandSha256: hash[:], Command: c}
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := s.client.Execute(ctx, req)
 		if e == nil {
