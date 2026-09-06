@@ -47,7 +47,7 @@ COPY . .
 
 RUN python3 scripts/build-go-node.py
 
-FROM debian:12-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS runtime
+FROM debian:12-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS agent-runtime
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -71,3 +71,20 @@ RUN /usr/local/bin/xenon version \
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/xenon"]
 CMD ["start", "--config", "/etc/xenon/agent.example.json"]
+
+# Explicit local fixture target; ordinary builds still select the runtime below.
+FROM builder AS dev-builder
+RUN CGO_LDFLAGS=-L/workspace/.local/slatedb-native-target/debug go build -o .local/bin/xenon-sdk-probe ./cmd/xenon-sdk-probe \
+    && CGO_LDFLAGS=-L/workspace/.local/slatedb-native-target/debug go build -o .local/bin/xenon-ingress ./cmd/xenon-ingress
+RUN git clone --no-checkout https://github.com/temporalio/omes /opt/omes \
+    && git -C /opt/omes checkout --detach c6978ba39aa03551ce28974117e8d7ecf983d2b3
+WORKDIR /opt/omes
+RUN go build -o /workspace/.local/bin/omes ./cmd/omes \
+    && /workspace/.local/bin/omes prepare-worker --language go --version v1.48.0 --dir-name prepared
+
+FROM agent-runtime AS dev-runtime
+COPY --from=dev-builder /workspace/.local/bin/xenon-sdk-probe /usr/local/bin/xenon-sdk-probe
+COPY --from=dev-builder /workspace/.local/bin/xenon-ingress /usr/local/bin/xenon-ingress
+COPY --from=dev-builder /opt/omes/workers/go/prepared/program /usr/local/bin/omes-worker
+
+FROM agent-runtime AS runtime

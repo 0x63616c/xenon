@@ -119,6 +119,7 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		root.AddCommand(command)
 	}
 	root.AddCommand(inspectCommand(app.Inspect))
+	root.AddCommand(devCommand(app.RunDev))
 	root.AddCommand(generateCommand())
 	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
 	for _, command := range simulation {
