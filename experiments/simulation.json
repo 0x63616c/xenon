@@ -23,11 +23,11 @@
     "Production routing, topology, membership and replay decisions execute under the fixed schedule.",
     "The acknowledged mutation and original result survive response loss, owner crash and ownership movement without a second application.",
     "Forwarding preserves operation identity, input digest, deadline, method and bounded hop metadata; typed failures are preserved.",
-    "Changed input is rejected, the stale owner cannot acknowledge, and the operation makes bounded progress after movement.",
+    "Changed input is rejected by durable replay, the modeled stale-admission boundary rejects the withdrawn node, and the operation makes bounded progress after movement.",
     "Independent negative controls reject missing atomic outcomes and stale-owner acknowledgement."
   ],
   "limitations": [
-    "In-memory conditional S3 and transactional durability model; native SlateDB and real S3 remain separate fault gates.",
+    "In-memory conditional S3, transactional durability, node lifecycle and admission models; production Manager fencing, native SlateDB and real S3 remain separate fault gates.",
     "The fixed first proof has no random choices; seed zero records that fact. Workload generation and schedule minimization remain future coverage."
   ],
   "commands": [

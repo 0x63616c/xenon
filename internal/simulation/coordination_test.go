@@ -116,6 +116,36 @@ func identity(node string, suffix int) directory.Identity {
 	return directory.Identity{Node: node, Address: node + ":7235", Incarnation: fmt.Sprintf("00000000-0000-4000-8000-%012d", suffix)}
 }
 
+type coordinationObservation struct {
+	disk              *disk
+	topology          ownership.Topology
+	partition         string
+	result            *wire.ShardResult
+	trace             []string
+	expectedTrace     []string
+	staleAcknowledged bool
+}
+
+func checkCoordination(observed coordinationObservation) error {
+	count := observed.disk.durable["v1/outcome_count"]
+	if observed.result == nil || !bytes.Equal(observed.result.Data, []byte{1}) || !bytes.Equal(observed.disk.durable["value"], []byte{1}) {
+		return fmt.Errorf("mutation or original result was not preserved exactly once")
+	}
+	if len(count) != 8 || binary.BigEndian.Uint64(count) != 1 || observed.disk.commits != 3 {
+		return fmt.Errorf("durable replay outcome/count missing")
+	}
+	if _, ok := observed.topology.Members["b"]; ok || observed.topology.Partitions[observed.partition].Node != "a" {
+		return fmt.Errorf("ownership did not move to surviving node")
+	}
+	if observed.staleAcknowledged {
+		return fmt.Errorf("stale owner acknowledged after movement")
+	}
+	if !reflect.DeepEqual(observed.trace, observed.expectedTrace) {
+		return fmt.Errorf("event trace mismatch: %v", observed.trace)
+	}
+	return nil
+}
+
 func shardHandler(store *ownership.TopologyStore, node string, d *disk, trace *[]string) routing.Local {
 	return func(ctx context.Context, _ string, message proto.Message) (proto.Message, error) {
 		req := message.(*wire.ShardRequest)
@@ -149,6 +179,13 @@ func TestDeterministicCoordinationLostResponseCrashMove(t *testing.T) {
 	fake := &topologyS3{}
 	store, err := ownership.NewTopologyStore(fake, "bucket", "metadata")
 	if err != nil {
+		t.Fatal(err)
+	}
+	transition := 100
+	if err := store.SetTransitionSource(func() string {
+		transition++
+		return fmt.Sprintf("00000000-0000-4000-8000-%012d", transition)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	a, b := identity("a", 1), identity("b", 2)
@@ -236,13 +273,11 @@ func TestDeterministicCoordinationLostResponseCrashMove(t *testing.T) {
 	trace = append(trace, "stale-owner:rejected")
 
 	final, _ := store.Read(ctx)
-	if _, ok := final.Record().Members["b"]; ok || final.Record().Partitions[partition].Node != "a" {
-		t.Fatal("ownership did not move to a")
+	if err := checkCoordination(coordinationObservation{disk: d, topology: final.Record(), partition: partition, result: reply.(*wire.ShardResult), trace: trace, expectedTrace: schedule.ExpectedTrace}); err != nil {
+		t.Fatal("independent invariant failed:", err)
 	}
-	count := d.durable["v1/outcome_count"]
-	if !bytes.Equal(d.durable["value"], []byte{1}) || len(count) != 8 || binary.BigEndian.Uint64(count) != 1 || d.commits != 3 || !reflect.DeepEqual(trace, schedule.ExpectedTrace) {
-		t.Fatalf("independent invariant failed: value=%v commits=%d trace=%v", d.durable["value"], d.commits, trace)
-	}
+	encodedTrace, _ := json.Marshal(trace)
+	t.Logf("coordination_trace=%s", encodedTrace)
 	routingEvents := []routing.Event{}
 	for len(events) > 0 {
 		routingEvents = append(routingEvents, <-events)
@@ -253,17 +288,13 @@ func TestDeterministicCoordinationLostResponseCrashMove(t *testing.T) {
 }
 
 func TestCheckerRejectsStaleOwnerAcknowledgement(t *testing.T) {
-	staleAcknowledged := true // deliberately faulty admission bypass
-	if !staleAcknowledged {
-		t.Fatal("negative control did not inject stale acknowledgement")
-	}
-	checker := func() error {
-		if staleAcknowledged {
-			return fmt.Errorf("stale owner acknowledged after movement")
-		}
-		return nil
-	}
-	if checker() == nil {
+	// This observation is otherwise valid and injects the single faulty effect:
+	// admission acknowledged on the withdrawn owner. It uses the same checker as
+	// the coupled scenario, so deleting the checker invariant fails this control.
+	d := &disk{durable: map[string][]byte{"value": {1}, "v1/outcome_count": {0, 0, 0, 0, 0, 0, 0, 1}}, commits: 3}
+	topology := ownership.Topology{Members: map[string]ownership.Member{"a": {}}, Partitions: map[string]ownership.Assignment{"p": {Node: "a"}}}
+	result := &wire.ShardResult{Data: []byte{1}}
+	if checkCoordination(coordinationObservation{disk: d, topology: topology, partition: "p", result: result, staleAcknowledged: true}) == nil {
 		t.Fatal("checker accepted faulty stale owner")
 	}
 }

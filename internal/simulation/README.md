@@ -27,8 +27,9 @@ committed schedule at
 owner, advances logical time to eviction, and retries through the same endpoint.
 The independent checks require one mutation, the original durable result,
 movement to the surviving owner, changed-input rejection, stale-owner rejection,
-preserved forwarding fields, and an exact event trace. Negative controls prove
-the checkers reject a missing atomic outcome and a stale-owner acknowledgement.
+preserved forwarding fields, and an exact event trace, which is emitted into the
+retained Go test log on success. Negative controls use the same independent
+checkers to reject a missing atomic outcome and a stale-owner acknowledgement.
 
 Run it with retained provenance from a clean checkout:
 
@@ -36,10 +37,12 @@ Run it with retained provenance from a clean checkout:
 python3 scripts/prove.py simulation
 ```
 
-The coupled proof uses an in-memory conditional-S3 implementation and the same
-atomic durability model as the replay unit proof. It does not replace native
-SlateDB lifecycle or real-S3 tests. The fixed schedule has no random decisions;
-seed zero records that fact. Workload generation, schedule minimization, native
+The coupled proof uses in-memory conditional-S3, atomic durability, node
+lifecycle and admission models. It does not exercise production Manager fencing,
+native SlateDB lifecycle or real-S3 behavior. Topology transition UUIDs come from
+the recorded deterministic source; production retains random UUIDs. The fixed
+schedule has no random choices, so seed zero records that fact. Production
+directory deadline timers, workload generation, schedule minimization, native
 durability-completion ordering, and broader schedule coverage remain open.
 
 For retained evidence, save the exact source revision, hash this schedule and

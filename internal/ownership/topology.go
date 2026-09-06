@@ -41,6 +41,7 @@ type Topology struct {
 type TopologyStore struct {
 	client         directory.S3
 	bucket, prefix string
+	transition     func() string
 }
 type TopologySnapshot struct {
 	store *TopologyStore
@@ -83,7 +84,18 @@ func NewTopologyStore(client directory.S3, bucket, prefix string) (*TopologyStor
 	if client == nil || bucket == "" || !pathOK(prefix) {
 		return nil, directory.ErrInvalid
 	}
-	return &TopologyStore{client: client, bucket: bucket, prefix: prefix}, nil
+	return &TopologyStore{client: client, bucket: bucket, prefix: prefix, transition: uuid.NewString}, nil
+}
+
+// SetTransitionSource replaces only topology transition identity generation.
+// Configure it before use. Production uses random UUIDs; deterministic tests
+// supply a recorded sequence while exercising the same publication decisions.
+func (s *TopologyStore) SetTransitionSource(next func() string) error {
+	if s == nil || next == nil {
+		return directory.ErrInvalid
+	}
+	s.transition = next
+	return nil
 }
 func (s *TopologyStore) valid(t Topology) bool {
 	if t.Format != 1 || t.Revision == 0 || len(t.Members) == 0 || len(t.Members) > 64 || len(t.Partitions) == 0 || len(t.Partitions) > maxPartitions {
@@ -154,7 +166,7 @@ func (s *TopologyStore) Publish(ctx context.Context, prior *TopologySnapshot, ne
 	next = cloneTopology(next)
 	next.Format = 1
 	next.Revision = 1
-	next.Transition = uuid.NewString()
+	next.Transition = s.transition()
 	etag := ""
 	if prior != nil {
 		if prior.store != s || prior.etag == "" || prior.data.Revision == math.MaxUint64 {
