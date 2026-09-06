@@ -1,0 +1,428 @@
+{
+  "status": "failed",
+  "error": "ScenarioInvariant: background process exited unexpectedly: b-restarted (1)",
+  "events": [
+    {
+      "event": "agent-healthy",
+      "node": "a",
+      "pid": 21334
+    },
+    {
+      "event": "agent-healthy",
+      "node": "b",
+      "pid": 21351
+    },
+    {
+      "event": "agent-schema-ready",
+      "node": "a",
+      "address": "127.0.0.1:18233",
+      "observation": {
+        "ready": true,
+        "namespace": "xenon-ministack",
+        "attributes": {
+          "KS_Int": 3,
+          "KS_Keyword": 2,
+          "OmesExecutionID": 2,
+          "XenonProof": 2
+        },
+        "query": "XenonProof = 'xenon-schema-readiness' AND OmesExecutionID = 'xenon-schema-readiness' AND KS_Keyword = 'xenon-schema-readiness' AND KS_Int = 0",
+        "count": 0
+      }
+    },
+    {
+      "event": "agent-schema-ready",
+      "node": "b",
+      "address": "127.0.0.1:19233",
+      "observation": {
+        "ready": true,
+        "namespace": "xenon-ministack",
+        "attributes": {
+          "KS_Int": 3,
+          "KS_Keyword": 2,
+          "OmesExecutionID": 2,
+          "XenonProof": 2
+        },
+        "query": "XenonProof = 'xenon-schema-readiness' AND OmesExecutionID = 'xenon-schema-readiness' AND KS_Keyword = 'xenon-schema-readiness' AND KS_Int = 0",
+        "count": 0
+      }
+    },
+    {
+      "event": "temporal-http-and-ui-ready",
+      "http": {
+        "namespaces_count": 2,
+        "workflow_page_size": 0
+      },
+      "ui": {
+        "port": 18080
+      }
+    },
+    {
+      "event": "actual-nexus-result-through-temporal-instance",
+      "node": "a",
+      "result": {
+        "endpoint": "xenon-fuzz",
+        "history_shards_verified": 4,
+        "namespace_id": "be69b47b-20bc-4bf5-b692-11823cb4246b",
+        "runs": {
+          "xenon-nexus-readiness-f0743a59-6b95-4d0d-aa1f-91fa5c131770-0": "01a078b3-7d8d-7dcb-924f-9e0ec496cfd7",
+          "xenon-nexus-readiness-f0743a59-6b95-4d0d-aa1f-91fa5c131770-1": "01a078b3-776d-774f-8065-afdd7714ba35",
+          "xenon-nexus-readiness-f0743a59-6b95-4d0d-aa1f-91fa5c131770-3": "01a078b3-7ef3-770c-9987-8b6b04112a4f",
+          "xenon-nexus-readiness-f0743a59-6b95-4d0d-aa1f-91fa5c131770-4": "01a078b3-7bf4-748c-b028-e074c5837c64"
+        },
+        "scope": "actual named endpoint resolution and synchronous worker operation before fuzz",
+        "task_queue": "omes-xenon-ministack-fuzz"
+      }
+    },
+    {
+      "event": "actual-nexus-result-through-temporal-instance",
+      "node": "b",
+      "result": {
+        "endpoint": "xenon-fuzz",
+        "history_shards_verified": 4,
+        "namespace_id": "be69b47b-20bc-4bf5-b692-11823cb4246b",
+        "runs": {
+          "xenon-nexus-readiness-e8d6f3bf-ea87-4f38-9d29-7a7f25c60b81-0": "01a078b3-8108-7795-b6c3-d0706b44dab2",
+          "xenon-nexus-readiness-e8d6f3bf-ea87-4f38-9d29-7a7f25c60b81-1": "01a078b3-828a-75ad-9ef9-5e91412a7464",
+          "xenon-nexus-readiness-e8d6f3bf-ea87-4f38-9d29-7a7f25c60b81-2": "01a078b3-8411-70c3-90bd-2b0566636e93",
+          "xenon-nexus-readiness-e8d6f3bf-ea87-4f38-9d29-7a7f25c60b81-5": "01a078b3-866e-72b7-993b-8466fc74fede"
+        },
+        "scope": "actual named endpoint resolution and synchronous worker operation before fuzz",
+        "task_queue": "omes-xenon-ministack-fuzz"
+      }
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 0,
+      "input": 0,
+      "elapsed_seconds": 0.8221985420022975
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 1,
+      "input": 1,
+      "elapsed_seconds": 16.814217874998576
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 2,
+      "input": 2,
+      "elapsed_seconds": 26.78418850000162
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 3,
+      "input": 3,
+      "elapsed_seconds": 36.90027491700312
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 4,
+      "input": 4,
+      "elapsed_seconds": 40.08971641700191
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 5,
+      "input": 5,
+      "elapsed_seconds": 49.76915766700404
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 6,
+      "input": 6,
+      "elapsed_seconds": 55.45810995899956
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 7,
+      "input": 7,
+      "elapsed_seconds": 56.68705449999834
+    },
+    {
+      "event": "fault-started",
+      "action": "join-c",
+      "elapsed_seconds": 60.090714709003805
+    },
+    {
+      "event": "active-fuzz-before-fault",
+      "action": "join-c",
+      "visibility": {
+        "count": 2
+      }
+    },
+    {
+      "event": "agent-schema-ready",
+      "node": "c",
+      "address": "127.0.0.1:21233",
+      "observation": {
+        "ready": true,
+        "namespace": "xenon-ministack",
+        "attributes": {
+          "KS_Int": 3,
+          "KS_Keyword": 2,
+          "OmesExecutionID": 2,
+          "XenonProof": 2
+        },
+        "query": "XenonProof = 'xenon-schema-readiness' AND OmesExecutionID = 'xenon-schema-readiness' AND KS_Keyword = 'xenon-schema-readiness' AND KS_Int = 0",
+        "count": 0
+      }
+    },
+    {
+      "event": "agent-healthy",
+      "node": "c",
+      "pid": 28038
+    },
+    {
+      "event": "joined-agent-served-assigned-partition",
+      "node": "nod_0000000000000000000003",
+      "partition": "matching",
+      "physical_partition": "prt_0000000000000000000002",
+      "generation": 3
+    },
+    {
+      "event": "fault-completed",
+      "action": "join-c",
+      "elapsed_seconds": 64.57338541700301
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 8,
+      "input": 8,
+      "elapsed_seconds": 77.01913749999949
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 9,
+      "input": 9,
+      "elapsed_seconds": 88.15824699999939
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 10,
+      "input": 10,
+      "elapsed_seconds": 88.87569320900366
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 11,
+      "input": 11,
+      "elapsed_seconds": 103.84374583399767
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 12,
+      "input": 12,
+      "elapsed_seconds": 111.62949562499853
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 13,
+      "input": 13,
+      "elapsed_seconds": 119.76920954199886
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 14,
+      "input": 14,
+      "elapsed_seconds": 125.63406874999782
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 15,
+      "input": 15,
+      "elapsed_seconds": 131.73053300000174
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 16,
+      "input": 16,
+      "elapsed_seconds": 141.3485744999998
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 17,
+      "input": 17,
+      "elapsed_seconds": 143.81941512499907
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 18,
+      "input": 18,
+      "elapsed_seconds": 146.7159166249985
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 19,
+      "input": 19,
+      "elapsed_seconds": 150.34082920900255
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 20,
+      "input": 0,
+      "elapsed_seconds": 151.0503411250029
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 21,
+      "input": 1,
+      "elapsed_seconds": 168.12924741700408
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 22,
+      "input": 2,
+      "elapsed_seconds": 186.01538312499906
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 23,
+      "input": 3,
+      "elapsed_seconds": 197.17703054199956
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 24,
+      "input": 4,
+      "elapsed_seconds": 200.90556004200334
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 25,
+      "input": 5,
+      "elapsed_seconds": 207.5232778339996
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 26,
+      "input": 6,
+      "elapsed_seconds": 213.48909991700202
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 27,
+      "input": 7,
+      "elapsed_seconds": 214.40766595899913
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 28,
+      "input": 8,
+      "elapsed_seconds": 222.67325758399966
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 29,
+      "input": 9,
+      "elapsed_seconds": 234.9835143340024
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 30,
+      "input": 10,
+      "elapsed_seconds": 236.38478116699844
+    },
+    {
+      "event": "fault-started",
+      "action": "kill-b",
+      "elapsed_seconds": 240.06666379200033
+    },
+    {
+      "event": "active-fuzz-before-fault",
+      "action": "kill-b",
+      "visibility": {
+        "count": 1
+      }
+    },
+    {
+      "event": "fault-completed",
+      "action": "kill-b",
+      "elapsed_seconds": 252.84609083399846
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 31,
+      "input": 11,
+      "elapsed_seconds": 261.8410661250018
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 32,
+      "input": 12,
+      "elapsed_seconds": 271.1310601669975
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 33,
+      "input": 13,
+      "elapsed_seconds": 280.2685374590001
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 34,
+      "input": 14,
+      "elapsed_seconds": 287.22676208399935
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 35,
+      "input": 15,
+      "elapsed_seconds": 293.56202266699984
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 36,
+      "input": 16,
+      "elapsed_seconds": 305.0136414169974
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 37,
+      "input": 17,
+      "elapsed_seconds": 308.9057027919989
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 38,
+      "input": 18,
+      "elapsed_seconds": 311.83485083399864
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 39,
+      "input": 19,
+      "elapsed_seconds": 318.0922526670038
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 40,
+      "input": 0,
+      "elapsed_seconds": 318.8088082090035
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 41,
+      "input": 1,
+      "elapsed_seconds": 340.9287190840041
+    },
+    {
+      "event": "fuzz-completed",
+      "index": 42,
+      "input": 2,
+      "elapsed_seconds": 352.5012446670007
+    },
+    {
+      "event": "fault-started",
+      "action": "restart-b",
+      "elapsed_seconds": 360.0898490000036
+    },
+    {
+      "event": "active-fuzz-before-fault",
+      "action": "restart-b",
+      "visibility": {
+        "count": 1
+      }
+    }
+  ],
+  "workflow": null
+}

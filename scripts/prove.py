@@ -127,16 +127,16 @@ def command(spec):
     if runner == "go-test-trace-adapter":
         if not spec["exact"] or spec["filter"] != "TestRPCTraceInvocationAndAttempts":
             raise ValueError("unregistered trace adapter proof")
-        return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/temporal/adapter", "-run", "^" + spec["filter"] + "$"]
     if runner in ("go-test-observer", "go-test-observer-adapter"):
         names = ("TestObserverConcurrentRegistration", "TestObserverConfiguration") if runner == "go-test-observer" else ("TestRecorderAdapterTimingAndLoss",)
         if not spec["exact"] or spec["filter"] not in names:
             raise ValueError("unregistered observer proof")
-        return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace" if runner == "go-test-observer" else "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/rpctrace" if runner == "go-test-observer" else "./internal/temporal/adapter", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-fanout":
         if not spec["exact"] or spec["filter"] != "TestVisibilityIndependentFanout":
             raise ValueError("unregistered visibility fanout proof")
-        return ["go", "test", "-race", "-json", "-count=1", "./internal/adapter", "-run", "^TestVisibilityIndependentFanout$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./internal/temporal/adapter", "-run", "^TestVisibilityIndependentFanout$"]
     if runner == "go-test-mixed-oracle":
         if not spec["exact"] or spec["filter"] not in ("TestMixedSemantics", "TestMixedNexus", "TestMixedNexusCanceled"):
             raise ValueError("unregistered mixed oracle control")
@@ -180,7 +180,7 @@ def command(spec):
     if runner == "go-test-factory":
         if not spec["exact"] or spec["filter"] != "TestVisibilityFactoryConfiguration":
             raise ValueError("unregistered factory configuration test")
-        return ["go", "test", "-json", "-count=1", "./internal/temporalstore", "-run", "^" + spec["filter"] + "$"]
+        return ["go", "test", "-json", "-count=1", "./internal/temporal/adapter", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-visibility":
         if not spec["exact"] or spec["filter"] not in ("TestVisibilityTypedEvaluation", "TestTextPostgreSQLOracle", "TestVisibilitySystemTimeSentinel", "TestVisibilityCustomTimeRounding"):
             raise ValueError("unregistered visibility value test")
@@ -195,12 +195,12 @@ def command(spec):
     if runner == "go-test-shard":
         if not spec["exact"] or spec["filter"] not in ("TestRPCTraceInvocationAndAttempts", "TestShardRPC", "TestShardTransportBoundsAndTypes", "TestNamespaceRPC", "TestNamespaceByteBoundedPagination", "TestQueueRPC", "TestQueueByteBoundedPagination", "TestQueueRemoteCancellation", "TestHistoryRPC", "TestHistoryTimeoutTypes", "TestHistoryByteBoundedPagination", "TestNexusTransport", "TestExecutionRPC", "TestExecutionTasksRPC", "TestExecutionTasksUpstream", "TestHistoryTasksRPC", "TestHistoryPartitionDeadline", "TestHistoryPartitionInvalidCursor", "TestVisibilityRPC", "TestVisibilityUpstream"):
             raise ValueError("unregistered Go test")
-        return ["go", "test", "-json", "-count=1", "./internal/adapter", "-run", "^" + spec["filter"] + "$"]
+        return ["go", "test", "-json", "-count=1", "./internal/temporal/adapter", "-run", "^" + spec["filter"] + "$"]
     package = "xenon-node" if runner == "cargo-test-node" else "slatedb-probe"
     return ["cargo", "test", "--manifest-path", "test/compatibility/rust/Cargo.toml", "--target-dir", "target", "--locked", "-p", package, "--lib", spec["filter"], "--", *(["--exact"] if spec["exact"] else []), "--nocapture"]
 
 
-def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/adapter"):
+def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/temporal/adapter"):
     events = [json.loads(line) for line in output.splitlines() if line.strip() and not line.startswith("go: downloading ")]
     if any(event.get("Action") in ("skip", "fail") for event in events):
         raise ValueError("Go test skipped or failed")
@@ -397,11 +397,11 @@ def main():
             elif runner == "go-test-outcomes":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/ownership")
             elif runner == "go-test-trace-adapter":
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/temporal/adapter")
             elif runner in ("go-test-observer", "go-test-observer-adapter"):
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace" if runner == "go-test-observer" else "github.com/0x63616c/xenon/internal/adapter")
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace" if runner == "go-test-observer" else "github.com/0x63616c/xenon/internal/temporal/adapter")
             elif runner == "go-test-fanout":
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/adapter")
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/temporal/adapter")
             elif runner == "go-test-mixed-oracle":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/cmd/xenon-omes-oracle")
             elif runner == "go-test-visibility-barrier":
@@ -422,7 +422,7 @@ def main():
             elif runner == "go-test-simulation":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/simulation")
             elif runner in ("go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "go-shard-compat"):
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else ("github.com/0x63616c/xenon/internal/visibility" if runner == "go-test-visibility" else ("github.com/0x63616c/xenon/internal/temporalstore" if runner == "go-test-factory" else "github.com/0x63616c/xenon/internal/adapter")))
+                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else ("github.com/0x63616c/xenon/internal/visibility" if runner == "go-test-visibility" else "github.com/0x63616c/xenon/internal/temporal/adapter"))
                 binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") else "target/debug/xenon-node")
                 if runner == "go-shard-compat" and digest(ROOT / "target/debug/xenon-node") != report["rust_node_binary_sha256"]:
                     raise ValueError("Rust reference binary changed during test")

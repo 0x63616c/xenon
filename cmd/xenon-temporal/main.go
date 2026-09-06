@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/0x63616c/xenon/internal/temporalstore"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"go.temporal.io/server/temporal"
 )
 
@@ -33,7 +33,7 @@ func main() {
 		fmt.Println("TEMPORAL_CONFIG_VALID")
 		return
 	}
-	server, e := temporal.NewServer(temporal.WithServerConfigFilePath(*path), temporal.WithCustomDataStoreFactory(temporalstore.AbstractFactory{}), temporal.WithCustomVisibilityStoreFactory(temporalstore.VisibilityFactory{}), temporal.ForServices(temporal.DefaultServices))
+	server, e := temporal.NewServer(temporal.WithServerConfigFilePath(*path), temporal.WithCustomDataStoreFactory(adapter.AbstractFactory{}), temporal.WithCustomVisibilityStoreFactory(adapter.VisibilityFactory{}), temporal.ForServices(temporal.DefaultServices))
 	if e != nil {
 		log.Fatal(e)
 	}

@@ -6,10 +6,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/partitions"
-	"github.com/0x63616c/xenon/internal/replay"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -110,7 +109,7 @@ func (s *Service) operationJournal(ctx context.Context, operation partitions.Ope
 		return nil, err
 	}
 	defer tx.Abort()
-	return replay.Run(replay.Effects{
+	return RunReplay(ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return tx.Get(ctx, []byte(key)) },
 		Put:     func(key string, value []byte) error { return tx.Put([]byte(key), value) },
 		Apply:   func() (*wire.StoredOutcome, error) { return apply(tx) },

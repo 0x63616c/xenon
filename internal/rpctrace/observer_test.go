@@ -3,6 +3,11 @@ package rpctrace
 import (
 	"bytes"
 	"context"
+	"go.temporal.io/api/serviceerror"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"net/http/httptest"
 	"path/filepath"
 	"sync"
@@ -74,5 +79,46 @@ func TestObserverConfiguration(t *testing.T) {
 	}
 	if err = sink.Close(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestTerminalObserverFailurePreservesOperationUnknown(t *testing.T) {
+	r, err := recorder.New(filepath.Join(t.TempDir(), "journal"), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err = r.Accept(recorder.Event{Kind: "open", Phase: "steady", Status: "steady"}); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(r)
+	defer server.Close()
+	o, err := NewObserver(server.URL, "producer", "steady")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, finish, err := BeginObserved(WithObserver(context.Background(), o), "shard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ObservationError(ctx) != nil {
+		t.Fatal("active invocation mistaken for failed observer")
+	}
+	original, _ := status.New(codes.Unavailable, "durable outcome unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	attempt := observedUnary(ctx, ctx.Value(observedKey{}).(*observedInvocation), "method", nil, nil, nil, func(context.Context, string, any, any, *grpc.ClientConn, ...grpc.CallOption) error {
+		o.failed.Store(true)
+		return original.Err()
+	})
+	attemptStatus := status.Convert(attempt)
+	if len(attemptStatus.Details()) != 1 {
+		t.Fatal("attempt reporting erased unknown", attempt)
+	}
+	if ObservationError(ctx) == nil {
+		t.Fatal("terminal failure missing")
+	}
+	returned := finish(serviceerror.FromStatus(attemptStatus))
+	st := serviceerror.ToStatus(returned)
+	if st.Code() != codes.Unavailable || len(st.Details()) != 1 || st.Details()[0].(*errdetails.ErrorInfo).Reason != "UNKNOWN_OUTCOME" {
+		t.Fatal("observer failure erased ambiguity", returned)
 	}
 }

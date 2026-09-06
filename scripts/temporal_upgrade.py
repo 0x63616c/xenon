@@ -8,11 +8,11 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 SEAMS = [
-    ('persistence', ('common/persistence/',), ['internal/adapter', 'internal/node', 'internal/temporalstore'], ['go-runtime-stores']),
-    ('serialization', ('api/persistence/', 'proto/internal/', 'common/codec/', 'common/primitives/', 'common/converter/'), ['proto/xenon/v1', 'internal/adapter/execution_codec.go', 'internal/node'], ['go-runtime-stores', 'go-visibility']),
+    ('persistence', ('common/persistence/',), ['internal/temporal/adapter', 'internal/node'], ['go-runtime-stores']),
+    ('serialization', ('api/persistence/', 'proto/internal/', 'common/codec/', 'common/primitives/', 'common/converter/'), ['api/xenon/v1', 'internal/temporal/adapter/execution_codec.go', 'internal/node'], ['go-runtime-stores', 'go-visibility']),
     ('schema', ('schema/',), ['internal/node', 'docs/research'], ['go-runtime-stores', 'go-visibility']),
-    ('visibility', ('common/persistence/visibility/', 'common/searchattribute/',), ['internal/query', 'internal/visibility', 'internal/adapter/visibility.go'], ['go-visibility', 'go-visibility-frozen']),
-    ('server-integration', ('temporal/', 'common/config/', 'service/',), ['internal/temporalstore', 'cmd', 'test/scenarios/ministack'], ['go-runtime-stores']),
+    ('visibility', ('common/persistence/visibility/', 'common/searchattribute/',), ['internal/query', 'internal/visibility', 'internal/temporal/adapter/visibility.go'], ['go-visibility', 'go-visibility-frozen']),
+    ('server-integration', ('temporal/', 'common/config/', 'service/',), ['internal/temporal', 'internal/temporal/adapter', 'cmd', 'test/scenarios/ministack'], ['go-runtime-stores']),
     ('dependencies', ('go.mod', 'go.sum'), ['go.mod', 'go.sum', 'tools', 'test/scenarios/ministack'], ['go-runtime-stores', 'go-visibility']),
 ]
 

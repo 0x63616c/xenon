@@ -223,8 +223,8 @@ class RunnerTests(unittest.TestCase):
             prove.command({"runner": "go-test-shard", "filter": "Unknown", "exact": True, "expected_tests": ["Unknown"]})
         import json
         passed = [
-            {"Action": "pass", "Test": "TestShardRPC", "Package": "github.com/0x63616c/xenon/internal/adapter"},
-            {"Action": "pass", "Package": "github.com/0x63616c/xenon/internal/adapter"},
+            {"Action": "pass", "Test": "TestShardRPC", "Package": "github.com/0x63616c/xenon/internal/temporal/adapter"},
+            {"Action": "pass", "Package": "github.com/0x63616c/xenon/internal/temporal/adapter"},
         ]
         output = "\n".join(json.dumps(event) for event in passed)
         prove.verify_go_tests(output, ["TestShardRPC"])

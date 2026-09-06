@@ -42,7 +42,7 @@ def main():
                 if time.monotonic()>=deadline: raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
         execute(["aws","--endpoint-url",cfg["endpoint"],"s3api","create-bucket","--bucket",cfg["bucket"]],env)
-        completed = subprocess.run(["go","test","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/adapter","-run","^TestShardStoredCompatibility$"],cwd=ROOT,env=env,timeout=200)
+        completed = subprocess.run(["go","test","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/temporal/adapter","-run","^TestShardStoredCompatibility$"],cwd=ROOT,env=env,timeout=200)
         if completed.returncode: raise RuntimeError("cross-language compatibility assertion failed")
     finally:
         execute([*compose,"down","--volumes"],env)

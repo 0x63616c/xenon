@@ -5,10 +5,9 @@ import (
 	"context"
 	"crypto/sha256"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/cluster"
 	"github.com/0x63616c/xenon/internal/identity"
-	"github.com/0x63616c/xenon/internal/replay"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,7 +83,7 @@ func (s *VisibilityService) Execute(ctx context.Context, request *wire.Visibilit
 	if err = s.service.authority(ctx); err != nil {
 		return nil, err
 	}
-	stored, err := replay.Run(replay.Effects{
+	stored, err := RunReplay(ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return tx.Get(ctx, []byte(key)) },
 		Put:     func(key string, value []byte) error { return tx.Put([]byte(key), value) },
 		Apply:   func() (*wire.StoredOutcome, error) { return ApplyVisibility(ctx, tx, request.Command) },

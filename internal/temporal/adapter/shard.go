@@ -1,0 +1,129 @@
+// Package adapter implements complete Temporal persistence operations over Xenon RPC.
+package adapter
+
+import (
+	"context"
+	"crypto/sha256"
+	"github.com/0x63616c/xenon/internal/rpctrace"
+	"time"
+
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	commonpb "go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/server/common/persistence"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+)
+
+type ShardStore struct {
+	operations         *operationIDs
+	historyPartitions  []string
+	connection         *grpc.ClientConn
+	client             wire.ShardPersistenceClient
+	partition, cluster string
+	invocationTimeout  time.Duration
+}
+
+var _ persistence.ShardStore = (*ShardStore)(nil)
+
+// NewShardStore creates a wrapper for one configured logical partition. It does
+// not claim dynamic routing or expose a factory for unimplemented stores.
+func NewShardStore(address, partition, cluster string, options ...StoreOption) (*ShardStore, error) {
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(rpctrace.Unary))
+	if err != nil {
+		return nil, err
+	}
+	return &ShardStore{operations: newOperationIDs(options...), connection: conn, client: wire.NewShardPersistenceClient(conn), partition: partition, cluster: cluster, invocationTimeout: 30 * time.Second}, nil
+}
+func (s *ShardStore) Close()                 { _ = s.connection.Close() }
+func (s *ShardStore) GetName() string        { return "xenon" }
+func (s *ShardStore) GetClusterName() string { return s.cluster }
+
+func (s *ShardStore) invoke(ctx context.Context, command *wire.ShardCommand) (traceResult *wire.ShardResult, traceErr error) {
+	ctx, traceFinish, traceBeginErr := rpctrace.BeginObserved(ctx, "shard")
+	if traceBeginErr != nil {
+		return nil, traceBeginErr
+	}
+	defer func() { traceErr = traceFinish(traceErr) }()
+	ctx, cancel := context.WithTimeout(ctx, s.invocationTimeout)
+	defer cancel()
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(payload)
+	partition, routeErr := historyPartition(s.historyPartitions, s.partition, command.ShardId)
+	if routeErr != nil {
+		return nil, routeErr
+	}
+	operation, operationErr := s.operations.next()
+	if operationErr != nil {
+		return nil, operationErr
+	}
+	request := &wire.ShardRequest{ProtocolVersion: 1, Partition: partition, OperationId: operation, CommandSha256: digest[:], Command: command}
+	// The identity is allocated once per invocation and retained across transport retries.
+	response, callErr := retryOperation(ctx, func(ctx context.Context) (*wire.ShardResult, error) { return s.client.Execute(ctx, request) })
+	if callErr != nil {
+		return nil, callErr
+	}
+
+	return response, logicalError(response)
+
+}
+func logicalError(result *wire.ShardResult) error {
+	switch result.Error {
+	case wire.ShardResult_NONE:
+		return nil
+	case wire.ShardResult_NOT_FOUND:
+		return serviceerror.NewNotFound(result.Message)
+	case wire.ShardResult_UNAVAILABLE:
+		return serviceerror.NewUnavailable(result.Message)
+	case wire.ShardResult_OWNERSHIP_LOST:
+		return &persistence.ShardOwnershipLostError{ShardID: result.ShardId, Msg: result.Message}
+	default:
+		return serviceerror.NewInternal("unknown Xenon logical error")
+	}
+}
+func (s *ShardStore) GetOrCreateShard(ctx context.Context, request *persistence.InternalGetOrCreateShardRequest) (*persistence.InternalGetOrCreateShardResponse, error) {
+	if request == nil {
+		return nil, serviceerror.NewInvalidArgument("nil shard request")
+	}
+	result, err := s.invoke(ctx, &wire.ShardCommand{Kind: wire.ShardCommand_GET, ShardId: request.ShardID})
+	if err == nil {
+		return shardResponse(result), nil
+	}
+	if _, missing := err.(*serviceerror.NotFound); !missing || request.CreateShardInfo == nil {
+		return nil, err
+	}
+	rangeID, blob, err := request.CreateShardInfo()
+	if err != nil {
+		return nil, serviceerror.NewUnavailablef("GetOrCreateShard: failed to encode shard info for ShardID %v. Error: %v", request.ShardID, err)
+	}
+	if blob == nil {
+		return nil, serviceerror.NewInvalidArgument("nil shard blob")
+	}
+	result, err = s.invoke(ctx, &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: request.ShardID, RangeId: rangeID, Data: blob.Data, Encoding: int32(blob.EncodingType)})
+	if err != nil {
+		return nil, err
+	}
+	return shardResponse(result), nil
+}
+func shardResponse(result *wire.ShardResult) *persistence.InternalGetOrCreateShardResponse {
+	return &persistence.InternalGetOrCreateShardResponse{ShardInfo: &commonpb.DataBlob{Data: result.Data, EncodingType: enumspb.EncodingType(result.Encoding)}}
+}
+func (s *ShardStore) UpdateShard(ctx context.Context, request *persistence.InternalUpdateShardRequest) error {
+	if request == nil || request.ShardInfo == nil {
+		return serviceerror.NewInvalidArgument("nil shard request/blob")
+	}
+	_, err := s.invoke(ctx, &wire.ShardCommand{Kind: wire.ShardCommand_UPDATE, ShardId: request.ShardID, PreviousRangeId: request.PreviousRangeID, RangeId: request.RangeID, Owner: request.Owner, Data: request.ShardInfo.Data, Encoding: int32(request.ShardInfo.EncodingType)})
+	return err
+}
+func (s *ShardStore) AssertShardOwnership(ctx context.Context, request *persistence.AssertShardOwnershipRequest) error {
+	if request == nil {
+		return serviceerror.NewInvalidArgument("nil ownership request")
+	}
+	_, err := s.invoke(ctx, &wire.ShardCommand{Kind: wire.ShardCommand_ASSERT, ShardId: request.ShardID, RangeId: request.RangeID})
+	return err
+}

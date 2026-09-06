@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/ownership"
-	"github.com/0x63616c/xenon/internal/replay"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/routing"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -158,7 +158,7 @@ func shardHandler(store *ownership.TopologyStore, node string, d *disk, trace *[
 		}
 		before := len(d.durable["v1/outcome/"+req.OperationId])
 		tx := d.begin()
-		outcome, err := replay.Run(tx.effects(), req.OperationId, req.CommandSha256, 10)
+		outcome, err := persistence.RunReplay(tx.effects(), req.OperationId, req.CommandSha256, 10)
 		if err != nil {
 			return nil, err
 		}

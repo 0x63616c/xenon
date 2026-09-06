@@ -31,7 +31,7 @@ matchingPartition and globalPartition. The four history partitions are fixed bef
 first boot; adding a Xenon node moves a partition rather than changing modulo/count.
 Visibility factory options are address, index and schema_partition; its four locked
 visibility partitions are vis-v1-0 through vis-v1-3. The schema uses global. Factories
-are implemented in internal/temporalstore; their component proofs do not waive
+are implemented in internal/temporal/adapter; their component proofs do not waive
 the runtime assertions.
 
 ## Local topology

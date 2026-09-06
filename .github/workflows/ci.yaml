@@ -83,7 +83,8 @@ jobs:
       - name: Verify generated protobuf bindings match pinned sources
         run: |
           scripts/generate-proto.sh
-          git diff --exit-code -- gen/
+          git diff --exit-code -- api/xenon/v1/
+          go test -race ./api/xenon/v1
       - run: cargo fmt --manifest-path test/compatibility/rust/Cargo.toml --all -- --check
       - run: cargo clippy --manifest-path test/compatibility/rust/Cargo.toml --target-dir target --locked --workspace --all-targets -- -D warnings
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'

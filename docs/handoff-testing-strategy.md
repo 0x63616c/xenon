@@ -41,7 +41,7 @@ Do not create a second simulated Xenon implementation. The existing production s
 Run:
 
 ```sh
-GOTOOLCHAIN=go1.27.1 go test -count=1 -v ./internal/replay ./internal/simulation
+GOTOOLCHAIN=go1.27.1 go test -count=1 -v ./internal/persistence ./internal/simulation
 python3 scripts/prove.py simulation
 ```
 
@@ -69,8 +69,8 @@ There is an uncommitted readiness patch in:
 - `internal/ownership/manager.go`
 - `internal/ownership/manager_test.go`
 - `internal/ownership/readiness_test.go`
-- `internal/storage/runtime.go`
-- `internal/storage/runtime_test.go`
+- `internal/app/legacy_storage.go`
+- `internal/app/bootstrap_test.go`
 
 The patch was generated with Codex Spark and is not ready to commit. It needs an independent review and correct MinIO-backed integration execution. Previous review identified topology ABA handling, route-change detection, fatal/listener rechecks during readiness retry, mutable test hooks, and missing production-Manager coverage. Inspect the current diff because the follow-up edit may still contain duplicate resolution work and timing-sensitive tests.
 

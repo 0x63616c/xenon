@@ -33,7 +33,7 @@ func run() error {
 	query := flag.String("query", "", "visibility query")
 	cluster := flag.String("cluster", "active", "Temporal cluster identity for search-slot bootstrap")
 	expectedCount := flag.Int("expected-count", 1, "exact expected visible rows")
-	mode := flag.String("mode", "", "bootstrap, worker, start, phase, control or verify")
+	mode := flag.String("mode", "", "bootstrap, schema-ready, worker, start, phase, control or verify")
 	address := flag.String("address", "127.0.0.1:17233", "stable Temporal endpoint")
 	namespace := flag.String("namespace", "xenon-ministack", "namespace")
 	id := flag.String("workflow-id", "xenon-durable-workflow-1", "stable workflow ID")
@@ -42,7 +42,7 @@ func run() error {
 	storage := flag.String("storage-address", "127.0.0.1:17935", "stable Xenon ingress")
 	storagePartition := flag.String("storage-partition", "global", "logical partition for low-level routed readiness")
 	output := flag.String("output", "", "existing evidence output directory")
-	readinessTimeout := flag.Duration("readiness-timeout", 60*time.Second, "bounded cold storage readiness budget")
+	readinessTimeout := flag.Duration("readiness-timeout", 60*time.Second, "bounded storage/schema readiness budget")
 	flag.Parse()
 	if *mode == "storage-ready" {
 		return storageReady(*storage, *readinessTimeout)
@@ -50,7 +50,14 @@ func run() error {
 	if *mode == "partition-ready" {
 		return partitionReady(*storage, *storagePartition, *readinessTimeout)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	budget := 5 * time.Minute
+	if *mode == "schema-ready" || *mode == "failure-history" {
+		if *readinessTimeout <= 0 {
+			return fmt.Errorf("schema readiness requires a positive budget")
+		}
+		budget = *readinessTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	c, e := client.DialContext(ctx, client.Options{HostPort: *address, Namespace: *namespace})
 	if e != nil {
@@ -59,6 +66,14 @@ func run() error {
 	defer c.Close()
 	emit := func(value any) error { return json.NewEncoder(os.Stdout).Encode(value) }
 	switch *mode {
+	case "failure-history":
+		return captureFailureHistory(ctx, c.WorkflowService(), *namespace, *id, *runID, emit)
+	case "schema-ready":
+		result, err := schemaReadiness(ctx, c.OperatorService(), c.WorkflowService(), *namespace)
+		if err != nil {
+			return err
+		}
+		return emit(result)
 	case "movement-identity":
 		description, err := c.WorkflowService().DescribeNamespace(ctx, &workflowservice.DescribeNamespaceRequest{Namespace: *namespace})
 		if err != nil {
@@ -112,7 +127,7 @@ func run() error {
 		if e = seedClusterSearchAttributes(ctx, *storage, *cluster); e != nil {
 			return e
 		}
-		_, e = c.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{Namespace: *namespace, SearchAttributes: map[string]enumspb.IndexedValueType{"XenonProof": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "OmesExecutionID": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Keyword": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Int": enumspb.INDEXED_VALUE_TYPE_INT}})
+		_, e = c.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{Namespace: *namespace, SearchAttributes: requiredWorkloadSchema()})
 		if _, exists := e.(*serviceerror.AlreadyExists); exists {
 			e = nil
 		}

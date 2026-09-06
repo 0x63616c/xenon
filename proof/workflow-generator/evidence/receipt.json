@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "source_revision": "2eca91435b8e77ae908716ae00a1ccdbf6370046",
+  "modified": false,
+  "toolchain": "go1.27.1",
+  "binary_sha256": "d52673af7a9d7bc7f9861811ac70e7a02d2d4b976e954455e2ab76039aaa2899",
+  "generator_build_source": "37f58dfb95ce10a91a915d4fb0770cd4505c9f14",
+  "generator_manifest_sha256": "20566bc19a15fcc8c95bb357939c4ae0095cf66ea86056a34bcc606817e5c289",
+  "generated_cases": 3,
+  "case_hashes": {
+    "case-00000000000000000000": "5ff811587854803ed753ee6b85d9151089d17356daf097fa1a418742153fb097",
+    "case-00000000000000000001": "ae182dae93547e9a3c783f12227ef01f843b2b3fba3f5f139d3be3f944c9bd17",
+    "case-00000000000000000002": "21ab1e0e9f07003b9484ee4c47c94d1902eefae0101845277e3ca2b0844790e7"
+  },
+  "saved_case_sha256": "5ff811587854803ed753ee6b85d9151089d17356daf097fa1a418742153fb097",
+  "replay_trace_sha256": "ba0a80b3ba81a7fabe441e90e1d012587f2242278c3fa10a83e0269a57760760",
+  "replay_generator_invoked": false,
+  "runtime_executed": false,
+  "fault_exploration": false,
+  "qualification": "fresh normalized workflow input preparation and exact artifact replay only",
+  "actual_tool_seed_checks": [
+    1,
+    42,
+    2026090701
+  ]
+}

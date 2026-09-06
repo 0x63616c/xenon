@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/0x63616c/xenon/internal/adapter"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	enumspb "go.temporal.io/api/enums/v1"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	"go.temporal.io/server/common/log"

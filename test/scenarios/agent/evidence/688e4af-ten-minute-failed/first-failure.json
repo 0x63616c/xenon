@@ -1,0 +1,93 @@
+{
+  "error": "ScenarioInvariant: terminal Omes iteration failure; see /private/tmp/xenon-cluster-control-20260906/.local/evidence/cli-ten-minute-688e4af/run/command-37.log",
+  "events": [
+    {
+      "event": "agent-healthy",
+      "node": "a",
+      "pid": 1003
+    },
+    {
+      "event": "agent-healthy",
+      "node": "b",
+      "pid": 1225
+    },
+    {
+      "event": "agent-schema-ready",
+      "node": "a",
+      "address": "127.0.0.1:18233",
+      "observation": {
+        "ready": true,
+        "namespace": "xenon-ministack",
+        "attributes": {
+          "KS_Int": 3,
+          "KS_Keyword": 2,
+          "OmesExecutionID": 2,
+          "XenonProof": 2
+        },
+        "query": "XenonProof = 'xenon-schema-readiness' AND OmesExecutionID = 'xenon-schema-readiness' AND KS_Keyword = 'xenon-schema-readiness' AND KS_Int = 0",
+        "count": 0
+      }
+    },
+    {
+      "event": "agent-schema-ready",
+      "node": "b",
+      "address": "127.0.0.1:19233",
+      "observation": {
+        "ready": true,
+        "namespace": "xenon-ministack",
+        "attributes": {
+          "KS_Int": 3,
+          "KS_Keyword": 2,
+          "OmesExecutionID": 2,
+          "XenonProof": 2
+        },
+        "query": "XenonProof = 'xenon-schema-readiness' AND OmesExecutionID = 'xenon-schema-readiness' AND KS_Keyword = 'xenon-schema-readiness' AND KS_Int = 0",
+        "count": 0
+      }
+    },
+    {
+      "event": "temporal-http-and-ui-ready",
+      "http": {
+        "namespaces_count": 2,
+        "workflow_page_size": 0
+      },
+      "ui": {
+        "port": 18080
+      }
+    },
+    {
+      "event": "actual-nexus-result-through-temporal-instance",
+      "node": "a",
+      "result": {
+        "endpoint": "xenon-fuzz",
+        "history_shards_verified": 4,
+        "namespace_id": "e704f324-bf31-4583-a793-c5f6947866d5",
+        "runs": {
+          "xenon-nexus-readiness-16c0b4d0-c848-432b-8c5e-77c20b50eb9b-0": "01a078a2-3ce8-721b-973b-e772f839dc8a",
+          "xenon-nexus-readiness-16c0b4d0-c848-432b-8c5e-77c20b50eb9b-1": "01a078a2-3102-719a-8e38-90da2b0b039a",
+          "xenon-nexus-readiness-16c0b4d0-c848-432b-8c5e-77c20b50eb9b-2": "01a078a2-11bc-7a0a-9661-11c46ef32b5a",
+          "xenon-nexus-readiness-16c0b4d0-c848-432b-8c5e-77c20b50eb9b-4": "01a078a2-495b-7b8d-808e-a9e56d58e141"
+        },
+        "scope": "actual named endpoint resolution and synchronous worker operation before fuzz",
+        "task_queue": "omes-xenon-ministack-fuzz"
+      }
+    },
+    {
+      "event": "actual-nexus-result-through-temporal-instance",
+      "node": "b",
+      "result": {
+        "endpoint": "xenon-fuzz",
+        "history_shards_verified": 4,
+        "namespace_id": "e704f324-bf31-4583-a793-c5f6947866d5",
+        "runs": {
+          "xenon-nexus-readiness-e0b0dd71-0c9f-4d9d-9b2e-09d6b5fd4e93-0": "01a078a2-59d2-79c0-a403-e70c973a45af",
+          "xenon-nexus-readiness-e0b0dd71-0c9f-4d9d-9b2e-09d6b5fd4e93-1": "01a078a2-668f-7530-aeb9-d92b5bbae06e",
+          "xenon-nexus-readiness-e0b0dd71-0c9f-4d9d-9b2e-09d6b5fd4e93-12": "01a078a2-8083-787f-90f2-5fde4647dae1",
+          "xenon-nexus-readiness-e0b0dd71-0c9f-4d9d-9b2e-09d6b5fd4e93-2": "01a078a2-7417-718a-a9af-2d6cec5b705d"
+        },
+        "scope": "actual named endpoint resolution and synchronous worker operation before fuzz",
+        "task_queue": "omes-xenon-ministack-fuzz"
+      }
+    }
+  ]
+}

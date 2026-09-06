@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 	"crypto/sha256"
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"google.golang.org/protobuf/proto"
 	"math"
 	native "slatedb.io/slatedb-go/uniffi"

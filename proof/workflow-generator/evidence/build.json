@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "prepared": true,
+  "runtime_executed": false,
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "scripts/prepare-corrected-omes.py",
+        "--source",
+        "/private/tmp/xenon-cluster-control-20260906/.local/omes-source",
+        "--output",
+        "/private/tmp/xenon-fresh-workflow-generator-20260906/.local/generator-bundle/worker"
+      ],
+      "timeout_seconds": 1200,
+      "started_unix": 1788730387.051616,
+      "log": "command-0.log",
+      "timed_out": false,
+      "exit_code": 0,
+      "duration_seconds": 12.377787834004266,
+      "log_sha256": "e46c7a4a25eb77b7e10d39037c7d9f2310071b07a15949a9e79b6be05f078c96"
+    },
+    {
+      "argv": [
+        "rustc",
+        "+1.94.0",
+        "--version"
+      ],
+      "timeout_seconds": 30,
+      "started_unix": 1788730399.572263,
+      "log": "command-1.log",
+      "timed_out": false,
+      "exit_code": 0,
+      "duration_seconds": 0.4375153750006575,
+      "log_sha256": "180811dbcf1bba74093ba8715adf0136827be3e386a68eb2d066b446d2a47d1b"
+    },
+    {
+      "argv": [
+        "cargo",
+        "+1.94.0",
+        "build",
+        "--locked",
+        "--manifest-path",
+        "/private/tmp/xenon-fresh-workflow-generator-20260906/.local/generator-bundle/generator-source/loadgen/kitchen-sink-gen/Cargo.toml"
+      ],
+      "timeout_seconds": 1200,
+      "started_unix": 1788730400.0100229,
+      "log": "command-2.log",
+      "timed_out": false,
+      "exit_code": 0,
+      "duration_seconds": 17.534607417001098,
+      "log_sha256": "629695c836b4533ac1b41e7240f37a6c947cc88e1fb0494e9c572220f8e22e66"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-buildvcs=false",
+        "-o",
+        "/private/tmp/xenon-fresh-workflow-generator-20260906/.local/generator-bundle/normalize",
+        "normalize_xenon.go",
+        "inspect_xenon.go"
+      ],
+      "timeout_seconds": 1200,
+      "started_unix": 1788730417.654339,
+      "log": "command-3.log",
+      "timed_out": false,
+      "exit_code": 0,
+      "duration_seconds": 1.0705967500034603,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "source_commit": "37f58dfb95ce10a91a915d4fb0770cd4505c9f14",
+  "generator_manifest_sha256": "20566bc19a15fcc8c95bb357939c4ae0095cf66ea86056a34bcc606817e5c289",
+  "worker_manifest_sha256": "d77954a45063737cfb429ab20b89ef29287e6021012231cd14824fdee47ca2f1"
+}

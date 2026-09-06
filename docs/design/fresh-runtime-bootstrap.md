@@ -94,7 +94,7 @@ runtime activation, not a promise made by preparation.
 
 ## Repeatable evidence
 
-Run `go test -race ./internal/agent ./internal/storage` with the pinned native
+Run `go test -race ./internal/app` with the pinned native
 library environment, or run the full bootstrap proof:
 
 ```

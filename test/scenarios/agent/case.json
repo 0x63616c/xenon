@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "scope": "combined agent SDK and Omes workflows, Temporal HTTP/UI surfaces, automatic join, process restart and cold history recovery; not full acceptance",
+  "scope": "format2 shared-storage service runtime: combined SDK and Omes workflows, Temporal HTTP/UI surfaces, observed automatic ownership movement, process restart and cold history recovery; not full ten-minute/Nexus/capacity acceptance",
   "agents": [
     "a",
     "b",
@@ -45,5 +45,7 @@
     "python3",
     "scripts/agent-smoke.py"
   ],
-  "timeout_seconds": 900
+  "timeout_seconds": 900,
+  "control_key": "agent/metadata/registry/cluster/control",
+  "failure_diagnostics_seconds": 15
 }

@@ -22,7 +22,8 @@
     "test/scenarios/integration/native-engine/case.json",
     "test/scenarios/integration/native-engine/README.md",
     "test/scenarios/integration/native-engine/negative-controls.py",
-    "scripts/test_prove.py"
+    "scripts/test_prove.py",
+    "internal/partitions/slatedb/settings_test.go"
   ],
   "fault_schedule": "test/scenarios/integration/native-engine/case.json; bounded native test transitions; manual WAL flush disables native flush timer for pending durability cases.",
   "assertions": [
@@ -58,7 +59,8 @@
         "TestNativeEngineCanceledBeforeDispatch",
         "TestNativeEngineOpen",
         "TestNativeEngineCanceledReadRetains",
-        "TestNativeEngineCanceledOpenRetains"
+        "TestNativeEngineCanceledOpenRetains",
+        "TestNativeConfiguredFlushSettingsAndReplacement"
       ]
     }
   ]

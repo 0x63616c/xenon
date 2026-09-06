@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
-	"github.com/0x63616c/xenon/internal/adapter"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"

@@ -273,7 +273,7 @@ Inspected baseline: `fc4180d9b73c7d39dcdc0790f8d876ee10798ea1`, with existing un
 
 - `internal/ownership/membership.go`: Step already accepts explicit time; manager polling and native admission/close in `internal/ownership/manager.go` and `internal/node/shard.go` still use real timers.
 - Baseline `internal/routing/router.go` forwarded recursively under two-hop/two-attempt bounds and broadly retried `Unavailable`. The service batch below replaces this behavior; expected-owner wire metadata remains open.
-- `internal/replay/replay.go`: shared durable replay decisions, changed-digest rejection, nonempty replay barrier and bounded capacity are reuse points.
+- `internal/persistence/replay.go`: shared durable replay decisions, changed-digest rejection, nonempty replay barrier and bounded capacity are reuse points.
 - `internal/node/shard.go` and `internal/node/journal.go`: native commit waits on `AwaitDurable`; caller timeout quarantines the writer while native work retains its gate. Preserve and exercise these resource rules through the new seam.
 - `internal/simulation/README.md`: current coupled scenario excludes production Manager/native lifecycle and broader timer/effect scheduling. It is not this proposed full DST boundary.
 - `go.mod`: toolchain Go 1.27.1, Temporal Server 1.31.2, SlateDB Go 0.16.0 and gRPC 1.83.2 are current declared pins. Verify fetched/native/build artifacts when running experiments.

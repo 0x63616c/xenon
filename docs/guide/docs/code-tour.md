@@ -15,9 +15,9 @@ The unified command uses the committed runtime controller and probes through exp
 
 ## From interface to operation
 
-`internal/temporalstore/` implements the factory seam. Execution configuration selects a stable service address, an ordered `historyPartitions` list, a `matchingPartition` and a `globalPartition`. Visibility has its own factory and index/schema options.
+`internal/temporal/adapter/` implements the factory seam. Execution configuration selects a stable service address, an ordered `historyPartitions` list, a `matchingPartition` and a `globalPartition`. Visibility has its own factory and index/schema options.
 
-`internal/adapter/` implements the pinned persistence interfaces, serializes typed requests, normalizes errors and preserves operation identity across retries. `proto/` declares the wire contracts; `gen/` contains the generated Go bindings. Durable outcome variants distinguish operation families.
+`internal/temporal/adapter/` implements the pinned persistence interfaces, serializes typed requests, normalizes errors and preserves operation identity across retries. `proto/` declares the wire contracts; `gen/` contains the generated Go bindings. Durable outcome variants distinguish operation families.
 
 `internal/node/` implements the operation families and shared owner lifecycle. Read the relevant handler with its tests. Validation order, conditional errors, rollback and page-token semantics are part of the compatibility contract, not incidental SQL behavior to simplify away.
 

@@ -1,0 +1,8 @@
+{
+  "log": "a.log",
+  "sha256": "0efeb7a9861eeed0427caa6e1716fd2f22f96ae0849d967a0b7853ad631a530e",
+  "last_lines": [
+    "agent health: context deadline exceeded",
+    "process exit required"
+  ]
+}

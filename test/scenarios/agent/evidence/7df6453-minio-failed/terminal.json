@@ -1,0 +1,8 @@
+{
+  "log": "a-cold.log",
+  "sha256": "cce032be3f07b1018fe101353cab2b501ed954ec7c98f68f07fa468707aa8448",
+  "last_lines": [
+    "{\"xenon\":\"v0.0.0-20260906204326-7df645339db1\",\"go\":\"go1.27.1\",\"revision\":\"7df645339db12eae34b3e4fac974843d334d5d6d\",\"modified\":\"false\",\"temporal\":{\"path\":\"go.temporal.io/server\",\"version\":\"v1.31.2\",\"sum\":\"h1:0O4zQ0NGRit2Z32s1XUHfs9k8zSKqff2n1QvFttYN0M=\"},\"slatedb_go\":{\"path\":\"slatedb.io/slatedb-go\",\"version\":\"v0.16.0\",\"sum\":\"h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=\"},\"slatedb_native\":{\"source_commit\":\"3fb9e8abab0c9f5833f0c154140ceef009fea02a\",\"artifact_sha256\":\"7738e08d4e676bd8cc9c4484a3a42272164c0279a6ede0abf7d76dd124d9c459\",\"identity_source\":\"build-attestation\"}}",
+    "storage readiness: context deadline exceeded"
+  ]
+}

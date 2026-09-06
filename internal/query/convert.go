@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/google/uuid"
 	"go.temporal.io/server/chasm"
 	"go.temporal.io/server/common/namespace"

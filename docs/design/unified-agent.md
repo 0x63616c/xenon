@@ -14,26 +14,21 @@ runtimes does not remove internal RPC or make replicas independent databases.
 
 `cmd/xenon` exposes `version`, `check-config --config FILE` and `start --config FILE`.
 The shared configuration generates upstream Temporal configuration internally.
-An illustrative single-machine configuration is:
+The complete single-machine example is [deploy/agent.example.json](../../deploy/agent.example.json).
+Copy it to `agent.json`, set your bucket and prefix, and update every layout path
+under that prefix before starting a new cluster. The explicit `service_storage`
+format 2 block pins the ordered logical-to-physical partition layout, stable
+cluster/node IDs, placement configuration, timing and resource limits. All nodes
+in a cluster share the same layout and cluster ID; each node needs a distinct
+stable node ID and reachable advertised address.
 
-```json
-{
-  "cluster": "example",
-  "node": "agent-a",
-  "bucket": "customer-xenon",
-  "prefix": "clusters/example",
-  "bind_ip": "127.0.0.1",
-  "advertise_ip": "127.0.0.1",
-  "base_port": 17233,
-  "public_address": "127.0.0.1:17233",
-  "public_http_address": "127.0.0.1:17242",
-  "diagnostics_address": "127.0.0.1:17250",
-  "history_shards": 4,
-  "bootstrap": true
-}
-```
+The example selects `bootstrap: true` and `fresh_namespace: true` for an explicitly
+fresh namespace. It is not a legacy-format migration configuration. Preserve the
+cluster ID, layout ordering, partition IDs and paths once initialized; joining
+nodes use that same layout with `fresh_namespace: false`. See
+[fresh runtime bootstrap](fresh-runtime-bootstrap.md) for the empty-namespace and
+existing-state checks.
 
-This example is configuration documentation, not executed deployment evidence.
 Check it with `xenon check-config --config agent.json`, then start with
 `xenon start --config agent.json` using an appropriately built executable and
 external AWS credentials/region. Configuration checking does not contact S3 or
@@ -65,12 +60,12 @@ an internal readiness flag.
 
 ## Small integration boundaries
 
-- `internal/agent` assembles lifecycle and customer configuration.
-- `internal/temporalruntime` owns upstream configuration and server embedding.
-- `internal/temporalstore` and `internal/adapter` adapt persistence contracts.
-- `internal/storage` assembles ownership, routing and the current embedded engine.
+- `internal/app` assembles lifecycle and customer configuration.
+- `internal/temporal` owns upstream configuration and server embedding.
+- `internal/temporal/adapter` adapts persistence contracts and supplies upstream factories.
+- `internal/app` also assembles ownership, routing and the current embedded engine.
 - `internal/node` still implements operation semantics using native transactions.
-- `internal/replay` shares journal decisions with a controlled replay test.
+- `internal/persistence` shares journal decisions with a controlled replay test.
 
 SlateDB is the current implementation behind S3 durability, not a customer-facing
 product requirement or an interchangeable-engine framework. Native transaction
@@ -121,12 +116,14 @@ This host has not completed that image build because its disk filled while linki
 the existing native test stack. The recipe is reviewable, but container execution
 remains an open delivery check until CI or another clean host builds and runs it.
 
-If you need to start an agent container locally, pass a real config at runtime:
+For container deployment, copy and edit the example as `agent.json`; set a bind
+address and advertised address reachable on your container network, and expose
+the required ports. Pass that real config at runtime:
 
 ```sh
 docker run --rm \
-  -v "$(pwd)/deploy/agent.example.json:/etc/xenon/agent.json:ro" \
-  -p 17233:17233 \
+  -v "$(pwd)/agent.json:/etc/xenon/agent.json:ro" \
+  -p 7233:7233 \
   -e AWS_ENDPOINT=http://host.docker.internal:19006 \
   -e AWS_ACCESS_KEY_ID=... \
   -e AWS_SECRET_ACCESS_KEY=... \
