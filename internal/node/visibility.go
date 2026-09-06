@@ -52,26 +52,17 @@ func (s *VisibilityServer) Execute(ctx context.Context, q *wire.VisibilityReques
 	if !bytes.Equal(d[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
 	}
-	raw, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, e := s.Owner.journal(q.OperationId, d[:], visibilityFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
-			r, e := applyVisibility(tx, c)
-			if e != nil {
-				return nil, e
-			}
-			return &wire.StoredOutcome{Result: &wire.StoredOutcome_VisibilityResult{VisibilityResult: r}}, nil
-		})
+	out, e := s.Owner.runJournalResult(ctx, q.OperationId, d[:], visibilityFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		r, e := applyVisibility(tx, c)
 		if e != nil {
 			return nil, e
 		}
-		return proto.Marshal(out.GetVisibilityResult())
+		return &wire.StoredOutcome{Result: &wire.StoredOutcome_VisibilityResult{VisibilityResult: r}}, nil
 	})
 	if e != nil {
 		return nil, e
 	}
-	r := new(wire.VisibilityResult)
-	if e = proto.Unmarshal(raw, r); e != nil {
-		return nil, backend(e)
-	}
+	r := out.GetVisibilityResult()
 	return r, nil
 }
 

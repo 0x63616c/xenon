@@ -2,11 +2,13 @@ package node
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 	"time"
@@ -153,6 +155,35 @@ func TestExecutionResultBarrier(t *testing.T) {
 	defer closeOwner(t, replacement)
 	if _, e := s.Execute(context.Background(), q); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced execution replay served", e)
+	}
+	closeOwner(t, o)
+}
+
+func TestGoOwnerVisibilitySchemaBarrier(t *testing.T) {
+	store := objects(t)
+	o := owner(t, engine(t, store, "visibility-schema-barrier", false))
+	o.config.Authority = func(context.Context) error { return nil }
+	s := &VisibilityServer{Owner: o}
+	command := &wire.VisibilityCommand{Kind: wire.VisibilityCommand_GET_SCHEMA}
+	encoded, err := proto.MarshalOptions{Deterministic: true}.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(encoded)
+	q := &wire.VisibilityRequest{ProtocolVersion: 1, Partition: o.config.Partition, OperationId: "schema-read", CommandSha256: digest[:], Command: command}
+	for range 2 {
+		r, err := s.Execute(context.Background(), q)
+		if err != nil || r.Error != wire.VisibilityResult_NONE {
+			t.Fatal(r, err)
+		}
+		if b, err := o.db.Get([]byte("v1/ownership/read-barrier")); err != nil || b != nil {
+			t.Fatal("redundant schema barrier", err)
+		}
+	}
+	rival := owner(t, engine(t, store, "visibility-schema-barrier", false))
+	defer closeOwner(t, rival)
+	if _, err = s.Execute(context.Background(), q); status.Code(err) != codes.Unavailable || !o.Quarantined() {
+		t.Fatal("fenced schema replay", err)
 	}
 	closeOwner(t, o)
 }

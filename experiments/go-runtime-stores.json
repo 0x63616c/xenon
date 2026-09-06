@@ -141,7 +141,8 @@
     "docs/research/temporal-factory-contract.md",
     "internal/node/matching_range_test.go",
     "internal/node/admission_cancel_test.go",
-    "internal/node/journal_barrier_test.go"
+    "internal/node/journal_barrier_test.go",
+    "proof/visibility/managed-barrier.md"
   ],
   "fault_schedule": "Union of the committed cluster, queue, history, Nexus, matching user data, QueueV2 and forwarding manifests. Includes actual equal-byte command collision across shard/queue families in both directions before and after reopen.",
   "assertions": [
@@ -785,6 +786,14 @@
       "exact": true,
       "expected_tests": [
         "TestExecutionResultBarrier"
+      ]
+    },
+    {
+      "runner": "go-test-node",
+      "filter": "TestGoOwnerVisibilitySchemaBarrier",
+      "exact": true,
+      "expected_tests": [
+        "TestGoOwnerVisibilitySchemaBarrier"
       ]
     }
   ]
