@@ -96,8 +96,17 @@ Every ticket below is a child of the map. In this manifest, identifiers are GitH
 
 ## Current execution frontier
 
-The initial research and delegated decision tickets are closed. Their graph above is historical context, not an instruction to repeat those decisions. The live map remains authoritative.
+The initial research graph above is historical. Read project #8 and open issues for the current frontier rather than resuming from old PR numbers in handoffs. The board currently uses **Build and harden** (#3) and **Release proof and polish** (#1); resolve their live IDs before changing assignments. Completed component evidence does not establish release acceptance.
 
-Implementation is under integration in PR55 and PR66. The active runtime frontier is visibility #61, the real multi-instance Temporal ministack #63, and saved fuzz replay #69. Native maintenance #64 and bounded outcome-capacity accounting #67 have clean component proofs; their full workload composition and final integration remain tracked. Fixed history routing #62 and factory #60 still require their documented runtime acceptance.
+## Board operating rules
 
-The first ministack profile is explicitly a smoke gate. Preserve the larger workload, fault, scale-out, visibility and measurement requirements in `docs/design/acceptance.md`; a smaller passing profile does not discharge them. Hosted CI is externally blocked by the account billing/spending-limit annotation recorded on the map. Real-S3 validation requires an authorized bucket/prefix and external credentials. Neither is a pass.
+- Account owner: `0x63616c`; project number: `8`; linked repository: `0x63616c/xenon`. Both Tickets and Kanban use `repo:0x63616c/xenon` as their view filter. Linking/filtering does not prevent adding unrelated items: check repository identity before adding anything.
+- Keep broad delivery issues as board items. Link implementation PRs to them; add a PR separately only when it needs independent tracking. Search existing issues before creating new work. Small related changes can share an issue and review batch.
+- **Todo** means not actively being worked. **In Progress** means claimed active work, including review/testing and any documented blocker. **Done** means the issue's complete scope is integrated with relevant acceptance evidence. Do not turn draft PRs, passing isolated tests or a partial merge into Done.
+- Use only the two current milestones for this delivery. Deferred work stays in its existing issues without inventing another milestone or board. Use native blocking relationships for actual dependencies; no duplicate status labels or mandatory custom fields.
+- Native project status updates are occasional high-level reports. Include what changed, work in progress, next step and material risks, with evidence links. Use issue comments for detailed investigations and PRs for implementation review. Avoid repeated unchanged updates or invented dates.
+- Preserve existing project visibility, historical projects and unrelated account configuration. The current board is repository-focused, not a reason to modify other projects.
+
+For live discovery use `gh project view 8 --owner 0x63616c --format json`, `gh project field-list 8 --owner 0x63616c --format json`, and `gh project item-list 8 --owner 0x63616c --limit 100 --format json` (paginate if necessary). Use returned item/field/option IDs rather than assuming IDs from an old handoff. Check `gh api repos/0x63616c/xenon/milestones` before assigning milestones.
+
+Project item updates and status updates are different APIs. Use `gh project item-edit` for an item's Status. Native project updates use GitHub GraphQL `createProjectV2StatusUpdate`; inspect its schema when needed. For multiline issue/PR bodies use `--body-file`; for GraphQL mutations pass a structured JSON variables file. After mutations, read back the changed fields/items/update. If a required API is unavailable, record the exact limitation and continue engineering work without creating a duplicate tracking system.
