@@ -167,20 +167,23 @@ func TestRealProfileActualHelperReceiptAndOutput(t *testing.T) {
 	if err = os.Symlink(python, filepath.Join(tools, "python3")); err != nil {
 		t.Fatal(err)
 	}
-	for _, tool := range []string{"git", "go", "rustup", "cargo", "cc", "aws", "docker"} {
+	for _, tool := range []string{"go", "rustup", "cargo", "cc", "aws", "docker"} {
 		if err = os.WriteFile(filepath.Join(tools, tool), []byte("#!/bin/sh\nexit 99\n"), 0700); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err = os.WriteFile(filepath.Join(tools, "git"), []byte("#!/bin/sh\nif [ \"$3\" = rev-parse ]; then printf aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; fi\n"), 0700); err != nil {
+		t.Fatal(err)
 	}
 	t.Setenv("PATH", tools)
 	repository := t.TempDir()
 	if err = os.Mkdir(filepath.Join(repository, "scripts"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	helper := `import argparse,json,pathlib
+	helper := `import argparse,hashlib,json,pathlib
 p=argparse.ArgumentParser();p.add_argument('--profile');p.add_argument('--evidence');a=p.parse_args()
 e=pathlib.Path(a.evidence);e.mkdir()
-(e/'result.json').write_text(json.dumps({'profile':a.profile,'status':'component-passed'}))
+(e/'result.json').write_text(json.dumps({'schema':1,'revision':'a'*40,'dirty':False,'development':False,'harness_hashes':{'agent-smoke.py':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()},'profile':a.profile,'status':'component-passed'}))
 print('helper diagnostics retained separately')
 print(json.dumps({'receipt':str(e),'status':'component-passed'}))
 `
@@ -196,5 +199,54 @@ print(json.dumps({'receipt':str(e),'status':'component-passed'}))
 	raw, err := os.ReadFile(filepath.Join(evidence, "helper.log"))
 	if err != nil || !bytes.Contains(raw, []byte("helper diagnostics")) {
 		t.Fatal(err, string(raw))
+	}
+	minimal := strings.Replace(helper, "'schema':1,'revision':'a'*40,'dirty':False,'development':False,'harness_hashes':{'agent-smoke.py':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()},", "", 1)
+	if err = os.WriteFile(filepath.Join(repository, "scripts/agent-smoke.py"), []byte(minimal), 0600); err != nil {
+		t.Fatal(err)
+	}
+	result, err = runRealProfile(context.Background(), profileRequest{Repository: repository, Evidence: filepath.Join(t.TempDir(), "missing-provenance"), Profile: "smoke"}, io.Discard)
+	if err == nil || result.Status != "failed" || !strings.Contains(err.Error(), "provenance") {
+		t.Fatal(result, err)
+	}
+	blocked := `import argparse,json,pathlib,time
+p=argparse.ArgumentParser();p.add_argument('--profile');p.add_argument('--evidence');a=p.parse_args()
+e=pathlib.Path(a.evidence);e.mkdir()
+(e/'first-failure.json').write_text(json.dumps({'error':'RuntimeError: workload acknowledgement missing'}))
+time.sleep(30)
+`
+	if err = os.WriteFile(filepath.Join(repository, "scripts/agent-smoke.py"), []byte(blocked), 0600); err != nil {
+		t.Fatal(err)
+	}
+	evidence = filepath.Join(t.TempDir(), "failed-before-cancel")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	observed := make(chan struct{})
+	go func() {
+		defer close(observed)
+		for i := 0; i < 200; i++ {
+			if _, e := os.Stat(filepath.Join(evidence, "run/first-failure.json")); e == nil {
+				cancel()
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		cancel()
+	}()
+	result, err = runRealProfile(ctx, profileRequest{Repository: repository, Evidence: evidence, Profile: "smoke"}, io.Discard)
+	<-observed
+	var canceled *commandExit
+	if err == nil || result.Status != "failed" || errors.As(err, &canceled) || !strings.Contains(err.Error(), "workload acknowledgement missing") {
+		t.Fatal(result, err)
+	}
+}
+
+func TestFirstProfileFailureSurvivesMissingFinalReceipt(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "first-failure.json")
+	if err := os.WriteFile(path, []byte(`{"error":"RuntimeError: workload acknowledgement missing"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := firstProfileFailure(filepath.Join(root, "result.json")); got != "RuntimeError: workload acknowledgement missing" {
+		t.Fatal(got)
 	}
 }

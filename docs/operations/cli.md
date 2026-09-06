@@ -192,3 +192,11 @@ Tests execute the typed command binding and real child supervision with fake
 helpers: clean JSON, explicit paths, preserved receipts/logs, cancellation,
 forced termination, backend-free help and missing input/tool failures. These
 controls open no agent ports, storage engines or containers.
+
+Before launching real profile code, `cli-source.json` pins the explicit checkout's
+full HEAD, dirty state and helper SHA256. A passing final receipt must include
+schema 1, that exact revision/dirty state, requested profile/development mode and
+helper hash; the wrapper rereads repository/helper identity before accepting it.
+A two-field status receipt is insufficient. If cancellation interrupts cleanup,
+the wrapper also reads the helper's already-saved `first-failure.json`; a recorded
+non-signal failure remains primary with exit 1 even without final `result.json`.
