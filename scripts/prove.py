@@ -131,9 +131,9 @@ def command(spec):
             raise ValueError("unregistered mixed oracle control")
         return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-omes-oracle", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-visibility-barrier":
-        if not spec["exact"] or spec["filter"] != "TestVisibilityMovementBarrier":
+        if not spec["exact"] or spec["filter"] not in ("TestVisibilityMovementBarrier", "TestSeedPartitions", "TestSeedPartitionsFailureJoinsPeers"):
             raise ValueError("unregistered visibility barrier control")
-        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-visibility-probe", "-run", "^TestVisibilityMovementBarrier$"]
+        return ["go", "test", "-race", "-json", "-count=1", "./cmd/xenon-visibility-probe", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-test-sdk-readiness":
         if not spec["exact"] or spec["filter"] not in ("TestNexusReadinessShardCoverage", "TestNexusReadinessWorkflowEcho", "TestReadinessWorkerPollerScope", "TestNexusHistoryDiagnostic"):
             raise ValueError("unregistered SDK readiness proof")

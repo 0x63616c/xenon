@@ -248,21 +248,33 @@ func run() error {
 		d.count = 20
 	}
 	if *mode == "seed" || *mode == "mutate" {
-		partitions := map[string]int{}
+		groups := map[string][]int{}
 		for i := 0; i < d.count; i++ {
-			p, e := model.Partition(d.namespace, d.run(i))
-			if e != nil {
-				return e
+			p, err := model.Partition(d.namespace, d.run(i))
+			if err != nil {
+				return err
 			}
-			partitions[p]++
-			if e = s.RecordWorkflowExecutionStarted(ctx, &store.InternalRecordWorkflowExecutionStartedRequest{InternalVisibilityRequestBase: d.record(i, 1)}); e != nil {
-				return e
-			}
+			groups[p] = append(groups[p], i)
 		}
-		if *mode == "seed" && len(partitions) != 4 {
+		if *mode == "seed" && len(groups) != 4 {
 			return fmt.Errorf("recipe did not populate four partitions")
 		}
+		partitions, err := seedPartitions(ctx, groups, func(ctx context.Context, i int) error {
+			return s.RecordWorkflowExecutionStarted(ctx, &store.InternalRecordWorkflowExecutionStartedRequest{InternalVisibilityRequestBase: d.record(i, 1)})
+		})
 		report["partition_counts"] = partitions
+		if err != nil {
+			// Preserve acknowledged progress without presenting partial seeding as success.
+			report["status"] = "FAILED"
+			report["error"] = err.Error()
+			file, writeErr := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+			if writeErr != nil {
+				return fmt.Errorf("%w; receipt: %v", err, writeErr)
+			}
+			encodeErr := json.NewEncoder(file).Encode(report)
+			closeErr := file.Close()
+			return fmt.Errorf("%w; receipt encode=%v close=%v", err, encodeErr, closeErr)
+		}
 	}
 	if *mode == "mutate" {
 		// Freeze page one before exactly one durable mutation, then resume cursor.
