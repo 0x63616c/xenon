@@ -85,7 +85,7 @@ def main():
         mark = fragment("mark.svg", ink)
         word = fragment("wordmark.svg", ink)
         if suffix:
-            svg("mark-white.svg", 512, 512, "Xenon orbital X", mark)
+            svg("mark-white.svg", 512, 512, "Xenon rounded X", mark)
             svg("wordmark-white.svg", word_w, word_h, "xenon", word)
         word_scale = 100 / word_h
         svg(

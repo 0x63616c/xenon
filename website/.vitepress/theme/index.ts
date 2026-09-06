@@ -1,3 +1,4 @@
+import { withBrandLoading } from './withBrandLoading';
 import { h } from "vue";
 import Footer from "./Footer.vue";
 import RoutingDemo from "./RoutingDemo.vue";
@@ -7,7 +8,7 @@ import DefaultTheme from "vitepress/theme";
 import Home from "./Home.vue";
 import Architecture from "./Architecture.vue";
 import "./style.css";
-export default {
+const xenonOriginalTheme = {
   extends: DefaultTheme,
   Layout: () =>
     h(DefaultTheme.Layout, null, { "layout-bottom": () => h(Footer) }),
@@ -19,3 +20,5 @@ export default {
     app.component("XenonArchitecture", Architecture);
   },
 };
+
+export default withBrandLoading(xenonOriginalTheme);
