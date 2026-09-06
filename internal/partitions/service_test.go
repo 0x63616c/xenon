@@ -104,7 +104,7 @@ func TestServiceOwnsLateNativeCompletionThroughCanceledDrain(t *testing.T) {
 		if writer.closes != 1 || service.Snapshot().Phase != Closing {
 			t.Fatal("late open was not closed")
 		}
-		if _, _, ready := service.Writer(); ready {
+		if _, _, _, ready := service.Writer(); ready {
 			t.Fatal("late writer admitted")
 		}
 		close(writer.release)
@@ -129,12 +129,15 @@ func TestServiceReadyAndFenceRetiresExactHandle(t *testing.T) {
 		}
 		service.Poll()
 		synctest.Wait()
-		w, a, ready := service.Writer()
+		w, a, token, ready := service.Writer()
+		if token != service.Snapshot().Handle() {
+			t.Fatal("borrowed writer token mismatch")
+		}
 		if !ready || w != writer || a.Generation != 1 {
 			t.Fatal("ready writer unavailable")
 		}
 		service.ObserveFence(service.Snapshot().Handle() + 1)
-		if _, _, ok := service.Writer(); !ok {
+		if _, _, _, ok := service.Writer(); !ok {
 			t.Fatal("wrong handle fence revoked writer")
 		}
 		service.Stop()

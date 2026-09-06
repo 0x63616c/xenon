@@ -44,12 +44,23 @@ func (s *Service) Snapshot() State { s.mu.Lock(); defer s.mu.Unlock(); return s.
 
 // Writer returns a borrowed ready handle and its exact reservation tuple. This is
 // not a lease: callers must independently validate control at admission and must
-// report ErrFenced via ObserveFence. The native writer protects close while in use.
-func (s *Service) Writer() (Writer, OpenRequest, bool) {
+// report terminal errors using the atomically returned handle token. The native
+// writer protects close while in use; a later replacement has a different token.
+func (s *Service) Writer() (Writer, OpenRequest, EffectID, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	w := s.writers[s.state.handle]
-	return w, s.state.attempt, s.state.Phase == Ready && w != nil && !s.state.stopping
+	return w, s.state.attempt, s.state.handle, s.state.Phase == Ready && w != nil && !s.state.stopping
+}
+
+// ObserveFailure must receive the token borrowed alongside the writer, never a
+// token obtained from a later Snapshot. Unknown native calls retain their handle
+// internally until completion; retirement starts Close but does not free them.
+func (s *Service) ObserveFailure(handle EffectID, err error) {
+	var unknown *UnknownOutcome
+	if errors.Is(err, ErrFenced) || errors.Is(err, ErrRetired) || errors.As(err, &unknown) {
+		s.ObserveFence(handle)
+	}
 }
 func (s *Service) Poll()                        { s.external(Event{Kind: Poll}) }
 func (s *Service) ObserveFence(handle EffectID) { s.external(Event{Kind: Fenced, Handle: handle}) }
