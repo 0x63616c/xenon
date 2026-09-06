@@ -14,6 +14,7 @@
     "internal/rpctrace/trace_test.go",
     "internal/adapter/rpc_trace_test.go",
     "internal/adapter/retry.go",
+    "internal/rpctrace/observer.go",
     "proof/rpc-measurement.md",
     "internal/adapter/metadata.go",
     "internal/adapter/execution.go",

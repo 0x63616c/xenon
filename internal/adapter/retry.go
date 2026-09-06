@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"errors"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	"go.temporal.io/api/serviceerror"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -57,6 +58,9 @@ func retryOperation[T proto.Message](ctx context.Context, invoke func(context.Co
 					break
 				}
 			}
+		}
+		if observationErr := rpctrace.ObservationError(ctx); observationErr != nil {
+			return zero, finish(observationErr)
 		}
 		if ctx.Err() != nil {
 			return zero, finish(ctx.Err())

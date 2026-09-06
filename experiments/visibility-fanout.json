@@ -12,6 +12,7 @@
     "scripts/prove.py",
     "internal/adapter/visibility.go",
     "internal/adapter/retry.go",
+    "internal/rpctrace/observer.go",
     "internal/adapter/visibility_fanout_test.go",
     "cmd/xenon-sdk-probe/main.go",
     "proof/visibility/fanout.md"

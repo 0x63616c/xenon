@@ -43,3 +43,11 @@ responses and nil/unknown-enum rejection. Existing upstream/native adapter tests
 remain compatibility coverage. Active experiment manifests include the shared
 helper. A new composed fault run is required to establish actual end-to-end
 recovery; this correction alone does not prove failover within every SDK budget.
+
+The full adapter compatibility run also exposed a recorder interaction: permanent
+local observer failure had the same generic Unavailable transport status as a
+recoverable owner gap. Retry now consults that invocation's explicit failed latch
+and stops immediately; active registration alone is not failure. Final observer
+reporting joins its error with the operation error so it cannot erase an earlier
+unknown outcome. The existing recorder-death control still requires zero backend
+calls and fail-fast completion, with an added unknown-preservation regression.

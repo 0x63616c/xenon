@@ -295,8 +295,8 @@ func TestShardTransportBoundsAndTypes(t *testing.T) {
 			_, e = store.GetOrCreateShard(context.Background(), &persistence.InternalGetOrCreateShardRequest{ShardID: 1})
 			switch code {
 			case codes.Unavailable:
-				var typed *serviceerror.Unavailable
-				if !errors.As(e, &typed) {
+				// The same operation now spends its original budget on admission.
+				if !errors.Is(e, context.DeadlineExceeded) {
 					t.Fatalf("%T %v", e, e)
 				}
 			case codes.ResourceExhausted:

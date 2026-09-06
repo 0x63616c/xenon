@@ -37,6 +37,7 @@
     "go.sum",
     "internal/adapter/execution.go",
     "internal/adapter/retry.go",
+    "internal/rpctrace/observer.go",
     "internal/adapter/execution_codec.go",
     "internal/adapter/execution_integration_test.go",
     "internal/adapter/execution_store.go",

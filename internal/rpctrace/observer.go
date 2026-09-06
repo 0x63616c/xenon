@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -188,7 +189,7 @@ func BeginObserved(ctx context.Context, family string) (context.Context, func(er
 		e := recorder.Event{Kind: "terminal", Phase: r.Phase, Producer: r.Producer, ID: r.ID, Sequence: r.Sequence, Status: "completed", ResultStatus: rpcStatus(result), DurationNS: time.Since(start).Nanoseconds(), HandshakeNS: handshake}
 		// Terminal reporting has its own bounded budget even if invocation ctx expired.
 		if err := o.post(context.Background(), e); err != nil {
-			return err
+			return errors.Join(result, err)
 		}
 		return result
 	}, nil
@@ -223,4 +224,13 @@ func observedUnary(ctx context.Context, v *observedInvocation, method string, re
 		return status.Error(codes.Unavailable, "RPC measurement unavailable")
 	}
 	return result
+}
+
+// ObservationError exposes only a terminal observer failure for this invocation.
+// An active registration is expected while its operation retries.
+func ObservationError(ctx context.Context) error {
+	if v, ok := ctx.Value(observedKey{}).(*observedInvocation); ok && v.o.failed.Load() {
+		return measurementError()
+	}
+	return nil
 }
