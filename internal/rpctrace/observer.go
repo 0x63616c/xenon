@@ -221,7 +221,7 @@ func observedUnary(ctx context.Context, v *observedInvocation, method string, re
 	result := invoke(ctx, method, req, reply, cc, opts...)
 	end := recorder.Event{Kind: "terminal", Phase: r.Phase, Producer: r.Producer, ID: r.ID, Sequence: r.Sequence, Status: "completed", ResultStatus: rpcStatus(result), DurationNS: time.Since(start).Nanoseconds(), HandshakeNS: handshake}
 	if err = v.o.post(context.Background(), end); err != nil {
-		return status.Error(codes.Unavailable, "RPC measurement unavailable")
+		return errors.Join(result, status.Error(codes.Unavailable, "RPC measurement unavailable"))
 	}
 	return result
 }

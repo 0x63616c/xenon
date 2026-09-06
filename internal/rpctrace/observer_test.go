@@ -5,6 +5,7 @@ import (
 	"context"
 	"go.temporal.io/api/serviceerror"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"net/http/httptest"
@@ -103,12 +104,19 @@ func TestTerminalObserverFailurePreservesOperationUnknown(t *testing.T) {
 	if ObservationError(ctx) != nil {
 		t.Fatal("active invocation mistaken for failed observer")
 	}
-	o.failed.Store(true)
+	original, _ := status.New(codes.Unavailable, "durable outcome unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
+	attempt := observedUnary(ctx, ctx.Value(observedKey{}).(*observedInvocation), "method", nil, nil, nil, func(context.Context, string, any, any, *grpc.ClientConn, ...grpc.CallOption) error {
+		o.failed.Store(true)
+		return original.Err()
+	})
+	attemptStatus := status.Convert(attempt)
+	if len(attemptStatus.Details()) != 1 {
+		t.Fatal("attempt reporting erased unknown", attempt)
+	}
 	if ObservationError(ctx) == nil {
 		t.Fatal("terminal failure missing")
 	}
-	original, _ := status.New(codes.Unavailable, "durable outcome unknown").WithDetails(&errdetails.ErrorInfo{Domain: "xenon.routing.v1", Reason: "UNKNOWN_OUTCOME"})
-	returned := finish(serviceerror.FromStatus(original))
+	returned := finish(serviceerror.FromStatus(attemptStatus))
 	st := serviceerror.ToStatus(returned)
 	if st.Code() != codes.Unavailable || len(st.Details()) != 1 || st.Details()[0].(*errdetails.ErrorInfo).Reason != "UNKNOWN_OUTCOME" {
 		t.Fatal("observer failure erased ambiguity", returned)
