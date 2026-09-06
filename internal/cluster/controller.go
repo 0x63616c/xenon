@@ -145,11 +145,14 @@ func Step(previous State, event Event) (State, []Effect) {
 	if p := s.publication; p != nil {
 		resolution, _ := registry.Reconcile(p.Effect.Key, p.Effect.Expected, p.Effect.Write, event.Record, event.Err)
 		if resolution == registry.RetrySameWrite {
-			if !p.renewal && !s.membership.matches(snap.Control().Coordinator) {
-				return s, nil
+			if p.renewal || s.membership.matches(snap.Control().Coordinator) {
+				effects := emit(p.Effect.clone()) // original bytes, transition and condition
+				return s, effects
 			}
-			effects := emit(p.Effect.clone()) // original bytes, transition and condition
-			return s, effects
+			// An unready view cancels placement intent, not historical ambiguity.
+			// A fresh renewal may compete at this same version; either CAS can
+			// win, but uncertainty about the old assignment cannot starve renewal.
+			s.publication = nil
 		}
 		if resolution == registry.Published {
 			confirm(p.Effect.Write.Transition)

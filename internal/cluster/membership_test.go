@@ -332,3 +332,38 @@ func TestMembershipPruneConflictCannotReuseOldExpiry(t *testing.T) {
 		t.Fatal("re-registered entry pruned", index, err)
 	}
 }
+
+func TestMembershipUnreadyUnknownAssignmentDoesNotStarveRenewal(t *testing.T) {
+	s := controllerState(t, leader)
+	current := controlRecord(t, fixtureControl(), "v1", 1)
+	s, read := pollController(t, s, 0, owner(contender))
+	s, effects := completeRead(s, read, current, 2)
+	renewal := onlyPublication(t, effects)
+	current = effectRecord(t, renewal, "v2")
+	s, _ = completePublish(s, renewal, current, nil)
+	s, read = pollController(t, s, 1, owner(contender))
+	s, effects = completeRead(s, read, current, 3)
+	assignment := onlyPublication(t, effects)
+	s, _ = completePublish(s, assignment, registry.Record{}, &registry.UnknownOutcome{Key: controlKey, Transition: assignment.Write.Transition})
+	for cycle := 0; cycle < 3; cycle++ {
+		s, effects = Step(s, Event{Kind: Poll, At: Tick(10 + cycle*10), Incarnation: leader, Membership: MembershipView{}})
+		s, effects = completeRead(s, effects[0], current, 10+cycle)
+		next := onlyPublication(t, effects)
+		if next.Write.Transition == assignment.Write.Transition {
+			t.Fatal("unready membership retried assignment")
+		}
+		snap, err := DecodeControl(controlKey, effectRecord(t, next, "next"), controlLimit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snap.Control().AssignmentRevision != 1 || snap.Control().Coordinator.Renewal != uint64(cycle+2) {
+			t.Fatal("renewal starved or assignment published", snap.Control())
+		}
+		if s.LastUnknown == nil || s.LastUnknown.Effect.Write.Transition != assignment.Write.Transition {
+			t.Fatal("historical ambiguity erased")
+		}
+		current = effectRecord(t, next, registryVersionForTest(cycle))
+		s, _ = completePublish(s, next, current, nil)
+	}
+}
+func registryVersionForTest(n int) string { return string(rune('a' + n)) }
