@@ -7,7 +7,6 @@ import (
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/identity"
-	"github.com/0x63616c/xenon/internal/replay"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -63,7 +62,7 @@ func (s *QueueV2Service) Execute(ctx context.Context, request *wire.QueueV2Reque
 	if err = s.service.authority(ctx); err != nil {
 		return nil, err
 	}
-	stored, err := replay.Run(replay.Effects{
+	stored, err := RunReplay(ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return tx.Get(ctx, []byte(key)) },
 		Put:     func(key string, value []byte) error { return tx.Put([]byte(key), value) },
 		Apply:   func() (*wire.StoredOutcome, error) { return ApplyQueueV2(ctx, tx, request.Command) },

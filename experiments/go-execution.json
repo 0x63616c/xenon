@@ -34,6 +34,8 @@
     "gen/xenon/v1/metadata.pb.go",
     "gen/xenon/v1/metadata_grpc.pb.go",
     "internal/node/journal.go",
+    "internal/persistence/replay.go",
+    "internal/persistence/outcome_usage.go",
     "internal/node/metadata.go",
     "internal/adapter/metadata.go",
     "internal/adapter/metadata_integration_test.go",

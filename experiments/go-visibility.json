@@ -59,6 +59,8 @@
     "internal/node/history_test.go",
     "internal/node/historytasks.go",
     "internal/node/journal.go",
+    "internal/persistence/replay.go",
+    "internal/persistence/outcome_usage.go",
     "internal/node/metadata.go",
     "internal/node/metadata_test.go",
     "internal/node/shard.go",

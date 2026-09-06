@@ -3,8 +3,8 @@ package node
 import (
 	"context"
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
+	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/processcut"
-	"github.com/0x63616c/xenon/internal/replay"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -65,7 +65,7 @@ func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply fu
 		return nil, backend(err)
 	}
 	defer tx.Destroy()
-	return replay.Run(replay.Effects{
+	return persistence.RunReplay(persistence.ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return get(tx, key) },
 		Put:     func(key string, value []byte) error { return put(tx, key, value) },
 		Apply:   func() (*wire.StoredOutcome, error) { return apply(tx) },

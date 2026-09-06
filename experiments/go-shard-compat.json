@@ -74,6 +74,8 @@
     "internal/persistence/queuev2_service.go",
     "internal/persistence/queuev2_test.go",
     "internal/persistence/service.go",
+    "internal/persistence/replay.go",
+    "internal/persistence/outcome_usage.go",
     "internal/persistence/service_test.go",
     "internal/persistence/shard.go",
     "internal/persistence/tasks_test.go",

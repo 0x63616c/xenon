@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
-	"math"
 
 	wire "github.com/0x63616c/xenon/gen/xenon/v1"
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/partitions"
-	"github.com/0x63616c/xenon/internal/replay"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -67,7 +64,7 @@ func (s *Service) Execute(ctx context.Context, request *wire.ShardRequest) (resu
 	if err = s.authority(ctx); err != nil {
 		return nil, err
 	}
-	stored, err := replay.Run(replay.Effects{
+	stored, err := RunReplay(ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return tx.Get(ctx, []byte(key)) },
 		Put:     func(key string, value []byte) error { return tx.Put([]byte(key), value) },
 		Apply:   func() (*wire.StoredOutcome, error) { return ApplyShard(ctx, tx, request.Command) },
@@ -88,48 +85,4 @@ func (s *Service) Execute(ctx context.Context, request *wire.ShardRequest) (resu
 		return nil, err
 	}
 	return stored.GetShardResult(), nil
-}
-
-type familyUsage struct {
-	Entries             uint64 `json:"entries"`
-	EncodedOutcomeBytes uint64 `json:"encoded_outcome_bytes"`
-}
-
-// AccountOutcome preserves legacy bounded aggregate accounting in the SAME
-// transaction as operation effects, outcome and count. Never expire replay here.
-func AccountOutcome(ctx context.Context, tx ShardTransaction, outcome *wire.StoredOutcome, size int) error {
-	raw, err := tx.Get(ctx, []byte("v1/outcome_usage"))
-	if err != nil {
-		return err
-	}
-	usage := map[string]familyUsage{}
-	if raw != nil {
-		if len(raw) > 65536 {
-			return status.Error(codes.Unavailable, "outcome accounting too large")
-		}
-		if err = json.Unmarshal(raw, &usage); err != nil || usage == nil {
-			return status.Error(codes.Unavailable, "corrupt outcome accounting")
-		}
-	}
-	if outcome == nil || size < 0 {
-		return status.Error(codes.InvalidArgument, "invalid outcome accounting input")
-	}
-	ref := outcome.ProtoReflect()
-	field := ref.WhichOneof(ref.Descriptor().Oneofs().ByName("result"))
-	if field == nil {
-		return status.Error(codes.Unavailable, "outcome has no result family")
-	}
-	name := string(field.Name())
-	value := usage[name]
-	if value.Entries == math.MaxUint64 || math.MaxUint64-value.EncodedOutcomeBytes < uint64(size) {
-		return status.Error(codes.ResourceExhausted, "outcome accounting overflow")
-	}
-	value.Entries++
-	value.EncodedOutcomeBytes += uint64(size)
-	usage[name] = value
-	raw, err = json.Marshal(usage)
-	if err != nil {
-		return err
-	}
-	return tx.Put([]byte("v1/outcome_usage"), raw)
 }

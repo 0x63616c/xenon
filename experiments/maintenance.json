@@ -56,6 +56,8 @@
     "internal/node/history.go",
     "internal/node/history_test.go",
     "internal/node/journal.go",
+    "internal/persistence/replay.go",
+    "internal/persistence/outcome_usage.go",
     "internal/node/matching.go",
     "internal/node/matching_test.go",
     "internal/persistence/matching_userdata.go",

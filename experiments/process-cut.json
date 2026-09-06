@@ -79,6 +79,8 @@
     "internal/node/historytasks.go",
     "internal/node/historytasks_test.go",
     "internal/node/journal.go",
+    "internal/persistence/replay.go",
+    "internal/persistence/outcome_usage.go",
     "internal/node/matching.go",
     "internal/persistence/matching_fair.go",
     "internal/node/matching_fair_test.go",

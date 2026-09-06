@@ -12,6 +12,7 @@
     "internal/simulation/coordination_test.go",
     "internal/simulation/replay_test.go",
     "internal/replay/replay.go",
+    "internal/persistence/replay.go",
     "internal/routing/router.go",
     "internal/ownership/join.go",
     "internal/ownership/membership.go",
