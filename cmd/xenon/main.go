@@ -48,6 +48,9 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	if err = app.ValidateServiceLayout(c); err != nil {
+		return err
+	}
 	if _, err = temporalruntime.Configuration(c); err != nil {
 		return err
 	}

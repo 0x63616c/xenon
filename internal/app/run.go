@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -15,15 +16,17 @@ import (
 )
 
 // Run starts one foreground Xenon instance under the caller's cancellation.
-// The storage runtime still uses the legacy manager until persisted-layout and
-// populated-state cutover gates permit new service activation.
+// Service storage is explicit; legacy namespaces require offline cutover.
 func Run(ctx context.Context, c agent.Config) error {
+	if err := ValidateServiceLayout(c); err != nil {
+		return err
+	}
 	t, err := temporalruntime.New(c)
 	if err != nil {
 		return err
 	}
 	metrics := observability.New()
-	s := storage.New(c, metrics.Events)
+	s := storage.NewServiceRuntime(c, metrics.Events)
 	r := &agent.Runtime{Storage: s, Temporal: t, StartupTimeout: 120 * time.Second, ShutdownTimeout: 30 * time.Second}
 	go metrics.Run(ctx)
 	var diagnostics *http.Server
@@ -32,7 +35,7 @@ func Run(ctx context.Context, c agent.Config) error {
 		if listenErr != nil {
 			return listenErr
 		}
-		diagnostics = &http.Server{Handler: metrics.Handler(r.Ready, func() any { return buildinfo.Read() }), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
+		diagnostics = &http.Server{Handler: metrics.Handler(r.Ready, func() any { return map[string]any{"build": buildinfo.Read(), "storage": s.Diagnostics()} }), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
 		go func() { _ = diagnostics.Serve(listener) }()
 	}
 	err = r.Run(ctx)
@@ -42,4 +45,21 @@ func Run(ctx context.Context, c agent.Config) error {
 		cancel()
 	}
 	return err
+}
+
+// ValidateServiceLayout checks the existing Temporal adapter domain contract
+// before any namespace claim. It never invents paths, IDs, ordering or a count.
+func ValidateServiceLayout(c agent.Config) error {
+	if c.ServiceStorage == nil {
+		return fmt.Errorf("%w: explicit service_storage format2 required", storage.ErrLegacyPrefix)
+	}
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	for _, name := range []string{"global", "matching", "history-0", "history-1", "history-2", "history-3", "vis-v1-0", "vis-v1-1", "vis-v1-2", "vis-v1-3"} {
+		if _, ok := c.ServiceStorage.Layout.Resolve(name); !ok {
+			return fmt.Errorf("service layout lacks required Temporal logical partition %q", name)
+		}
+	}
+	return nil
 }
