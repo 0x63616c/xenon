@@ -1,9 +1,9 @@
 # Observability boundaries
 
 Instrumentation must describe decisions without becoming admission authority or
-altering durable outcomes. Current seams support optional capture; a configured
-metrics exporter, tracing backend and stable production metric catalog are still
-outstanding wiring. Do not infer those capabilities from the interfaces below.
+altering durable outcomes. The unified agent wires a passive in-process routing
+collector when `diagnostics_address` is configured. A tracing backend and broader
+production metric catalog remain outstanding.
 
 ## Routing events
 
@@ -28,12 +28,11 @@ turns capture off. A simulator may use a sufficiently buffered channel and drain
 it after controlled steps; deterministic delivery still depends on the simulator
 controlling production decision scheduling, not on this channel alone.
 
-A future collector can aggregate counters by kind, attempt and status, with units
-of observed stage completions. Those are proposed metrics, not current exported
-metric names. Export network calls belong in a separate consumer and must never
-run under a partition gate. Exporter failure must not change routing outcomes.
-Dropped-event accounting and duration histograms require additional explicit
-implementation before anyone treats this stream as a complete performance record.
+`GET /metrics` exports `xenon_routing_observed_events_total`, aggregated by fixed
+kind, attempt and gRPC-code labels. `GET /readyz` reports combined-agent readiness,
+and `GET /version` returns the same build identity as the CLI. Export network work
+runs outside partition gates. Dropped-event accounting and duration histograms
+remain unimplemented, so the counter is diagnostic rather than a complete record.
 
 ## Ownership outcome diagnostics
 
@@ -63,8 +62,7 @@ metadata; do not convert arbitrary identifiers into metric labels.
 ## Remaining integration
 
 Temporal's persistence factory currently receives but discards its metrics handler.
-Routing capture is optional and is not yet connected to an agent exporter. Native
-and Temporal logs likewise are not a unified telemetry contract. Future wiring
+Native and Temporal logs are not yet a unified telemetry contract. Future wiring
 must document metric names, units, bounded labels, process-reset semantics and
 loss behavior, plus scrape/export configuration and diagnosis examples.
 

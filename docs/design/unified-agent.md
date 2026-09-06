@@ -27,6 +27,7 @@ An illustrative single-machine configuration is:
   "base_port": 17233,
   "public_address": "127.0.0.1:17233",
   "public_http_address": "127.0.0.1:17242",
+  "diagnostics_address": "127.0.0.1:17250",
   "history_shards": 4,
   "bootstrap": true
 }

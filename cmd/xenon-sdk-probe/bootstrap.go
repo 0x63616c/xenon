@@ -16,13 +16,17 @@ import (
 // Seed standard SQL-style custom slots through the real guarded metadata manager.
 // Preserve existing index maps and compare the exact read version on publication.
 func seedSearchAttributes(ctx context.Context, address string) error {
+	return seedClusterSearchAttributes(ctx, address, "active")
+}
+
+func seedClusterSearchAttributes(ctx context.Context, address, cluster string) error {
 	store, e := adapter.NewClusterStore(address, "global")
 	if e != nil {
 		return e
 	}
 	defer store.Close()
-	manager := p.NewClusterMetadataManagerImpl(store, serialization.NewSerializer(), "active", log.NewNoopLogger())
-	current, e := manager.GetClusterMetadata(ctx, &p.GetClusterMetadataRequest{ClusterName: "active"})
+	manager := p.NewClusterMetadataManagerImpl(store, serialization.NewSerializer(), cluster, log.NewNoopLogger())
+	current, e := manager.GetClusterMetadata(ctx, &p.GetClusterMetadataRequest{ClusterName: cluster})
 	if e != nil {
 		return e
 	}

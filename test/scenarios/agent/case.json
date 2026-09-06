@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "scope": "combined agent SDK workflow, automatic join, process restart and cold history recovery; not full acceptance",
+  "agents": [
+    "a",
+    "b",
+    "c"
+  ],
+  "faults": [
+    "add c at await-control",
+    "SIGKILL b then restart same node ID",
+    "stop all then restart a,b,c with disposable process state"
+  ],
+  "run": [
+    "python3",
+    "scripts/agent-smoke.py"
+  ],
+  "timeout_seconds": 900
+}

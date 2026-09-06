@@ -31,6 +31,7 @@ func main() {
 }
 func run() error {
 	query := flag.String("query", "", "visibility query")
+	cluster := flag.String("cluster", "active", "Temporal cluster identity for search-slot bootstrap")
 	expectedCount := flag.Int("expected-count", 1, "exact expected visible rows")
 	mode := flag.String("mode", "", "bootstrap, worker, start, phase, control or verify")
 	address := flag.String("address", "127.0.0.1:17233", "stable Temporal endpoint")
@@ -39,11 +40,15 @@ func run() error {
 	queue := flag.String("task-queue", "xenon-ministack-worker", "task queue")
 	runID := flag.String("run-id", "", "initial run ID for complete history verification")
 	storage := flag.String("storage-address", "127.0.0.1:17935", "stable Xenon ingress")
+	storagePartition := flag.String("storage-partition", "global", "logical partition for low-level routed readiness")
 	output := flag.String("output", "", "existing evidence output directory")
 	readinessTimeout := flag.Duration("readiness-timeout", 60*time.Second, "bounded cold storage readiness budget")
 	flag.Parse()
 	if *mode == "storage-ready" {
 		return storageReady(*storage, *readinessTimeout)
+	}
+	if *mode == "partition-ready" {
+		return partitionReady(*storage, *storagePartition, *readinessTimeout)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -104,7 +109,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		if e = seedSearchAttributes(ctx, *storage); e != nil {
+		if e = seedClusterSearchAttributes(ctx, *storage, *cluster); e != nil {
 			return e
 		}
 		_, e = c.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{Namespace: *namespace, SearchAttributes: map[string]enumspb.IndexedValueType{"XenonProof": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "OmesExecutionID": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Keyword": enumspb.INDEXED_VALUE_TYPE_KEYWORD, "KS_Int": enumspb.INDEXED_VALUE_TYPE_INT}})

@@ -104,8 +104,17 @@ func (r *Runtime) Run(ctx context.Context) (result error) {
 			}
 			cancel()
 			if err != nil {
-				return fmt.Errorf("agent health: %w", err)
+				r.ready.Store(false)
+				// Ownership movement can make routed persistence briefly unavailable.
+				// A completed negative probe changes readiness, but does not make the
+				// process unsafe. A probe that outlives its bound still requires exit:
+				// teardown could otherwise race work using native resources.
+				if errors.Is(err, ErrProcessExitRequired) {
+					return fmt.Errorf("agent health: %w", err)
+				}
+				continue
 			}
+			r.ready.Store(true)
 		}
 	}
 }

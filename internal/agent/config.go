@@ -14,16 +14,17 @@ import (
 // Config contains customer configuration only. Credentials remain external.
 // Ports BasePort..BasePort+9 must be reachable between agents on a trusted network.
 type Config struct {
-	Cluster           string `json:"cluster"`
-	Node              string `json:"node"`
-	Bucket            string `json:"bucket"`
-	Prefix            string `json:"prefix"`
-	BindIP            string `json:"bind_ip"`
-	AdvertiseIP       string `json:"advertise_ip"`
-	BasePort          int    `json:"base_port"`
-	PublicAddress     string `json:"public_address"`
-	PublicHTTPAddress string `json:"public_http_address"`
-	HistoryShards     int32  `json:"history_shards"`
+	Cluster            string `json:"cluster"`
+	Node               string `json:"node"`
+	Bucket             string `json:"bucket"`
+	Prefix             string `json:"prefix"`
+	BindIP             string `json:"bind_ip"`
+	AdvertiseIP        string `json:"advertise_ip"`
+	BasePort           int    `json:"base_port"`
+	PublicAddress      string `json:"public_address"`
+	PublicHTTPAddress  string `json:"public_http_address"`
+	DiagnosticsAddress string `json:"diagnostics_address,omitempty"`
+	HistoryShards      int32  `json:"history_shards"`
 	// Bootstrap is explicit: an empty/mistyped prefix must not silently create a cluster.
 	Bootstrap bool `json:"bootstrap"`
 }
@@ -82,6 +83,13 @@ func (c Config) Validate() error {
 		number, err := strconv.Atoi(port)
 		if err != nil || number < 1 || number > 65535 {
 			return fmt.Errorf("public address ports must be 1..65535")
+		}
+	}
+	if c.DiagnosticsAddress != "" {
+		host, port, err := net.SplitHostPort(c.DiagnosticsAddress)
+		number, numberErr := strconv.Atoi(port)
+		if err != nil || host == "" || numberErr != nil || number < 1 || number > 65535 {
+			return fmt.Errorf("diagnostics_address must be host:port with port 1..65535")
 		}
 	}
 	return nil

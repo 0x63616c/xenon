@@ -168,3 +168,35 @@ func TestCanceledHealthProbeDoesNotRaceTeardown(t *testing.T) {
 		t.Fatal("unhealthy agent remained ready")
 	}
 }
+
+func TestTransientHealthFailureChangesReadinessAndRecovers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	failed, recovered := make(chan struct{}), make(chan struct{})
+	calls := 0
+	r := Runtime{StartupTimeout: time.Second, ShutdownTimeout: time.Second, Storage: component{ready: func(context.Context) error {
+		calls++
+		switch calls {
+		case 2:
+			close(failed)
+			return errors.New("ownership moving")
+		case 3:
+			close(recovered)
+		}
+		return nil
+	}}, Temporal: component{}}
+	done := make(chan error, 1)
+	go func() { done <- r.Run(ctx) }()
+	<-failed
+	for r.Ready() {
+		time.Sleep(time.Millisecond)
+	}
+	<-recovered
+	for !r.Ready() {
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
