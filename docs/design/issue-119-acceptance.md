@@ -278,3 +278,32 @@ Close #119 only after the aggregate gate passes on the integrated revision and
 the documented commands execute successfully in that clean checkout. Keep #94,
 #92, #116 and release status separate. Current serial corpus, preparation-only
 generation and unreviewed resident driver are partial work, not this end state.
+
+## Partial passive inspection contract
+
+`xenon inspect --config FILE [--output json] [--timeout 5s]` reads the format2
+manifest and the authoritative control object using S3 GETs. It does not call
+bootstrap/preparation, create membership, probe processes or open native storage.
+The timeout must be positive and at most one minute; the configured registry
+budget can shorten it. An explicit JSON configuration is required. Application
+settings come only from that file; unsupported CLI overrides fail validation.
+The existing S3 connection environment applies: `AWS_DEFAULT_REGION` takes
+precedence over `AWS_REGION`, with `AWS_ENDPOINT` optionally selecting a target
+and credentials supplied externally. Configuration validation does not require
+credentials or contact that target.
+
+Inspection stdout is one schema-1 object: `schema`, `status`, optional
+`authority_version`, `control`, and `error`. `observed` includes the exact decoded
+control publication and returns exit 0. `unknown` means missing, incompatible or
+corrupt authority; `unavailable` means access/transport failure or cancellation;
+`invalid` means invalid configuration/budget. These return exit 1 with diagnostics
+on stderr. Argument-parser failures (unknown flags or invalid flag syntax) report
+only stderr. The control's desired owners, incarnations, generations and Ready
+bits are persisted observations, not current health or a complete live-node
+census. Unknown/unavailable results never include a control snapshot.
+
+`xenon check-config --config FILE --output json` emits one schema-1 object with
+`status: valid|invalid` and optional `error`; its default text mode preserves
+`XENON_CONFIG_VALID`. Neither mode initializes storage. These component tests are
+partial CLI-01/CLI-02 evidence; they do not establish the instrumented full
+command gate or three-node real lifecycle acceptance above.

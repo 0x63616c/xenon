@@ -43,17 +43,38 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		},
 	})
 	for _, name := range []string{"check-config", "start"} {
-		var path string
+		var path, output string
 		command := &cobra.Command{Use: name, Args: cobra.NoArgs}
 		if name == "check-config" {
 			command.Short = "Validate explicit JSON configuration without starting services"
+			command.Flags().StringVar(&output, "output", "text", "Output format: text or json")
 		} else {
 			command.Short = "Run one foreground Xenon server"
 		}
 		command.Flags().StringVar(&path, "config", "", "Xenon JSON configuration file (required)")
-		_ = command.MarkFlagRequired("config")
+		if name == "start" {
+			_ = command.MarkFlagRequired("config")
+		}
 		_ = command.MarkFlagFilename("config", "json")
-		command.RunE = func(cmd *cobra.Command, _ []string) error {
+		command.RunE = func(cmd *cobra.Command, _ []string) (result error) {
+			if name == "check-config" {
+				if output != "text" && output != "json" {
+					return fmt.Errorf("--output must be text or json")
+				}
+				if output == "json" {
+					defer func() {
+						status := "valid"
+						message := ""
+						if result != nil {
+							status = "invalid"
+							message = result.Error()
+						}
+						if err := json.NewEncoder(cmd.OutOrStdout()).Encode(configCheckResult{1, status, message}); err != nil {
+							result = errors.Join(result, err)
+						}
+					}()
+				}
+			}
 			if path == "" {
 				return fmt.Errorf("--config FILE required")
 			}
@@ -72,7 +93,9 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 				return err
 			}
 			if name == "check-config" {
-				_, err = fmt.Fprintln(cmd.OutOrStdout(), "XENON_CONFIG_VALID")
+				if output == "text" {
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), "XENON_CONFIG_VALID")
+				}
 				return err
 			}
 			// Preserve the existing secret-free startup metadata before network work.
@@ -83,6 +106,7 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		}
 		root.AddCommand(command)
 	}
+	root.AddCommand(inspectCommand(app.Inspect))
 	root.AddCommand(generateCommand())
 	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
 	for _, command := range simulation {
@@ -103,4 +127,10 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 		}
 	}
 	return root
+}
+
+type configCheckResult struct {
+	Schema int    `json:"schema"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
 }
