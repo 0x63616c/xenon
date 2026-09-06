@@ -1,0 +1,66 @@
+{"docker": "29.4.0", "compose": "5.1.2"}
+{
+  "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+  "source_clean": true,
+  "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+  "binding_module": "slatedb.io/slatedb-go",
+  "binding_version": "v0.16.0",
+  "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+  "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+  "shared_library_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+  "node_binary": ".local/bin/xenon-go-node",
+  "node_binary_sha256": "fb98d78905dc938dde710ffc82d391dce3bc719f8a012edea5c93590cbef4528",
+  "agent_binary": ".local/bin/xenon",
+  "agent_binary_sha256": "242802be66e948c5eac0c1b591f3c2bd197cba040810b0aa91bb3984906f7d3a",
+  "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+  "go": "go version go1.27.1 darwin/arm64",
+  "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+}
+{"Time":"2026-09-06T11:28:46.42306-07:00","Action":"start","Package":"github.com/0x63616c/xenon/internal/storage"}
+{"Time":"2026-09-06T11:28:49.826479-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap"}
+{"Time":"2026-09-06T11:28:49.826614-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap","Output":"=== RUN   TestS3FreshBootstrap\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.836402-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/fresh_and_restart"}
+{"Time":"2026-09-06T11:28:49.83645-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/fresh_and_restart","Output":"=== RUN   TestS3FreshBootstrap/fresh_and_restart\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.861082-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/fresh_and_restart","Output":"--- PASS: TestS3FreshBootstrap/fresh_and_restart (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.861129-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/fresh_and_restart","Elapsed":0.02}
+{"Time":"2026-09-06T11:28:49.861158-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_marker"}
+{"Time":"2026-09-06T11:28:49.861172-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_marker","Output":"=== RUN   TestS3FreshBootstrap/old_marker\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.868918-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_marker","Output":"--- PASS: TestS3FreshBootstrap/old_marker (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.86897-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_marker","Elapsed":0.01}
+{"Time":"2026-09-06T11:28:49.868984-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_data"}
+{"Time":"2026-09-06T11:28:49.868994-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_data","Output":"=== RUN   TestS3FreshBootstrap/occupied_data\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.879893-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_data","Output":"--- PASS: TestS3FreshBootstrap/occupied_data (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.879955-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_data","Elapsed":0.01}
+{"Time":"2026-09-06T11:28:49.879983-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_topology"}
+{"Time":"2026-09-06T11:28:49.879989-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_topology","Output":"=== RUN   TestS3FreshBootstrap/occupied_topology\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.888869-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_topology","Output":"--- PASS: TestS3FreshBootstrap/occupied_topology (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.888923-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/occupied_topology","Elapsed":0.01}
+{"Time":"2026-09-06T11:28:49.888937-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/lost_manifest_response"}
+{"Time":"2026-09-06T11:28:49.888942-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/lost_manifest_response","Output":"=== RUN   TestS3FreshBootstrap/lost_manifest_response\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.904287-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/lost_manifest_response","Output":"--- PASS: TestS3FreshBootstrap/lost_manifest_response (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.904332-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/lost_manifest_response","Elapsed":0.02}
+{"Time":"2026-09-06T11:28:49.904346-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/interrupted_initialization"}
+{"Time":"2026-09-06T11:28:49.90435-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/interrupted_initialization","Output":"=== RUN   TestS3FreshBootstrap/interrupted_initialization\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.913537-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/interrupted_initialization","Output":"--- PASS: TestS3FreshBootstrap/interrupted_initialization (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.913576-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/interrupted_initialization","Elapsed":0.01}
+{"Time":"2026-09-06T11:28:49.913604-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/deleted_control"}
+{"Time":"2026-09-06T11:28:49.913632-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/deleted_control","Output":"=== RUN   TestS3FreshBootstrap/deleted_control\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.933552-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/deleted_control","Output":"--- PASS: TestS3FreshBootstrap/deleted_control (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.933606-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/deleted_control","Elapsed":0.02}
+{"Time":"2026-09-06T11:28:49.933624-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/metadata_mismatch"}
+{"Time":"2026-09-06T11:28:49.933629-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/metadata_mismatch","Output":"=== RUN   TestS3FreshBootstrap/metadata_mismatch\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.951645-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/metadata_mismatch","Output":"--- PASS: TestS3FreshBootstrap/metadata_mismatch (0.02s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.951701-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/metadata_mismatch","Elapsed":0.02}
+{"Time":"2026-09-06T11:28:49.951726-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_new_concurrent"}
+{"Time":"2026-09-06T11:28:49.951734-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_new_concurrent","Output":"=== RUN   TestS3FreshBootstrap/old_new_concurrent\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.999441-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_new_concurrent","Output":"--- PASS: TestS3FreshBootstrap/old_new_concurrent (0.05s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:49.999483-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/old_new_concurrent","Elapsed":0.05}
+{"Time":"2026-09-06T11:28:49.999496-07:00","Action":"run","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/new_new_concurrent"}
+{"Time":"2026-09-06T11:28:49.999502-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/new_new_concurrent","Output":"=== RUN   TestS3FreshBootstrap/new_new_concurrent\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:50.027068-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/new_new_concurrent","Output":"--- PASS: TestS3FreshBootstrap/new_new_concurrent (0.03s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:50.027111-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap/new_new_concurrent","Elapsed":0.03}
+{"Time":"2026-09-06T11:28:50.027151-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap","Output":"--- PASS: TestS3FreshBootstrap (0.20s)\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:50.027163-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Test":"TestS3FreshBootstrap","Elapsed":0.2}
+{"Time":"2026-09-06T11:28:50.027176-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-09-06T11:28:51.035015-07:00","Action":"output","Package":"github.com/0x63616c/xenon/internal/storage","Output":"ok  \tgithub.com/0x63616c/xenon/internal/storage\t4.612s\n"}
+{"Time":"2026-09-06T11:28:51.035109-07:00","Action":"pass","Package":"github.com/0x63616c/xenon/internal/storage","Elapsed":4.612}
