@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "name": "corrected-fuzz-controls",
+  "backend": "memory",
+  "timeout_seconds_per_command": 120,
+  "required_tool_prefixes": {},
+  "inputs": [
+    "scripts/corrected_fuzz.py",
+    "scripts/prepare-corrected-omes.py",
+    "scripts/test_corrected_fuzz.py",
+    "scripts/ministack-runtime.py",
+    "scripts/prove.py",
+    "scripts/omes_workloads.py",
+    "scripts/omes_mixed.py",
+    "scripts/temporal_cut.py",
+    "scripts/resource_samples.py",
+    "scripts/runtime_measurements.py",
+    "proof/omes-corpus/soak.json",
+    "proof/omes-corpus/replay.json",
+    "proof/omes-corpus/manifest.json",
+    "test/scenarios/omes-signals/README.md",
+    "test/scenarios/omes-signals/contract.json",
+    "test/scenarios/omes-signals/corrected-v1/2026090501.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090502.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090503.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090504.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090505.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090506.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090507.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090508.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090509.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090510.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090511.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090512.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090513.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090514.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090515.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090516.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090517.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090518.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090519.proto",
+    "test/scenarios/omes-signals/corrected-v1/2026090520.proto",
+    "test/scenarios/omes-signals/normalize.go.in",
+    "test/scenarios/omes-signals/overlay.patch",
+    "test/scenarios/omes-signals/red_test.go.in",
+    "test/scenarios/omes-signals/replay.json",
+    "test/scenarios/omes-signals/soak.json",
+    "test/scenarios/omes-signals/worker_signal_test.go.in"
+  ],
+  "fault_schedule": "Reject lower soak budgets, changed declared actions and modified overlay source/worker/CLI; mode exclusion before setup.",
+  "assertions": [
+    "Original mode remains default and corrected mode is exclusive.",
+    "Twenty corrected commands differ only by input path; duration and rounds unchanged.",
+    "Modified build artifacts cannot pass provenance checks."
+  ],
+  "limitations": [
+    "Python contract controls only; no prepared overlay runtime build or full-stack corrected soak executed."
+  ],
+  "commands": [
+    {
+      "runner": "python-measurements",
+      "filter": "test_corrected_fuzz",
+      "exact": true,
+      "expected_tests": [
+        "test_modes_are_exclusive_and_default_unchanged",
+        "test_profile_rejects_reduced_limits_and_changed_actions",
+        "test_overlay_artifact_tamper_rejected"
+      ]
+    }
+  ]
+}

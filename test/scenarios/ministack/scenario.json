@@ -26,6 +26,11 @@
       "scripts/ministack-runtime.py",
       "--process-cut-stage",
       "after_await"
+    ],
+    "corrected-fuzz-soak": [
+      "python3",
+      "scripts/ministack-runtime.py",
+      "--corrected-fuzz-soak"
     ]
   },
   "inputs": [
@@ -45,12 +50,18 @@
     "proof/omes-corpus/soak.json",
     "test/scenarios/ministack/process-cut.json",
     "scripts/temporal_cut.py",
-    "scripts/omes_mixed.py"
+    "scripts/omes_mixed.py",
+    "scripts/corrected_fuzz.py",
+    "scripts/prepare-corrected-omes.py",
+    "test/scenarios/omes-signals/contract.json",
+    "test/scenarios/omes-signals/soak.json",
+    "test/scenarios/omes-signals/replay.json"
   ],
   "component_manifests": [
     "runtime-measurements",
     "nexus-http",
-    "nexus-readiness"
+    "nexus-readiness",
+    "corrected-fuzz-controls"
   ],
   "frozen_shared_inputs": [
     "proof/acceptance/full-profile.json",

@@ -48,3 +48,26 @@ using Omes' actual payload converter. It then regenerates all twenty corrected
 inputs twice and compares committed bytes. This is a deterministic workflow
 unit environment, not a real Temporal service or an S3 proof. Evidence and
 sandbox sources are retained under `.local/evidence/`.
+
+## Explicit corrected runtime mode
+
+`python3 scripts/ministack-runtime.py --corrected-fuzz-soak` selects the new
+profile. Original `--fuzz-soak` remains unchanged and still uses the original
+corpus. The corrected mode builds both CLI and Go worker from a fresh retained
+upstream archive with the exact overlay and regenerated protobuf. Its build
+manifest records the source tree, patch, schema generator versions, generated
+schema, prepared files, effective SDK and both executable hashes. It does not
+claim the CLI has an unmodified upstream VCS revision.
+
+The corrected profile retains all twenty inputs, at least two full rounds,
+at least3600 seconds, the900-second per-input deadline and the36000-second
+controller bound. Commands differ only in the corpus input paths. Every input
+rechecks prepared/source artifacts; the final result rechecks tracked Xenon
+inputs and the overlay bundle. The source tree and logs stay in the run's
+ignored evidence directory. A corrected success would be new evidence, never a
+rewrite of the original failed gate. No corrected full-stack run has yet passed.
+
+`python3 scripts/prove.py corrected-fuzz-controls` checks the mode, unchanged
+budgets and artifact-tamper rejection without compiling native code or launching
+a stack. The overlay is scoped to this validated generated corpus; it is not a
+general validator for arbitrary malformed required/optional ID lists.

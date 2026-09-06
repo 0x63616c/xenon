@@ -20,6 +20,7 @@ import runtime_measurements
 from omes_workloads import effective_sdk
 from omes_mixed import validate_result as validate_mixed_result
 import temporal_cut
+import corrected_fuzz
 
 ROOT=Path(__file__).resolve().parents[1]
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -67,6 +68,7 @@ def arguments(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--measurements',action='store_true',help='opt-in strict measurement evidence; intentional SIGKILL leaves fault traces incomplete')
     modes=parser.add_mutually_exclusive_group()
+    modes.add_argument('--corrected-fuzz-soak',action='store_true',help='run explicit signal-compatibility overlay and corrected-v1 corpus soak')
     modes.add_argument('--fuzz-soak',action='store_true',help='run the committed real Omes fuzz soak instead of smoke')
     modes.add_argument('--process-cut-stage',choices=temporal_cut.STAGES,help='bind a real SDK update to a native process cut within the smoke')
     modes.add_argument('--omes-mixed',action='store_true',help='run the frozen 40-iteration Omes mixed component instead of smoke')
@@ -234,6 +236,15 @@ def main():
             if not omes.exists():run(['git','clone','--no-checkout',pins['omes']['repository'],str(omes)],120)
             run(['git','checkout','--detach',pins['omes']['commit']],cwd=omes)
             if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('dirty Omes source')
+            if args.corrected_fuzz_soak:
+                destination=evidence/'omes-overlay'
+                run([sys.executable,'scripts/prepare-corrected-omes.py','--source',str(omes),'--output',str(destination)],900)
+                manifest=json.loads((destination/'build.json').read_text())
+                omes,binary=corrected_fuzz.check_build(manifest,destination/'build.json')
+                report['omes_overlay_build']=manifest;report['omes_overlay_manifest_sha256']=sha(destination/'build.json')
+                report['omes_generated_sha256']=manifest['prepared_sha256'];report['omes_binary_sha256']=manifest['binary_sha256']
+                report['omes_worker_build_info']=manifest['worker_build_info'];report['effective_omes_worker_sdk']=manifest['effective_worker_sdk']
+                return omes,lambda:corrected_fuzz.tree(omes/'workers/go/prepared')
             run(['go','build','-o',str(ROOT/'.local/bin/omes'),'./cmd/omes'],900,cwd=omes)
             run([str(ROOT/'.local/bin/omes'),'prepare-worker','--language','go','--version',pins['omes']['worker_go_sdk'],'--dir-name','prepared'],900,cwd=omes)
             worker_program=omes/'workers/go/prepared/program'
@@ -262,15 +273,18 @@ def main():
             if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native artifacts changed during mixed workload')
             if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker changed during mixed workload')
             report.update(result='passed',proof_pass=True,scope='frozen Omes mixed40 component against real MinIO stack; no injected faults or full history action oracle')
-        elif args.fuzz_soak:
+        elif args.fuzz_soak or args.corrected_fuzz_soak:
             omes,omes_inputs=prepare_omes()
             probe('fuzz-endpoint',timeout=60)
             event('fuzz-endpoint-created')
             readiness=probe('fuzz-endpoint-ready',timeout=75)
             event('fuzz-endpoint-functionally-ready',**readiness)
-            config=json.loads((ROOT/'proof/omes-corpus/soak.json').read_text())
+            config=corrected_fuzz.configuration()[0] if args.corrected_fuzz_soak else json.loads((ROOT/'proof/omes-corpus/soak.json').read_text())
             signal.alarm(config['controller_timeout_seconds'])
-            run([sys.executable,'scripts/fuzz-soak.py','--evidence-dir',str(evidence/'fuzz'),'--omes-binary',str(ROOT/'.local/bin/omes'),'--omes-source',str(omes)],config['controller_timeout_seconds']-60)
+            if args.corrected_fuzz_soak:
+                run([sys.executable,'scripts/corrected_fuzz.py','--evidence-dir',str(evidence/'fuzz'),'--build-manifest',str(evidence/'omes-overlay/build.json')],config['controller_timeout_seconds']-60)
+            else:
+                run([sys.executable,'scripts/fuzz-soak.py','--evidence-dir',str(evidence/'fuzz'),'--omes-binary',str(ROOT/'.local/bin/omes'),'--omes-source',str(omes)],config['controller_timeout_seconds']-60)
             report['fuzz']=json.loads((evidence/'fuzz/result.json').read_text())
             if not report['fuzz']['soak_pass']:raise RuntimeError('fuzz soak failed')
             checkpoint('fuzz-finished')
@@ -279,7 +293,7 @@ def main():
             if any(sha(ROOT/'.local/bin'/name)!=value for name,value in report['binaries'].items()):raise RuntimeError('runtime binary changed during fuzz soak')
             if any(sha(ROOT/path)!=value for path,value in report['native_artifacts_sha256'].items()):raise RuntimeError('native artifacts changed during fuzz soak')
             if omes_inputs()!=report['omes_generated_sha256']:raise RuntimeError('prepared Omes worker changed during fuzz soak')
-            report.update(result='passed',proof_pass=True,scope='saved Omes fuzz soak against real MinIO stack; no injected faults')
+            report.update(result='passed',proof_pass=True,scope='corrected-v1 corpus with explicit Omes signal compatibility overlay; no injected faults' if args.corrected_fuzz_soak else 'saved Omes fuzz soak against real MinIO stack; no injected faults')
         else:
             worker=launch('worker',[sdk,'--mode','worker',*probe_flags]);worker.line('{')
             execution=probe('start');event('workflow-started',**execution)
