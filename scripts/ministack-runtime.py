@@ -76,6 +76,7 @@ def arguments(argv=None):
     modes.add_argument('--process-cut-stage',choices=temporal_cut.STAGES,help='bind a real SDK update to a native process cut within the smoke')
     modes.add_argument('--visibility-movement',action='store_true',help='run frozen public visibility traversal across two real ownership moves')
     modes.add_argument('--omes-mixed',action='store_true',help='run the frozen 40-iteration Omes mixed component instead of smoke')
+    modes.add_argument('--lost-directory-cas',action='store_true',help='lose one actual matching-owner conditional S3 response during smoke scale-out')
     modes.add_argument('--smoke',action='store_true',help='run the default smoke explicitly')
     return parser.parse_args(argv)
 
@@ -85,6 +86,10 @@ def main():
         movement=json.loads((ROOT/"test/scenarios/ministack/visibility-movement.json").read_text())
         expected={"schema":1,"status":"NOT_EXECUTED","command":["python3","scripts/ministack-runtime.py","--visibility-movement"],"records":2000,"page_sizes":[1,7,100],"move_partitions":["history-0","vis-v1-0"],"destination":"c","cursor_pause_seconds":120,"minimum_completed_operations_before_scale":20,"minimum_local_operations_per_node":10,"require_active_workflow":True,"both_frontends_public_persistence_calls":True,"separate_mutation_records":20,"full_acceptance":False}
         if movement!=expected:raise ValueError("changed visibility movement contract")
+    if args.lost_directory_cas:
+        cas_contract=json.loads((ROOT/"test/scenarios/ministack/lost-directory-cas.json").read_text())
+        if cas_contract!={"schema":1,"command":["python3","scripts/ministack-runtime.py","--lost-directory-cas"],"status":"NOT_EXECUTED","partition":"matching","node":"c","state":"opening","recovery_seconds":120,"require_active_omes":True,"require_exact_get_reconciliation":True,"require_ready_and_local_dispatch":True,"full_acceptance":False}:raise ValueError("changed lost CAS contract")
+    if args.lost_directory_cas and (args.measurements or args.external_recorder):raise ValueError("lost-CAS fault receipt is separate from complete normal HTTP measurements")
     if args.measurements and args.external_recorder:raise ValueError("measurement modes are mutually exclusive")
     cut_config=temporal_cut.validate_config(json.loads((ROOT/'test/scenarios/ministack/process-cut.json').read_text())) if args.process_cut_stage else None
     measurement_config=json.loads((ROOT/'test/scenarios/ministack/measurements.json').read_text()) if args.measurements or args.external_recorder else None
@@ -169,11 +174,12 @@ def main():
         if args.omes_mixed:
             run(['go','build','-o',str(ROOT/'.local/bin/xenon-omes-oracle'),'./cmd/xenon-omes-oracle'],900)
             report['binaries']['xenon-omes-oracle']=sha(ROOT/'.local/bin/xenon-omes-oracle')
-        if measurement_config:
+        if measurement_config or args.lost_directory_cas:
             run(['go','build','-o',str(ROOT/'.local/bin/xenon-s3-meter'),'./cmd/xenon-s3-meter'],120)
             report['binaries']['xenon-s3-meter']=sha(ROOT/'.local/bin/xenon-s3-meter')
-            resource_config=json.loads((ROOT/measurement_config['resources']).read_text())
-            sampler=ProcessSampler(evidence/'resources.jsonl',resource_config['interval_seconds'],resource_config['max_samples'],resource_config['max_processes'])
+            if measurement_config:
+                resource_config=json.loads((ROOT/measurement_config['resources']).read_text())
+                sampler=ProcessSampler(evidence/'resources.jsonl',resource_config['interval_seconds'],resource_config['max_samples'],resource_config['max_processes'])
         if args.external_recorder:
             run(['go','build','-o',str(ROOT/'.local/bin/xenon-trace-recorder'),'./cmd/xenon-trace-recorder'],120)
             report['binaries']['xenon-trace-recorder']=sha(ROOT/'.local/bin/xenon-trace-recorder')
@@ -186,10 +192,11 @@ def main():
         def s3_ready():
             with urllib.request.urlopen(env['AWS_ENDPOINT']+'/minio/health/live',timeout=2) as response:return response.status==200
         wait(s3_ready,30)
-        if measurement_config:
-            meter_config=json.loads((ROOT/measurement_config['s3_meter']).read_text())
+        if measurement_config or args.lost_directory_cas:
+            meter_path=measurement_config['s3_meter'] if measurement_config else 'proof/s3-meter/local.json'
+            meter_config=json.loads((ROOT/meter_path).read_text())
             if meter_config['target']!=env['AWS_ENDPOINT']:raise RuntimeError('meter target differs from declared local MinIO')
-            meter=launch('s3-meter',[str(ROOT/'.local/bin/xenon-s3-meter'),'--config',str(ROOT/measurement_config['s3_meter'])])
+            meter=launch('s3-meter',[str(ROOT/'.local/bin/xenon-s3-meter'),'--config',str(ROOT/meter_path),*(['--cas-loss-evidence',str(evidence/'directory-cas.jsonl')] if args.lost_directory_cas else [])])
             ready=json.loads(meter.line('{'))
             if ready.get('event')!='ready' or ready.get('listen')!=meter_config['listen'] or ready.get('report_listen')!=meter_config['report_listen']:raise RuntimeError('meter readiness identity mismatch')
             env['AWS_ENDPOINT']='http://'+meter_config['listen']
@@ -462,9 +469,33 @@ def main():
             wait(lambda:probe('visibility-count','--query',"TaskQueue = 'omes-xenon-ministack-omes'").get('count',0)>0,60)
             if omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before node addition')
             event('omes-work-observed-before-addition')
-            node('c',17353);before_c=wait(lambda:metrics('c'));assignments['matching']['node']='c';publish();event('node-added-during-omes')
-            wait(lambda:successful(metrics('c'),'matching')>successful(before_c,'matching'),60)
+            node('c',17353);before_c=wait(lambda:metrics('c'))
+            if args.lost_directory_cas:
+                cas_deadline=time.monotonic()+120
+                def cas_remaining():
+                    remaining=cas_deadline-time.monotonic()
+                    if remaining<=0:raise TimeoutError('directory CAS recovery120s budget exceeded')
+                    return remaining
+                selector={'path':'/'+env['XENON_BUCKET']+'/'+env['XENON_TOPOLOGY_PREFIX']+'/owners/'+b'matching'.hex()+'.json','partition':'matching','node':'c','incarnation':members['c']['incarnation']}
+                request=urllib.request.Request('http://'+meter_config['report_listen']+'/cas-loss/arm',json.dumps(selector).encode(),{'Content-Type':'application/json'})
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request,timeout=3) as response:
+                    if response.status!=204:raise RuntimeError('CAS fault arm rejected')
+                event('directory-CAS-loss-armed',selector=selector)
+            if args.lost_directory_cas and omes_process.process.poll() is not None:raise RuntimeError('Omes stopped before armed CAS movement')
+            assignments['matching']['node']='c';publish(cas_remaining() if args.lost_directory_cas else 120);event('node-added-during-omes')
+            wait(lambda:successful(metrics('c'),'matching')>successful(before_c,'matching'),min(60,cas_remaining()) if args.lost_directory_cas else 60)
             checkpoint('node-c-served-matching')
+            if args.lost_directory_cas:
+                def observed_cas():
+                    with urllib.request.urlopen('http://'+meter_config['report_listen']+'/report',timeout=3) as response:receipt=json.load(response).get('cas_loss')
+                    if not receipt or receipt.get('error'):raise RuntimeError('CAS fault failed')
+                    return receipt if receipt.get('reconciled_get') and receipt.get('ready_get') and receipt.get('handler_abort_observed') else False
+                receipt=wait(observed_cas,min(60,cas_remaining()))
+                if receipt['selector']!=selector or receipt['state']!='successful_response_dropped' or receipt['upstream_status']!=200:raise RuntimeError('CAS fault identity/outcome mismatch')
+                validated=json_result(run([str(ROOT/'.local/bin/xenon-s3-meter'),'--validate-cas-loss',str(evidence/'directory-cas.jsonl')],10))
+                if validated!=receipt:raise RuntimeError('CAS journal/report mismatch')
+                cas_remaining()
+                report['lost_directory_cas']=receipt;event('directory-CAS-loss-reconciled-and-served',receipt=receipt)
             omes_process.process.wait(timeout=360)
             if omes_process.process.returncode:raise RuntimeError('Omes workload failed')
             wait(lambda:probe('visibility','--query',"TaskQueue = 'omes-xenon-ministack-omes' AND ExecutionStatus = 'Completed'",'--expected-count','20'))
@@ -474,7 +505,7 @@ def main():
             if run(['git','status','--porcelain=v1','--untracked-files=all'],cwd=omes).strip():raise RuntimeError('Omes source changed')
             event('ui-assertions-passed');checkpoint('before-cold-restart')
             # Explicit final cold-local restart retains only the S3 service volume.
-            cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config else processes
+            cold_order=runtime_measurements.producer_first(processes,traces,meter) if measurement_config or args.lost_directory_cas else processes
             for process in cold_order:
                 if not recorder or process is not recorder.process:process.stop()
             nodes.clear();members.clear()

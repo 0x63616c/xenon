@@ -29,13 +29,15 @@ type Counts struct {
 	ResponseBodyBytes   uint64 `json:"response_body_bytes_written"`
 }
 type Report struct {
-	Schema int `json:"schema"`
+	CASLoss *CASReceipt `json:"cas_loss,omitempty"`
+	Schema  int         `json:"schema"`
 	Counts
 	Inflight uint64            `json:"inflight"`
 	Methods  map[string]uint64 `json:"methods"`
 	Status   map[int]uint64    `json:"status"`
 }
 type Proxy struct {
+	cas       *casLoss
 	mu        sync.Mutex
 	counts    Counts
 	methods   map[string]uint64
@@ -76,18 +78,25 @@ func New(target string) (*Proxy, error) {
 	p.transport = &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", u.Host)
 	}, MaxIdleConns: 64, MaxIdleConnsPerHost: 64, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: 30 * time.Second, DisableCompression: true}
-	p.proxy = &httputil.ReverseProxy{ErrorLog: log.New(io.Discard, "", 0), Director: func(r *http.Request) { r.URL.Scheme = "http"; r.URL.Host = u.Host; r.Header.Del("X-Forwarded-For") }, Transport: roundTripper{p.transport}, ErrorHandler: func(w http.ResponseWriter, r *http.Request, _ error) {
+	p.proxy = &httputil.ReverseProxy{ErrorLog: log.New(io.Discard, "", 0), Director: func(r *http.Request) { r.URL.Scheme = "http"; r.URL.Host = u.Host; r.Header.Del("X-Forwarded-For") }, Transport: roundTripper{p.transport, p}, ErrorHandler: func(w http.ResponseWriter, r *http.Request, _ error) {
 		s := r.Context().Value(stateKey{}).(*state)
 		s.transportErrors++
 		w.WriteHeader(http.StatusBadGateway)
 	}}
 	return p, nil
 }
-func (p *Proxy) Close() { p.transport.CloseIdleConnections() }
+func (p *Proxy) Close() {
+	p.transport.CloseIdleConnections()
+	if p.cas != nil {
+		p.cas.mu.Lock()
+		defer p.cas.mu.Unlock()
+		_ = p.cas.file.Close()
+	}
+}
 func (p *Proxy) Snapshot() Report {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	r := Report{Schema: 1, Counts: p.counts, Inflight: p.counts.Attempts - p.counts.Finished, Methods: map[string]uint64{}, Status: map[int]uint64{}}
+	r := Report{CASLoss: p.CASLossSnapshot(), Schema: 1, Counts: p.counts, Inflight: p.counts.Attempts - p.counts.Finished, Methods: map[string]uint64{}, Status: map[int]uint64{}}
 	for k, v := range p.methods {
 		r.Methods[k] = v
 	}
@@ -106,6 +115,7 @@ func method(m string) string {
 
 type stateKey struct{}
 type state struct {
+	casSelected                                                                              bool
 	requestBytes, responseBytes, requestErrors, responseErrors, writeErrors, transportErrors uint64
 	status                                                                                   int
 }
@@ -145,10 +155,30 @@ func (b *body) Close() error {
 	return e
 }
 
-type roundTripper struct{ base http.RoundTripper }
+type roundTripper struct {
+	base  http.RoundTripper
+	proxy *Proxy
+}
 
 func (t roundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	selected := false
+	if t.proxy.cas != nil {
+		var err error
+		selected, err = t.proxy.cas.prepare(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if selected {
+		r.Context().Value(stateKey{}).(*state).casSelected = true
+	}
 	response, e := t.base.RoundTrip(r)
+	if e == nil && t.proxy.cas != nil {
+		if err := t.proxy.cas.after(r, response, selected); err != nil {
+			_ = response.Body.Close()
+			return nil, err
+		}
+	}
 	if e == nil && response.Body != nil {
 		response.Body = &body{ReadCloser: response.Body, s: r.Context().Value(stateKey{}).(*state)}
 	}
@@ -186,6 +216,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.mu.Unlock()
 	defer func() {
 		failure := recover()
+		if failure == http.ErrAbortHandler && s.casSelected && p.cas != nil {
+			p.cas.observeAbort()
+		}
 		p.mu.Lock()
 		c := &p.counts
 		c.Finished++

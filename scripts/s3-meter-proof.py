@@ -19,6 +19,8 @@ def execute(argv, env, timeout=120):
     return result.stdout.strip()
 
 def main():
+    selected = sys.argv[1] if len(sys.argv)==2 else "TestMeterSignedS3"
+    if len(sys.argv)>2 or selected not in ("TestMeterSignedS3","TestCASLossSignedS3"):raise ValueError("unregistered signed S3 control")
     cfg = json.loads((ROOT / "proof/s3-meter/case.json").read_text())
     if cfg["schema"] != 1 or cfg["backend"] != "s3-emulator" or cfg["endpoint"] != "http://127.0.0.1:19009":
         raise RuntimeError("unregistered s3-meter fixture")
@@ -38,7 +40,7 @@ def main():
             except OSError:
                 if time.monotonic()>=deadline: raise RuntimeError("emulator readiness deadline")
                 time.sleep(0.1)
-        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/proof/s3meter","-run","^TestMeterSignedS3$"],cwd=ROOT,env=env,timeout=200)
+        completed = subprocess.run(["go","test","-race","-json","-tags","integration_s3","-count=1","-timeout","180s","./internal/proof/s3meter","-run","^"+selected+"$"],cwd=ROOT,env=env,timeout=200)
         if completed.returncode: raise RuntimeError("signed S3 metering assertion failed")
     finally:
         execute([*compose,"down","--volumes"],env)
