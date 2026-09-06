@@ -12,8 +12,6 @@
     "submit:stable-endpoint",
     "owner-b:commit",
     "transport:drop-response",
-    "owner-b:replay",
-    "transport:drop-response",
     "node-b:crash",
     "membership:observe",
     "membership:evict-b",

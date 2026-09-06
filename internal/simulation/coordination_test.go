@@ -131,7 +131,7 @@ func checkCoordination(observed coordinationObservation) error {
 	if observed.result == nil || !bytes.Equal(observed.result.Data, []byte{1}) || !bytes.Equal(observed.disk.durable["value"], []byte{1}) {
 		return fmt.Errorf("mutation or original result was not preserved exactly once")
 	}
-	if len(count) != 8 || binary.BigEndian.Uint64(count) != 1 || observed.disk.commits != 3 {
+	if len(count) != 8 || binary.BigEndian.Uint64(count) != 1 || observed.disk.commits != 2 {
 		return fmt.Errorf("durable replay outcome/count missing")
 	}
 	if _, ok := observed.topology.Members["b"]; ok || observed.topology.Partitions[observed.partition].Node != "a" {
@@ -236,8 +236,8 @@ func TestDeterministicCoordinationLostResponseCrashMove(t *testing.T) {
 	}
 	interceptor := router.Interceptor(func(string) proto.Message { return new(wire.ShardResult) })
 	trace = append(trace, "submit:stable-endpoint")
-	if _, err := interceptor(ctx, req, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil); status.Code(err) != codes.Unavailable || forwardCalls != 2 {
-		t.Fatalf("lost-response retry was not bounded: calls=%d err=%v", forwardCalls, err)
+	if _, err := interceptor(ctx, req, &grpc.UnaryServerInfo{FullMethod: wire.ShardPersistence_Execute_FullMethodName}, nil); status.Code(err) != codes.Unavailable || forwardCalls != 1 {
+		t.Fatalf("untyped transport failure was retried by origin: calls=%d err=%v", forwardCalls, err)
 	}
 
 	trace = append(trace, "node-b:crash")
@@ -282,7 +282,7 @@ func TestDeterministicCoordinationLostResponseCrashMove(t *testing.T) {
 	for len(events) > 0 {
 		routingEvents = append(routingEvents, <-events)
 	}
-	if len(routingEvents) != 8 || routingEvents[1].Code != codes.Unavailable || routingEvents[3].Code != codes.Unavailable || routingEvents[5].Kind != "local" || routingEvents[7].Code != codes.InvalidArgument {
+	if len(routingEvents) != 6 || routingEvents[1].Code != codes.Unavailable || routingEvents[3].Kind != "local" || routingEvents[5].Code != codes.InvalidArgument {
 		t.Fatal("unexpected production routing events", routingEvents)
 	}
 }
@@ -291,7 +291,7 @@ func TestCheckerRejectsStaleOwnerAcknowledgement(t *testing.T) {
 	// This observation is otherwise valid and injects the single faulty effect:
 	// admission acknowledged on the withdrawn owner. It uses the same checker as
 	// the coupled scenario, so deleting the checker invariant fails this control.
-	d := &disk{durable: map[string][]byte{"value": {1}, "v1/outcome_count": {0, 0, 0, 0, 0, 0, 0, 1}}, commits: 3}
+	d := &disk{durable: map[string][]byte{"value": {1}, "v1/outcome_count": {0, 0, 0, 0, 0, 0, 0, 1}}, commits: 2}
 	topology := ownership.Topology{Members: map[string]ownership.Member{"a": {}}, Partitions: map[string]ownership.Assignment{"p": {Node: "a"}}}
 	result := &wire.ShardResult{Data: []byte{1}}
 	if checkCoordination(coordinationObservation{disk: d, topology: topology, partition: "p", result: result, staleAcknowledged: true}) == nil {
