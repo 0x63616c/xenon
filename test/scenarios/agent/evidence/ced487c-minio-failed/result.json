@@ -1,0 +1,1845 @@
+{
+  "schema": 1,
+  "scope": "format2 shared-storage service runtime: combined SDK and Omes workflows, Temporal HTTP/UI surfaces, observed automatic ownership movement, process restart and cold history recovery; not full ten-minute/Nexus/capacity acceptance",
+  "status": "failed",
+  "full_acceptance": false,
+  "development": false,
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "7fc81d59af721ed7bddfe10d6aa890e920e861798c074c77579e46551e6acb3c"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/build-go-node.py"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "a13023bb6ea463ac01bf9b24e3a04a6f6faca863c41986b83fc1d821504cc705"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-o",
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "./cmd/xenon-sdk-probe"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-o",
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-ingress",
+        "./cmd/xenon-ingress"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon",
+        "version"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "c0097d9019f2ba16ce6b1b0934dfd8bc1fea30084b35122414e2d35ebdd2e0cd"
+    },
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "--project-name",
+        "xenon-agent-afa8a0998b",
+        "-f",
+        "/private/tmp/xenon-cluster-control-20260906/test/scenarios/agent/compose.json",
+        "up",
+        "-d",
+        "--pull",
+        "never"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "563be8276e3fcc4ca3562e32c01012971b26cdebcfeef7ceeaf841f1b8eca3b5"
+    },
+    {
+      "argv": [
+        "aws",
+        "--endpoint-url",
+        "http://127.0.0.1:19006",
+        "s3api",
+        "create-bucket",
+        "--bucket",
+        "xenon-agent-proof"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "7fdd7f4d9615e063fc7058072b7ee64519d853974f7d414519ad39a2fabf35c5"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "17e4d2dd3d071b8c3590b424c7494237d313c7b79326ad75266887abee0705f2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "607ac109e48dfcdda8401a50716ca7c7fee3043461abd125d53fe7bb192634d9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "1f26a4bfacf1f232986851965f4ffd5cd5dfe0e62e6111e9feb9bfc038724dd1"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "2e41bbde2b6fe7dd8229d3b8305d11d24532c76b3e8c50f3ef9a648b91950d2e"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "16dba1fd2e3fd69b721025dabd49f4c17ca9bd78a03f04dcdd0d23fd0076be11"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:18233"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "743734b151cf0af2bc57860693c0f4c45b93ec1a7765ea94292457521c7b7af1"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "c0282ee503913a015f9fa55b2c79ac36c77e5867b4fe8e7cfc9f42305f5bcb3a"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "8ccf424534d6a6c8b0e2b25a4fff35af540dbe544d93c1dd2582101ee53c3255"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "8ccf424534d6a6c8b0e2b25a4fff35af540dbe544d93c1dd2582101ee53c3255"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f39da5847b79e8daaf38415c6204d3b04d2f43bec1c779cba9c1aa9f4a8a7103"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f39da5847b79e8daaf38415c6204d3b04d2f43bec1c779cba9c1aa9f4a8a7103"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "dd5cddf6e8de17623071c77ca1a7bbddb2bbd229fa9c4827dbb5fc889dffbdd2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "dbe812b1d291594c7a9ccb2626444d9cdd0f46a2c3e1306e497690927a57f37d"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3ef717fb5f1a56a09bb0ad77d7ad6888a7df22de38cdb823e78144752f8e7630"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3ef717fb5f1a56a09bb0ad77d7ad6888a7df22de38cdb823e78144752f8e7630"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "2b069a0dd41e2febb2107d27e9464bd1bd82ea023b3548c11fb1f3ebe9dc6bb2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:19233"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "798cd6ea8d5cb7f933edb9ff7cad917292b7f350d860dd5db377c836cff8e02b"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "bootstrap",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "a082b334629dc40fb18121b25c408e013c5169855b4252486a5049c9fc51cb8d"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "start",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "b928f2723421640ae5bd865388b88c9af24f06a86ee4f8dbb6259fb807bb75a9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "830457ffb475621420f659b8abcedc19f5b031a8a6a65fc69e49e128510e30f9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "311b8a8a42552851c6baf69172bcab307b12defb4afa2817d38760ab1c0d8690"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "05c6c058b72f78ccea836ca40667c8fba6b48fe27f3ce001faee435ef122f2b2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "930b98edb2ef0659a4025d44231a3ec73cb0400189af074e354a3d5ea4505b33"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "0b269238c5164dc74a56a9b2723e2e469cee33938b6204ad31343df4021df5d7"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "dd1a2864f775e84c09a1d345152c4d8172fe17b569fe694363d769f5391dc156"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "9b02e5b36970146bd61b9975621392edac8dcc364fbde8b04dc24e8b194903e0"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "9b02e5b36970146bd61b9975621392edac8dcc364fbde8b04dc24e8b194903e0"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "26afa3f4d989eb9fd693b61912acb8b8f99fa48cd3cfbac0add811711bd67bd3"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3cd1a719a6bdce34d1fcea862d9faf9977d4d4558c1613c0226152c51d202ca4"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3cd1a719a6bdce34d1fcea862d9faf9977d4d4558c1613c0226152c51d202ca4"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "69cf01d5f68424bb3cfc62f18c8f7292fd8625e0664e5116b1f3e79439b4c065"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "69cf01d5f68424bb3cfc62f18c8f7292fd8625e0664e5116b1f3e79439b4c065"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f88dfb0c30221edaabee08c00c84a5e6cb3beb3ca51a50cc8360b15866e1feb0"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b7c6cc5eec6e99d8287f876b12e226c906e53962abe8e5206cd70ebafe9497ca"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b7c6cc5eec6e99d8287f876b12e226c906e53962abe8e5206cd70ebafe9497ca"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "88e37b7eaf06f5924dd2879144d526af56543e69330ea7a7d367ae2d0bf97eaa"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f5ecc04311521d8e291f4c996eb365e158bd525e12c949f4c5f51e68534487da"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f5ecc04311521d8e291f4c996eb365e158bd525e12c949f4c5f51e68534487da"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "309af3a177f4084956166b65620bca168c4b188a40f51cf677e58676ace39142"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "706500bb67c39635627551fa28a28149de1a4e8e6f2640f1aa19796a2ed535c2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "5428598844be522bb09919c2507861f607527e6a9ae7a487da13eeade7d48868"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "5428598844be522bb09919c2507861f607527e6a9ae7a487da13eeade7d48868"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f10efd7775ea5d8216fb37ebd98b967adc1bad0e69ac60b3c06125667837c64f"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "f10efd7775ea5d8216fb37ebd98b967adc1bad0e69ac60b3c06125667837c64f"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "0451d6e29b22778eb619c2e31cd6b27d1625c404d9ddf7245c86b39372c02dc1"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "2872ee110351365aaddf1fbb53830d1968f19f4ebe7f0e29619cc1bdfe1c4e61"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "2872ee110351365aaddf1fbb53830d1968f19f4ebe7f0e29619cc1bdfe1c4e61"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "5a60606f39020e846f2aff7ef8801b473f55f85b35c766e41ef338019f10f8a2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "5a60606f39020e846f2aff7ef8801b473f55f85b35c766e41ef338019f10f8a2"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "e07fe9ebecee69d3110a2d932b79df135fa7f2c199da196aef72407a9b82d0d9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3e5b26b56067716e5e1902b77a56839eb25955ce85a3cb58a7d8cf7e23e81eb9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3e5b26b56067716e5e1902b77a56839eb25955ce85a3cb58a7d8cf7e23e81eb9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "173e51458e62aac97194f12b826e9ba8904bfcde6302a7b3affd0046e77cfa39"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "eb3b977c1bf8b905729e003685901c5e2dc5579686fea5586a8b36774f9dd1c8"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "eb3b977c1bf8b905729e003685901c5e2dc5579686fea5586a8b36774f9dd1c8"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "654968fa2ade612a03ad247dd3ac74bbe9006541b2ea55204339ca4d1af2f0f9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "654968fa2ade612a03ad247dd3ac74bbe9006541b2ea55204339ca4d1af2f0f9"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "fb2a589d9ee876a256c25422473f45b382053be6b6cf7b5a063109a692af1173"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "bdb71659d1e15cbd9d2d8bf70491f859bb6cedca9041bd301ed6b452b3db9726"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "bdb71659d1e15cbd9d2d8bf70491f859bb6cedca9041bd301ed6b452b3db9726"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3275a726be34d6d6f6eadfb5a9532365475f06b07a69828424dc170430bb9ad0"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3275a726be34d6d6f6eadfb5a9532365475f06b07a69828424dc170430bb9ad0"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "9fd8921bf3d7a4643a2156615146fdaca2000049f8f1f34eca55f997f8b06574"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "d29bb3e714dad42a64994659c8713ddff7819f2917e24d5d2c3c1587174adcbd"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "2a2d5518d9de5724739c8714aed9431b801fe1ffc213924cfbdc75d807e95ce4"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "6e129864da12909a34b04dcb25057766af8511216e0d63a181e792928142e89b"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "f2a14d769e3fd77429a6671c4ae61162fd7a1ab3c123f0f2cf65eb9a304ee741"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "6a97108ffcd038331b4bbdbc660e9bd13416789213391e6ce77dc529a588bf38"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "3f31507f860ad20e049c3f1c7967c8a7183eb0d50d02a2311d6440740e76ec24"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "3f31507f860ad20e049c3f1c7967c8a7183eb0d50d02a2311d6440740e76ec24"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "c2b1de3a9e0f3d87b28f61f8deda25b64b862b3185618ebd7565d00e405eb838"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "phase",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "cb233a078774faf3fef996b70e2b9c36a7e9f645fde87752ee6ed51166f64626"
+    },
+    {
+      "argv": [
+        "git",
+        "clone",
+        "--no-checkout",
+        "https://github.com/temporalio/omes",
+        "/private/tmp/xenon-cluster-control-20260906/.local/omes-source"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "72e52b2c84d7466734888794d01af8fcb3efd67c48f28baff058b3665228e426"
+    },
+    {
+      "argv": [
+        "git",
+        "checkout",
+        "--detach",
+        "c6978ba39aa03551ce28974117e8d7ecf983d2b3"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "aedee467089e1a139935888af0fdcb20b4f3a9b1180472450e65ef77c24f9ad3"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-o",
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/omes",
+        "./cmd/omes"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/omes",
+        "prepare-worker",
+        "--language",
+        "go",
+        "--version",
+        "v1.48.0",
+        "--dir-name",
+        "prepared"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "75fb22908806419609f4d670fe16112603ca7476eb5f71322eee9f458f043043"
+    },
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "8bb097dfeaa7b82a9021166a6c9f2cce581209fac300d55f8dfaf19f5f708169"
+    },
+    {
+      "argv": [
+        "go",
+        "version",
+        "-m",
+        "/private/tmp/xenon-cluster-control-20260906/.local/omes-source/workers/go/prepared/program"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "08ddc35d58c0d2638cfeffe61129cc3c55313b0ba4bb49ff32faf57f7031a772"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "1db972e6698698c02f8f21c7cfad5a70477ff50107fe3cbebbeea1a85863e677"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "93a1799e4f78bbf263fcd310248fe5f59a4d9bbfb5904671b3401dfe28216d6f"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "c8817fceb409bc5bc30e91c7ec385c5cb992f4107ab278f47895695ca547f287"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "8b29409ebb4c348211a4b9d891d82d1473cdf725411a6c64b5f586d846d9d3bf"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "1877d47b92c92c65aa5abcaec9e8f97111f28052e08ddfd0e074a411ad0072e1"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "1877d47b92c92c65aa5abcaec9e8f97111f28052e08ddfd0e074a411ad0072e1"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "visibility-count",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--query",
+        "TaskQueue = 'omes-xenon-agent-omes'"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "add0b323722e44bfdca2e5c4053097fc8671f890a7c010e9e9a274e2af7a96ca"
+    },
+    {
+      "argv": [
+        "aws",
+        "--endpoint-url",
+        "http://127.0.0.1:19006",
+        "s3api",
+        "get-object",
+        "--bucket",
+        "xenon-agent-proof",
+        "--key",
+        "agent/metadata/registry/cluster/control",
+        "/private/tmp/xenon-cluster-control-20260906/.local/evidence/agent-20260906T114456-274d67/control-before-c.json"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "fcb130731b48e5afadc93800524d00364692b61f76d7b75f54925c1e2654166a"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "04ded71cde52e78aa1133842349a39500e3f2b25f75b4b9639fb8e7bad011eaf"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "04ded71cde52e78aa1133842349a39500e3f2b25f75b4b9639fb8e7bad011eaf"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "08b284ab2c48abf0c66386385a21bf79f9ce34778722bda0ce7bce0c995ff849"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "08b284ab2c48abf0c66386385a21bf79f9ce34778722bda0ce7bce0c995ff849"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "e23161b890c49dd341ece45093e6b020450dbf32024058228714781bf4ad3dca"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "e23161b890c49dd341ece45093e6b020450dbf32024058228714781bf4ad3dca"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "683b11ed3f39bc2f0fdab0bc8f3277c08de28125959e8de664ae2ac0d7cf017a"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "683b11ed3f39bc2f0fdab0bc8f3277c08de28125959e8de664ae2ac0d7cf017a"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3284d8a8c590d6daff2414b78323c3f95cdea20513b423b655ee3ce50a1db287"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "3284d8a8c590d6daff2414b78323c3f95cdea20513b423b655ee3ce50a1db287"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "4faffd6587e87c7121efed7c0d9520ac35131f8abc7d674c3cc950da76d13e90"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "fd58d0b26789006eb5cab0c86b53c22fe062814be821fdacea6320ea9bb9a949"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "89cf7c1ff009de8542e5fee40fbf96af146c6e0641f39d041256951d7cebc745"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b70270e925ce0cd81231d5a0689639945ee311b6b5ea21c2ff8f24e810c5394b"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b70270e925ce0cd81231d5a0689639945ee311b6b5ea21c2ff8f24e810c5394b"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b01f2f552914cd381f7a1dca76dd72b56f7f38274d453b4e37fc5cbe76f0fe5e"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "b01f2f552914cd381f7a1dca76dd72b56f7f38274d453b4e37fc5cbe76f0fe5e"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "29e13a10d71e2bbd712b6656a33c21431aa31d8317c45e2d035b5abbadb3ab7c"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "29e13a10d71e2bbd712b6656a33c21431aa31d8317c45e2d035b5abbadb3ab7c"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 1,
+      "timed_out": false,
+      "output_sha256": "14e6449a00bc9591c240ef9c3995adcfe1fb24d4d34a06d9ae6866f9eb64f62c"
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-cluster-control-20260906/.local/bin/xenon-sdk-probe",
+        "--mode",
+        "health",
+        "--cluster",
+        "xenon",
+        "--storage-address",
+        "127.0.0.1:17935",
+        "--address",
+        "127.0.0.1:21233"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "3109d9e76c47a560228a7fdfbee8701077c3094cb03801b43c43340395207782"
+    },
+    {
+      "argv": [
+        "aws",
+        "--endpoint-url",
+        "http://127.0.0.1:19006",
+        "s3api",
+        "get-object",
+        "--bucket",
+        "xenon-agent-proof",
+        "--key",
+        "agent/metadata/registry/cluster/control",
+        "/private/tmp/xenon-cluster-control-20260906/.local/evidence/agent-20260906T114456-274d67/control-after-c.json"
+      ],
+      "returncode": -9,
+      "timed_out": false,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "--project-name",
+        "xenon-agent-afa8a0998b",
+        "-f",
+        "/private/tmp/xenon-cluster-control-20260906/test/scenarios/agent/compose.json",
+        "down",
+        "--volumes"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "output_sha256": "4f8f25e1ab3e8f939fdec4ff034e47fe1d0f37385d260840c6883acdcf873106"
+    }
+  ],
+  "events": [
+    {
+      "event": "agent-healthy",
+      "node": "a",
+      "pid": 6551
+    },
+    {
+      "event": "agent-healthy",
+      "node": "b",
+      "pid": 6567
+    },
+    {
+      "event": "temporal-http-and-ui-ready",
+      "http": {
+        "namespaces_count": 2,
+        "workflow_page_size": 0
+      },
+      "ui": {
+        "port": 18080
+      }
+    },
+    {
+      "event": "omes-running-observed-before-join",
+      "workflow_ids": [
+        "w-xenon-agent-omes-e85a87609ee1a428-1"
+      ]
+    },
+    {
+      "event": "agent-healthy",
+      "node": "c",
+      "pid": 7975
+    },
+    {
+      "event": "join-started-during-active-sdk-and-omes-workflows"
+    }
+  ],
+  "revision": "ced487ce2a4323e44442dbf926704b255d6c37b2",
+  "dirty": false,
+  "harness_hashes": {
+    "agent-smoke.py": "07fa17c0b0df8cdb65cc08470017d59283df78ca3f063d6201511e644feb81e5",
+    "agent_control.py": "428982b4ae8bc2334dab809c29eaa97c57496af37524c9194f0b99d8e807833c",
+    "omes_workloads.py": "ef401dd55c1c8d3f76e1df0256ccb4ee31da5043f11def75a35c00b4c595d059"
+  },
+  "scenario_hashes": {
+    "a.json": "bacb58819fff089657e5e63301861d3d523aa46ee6fcafdd2bff27ed15022007",
+    "b.json": "1c83b236786d6520c6acec2edbdff4c9caafc237b75a4948690cc760ba0c4aaa",
+    "c.json": "b01250ce4518b2dc216ba96122d508bc825037ae018e1c93e85523c2e2fca5e3",
+    "case.json": "ae7a094e52781b038ebfb039ca1c1c5adfdd39abf6995ba648e084ed466d1dd9",
+    "compose.json": "30f7051daeb5ea1cfd60519e7d79d440f19667c5dc6b54cabd3cfb7cf674afd6"
+  },
+  "reused_ministack_input_hashes": {
+    "pins.json": "548b562bcf655610a0b06238cb2035e3c26cabe4ca3abb7789aa3492820d025a"
+  },
+  "binaries": {
+    "xenon": "323dfc63dd0377f2426b0570165c00194d5f4676343c7a9cea59b24302bfc179",
+    "xenon-sdk-probe": "24ee641e2fc1bba4fc00621c5316f4b9a7540133c49a0fc582ea0f8131465899",
+    "xenon-ingress": "820acddb52985b5a69d036e2af82e83aeabba4c61cb5735c73f1646560e42e46"
+  },
+  "native_build": {
+    "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+    "source_clean": true,
+    "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+    "binding_module": "slatedb.io/slatedb-go",
+    "binding_version": "v0.16.0",
+    "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+    "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+    "shared_library_sha256": "7738e08d4e676bd8cc9c4484a3a42272164c0279a6ede0abf7d76dd124d9c459",
+    "node_binary": ".local/bin/xenon-go-node",
+    "node_binary_sha256": "1f0df324dd35fcd0e2bef98e92478f4673193c543798b61ff36e42cf6d95cf2a",
+    "agent_binary": ".local/bin/xenon",
+    "agent_binary_sha256": "323dfc63dd0377f2426b0570165c00194d5f4676343c7a9cea59b24302bfc179",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "version": {
+    "xenon": "v0.0.0-20260906184456-ced487ce2a43",
+    "go": "go1.27.1",
+    "revision": "ced487ce2a4323e44442dbf926704b255d6c37b2",
+    "modified": "false",
+    "temporal": {
+      "path": "go.temporal.io/server",
+      "version": "v1.31.2",
+      "sum": "h1:0O4zQ0NGRit2Z32s1XUHfs9k8zSKqff2n1QvFttYN0M="
+    },
+    "slatedb_go": {
+      "path": "slatedb.io/slatedb-go",
+      "version": "v0.16.0",
+      "sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0="
+    },
+    "slatedb_native": {
+      "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+      "artifact_sha256": "7738e08d4e676bd8cc9c4484a3a42272164c0279a6ede0abf7d76dd124d9c459",
+      "identity_source": "build-attestation"
+    }
+  },
+  "http_surface": {
+    "namespaces_count": 2,
+    "workflow_page_size": 0
+  },
+  "execution": {
+    "run_id": "01a0780a-7812-79bc-aa21-103fd46ac242",
+    "workflow_id": "xenon-durable-workflow-1"
+  },
+  "omes_source_commit": "c6978ba39aa03551ce28974117e8d7ecf983d2b3",
+  "omes_binary_sha256": "356f970f685951e6ac34927f992770ad33f5efe9978faac308879b48cd110906",
+  "effective_omes_worker_sdk": {
+    "module": "go.temporal.io/sdk",
+    "version": "v1.48.0",
+    "checksum": "h1:WDctKDVuh0Z8Nf7euAyqs/EwcPg1JTIIq1Fut8Tq118=",
+    "replacement": true
+  },
+  "omes_worker_build_info": "/private/tmp/xenon-cluster-control-20260906/.local/omes-source/workers/go/prepared/program: go1.27.1\n\tpath\tgithub.com/temporalio/omes-worker\n\tmod\tgithub.com/temporalio/omes-worker\t(devel)\t\n\tdep\tgithub.com/BurntSushi/toml\tv1.4.0\th1:kuoIxZQy2WRRk1pttg9asf+WVv6tWQuBNVmK8+nqPr0=\n\tdep\tgithub.com/andybalholm/brotli\tv1.1.0\th1:eLKJA0d02Lf0mVpIDgYnqXcUn0GqVmEFny3VuID1U3M=\n\tdep\tgithub.com/aws/aws-lambda-go\tv1.47.0\th1:0H8s0vumYx/YKs4sE7YM0ktwL2eWse+kfopsRI1sXVI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2\tv1.41.6\th1:1AX0AthnBQzMx1vbmir3Y4WsnJgiydmnJjiLu+LvXOg=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/config\tv1.32.16\th1:Q0iQ7quUgJP0F/SCRTieScnaMdXr9h/2+wze1u3cNeM=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/credentials\tv1.19.15\th1:fyvgWTszojq8hEnMi8PPBTvZdTtEVmAVyo+NFLHBhH4=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/feature/ec2/imds\tv1.18.22\th1:IOGsJ1xVWhsi+ZO7/NW8OuZZBtMJLZbk4P5HDjJO0jQ=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/configsources\tv1.4.22\th1:GmLa5Kw1ESqtFpXsx5MmC84QWa/ZrLZvlJGa2y+4kcQ=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/endpoints/v2\tv2.7.22\th1:dY4kWZiSaXIzxnKlj17nHnBcXXBfac6UlsAx2qL6XrU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/v4a\tv1.4.23\th1:FPXsW9+gMuIeKmz7j6ENWcWtBGTe1kH8r9thNt5Uxx4=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/accept-encoding\tv1.13.8\th1:HtOTYcbVcGABLOVuPYaIihj6IlkqubBwFj10K5fxRek=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/presigned-url\tv1.13.22\th1:PUmZeJU6Y1Lbvt9WFuJ0ugUK2xn6hIWUBBbKuOWF30s=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/secretsmanager\tv1.41.6\th1:XR42AXidhYs4HwH0I+yElLXVt7zb2hAyNHQJe6Blv7w=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/signin\tv1.0.10\th1:a1Fq/KXn75wSzoJaPQTgZO0wHGqE9mjFnylnqEPTchA=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sso\tv1.30.16\th1:x6bKbmDhsgSZwv6q19wY/u3rLk/3FGjJWyqKcIRufpE=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/ssooidc\tv1.35.20\th1:oK/njaL8GtyEihkWMD4k3VgHCT64RQKkZwh0DG5j8ak=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sts\tv1.42.0\th1:ks8KBcZPh3PYISr5dAiXCM5/Thcuxk8l+PG4+A0exds=\n\tdep\tgithub.com/aws/smithy-go\tv1.25.0\th1:Sz/XJ64rwuiKtB6j98nDIPyYrV1nVNJ4YU74gttcl5U=\n\tdep\tgithub.com/beorn7/perks\tv1.0.1\th1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=\n\tdep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=\n\tdep\tgithub.com/davecgh/go-spew\tv1.1.1\th1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=\n\tdep\tgithub.com/ebitengine/purego\tv0.9.0\th1:mh0zpKBIXDceC63hpvPuGLiJ8ZAa3DfrFTudmfi8A4k=\n\tdep\tgithub.com/facebookgo/clock\tv0.0.0-20150410010913-600d898af40a\th1:yDWHCSQ40h88yih2JAcL6Ls/kVkSE8GFACTGVnMPruw=\n\tdep\tgithub.com/gogo/protobuf\tv1.3.2\th1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=\n\tdep\tgithub.com/golang/mock\tv1.6.0\th1:ErTB+efbowRARo13NNdxyJji2egdxLGQhRaY+DUumQc=\n\tdep\tgithub.com/golang/protobuf\tv1.5.4\th1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/grpc-ecosystem/go-grpc-middleware/v2\tv2.3.2\th1:sGm2vDRFUrQJO/Veii4h4zG2vvqG6uWNkBHSTqXOZk0=\n\tdep\tgithub.com/grpc-ecosystem/grpc-gateway/v2\tv2.22.0\th1:asbCHRVmodnJTuQ3qamDwqVOIjwqUPTYmYuemVOx+Ys=\n\tdep\tgithub.com/json-iterator/go\tv1.1.12\th1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=\n\tdep\tgithub.com/klauspost/compress\tv1.17.9\th1:6KIumPrER1LHsvBVuDa0r5xaG0Es51mhhB9BQB2qeMA=\n\tdep\tgithub.com/modern-go/concurrent\tv0.0.0-20180306012644-bacd9c7ef1dd\th1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=\n\tdep\tgithub.com/modern-go/reflect2\tv1.0.2\th1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=\n\tdep\tgithub.com/nexus-rpc/nexus-proto-annotations\tv0.1.0\th1:2fELd+9sqUtNu6Fg//pw8YFsxOvp8vZ8hfP0nHhNI80=\n\tdep\tgithub.com/nexus-rpc/sdk-go\tv0.7.0\th1:38NrfY5rLnZAiMMs2ZfCKI/CSDzdfJG+27iAgfA8bUI=\n\tdep\tgithub.com/parquet-go/parquet-go\tv0.25.1\th1:l7jJwNM0xrk0cnIIptWMtnSnuxRkwq53S+Po3KG8Xgo=\n\tdep\tgithub.com/pierrec/lz4/v4\tv4.1.21\th1:yOVMLb6qSIDP67pl/5F7RepeKYu/VmTyEXvuMI5d9mQ=\n\tdep\tgithub.com/pmezard/go-difflib\tv1.0.0\th1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=\n\tdep\tgithub.com/prometheus/client_golang\tv1.18.0\th1:HzFfmkOzH5Q8L8G+kSJKUx5dtG87sewO+FoDDqP5Tbk=\n\tdep\tgithub.com/prometheus/client_model\tv0.5.0\th1:VQw1hfvPvk3Uv6Qf29VrPF32JB6rtbgI6cYPYQjL0Qw=\n\tdep\tgithub.com/prometheus/common\tv0.46.0\th1:doXzt5ybi1HBKpsZOL0sSkaNHJJqkyfEWZGGqqScV0Y=\n\tdep\tgithub.com/prometheus/procfs\tv0.12.0\th1:jluTpSng7V9hY0O2R9DzzJHYb2xULk9VTR1V1R/k6Bo=\n\tdep\tgithub.com/robfig/cron\tv1.2.0\th1:ZjScXvvxeQ63Dbyxy76Fj3AT3Ut0aKsyd2/tl3DTMuQ=\n\tdep\tgithub.com/shirou/gopsutil/v4\tv4.25.10\th1:at8lk/5T1OgtuCp+AwrDofFRjnvosn0nkN2OLQ6g8tA=\n\tdep\tgithub.com/spf13/pflag\tv1.0.5\th1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=\n\tdep\tgithub.com/stretchr/objx\tv0.5.2\th1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=\n\tdep\tgithub.com/stretchr/testify\tv1.11.1\th1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=\n\tdep\tgithub.com/temporalio/omes\tv1.0.0\n\t=>\t../../../\t(devel)\t\n\t\n\tdep\tgithub.com/temporalio/omes/workers/go\tv1.0.0\n\t=>\t../\t(devel)\t\n\t\n\tdep\tgithub.com/temporalio/omes/workers/go/harness/api\tv0.0.0\n\t=>\t../harness/api\t(devel)\t\n\t\n\tdep\tgithub.com/tklauser/go-sysconf\tv0.3.15\th1:VE89k0criAymJ/Os65CSn1IXaol+1wrsFHEB8Ol49K4=\n\tdep\tgo.temporal.io/api\tv1.63.5\th1:c11+kPYHkXXL3UiShPdbMD+xtvqGsbTibUA9ypmiCa4=\n\tdep\tgo.temporal.io/sdk\tv1.48.0\n\t=>\tgo.temporal.io/sdk\tv1.48.0\th1:WDctKDVuh0Z8Nf7euAyqs/EwcPg1JTIIq1Fut8Tq118=\n\t\n\tdep\tgo.temporal.io/sdk/contrib/aws/lambdaworker\tv0.1.1\th1:AQBa7CN+EOWhZaf4vr46TfxTZM7yCsvrzAsKqrExxmQ=\n\tdep\tgo.temporal.io/sdk/contrib/envconfig\tv1.0.0\th1:1Q/swVgB4EW/p3k7rI9/4hpU4/DC57FSRbU90+UisXw=\n\tdep\tgo.temporal.io/sdk/contrib/sysinfo\tv0.1.0\th1:jqP6BFZ/n+BoTt/OnlD+llufgSJSoxlq+aAIZCxnBdI=\n\tdep\tgo.uber.org/multierr\tv1.11.0\th1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=\n\tdep\tgo.uber.org/zap\tv1.27.0\th1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=\n\tdep\tgolang.org/x/net\tv0.55.0\th1:bcvxaJn3e1U6InsFWt1JUq1aSjnRxLzT2rtD2KfkDF8=\n\tdep\tgolang.org/x/sync\tv0.20.0\th1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\n\tdep\tgolang.org/x/sys\tv0.45.0\th1:dO4czNzziLiiXplLQgBCEpCvXQ3dnkn0SdaZSYdQ+FY=\n\tdep\tgolang.org/x/text\tv0.37.0\th1:Cqjiwd9eSg8e0QAkyCaQTNHFIIzWtidPahFWR83rTrc=\n\tdep\tgolang.org/x/time\tv0.6.0\th1:eTDhh4ZXt5Qf0augr54TN6suAUudPcawVZeIAPU7D4U=\n\tdep\tgoogle.golang.org/genproto/googleapis/api\tv0.0.0-20260414002931-afd174a4e478\th1:yQugLulqltosq0B/f8l4w9VryjV+N/5gcW0jQ3N8Qec=\n\tdep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20260414002931-afd174a4e478\th1:RmoJA1ujG+/lRGNfUnOMfhCy5EipVMyvUE+KNbPbTlw=\n\tdep\tgoogle.golang.org/grpc\tv1.82.1\th1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=\n\tdep\tgoogle.golang.org/protobuf\tv1.36.11\th1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\n\tdep\tgopkg.in/yaml.v3\tv3.0.1\th1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tDefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=-L/private/tmp/xenon-cluster-control-20260906/.local/slatedb-native-target/debug\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin\n\tbuild\tGOARM64=v8.0\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=c6978ba39aa03551ce28974117e8d7ecf983d2b3\n\tbuild\tvcs.time=2026-08-25T20:59:17Z\n\tbuild\tvcs.modified=false",
+  "omes_worker_sha256": "c88c7af7275d73f075de71da2b4bfbd0b0f6dd4d9f5800edd80cda6f70854a13",
+  "omes_prepared_sha256": {
+    "go.mod": "8ef2a342b125497bb70f7d30dabe2086daf100b817123eee467ad02df229b93a",
+    "go.sum": "37c53a083399e47dc22992777ee8ac156001b2423fb992f7088427a35f6de395",
+    "main.go": "2bc2aed5859063a3496a183888219900d3a22a042282162d9d577c3e2e4162fd",
+    "program": "c88c7af7275d73f075de71da2b4bfbd0b0f6dd4d9f5800edd80cda6f70854a13"
+  },
+  "error": "ScenarioInvariant: background process exited unexpectedly: c (1)"
+}

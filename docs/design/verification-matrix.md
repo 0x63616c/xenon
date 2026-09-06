@@ -99,3 +99,13 @@ Reviewed execution change `e760cea`, with recovery controls `dff9322` and `67ff6
 The expanded site at `32a8ba9` passed39 responsive page checks. Independently reviewed Temporal deep-dive article `a077d96` passed42 page checks and precise source-link review. These are site/source-tour results, not storage acceptance. Public deployment remains disabled.
 
 The integrated visibility-movement controls also passed all three race commands at `a9246e0` (`20260906T013547Z-visibility-movement-c4cc87ed/result.json`). The corrected-fuzz runner passed its controls; see exact receipt `20260906T013342Z-corrected-fuzz-controls-d8809c0c/result.json` for the source binding.
+
+## Service-runtime integration checkpoint
+
+Clean `ced487ce2a4323e44442dbf926704b255d6c37b2` ran the new registry-backed
+service host with real SDK and Omes work on MinIO. The third node became healthy
+and then exited during Temporal membership initialization with
+`no ready partition owner`. The run is **FAILED**, with scoped teardown
+returning zero. See [the unchanged receipt and fatal record](../../test/scenarios/agent/evidence/ced487c-minio-failed/README.md).
+The host/routing component passes do not establish successful active join,
+cold recovery or sustained fuzzing on this runtime.

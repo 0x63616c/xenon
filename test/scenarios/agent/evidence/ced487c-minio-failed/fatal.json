@@ -1,0 +1,13 @@
+{
+  "source_log_sha256": "207ff0b73d6261f2c0c25518b1555b1d0382007d3c1186035960a1c39076d657",
+  "records": [
+    {
+      "level": "fatal",
+      "ts": "2026-09-06T11:47:28.708-0700",
+      "msg": "unable to initialize membership heartbeats",
+      "error": "no ready partition owner",
+      "logging-call-at": "/Users/calum/go/pkg/mod/go.temporal.io/server@v1.31.2/common/membership/ringpop/monitor.go:143",
+      "stacktrace": "go.temporal.io/server/common/log.(*zapLogger).Fatal\n\t/Users/calum/go/pkg/mod/go.temporal.io/server@v1.31.2/common/log/zap_logger.go:182\ngo.temporal.io/server/common/membership/ringpop.(*monitor).Start\n\t/Users/calum/go/pkg/mod/go.temporal.io/server@v1.31.2/common/membership/ringpop/monitor.go:143\ngo.temporal.io/server/service/worker.(*Service).Start\n\t/Users/calum/go/pkg/mod/go.temporal.io/server@v1.31.2/service/worker/service.go:253\ngo.uber.org/fx/internal/lifecycle.Wrap[...].func1\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/internal/lifecycle/lifecycle.go:80\ngo.uber.org/fx/internal/lifecycle.(*Lifecycle).runStartHook\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/internal/lifecycle/lifecycle.go:256\ngo.uber.org/fx/internal/lifecycle.(*Lifecycle).Start\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/internal/lifecycle/lifecycle.go:216\ngo.uber.org/fx.(*App).start.func1\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/app.go:702\ngo.uber.org/fx.(*App).withRollback\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/app.go:684\ngo.uber.org/fx.(*App).start\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/app.go:701\ngo.uber.org/fx.withTimeout.func1\n\t/Users/calum/go/pkg/mod/go.uber.org/fx@v1.24.0/app.go:801"
+    }
+  ]
+}
