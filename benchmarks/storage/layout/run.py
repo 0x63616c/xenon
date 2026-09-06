@@ -62,6 +62,7 @@ def execute_case(binary, writers, index, env, cfg, evidence):
                 if line is None: eof=True;continue
                 output.write(line);output.flush()
                 event=json.loads(line);events.append(event)
+                if event.get('event')=='failure': raise RuntimeError('workload failure: '+str(event.get('error','missing cause')))
                 if event.get('event')=='phase': phase=event['phase']
             code=child.wait(timeout=2)
             if code or not events or events[-1].get('event')!='passed': raise RuntimeError(f"case failed: exit={code}; see {log}")
@@ -114,6 +115,7 @@ def main():
         if report['dirty']: report['dirty_patch_sha256']=hashlib.sha256(run(['git','diff','HEAD','--binary'],env).encode()).hexdigest()
         inputs=[CASE,Path(__file__).resolve(),ROOT/'benchmarks/storage/layout/main.go',ROOT/'benchmarks/storage/layout/test_run.py',ROOT/'benchmarks/storage/layout/README.md',ROOT/cfg['minio_compose'],ROOT/'scripts/build-go-node.py',ROOT/'tools/slatedb-native.json',ROOT/'go.mod',ROOT/'go.sum',ROOT/'rust-toolchain.toml']
         inputs += list((ROOT/'internal/partitions').rglob('*.go'))+list((ROOT/'internal/proof/s3meter').glob('*.go'))+list((ROOT/'internal/identity').glob('*.go'))
+        inputs += list((ROOT/'benchmarks/storage/layout').glob('*_test.go'))
         report['input_hashes']={str(p.relative_to(ROOT)):sha(p) for p in inputs}
         report['versions']={name:run(argv,env) for name,argv in {'go':['go','version'],'rust':['rustc','--version'],'docker':['docker','version','--format','{{.Server.Version}}'],'compose':['docker','compose','version','--short']}.items()}
         for key in report['versions']:
@@ -122,6 +124,7 @@ def main():
         build=run([sys.executable,'scripts/build-go-node.py'],env,600);(evidence/'build.log').write_text(build+'\n')
         report['native_build']=json.loads((ROOT/'.local/go-node-build.json').read_text())
         native=ROOT/'.local/slatedb-native-target/debug';env.update(CGO_LDFLAGS='-L'+str(native),DYLD_LIBRARY_PATH=str(native),LD_LIBRARY_PATH=str(native))
+        report['worker_failure_control']=run(['go','test','-race','-count=1','-timeout=30s','./benchmarks/storage/layout'],env,60)
         binary=ROOT/'.local/bin/layout-measure';run(['go','build','-o',str(binary),'./benchmarks/storage/layout'],env,120);report['binary_sha256']=sha(binary)
         run([*compose,'up','-d','--wait'],env)
         endpoint=run([*compose,'port','s3','9000'],env)

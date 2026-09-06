@@ -34,4 +34,14 @@ class SupervisorTests(unittest.TestCase):
                 run.execute_case(binary,1,0,os.environ.copy(),{'case_timeout_seconds':10,'rss_sample_ms':10,'max_rss_mib':256},root)
             self.assertIn('passed',(root/'case-0-writers-1.jsonl').read_text())
 
+    def test_failure_event_preempts_blocked_cleanup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            binary=self.fake(root,'import time\nprint(\'{"event":"failure","error":"primary invariant"}\',flush=True)\ntime.sleep(30)\n')
+            with self.assertRaisesRegex(RuntimeError,'workload failure: primary invariant'):
+                run.execute_case(binary,1,0,os.environ.copy(),{'case_timeout_seconds':2,'rss_sample_ms':10,'max_rss_mib':256},root)
+            self.assertIn('primary invariant',(root/'case-0-writers-1.jsonl').read_text())
+            samples=json.loads((root/'case-0-samples.json').read_text())
+            with self.assertRaises(ProcessLookupError): os.kill(samples[-1]['pid'],0)
+
 if __name__=='__main__': unittest.main()

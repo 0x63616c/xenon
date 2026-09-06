@@ -131,30 +131,16 @@ func run() (result error) {
 	}
 	phase("loaded")
 	started := time.Now()
-	var wg sync.WaitGroup
-	results := make(chan []observation, cfg.LogicalShards)
-	errs := make(chan error, cfg.LogicalShards)
-	for shard := 0; shard < cfg.LogicalShards; shard++ {
-		wg.Add(1)
-		go func(shard int) {
-			defer wg.Done()
-			rows, err := work(ctx, writers[shard%*physical], cfg, shard)
-			results <- rows
-			errs <- err
-		}(shard)
-	}
-	wg.Wait()
-	close(results)
-	close(errs)
+	observations, err := runWorkers(ctx, cfg.LogicalShards, func(workerCtx context.Context, shard int) ([]observation, error) {
+		return work(workerCtx, writers[shard%*physical], cfg, shard)
+	}, func(err error) {
+		// Persist the first cause before native cleanup can stall. The parent
+		// supervisor observes this event and owns bounded process containment.
+		emit(map[string]any{"event": "failure", "error": err.Error()})
+	})
 	elapsed := time.Since(started)
-	for e := range errs {
-		if e != nil {
-			return e
-		}
-	}
-	observations := []observation{}
-	for rows := range results {
-		observations = append(observations, rows...)
+	if err != nil {
+		return err
 	}
 	if len(observations) != cfg.LogicalShards*cfg.Rounds {
 		return errors.New("incomplete workload")
@@ -223,6 +209,32 @@ func run() (result error) {
 	phase("done")
 	emit(map[string]any{"event": "passed", "logical_shards": cfg.LogicalShards, "physical_writers": *physical, "operations": len(observations)})
 	return nil
+}
+
+func runWorkers(ctx context.Context, count int, work func(context.Context, int) ([]observation, error), failed func(error)) ([]observation, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var wg sync.WaitGroup
+	var first sync.Once
+	var primary error
+	rows := make([][]observation, count)
+	for shard := 0; shard < count; shard++ {
+		wg.Add(1)
+		go func(shard int) {
+			defer wg.Done()
+			var err error
+			rows[shard], err = work(ctx, shard)
+			if err != nil {
+				first.Do(func() { primary = err; cancel(); failed(err) })
+			}
+		}(shard)
+	}
+	wg.Wait()
+	all := []observation{}
+	for _, batch := range rows {
+		all = append(all, batch...)
+	}
+	return all, primary
 }
 func stateKey(shard int) []byte { return []byte(fmt.Sprintf("shard/%02d/state", shard)) }
 func outcomeKey(shard, round int) []byte {
