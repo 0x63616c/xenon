@@ -14,6 +14,16 @@ This project adapts Matt Pocock's Wayfinder: execution is in scope, agent debate
 
 Calum explicitly prefers lightweight tracking and batching reviews for throughput. Use one current board, two delivery milestones, broad tickets and ordinary Todo/In Progress/Done statuses; avoid process expansion or micro-ticket bookkeeping. Implement and test related small changes as a cohesive batch, then obtain independent review before integrating that batch. Do not serialize every micro-ticket behind a fresh review cycle. Separate spec, plan and implementation review stages remain; implementation batches may span several bounded tickets. Review safety-critical architecture decisions before dependent work when they would invalidate the batch.
 
+## GitHub project workflow
+
+Use [project #8](https://github.com/users/0x63616c/projects/8) as the single current Xenon delivery board. It belongs to `0x63616c` and is linked to `0x63616c/xenon`; only Xenon issues/PRs belong on it. Keep the Tickets and Kanban views filtered to this repository. Do not create another board for an agent, branch, implementation batch or milestone.
+
+Before using planning, ticketing, implementation or review skills on Xenon, read the project-local [xenon-delivery skill](.agents/skills/xenon-delivery/SKILL.md) and [tracker guide](docs/agents/issue-tracker.md). These repository rules adapt generic Wayfinder, to-spec, to-tickets, implement and review workflows; preserve their useful engineering practices without adding another tracker, micro-ticket hierarchy or approval cycle.
+
+The only current delivery milestones are **Build and harden** and **Release proof and polish**. Project Status is **Todo / In Progress / Done**. Claim existing broad issues before implementation; mark Done only when their full acceptance scope is integrated and supported by evidence. A merged partial PR does not complete its umbrella issue.
+
+Use native project status updates for meaningful delivery changes: an integrated batch, a material blocker or resolved blocker, or a changed delivery outlook. Summarize delivered work, current work and next steps with issue/PR/evidence links. Do not post an update for every commit, poll or agent handoff; do not invent target dates or mark the project on track without evidence. Issue comments hold detailed findings; the project README holds stable scope and conventions. Keep GitHub authoritative and local handoffs as linked checkpoints. Preserve historical boards, milestones and discussion unless Calum explicitly requests their removal.
+
 ## Latest engine constraint
 
 Calum clarified during autonomous execution that the system must use S3 directly unless demonstrated impossible. Continue with SlateDB backed by S3; the exploratory SQLite snapshot alternative was dropped before acceptance. Do not reintroduce it as a shortcut. No evidence establishes impossibility.
