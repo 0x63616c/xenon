@@ -239,9 +239,13 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 		t.Fatal(e)
 	}
 	o = owner(t, engine(t, store, path, false))
+	o.config.Authority = func(context.Context) error { return nil }
 	s = &ExecutionServer{Owner: o}
 	if r = call("create", create); r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r)
+	}
+	if r = call("failed-state", failed); r.Error != wire.ExecutionResult_WORKFLOW_CONDITION_FAILED {
+		t.Fatal("logical error replay changed", r)
 	}
 	if r = call("get-deleted", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_GET, NamespaceId: first.NamespaceId, WorkflowId: first.WorkflowId, RunId: first.RunId}); r.Error != wire.ExecutionResult_NOT_FOUND {
 		t.Fatal(r)
@@ -255,6 +259,10 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 		b, e := get(tx, historyNodeKey(fixture.Shard, tree[:], branch[:], history.Node))
 		if e != nil || b != nil {
 			t.Fatal("replayed prewrite resurrected", e)
+		}
+		b, e = get(tx, historyNodeKey(fixture.Shard, tree[:], branch[:], failed.HistoryPrewrites[0].Node))
+		if e != nil || b == nil {
+			t.Fatal("failed-state history missing after reopen", e)
 		}
 		return nil, nil
 	})
