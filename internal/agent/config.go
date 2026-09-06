@@ -48,6 +48,12 @@ func Load(path string) (Config, error) {
 	}
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(data, &fields) == nil {
+		var storage map[string]json.RawMessage
+		if json.Unmarshal(fields["service_storage"], &storage) == nil {
+			if value, exists := storage["wal_flush_interval_ms"]; exists && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+				return c, fmt.Errorf("wal_flush_interval_ms must not be null")
+			}
+		}
 		if value, exists := fields["service_storage"]; exists && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 			return c, fmt.Errorf("service_storage must be an explicit configuration, not null")
 		}

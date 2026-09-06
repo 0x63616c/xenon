@@ -29,10 +29,22 @@ type ServiceStorageConfig struct {
 	MaxMembershipBytes     int                `json:"max_membership_bytes"`
 	MaxMembershipEntries   int                `json:"max_membership_entries"`
 	MembershipReadBatch    int                `json:"membership_read_batch"`
+	WALFlushIntervalMS     *int               `json:"wal_flush_interval_ms,omitempty"`
 	MaxOutcomes            uint64             `json:"max_outcomes"`
 }
 
+// EffectiveWALFlushIntervalMS keeps omitted configuration compatible with SlateDB.
+func (c ServiceStorageConfig) EffectiveWALFlushIntervalMS() int {
+	if c.WALFlushIntervalMS == nil {
+		return 100
+	}
+	return *c.WALFlushIntervalMS
+}
+
 func (c ServiceStorageConfig) Validate(prefix string) error {
+	if value := c.EffectiveWALFlushIntervalMS(); value < 1 || value > 1000 {
+		return fmt.Errorf("wal_flush_interval_ms must be an integer from 1 through 1000")
+	}
 	if c.Format != 2 || c.ClusterID.Validate() != nil || c.NodeID.Validate() != nil || c.Layout.Validate() != nil {
 		return fmt.Errorf("invalid service storage identity or layout")
 	}
@@ -62,6 +74,10 @@ func (c ServiceStorageConfig) Validate(prefix string) error {
 
 // Clone owns the ordered layout slice across configuration/lifecycle boundaries.
 func (c ServiceStorageConfig) Clone() ServiceStorageConfig {
+	if c.WALFlushIntervalMS != nil {
+		value := *c.WALFlushIntervalMS
+		c.WALFlushIntervalMS = &value
+	}
 	c.Layout.Partitions = append([]cluster.PhysicalPartition(nil), c.Layout.Partitions...)
 	return c
 }

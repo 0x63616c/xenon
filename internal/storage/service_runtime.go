@@ -127,7 +127,7 @@ func (r *ServiceRuntime) Start(parent context.Context) (result error) {
 	if err != nil {
 		return err
 	}
-	engine, err := slatedb.New("s3://" + c.Bucket)
+	engine, err := slatedb.NewWithWALFlushInterval("s3://"+c.Bucket, c.ServiceStorage.EffectiveWALFlushIntervalMS())
 	if err != nil {
 		return err
 	}
@@ -342,21 +342,25 @@ func (r *ServiceRuntime) readyOnce(ctx context.Context) error {
 // Diagnostics reads process state only. It performs no storage/native I/O and is
 // deliberately not a readiness assertion. Never include operation payloads.
 type ServiceDiagnostics struct {
-	Started           bool                `json:"started"`
-	Stopping          bool                `json:"stopping"`
-	Owner             cluster.Owner       `json:"owner"`
-	Coordinator       cluster.Coordinator `json:"coordinator"`
-	MembershipReady   bool                `json:"membership_ready"`
-	Eligible          int                 `json:"eligible"`
-	ReadyPartitions   int                 `json:"ready_partitions"`
-	PendingEffects    int                 `json:"pending_effects"`
-	RegistrationError string              `json:"registration_error,omitempty"`
+	WALFlushIntervalMS int                 `json:"wal_flush_interval_ms"`
+	Started            bool                `json:"started"`
+	Stopping           bool                `json:"stopping"`
+	Owner              cluster.Owner       `json:"owner"`
+	Coordinator        cluster.Coordinator `json:"coordinator"`
+	MembershipReady    bool                `json:"membership_ready"`
+	Eligible           int                 `json:"eligible"`
+	ReadyPartitions    int                 `json:"ready_partitions"`
+	PendingEffects     int                 `json:"pending_effects"`
+	RegistrationError  string              `json:"registration_error,omitempty"`
 }
 
 func (r *ServiceRuntime) Diagnostics() ServiceDiagnostics {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	out := ServiceDiagnostics{Started: r.started, Stopping: r.stopping, MembershipReady: r.view.Ready, Eligible: len(r.view.Members)}
+	if r.config.ServiceStorage != nil {
+		out.WALFlushIntervalMS = r.config.ServiceStorage.EffectiveWALFlushIntervalMS()
+	}
 	if r.registrationErr != nil {
 		out.RegistrationError = r.registrationErr.Error()
 	}

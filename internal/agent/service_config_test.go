@@ -72,3 +72,45 @@ func TestExplicitNullServiceConfigCannotSelectLegacy(t *testing.T) {
 		t.Fatal("explicit null silently selected legacy runtime")
 	}
 }
+
+func TestWALFlushIntervalConfiguration(t *testing.T) {
+	for _, value := range []string{"omitted", "1", "10", "1000", "0", "-1", "1001", "null", "1.5", "\"10\""} {
+		t.Run(value, func(t *testing.T) {
+			raw, _ := json.Marshal(serviceConfig())
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(raw, &fields)
+			var storage map[string]json.RawMessage
+			_ = json.Unmarshal(fields["service_storage"], &storage)
+			if value != "omitted" {
+				storage["wal_flush_interval_ms"] = json.RawMessage(value)
+			}
+			fields["service_storage"], _ = json.Marshal(storage)
+			raw, _ = json.Marshal(fields)
+			path := filepath.Join(t.TempDir(), "config.json")
+			if err := os.WriteFile(path, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			loaded, err := Load(path)
+			valid := value == "omitted" || value == "1" || value == "10" || value == "1000"
+			if !valid {
+				if err == nil {
+					t.Fatal("accepted invalid override")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if value == "omitted" && loaded.ServiceStorage.EffectiveWALFlushIntervalMS() != 100 {
+				t.Fatal("default changed")
+			}
+			if value == "10" {
+				copy := loaded.ServiceStorage.Clone()
+				*copy.WALFlushIntervalMS = 20
+				if loaded.ServiceStorage.EffectiveWALFlushIntervalMS() != 10 {
+					t.Fatal("override aliased")
+				}
+			}
+		})
+	}
+}

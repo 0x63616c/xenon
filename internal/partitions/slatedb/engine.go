@@ -17,16 +17,39 @@ import (
 
 const barrierKey = "\x00xenon/authority"
 
-type Engine struct{ backend string }
+type Engine struct {
+	backend         string
+	flushIntervalMS int
+}
 
 // New requires direct S3. Endpoint/credentials use the native object-store
 // environment; credentials are never copied into a request or evidence.
-func New(objectStoreURL string) (*Engine, error) {
+func New(objectStoreURL string) (*Engine, error) { return NewWithWALFlushInterval(objectStoreURL, 100) }
+
+// NewWithWALFlushInterval configures each Open, including replacement writers.
+// The duration affects flush cadence only; acknowledgment still awaits durability.
+func NewWithWALFlushInterval(objectStoreURL string, milliseconds int) (*Engine, error) {
+	if milliseconds < 1 || milliseconds > 1000 {
+		return nil, p.ErrInvalid
+	}
 	if !strings.HasPrefix(objectStoreURL, "s3://") || len(objectStoreURL) == 5 {
 		return nil, p.ErrInvalid
 	}
-	return &Engine{backend: objectStoreURL}, nil
+	return &Engine{backend: objectStoreURL, flushIntervalMS: milliseconds}, nil
 }
+func (e *Engine) settings() (*native.Settings, error) {
+	settings := native.SettingsDefault()
+	milliseconds := e.flushIntervalMS
+	if milliseconds == 0 {
+		milliseconds = 100
+	} // package-local zero-value fixtures
+	if err := settings.Set("flush_interval", fmt.Sprintf("\"%dms\"", milliseconds)); err != nil {
+		settings.Destroy()
+		return nil, err
+	}
+	return settings, nil
+}
+
 func (e *Engine) Open(ctx context.Context, r p.OpenRequest) (p.Writer, error) {
 	if r.Path == "" || strings.HasPrefix(r.Path, "/") || (path.Clean(r.Path) != r.Path || r.Path == "." || r.Path == ".." || strings.HasPrefix(r.Path, "../")) || r.Partition.Validate() != nil || r.Reservation.Validate() != nil || r.Incarnation.Validate() != nil || r.AssignmentRevision == 0 || r.Generation == 0 {
 		return nil, p.ErrInvalid
@@ -42,6 +65,14 @@ func (e *Engine) Open(ctx context.Context, r p.OpenRequest) (p.Writer, error) {
 		defer store.Destroy()
 		builder := native.NewDbBuilder(r.Path, store)
 		defer builder.Destroy()
+		settings, err := e.settings()
+		if err != nil {
+			return nil, translate(err)
+		}
+		defer settings.Destroy()
+		if err = builder.WithSettings(settings); err != nil {
+			return nil, translate(err)
+		}
 		db, err := builder.Build()
 		if err != nil {
 			return nil, translate(err)

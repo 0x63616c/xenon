@@ -224,3 +224,16 @@ func TestReadinessRejectsSuccessAfterParentEnds(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceRuntimeFlushDiagnosticsOwnConfiguration(t *testing.T) {
+	ms := 10
+	config := agent.Config{ServiceStorage: &agent.ServiceStorageConfig{WALFlushIntervalMS: &ms}}
+	runtime := NewServiceRuntime(config)
+	ms = 1000
+	if got := runtime.Diagnostics().WALFlushIntervalMS; got != 10 {
+		t.Fatal("configuration aliased", got)
+	}
+	if got := NewServiceRuntime(agent.Config{ServiceStorage: &agent.ServiceStorageConfig{}}).Diagnostics().WALFlushIntervalMS; got != 100 {
+		t.Fatal("default changed", got)
+	}
+}
