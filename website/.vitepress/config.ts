@@ -1,7 +1,8 @@
 import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "Xenon",
-  description: "Temporal persistence, built on object storage.",
+  description:
+    "Xenon brings S3-backed persistence to Temporal. Explore the architecture, recovery tests and developer documentation. Currently in development.",
   srcDir: ".content",
   outDir: "dist",
   base: process.env.SITE_BASE || "/",

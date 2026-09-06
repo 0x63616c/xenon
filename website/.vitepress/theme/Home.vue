@@ -14,9 +14,10 @@ import { withBase } from "vitepress";
     </aside>
     <section class="hero">
       <div class="eyebrow"><span class="status-dot"></span> IN DEVELOPMENT</div>
-      <h1>Temporal.<br /><span>Object storage.</span></h1>
+      <h1>Temporal,<br /><span>backed by S3.</span></h1>
       <p class="hero-copy">
-        Your workflows stay Temporal.<br />Your durable state lives in S3.
+        Xenon brings object storage to Temporal. Keep the workflow engine, SDKs
+        and UI you know, with durable state stored in S3.
       </p>
       <div class="actions">
         <a class="primary" :href="withBase('/docs/architecture.html')"
@@ -79,31 +80,34 @@ import { withBase } from "vitepress";
     <section class="principles section-width">
       <div class="section-lead">
         <span class="eyebrow">BUILT FOR TEMPORAL</span>
-        <h2>Keep the workflow.<br />Rethink the storage.</h2>
+        <h2>Your workflows.<br />A new foundation.</h2>
       </div>
       <div class="principle-grid">
         <article>
           <span class="number">01</span>
-          <h3>Temporal stays Temporal.</h3>
+          <h3>Keep building with Temporal.</h3>
           <p>
-            Xenon connects at the persistence layer. The workflow engine,
-            frontend, existing SDKs and UI retain their roles.
+            Write workflows with the Temporal SDKs. Xenon connects beneath
+            Temporal Server to store execution state and make workflows
+            searchable in the Temporal UI.
           </p>
         </article>
         <article>
           <span class="number">02</span>
-          <h3>Durability belongs in S3.</h3>
+          <h3>Store state in S3.</h3>
           <p>
-            Go nodes embed SlateDB. Application records and ownership metadata
-            live in object storage; local disks are disposable.
+            Xenon stores application data through SlateDB and keeps ownership
+            metadata in S3. Local disks are disposable, so recovery starts from
+            object storage.
           </p>
         </article>
         <article>
           <span class="number">03</span>
-          <h3>One address. Many owners.</h3>
+          <h3>Connect through one endpoint.</h3>
           <p>
-            Every node accepts complete operations. It serves the partitions it
-            owns and forwards the rest to their current owner.
+            Temporal connects to one Xenon service address. Each ready node
+            handles a request locally or forwards it to the node that owns the
+            data.
           </p>
         </article>
       </div>
@@ -111,13 +115,14 @@ import { withBase } from "vitepress";
     <section class="architecture-teaser section-width">
       <div>
         <span class="eyebrow">ARCHITECTURE</span>
-        <h2>One request.<br />Every layer, explained.</h2>
+        <h2>Follow a write.<br />All the way to S3.</h2>
         <p>
-          Follow a request from the SDK to S3. Explore partition admission,
-          durable replay, and what happens when an owner disappears.
+          See how Xenon routes a request, saves the result, and waits for
+          durable storage before replying. Then explore what happens when a node
+          fails.
         </p>
         <a class="text-link" :href="withBase('/docs/architecture.html')"
-          >Open the interactive guide <span>→</span></a
+          >Follow a request <span>→</span></a
         >
       </div>
       <div class="commit-flow">
@@ -130,16 +135,17 @@ import { withBase } from "vitepress";
     <section class="status-section section-width">
       <div>
         <span class="eyebrow">ENGINEERING</span>
-        <h2>Correctness.<br />Put to the test.</h2>
+        <h2>Kill a node.<br />Check what survives.</h2>
       </div>
       <div>
         <p>
-          Component proofs and a real multi-instance smoke test exercise
-          recovery, Omes and the unchanged Temporal UI. The full acceptance gate
-          is still open.
+          In a local test, we killed a Xenon process after a durable write,
+          recovered the workflow, then restarted with all local state removed.
+          The recovered histories matched. Full acceptance is still in progress.
+          Validation against AWS S3 is pending.
         </p>
         <a class="text-link" :href="withBase('/docs/status.html')"
-          >See what is verified <span>→</span></a
+          >Read the test results <span>→</span></a
         >
       </div>
     </section>
