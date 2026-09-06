@@ -107,10 +107,25 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 			if !exists || next.Path != old.Path {
 				return fmt.Errorf("layout: stable database path changed")
 			}
+			if e.Expected == c.record.Version && next.Desired == old.Desired && (next.Generation != old.Generation || next.Reservation != old.Reservation) {
+				// A reservation is an owner-only mutation for this exact partition.
+				// It advances one generation and preserves coordinator/assignment
+				// fields and the persisted move budget. No production Reserve or
+				// eligibility helper participates in this independent check.
+				if actor.Kind != "partition" || actor.Partition != id || actor.Incarnation != old.Desired.Incarnation || next.AssignmentRevision != old.AssignmentRevision || next.Generation <= old.Generation || next.Generation-old.Generation != 1 || next.Reservation == "" || next.Reservation == old.Reservation || next.Ready || after.Cluster != before.Cluster || after.Format != before.Format || after.Coordinator != before.Coordinator || after.AssignmentRevision != before.AssignmentRevision || after.ActiveMove != before.ActiveMove {
+					return fmt.Errorf("reservation_authority: invalid owner reservation mutation")
+				}
+			}
+			if e.Expected == c.record.Version && next.Desired == old.Desired && next.AssignmentRevision != old.AssignmentRevision {
+				return fmt.Errorf("field_separation: owner changed assignment revision")
+			}
+			if e.Expected == c.record.Version && old.Ready && !next.Ready && next.Desired == old.Desired && next.Generation == old.Generation && next.Reservation == old.Reservation {
+				return fmt.Errorf("field_separation: readiness cleared without a reservation or assignment")
+			}
 			// Check ready authority before generic CAS, so the stale-ready negative
 			// control identifies the precise safety boundary it violates.
 			if next.Ready && next != old {
-				if actor.Kind != "partition" || actor.Incarnation != old.Desired.Incarnation || next.Desired != old.Desired || next.AssignmentRevision != old.AssignmentRevision || next.Reservation != old.Reservation || next.Generation != old.Generation {
+				if actor.Kind != "partition" || actor.Partition != id || actor.Incarnation != old.Desired.Incarnation || next.Desired != old.Desired || next.AssignmentRevision != old.AssignmentRevision || next.Reservation != old.Reservation || next.Generation != old.Generation {
 					return fmt.Errorf("old_ready: obsolete assignment published ready")
 				}
 				live := false
@@ -129,7 +144,7 @@ func (c *coupledChecker) observe(e CoupledTrace) error {
 				if before.ActiveMove != "" && before.ActiveMove != id {
 					return fmt.Errorf("move_budget: changed a second physical database")
 				}
-				if after.ActiveMove != id || next.Ready || next.AssignmentRevision <= old.AssignmentRevision || actor.Kind != "cluster" || actor.Incarnation != before.Coordinator.Incarnation {
+				if after.ActiveMove != id || next.Ready || next.Generation != old.Generation || next.Reservation != "" || next.AssignmentRevision <= old.AssignmentRevision || actor.Kind != "cluster" || actor.Incarnation != before.Coordinator.Incarnation {
 					return fmt.Errorf("stale_plan: assignment lacks current coordinator authority")
 				}
 			}

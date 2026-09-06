@@ -111,3 +111,75 @@ func TestCoupledSettleRejectsPreRecoveryCommitOnly(t *testing.T) {
 		t.Fatalf("pre-fault success satisfied recovered progress: %v", err)
 	}
 }
+
+func TestCoupledCheckerRejectsUnauthorizedReservation(t *testing.T) {
+	scenario, _ := loadCoupled(t)
+	result, err := RunCoupled(scenario, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := result.Trace[3] // the old writer's first reservation publication
+	if err := newCoupledChecker(scenario, original.Before).observe(original); err != nil {
+		t.Fatal("valid reservation rejected", err)
+	}
+	for _, name := range []string{"coordinator actor", "different owner actor", "wrong partition actor", "generation jump", "missing reservation", "reused reservation", "assignment rewrite", "global revision rewrite"} {
+		t.Run(name, func(t *testing.T) {
+			entry := original
+			if name == "reused reservation" {
+				entry = result.Trace[69]
+			}
+			checker := newCoupledChecker(scenario, entry.Before)
+			after, err := checkerControl(entry.After)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id := scenario.RequiredPartition
+			part := after.Partitions[id]
+			switch name {
+			case "coordinator actor":
+				entry.Input.Actor = "coordinator-new"
+			case "different owner actor":
+				entry.Input.Actor = "writer-target"
+			case "wrong partition actor":
+				actor := checker.actors[entry.Input.Actor]
+				actor.Partition = scenario.Slots[1]
+				checker.actors[entry.Input.Actor] = actor
+			case "generation jump":
+				part.Generation++
+			case "missing reservation":
+				part.Reservation = ""
+			case "reused reservation":
+				before, err := checkerControl(entry.Before)
+				if err != nil {
+					t.Fatal(err)
+				}
+				part.Reservation = before.Partitions[id].Reservation
+			case "assignment rewrite":
+				part.AssignmentRevision++
+			case "global revision rewrite":
+				after.AssignmentRevision++
+			}
+			after.Partitions[id] = part
+			// Mutate the observation independently of production mutation helpers.
+			var envelope map[string]json.RawMessage
+			if err = json.Unmarshal(entry.After.Body, &envelope); err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(after)
+			if err != nil {
+				t.Fatal(err)
+			}
+			envelope["body"], err = json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entry.After.Body, err = json.Marshal(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := checker.observe(entry); err == nil || !strings.Contains(err.Error(), "reservation_authority:") {
+				t.Fatalf("accepted unauthorized reservation %s: %v", name, err)
+			}
+		})
+	}
+}
