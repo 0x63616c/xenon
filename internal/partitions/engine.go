@@ -68,6 +68,7 @@ type ScanRequest struct {
 	Start, End     []byte
 	StartExclusive bool
 	EndInclusive   bool
+	RemoteDurable  bool // Require remote durability; default retains transaction memory visibility.
 	Reverse        bool
 	Limit          int
 }

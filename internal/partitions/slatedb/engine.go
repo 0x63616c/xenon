@@ -293,7 +293,11 @@ func (t *transaction) Scan(ctx context.Context, r p.ScanRequest) (p.ReadResult, 
 		}
 		// Preserve native transaction scan defaults, changing only direction.
 		// Read one extra application row for More; never materialize the range.
-		it, err := t.tx.ScanWithOptions(bounds, native.ScanOptions{DurabilityFilter: native.DurabilityLevelMemory, ReadAheadBytes: 1, MaxFetchTasks: 1, Order: &order})
+		durability := native.DurabilityLevelMemory
+		if r.RemoteDurable {
+			durability = native.DurabilityLevelRemote
+		}
+		it, err := t.tx.ScanWithOptions(bounds, native.ScanOptions{DurabilityFilter: durability, ReadAheadBytes: 1, MaxFetchTasks: 1, Order: &order})
 		if err != nil {
 			return nil, t.w.failure(err)
 		}

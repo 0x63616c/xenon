@@ -143,7 +143,11 @@ func (t legacyClusterTransaction) Scan(_ context.Context, r partitions.ScanReque
 	if r.Reverse {
 		order = native.IterationOrderDescending
 	}
-	iter, err := t.tx.ScanWithOptions(bounds, native.ScanOptions{DurabilityFilter: native.DurabilityLevelMemory, ReadAheadBytes: 1, MaxFetchTasks: 1, Order: &order})
+	durability := native.DurabilityLevelMemory
+	if r.RemoteDurable {
+		durability = native.DurabilityLevelRemote
+	}
+	iter, err := t.tx.ScanWithOptions(bounds, native.ScanOptions{DurabilityFilter: durability, ReadAheadBytes: 1, MaxFetchTasks: 1, Order: &order})
 	if err != nil {
 		return partitions.ReadResult{}, backend(err)
 	}
