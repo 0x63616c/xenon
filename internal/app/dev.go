@@ -59,12 +59,24 @@ type DevResult struct {
 }
 type devDocker func(context.Context, ...string) ([]byte, error)
 
+type devOutput struct{ bytes.Buffer }
+
+func (b *devOutput) Write(p []byte) (int, error) {
+	if b.Len()+len(p) > 16<<20 {
+		return 0, errors.New("Docker output exceeds 16 MiB")
+	}
+	return b.Buffer.Write(p)
+}
+
 func dockerCommand(ctx context.Context, args ...string) ([]byte, error) {
 	command := exec.CommandContext(ctx, "docker", args...)
 	command.WaitDelay = 2 * time.Second
-	var out, diagnostics bytes.Buffer
+	out, diagnostics := devOutput{}, devOutput{}
 	command.Stdout = &out
 	command.Stderr = &diagnostics
+	if len(args) > 0 && args[0] == "logs" {
+		command.Stderr = &out
+	}
 	err := command.Run()
 	if err != nil {
 		return nil, fmt.Errorf("docker %s: %w: %s", args[0], err, strings.TrimSpace(diagnostics.String()))
@@ -303,6 +315,22 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 			if _, err = docker(ctx, "stop", "--time", "10", r.ID); err != nil {
 				return result, err
 			}
+			raw, err = docker(ctx, "logs", "--timestamps", r.ID)
+			if err != nil {
+				return result, err
+			}
+			log, openErr := os.OpenFile(filepath.Join(dir, r.Role+"-"+r.ID+".log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			if openErr != nil {
+				return result, openErr
+			}
+			_, err = log.Write(raw)
+			if err == nil {
+				err = log.Sync()
+			}
+			err = errors.Join(err, log.Close())
+			if err != nil {
+				return result, err
+			}
 			if _, err = docker(ctx, "rm", r.ID); err != nil {
 				return result, err
 			}
@@ -345,7 +373,7 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 	for _, spec := range fixture.Containers {
 		id := observed[spec.Role]
 		if id == "" {
-			args := appendDevLabels([]string{"create", "--name", devName(state, spec.Role)}, devLabels(state, spec.Role))
+			args := appendDevLabels([]string{"create", "--name", devName(state, spec.Role), "--log-driver", "json-file", "--log-opt", "max-size=10m", "--log-opt", "max-file=1"}, devLabels(state, spec.Role))
 			if spec.NetworkHolder {
 				for _, port := range spec.Ports {
 					args = append(args, "--publish", port)

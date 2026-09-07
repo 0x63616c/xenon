@@ -85,6 +85,8 @@ func (f *devFake) call(ctx context.Context, args ...string) ([]byte, error) {
 		c.Running = args[0] == "start"
 		f.containers[c.ID] = c
 		return nil, nil
+	case "logs":
+		return []byte("retained shutdown log\n"), nil
 	case "rm":
 		delete(f.containers, args[1])
 		return nil, nil
@@ -103,6 +105,8 @@ func (f *devFake) call(ctx context.Context, args ...string) ([]byte, error) {
 				return nil, fmt.Errorf("not found")
 			}
 			return encode([]devFakeVolume{*f.volume})
+		case "logs":
+			return []byte("retained shutdown log\n"), nil
 		case "rm":
 			f.volume = nil
 			return nil, nil
@@ -150,6 +154,10 @@ func TestDevOwnedLifecyclePreservesVolumeAndSentinel(t *testing.T) {
 	stopped := call("down", false)
 	if !stopped.CleanupVerified || len(fake.containers) != 1 || fake.volume == nil {
 		t.Fatal(stopped, fake)
+	}
+	logs, err := filepath.Glob(filepath.Join(state, "*.log"))
+	if err != nil || len(logs) != 2 {
+		t.Fatal("shutdown evidence missing", logs, err)
 	}
 	call("down", false)
 	second := call("up", false)
