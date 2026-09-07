@@ -101,14 +101,11 @@ func TestSimulationCanceledAndBudgetAreNotPasses(t *testing.T) {
 	}
 }
 func TestSimulationHelpDoesNotReadInputsOrStartBackend(t *testing.T) {
-	for _, args := range [][]string{{"test", "--help"}, {"test", "simulation", "--help"}, {"search", "--help"}, {"replay", "--help"}, {"generate", "workflow", "--help"}} {
+	for _, args := range [][]string{{"test", "--help"}, {"test", "simulation", "--help"}, {"search", "--help"}, {"replay", "--help"}, {"minimize", "--help"}, {"generate", "workflow", "--help"}} {
 		var out, diagnostics bytes.Buffer
 		code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 		if code != 0 || diagnostics.Len() != 0 || !strings.Contains(out.String(), "Usage:") {
 			t.Fatal(code, &out, &diagnostics)
-		}
-		if strings.Contains(out.String(), "minimize") {
-			t.Fatal("unimplemented journey advertised")
 		}
 	}
 }

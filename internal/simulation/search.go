@@ -493,32 +493,40 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 // Replay reads saved expanded bytes, never a generator. Original artifacts remain
 // untouched; Runner.Directory receives a new trace and current tool provenance.
 func Replay(ctx context.Context, path string, r *Runner) (RunResult, error) {
-	f, err := os.Open(path)
+	record, err := readReplayArtifact(path)
 	if err != nil {
 		return RunResult{}, err
-	}
-	defer f.Close()
-	raw, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
-	if err != nil {
-		return RunResult{}, err
-	}
-	if len(raw) > 16<<20 {
-		return RunResult{}, errors.New("oversized scenario artifact")
-	}
-	var record artifact
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&record) != nil || decoder.Decode(new(any)) != io.EOF || record.Version != 1 {
-		return RunResult{}, errors.New("invalid scenario artifact")
-	}
-	scenarioRaw, _ := json.Marshal(record.Scenario)
-	if hash(scenarioRaw) != record.SHA256 {
-		return RunResult{}, errors.New("scenario hash mismatch")
 	}
 	cfg := record.Config
 	cfg.MaxCases = 1
 	cfg.Continuous = false
 	return search(ctx, cfg, &savedGenerator{record: record}, r, path)
+}
+
+func readReplayArtifact(path string) (artifact, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return artifact{}, err
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
+	if err != nil {
+		return artifact{}, err
+	}
+	if len(raw) > 16<<20 {
+		return artifact{}, errors.New("oversized scenario artifact")
+	}
+	var record artifact
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&record) != nil || decoder.Decode(new(any)) != io.EOF || record.Version != 1 {
+		return artifact{}, errors.New("invalid scenario artifact")
+	}
+	scenarioRaw, _ := json.Marshal(record.Scenario)
+	if hash(scenarioRaw) != record.SHA256 {
+		return artifact{}, errors.New("scenario hash mismatch")
+	}
+	return record, nil
 }
 
 type savedGenerator struct{ record artifact }

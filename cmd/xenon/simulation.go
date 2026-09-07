@@ -116,7 +116,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		result, err := simulation.Replay(cmd.Context(), artifact, runner)
 		return simulationResult(cmd, development, mode, result, err)
 	}
-	return []*cobra.Command{test, search, replay}
+	return []*cobra.Command{test, search, replay, minimizeCommand(build, clock)}
 }
 func simulationRunner(directory string, development bool, info buildinfo.Info, clock simulation.Clock) (*simulation.Runner, error) {
 	if directory == "" {
