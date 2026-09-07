@@ -12,6 +12,8 @@ relationships own parent and blocking edges.
 | `type:bug` | Something is broken and needs a fix. |
 | `type:docs` | Documentation, guides, website copy, or diagrams. |
 | `type:spike` | A time-boxed investigation or prototype outside committed delivery scope. |
+| `backlog` | Possible future work; not committed delivery scope. |
+| `idea` | An idea to consider later; not committed delivery scope. |
 | `release:blocker` | Required to complete the current release milestone. |
 | `blocked:external` | Waiting on external access, credentials, service state, or spend. |
 | `wayfinder:map` | The canonical Wayfinder map or delivery epic. |
@@ -26,6 +28,10 @@ when the distinction changes how the work is handled. A Wayfinder child carries
 exactly one `wayfinder:*` role. `release:blocker` supplements, rather than
 replaces, its milestone. Use `blocked:external` only for an external dependency;
 ordinary dependency blocking belongs in GitHub's native blocked-by relationship.
+
+Either `backlog` or `idea` means the work may be picked up later. Neither label
+authorizes starting it or makes it a release requirement. Keep deferred ideas
+without a delivery milestone or active claim until explicitly selected.
 
 ## Do not encode
 

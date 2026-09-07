@@ -22,6 +22,8 @@ Before using planning, ticketing, implementation or review skills on Xenon, read
 
 The only current delivery milestones are **Build and harden** and **Release proof and polish**. Project Status is **Todo / In Progress / Done**. Claim existing broad issues before implementation; mark Done only when their full acceptance scope is integrated and supported by evidence. A merged partial PR does not complete its umbrella issue.
 
+Issues labeled `backlog` and/or `idea` are possibilities we may pick up later, not committed delivery work. Either label is sufficient: do not automatically claim, implement, make a release dependency of, or assign a delivery milestone to that work. Reconsider it when explicitly selected for active scope; Project Status remains separate from these labels.
+
 Use native project status updates for meaningful delivery changes: an integrated batch, a material blocker or resolved blocker, or a changed delivery outlook. Summarize delivered work, current work and next steps with issue/PR/evidence links. Do not post an update for every commit, poll or agent handoff; do not invent target dates or mark the project on track without evidence. Issue comments hold detailed findings; the project README holds stable scope and conventions. Keep GitHub authoritative and local handoffs as linked checkpoints. Preserve historical boards, milestones and discussion unless Calum explicitly requests their removal.
 
 ## Latest engine constraint
