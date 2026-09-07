@@ -77,7 +77,7 @@ func (f DevFixture) plan() (devPlan, error) {
 		plan.Containers = append(plan.Containers, devContainer{Role: fmt.Sprintf("agent-%d", i+1), Image: f.Image, Args: []string{"start", "--config", "/etc/xenon/dev.json"}, Config: &c, Environment: []string{"AWS_DEFAULT_REGION=us-east-1", "AWS_ACCESS_KEY_ID=xenon-local", "AWS_SECRET_ACCESS_KEY=xenon-local-test-only", "AWS_ENDPOINT=http://127.0.0.1:9000", "AWS_ALLOW_HTTP=true", "AWS_VIRTUAL_HOSTED_STYLE_REQUEST=false", "SLATEDB_UNIFFI_RUNTIME_THREADS=2"}})
 	}
 	plan.Containers = append(plan.Containers, devContainer{Role: "worker", Image: f.Image, Entrypoint: "/usr/local/bin/xenon-sdk-probe", Args: []string{"--mode", "worker", "--namespace", "xenon-ministack", "--address", "127.0.0.1:17233"}})
-	plan.Containers = append(plan.Containers, devContainer{Role: "omes-worker", Image: f.Image, Entrypoint: "/usr/local/bin/omes-worker", Args: []string{"--server-address", "127.0.0.1:17233", "--namespace", "xenon-ministack", "--task-queue", "omes-xenon-ministack-fuzz"}})
+	plan.Containers = append(plan.Containers, devContainer{Role: "omes-worker", Image: f.Image, Entrypoint: "/usr/local/bin/omes-worker", Args: []string{"--server-address", "127.0.0.1:17233", "--namespace", "xenon-ministack", "--task-queue", "omes-xenon-dev"}})
 	return plan, plan.validate()
 }
 
@@ -125,7 +125,7 @@ func RunDev(ctx context.Context, action, fixturePath, dir string, ephemeral bool
 				return err
 			}
 			defer c.Close()
-			for _, queue := range []string{"xenon-ministack-worker", "omes-xenon-ministack-fuzz"} {
+			for _, queue := range []string{"xenon-ministack-worker", "omes-xenon-dev"} {
 				if err := devWait(ctx, func() error {
 					response, err := c.WorkflowService().DescribeTaskQueue(ctx, &workflowservice.DescribeTaskQueueRequest{Namespace: "xenon-ministack", TaskQueue: &taskqueue.TaskQueue{Name: queue}, TaskQueueType: enumspb.TASK_QUEUE_TYPE_WORKFLOW})
 					if err != nil {
