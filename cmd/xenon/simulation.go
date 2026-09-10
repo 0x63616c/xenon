@@ -31,16 +31,17 @@ type simulationOutput struct {
 	Result        simulation.RunResult `json:"result"`
 }
 
-// These commands bind only the implemented finite coupled corpus. Real-stack
-// drivers and generated workflow exploration are deliberately not advertised.
+// Search selects a finite coupled corpus or explicitly bound generated real workflows.
 func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*cobra.Command {
 	// Work commands let the runner record cancellation as evidence instead of
 	// stopping in the generic lightweight-command pre-run check.
 	recordCancellation := func(*cobra.Command, []string) error { return nil }
 	makeSearch := func(use, short string, single bool) *cobra.Command {
 		var paths []string
-		var evidence string
-		var development bool
+		var evidence, mode, bundle string
+		var development, continuous, interleave bool
+		var workflows, concurrency int
+		var resident residentFlags
 		var maxCases, workloadSeed, faultSeed uint64
 		var duration time.Duration
 		cmd := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, PersistentPreRunE: recordCancellation}
@@ -49,14 +50,42 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		cmd.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
 		cmd.Flags().Uint64Var(&maxCases, "max-cases", 0, "Maximum cases (0 means all supplied scenarios)")
 		cmd.Flags().DurationVar(&duration, "duration", time.Minute, "Total generation/run/settle time budget")
-		cmd.Flags().Uint64Var(&workloadSeed, "workload-seed", 0, "Recorded workload stream seed (unused by fixed corpus)")
-		cmd.Flags().Uint64Var(&faultSeed, "fault-seed", 0, "Recorded fault stream seed (unused by fixed corpus)")
-		_ = cmd.MarkFlagRequired("scenario")
+		cmd.Flags().Uint64Var(&workloadSeed, "workload-seed", 0, "Workflow generator seed; unused by fixed simulation workload")
+		cmd.Flags().Uint64Var(&faultSeed, "fault-seed", 0, "Simulation interleaving seed; real mode currently injects no faults")
+		if !single {
+			cmd.Flags().StringVar(&mode, "mode", "simulation", "Execution mode: simulation or real")
+			cmd.Flags().StringVar(&bundle, "bundle", "", "Prepared fresh workflow generator bundle (real mode)")
+			cmd.Flags().BoolVar(&continuous, "continuous", false, "Generate cases until failure or duration budget")
+			cmd.Flags().BoolVar(&interleave, "interleave", false, "Generate seeded actor-delivery orders from one simulation scenario; fixed external linearization")
+			cmd.Flags().IntVar(&workflows, "workflows-per-case", 1, "Root workflows per real case (1 to 16)")
+			cmd.Flags().IntVar(&concurrency, "workflow-concurrency", 1, "Maximum concurrent roots per real case")
+			resident.add(cmd)
+		}
 		_ = cmd.MarkFlagRequired("evidence")
 		_ = cmd.MarkFlagFilename("scenario", "json")
 		cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+			if !single && mode != "simulation" && mode != "real" {
+				return errors.New("--mode must be simulation or real")
+			}
+			if mode == "real" {
+				if len(paths) != 0 || interleave {
+					return errors.New("real search generates fresh inputs; --scenario is only supported in simulation mode")
+				}
+				runner, err := simulationRunner(evidence, development, build(), clock)
+				if err != nil {
+					return err
+				}
+				cfg := simulation.SearchConfig{MaxCases: maxCases, Continuous: continuous, MaxDuration: duration, WorkloadSeed: workloadSeed, FaultSeed: faultSeed}
+				return runResidentSearch(cmd, runner, resident, bundle, cfg, workflows, concurrency, development)
+			}
+			if !single && ((continuous && !interleave) || bundle != "" || workflows != 1 || concurrency != 1 || resident.build != "" || resident.fixture != "" || resident.oracle != "" || resident.oracleSHA != "" || resident.logs != "") {
+				return errors.New("resident workflow flags require --mode real")
+			}
 			if len(paths) == 0 || (single && len(paths) != 1) {
 				return errors.New("provide exactly one --scenario for test simulation; search accepts a finite corpus")
+			}
+			if interleave && (len(paths) != 1 || (!continuous && maxCases == 0) || (continuous && maxCases != 0)) {
+				return errors.New("--interleave requires one --scenario and either positive --max-cases or --continuous")
 			}
 			runner, err := simulationRunner(evidence, development, build(), clock)
 			if err != nil {
@@ -70,23 +99,33 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 				}
 				inputs = append(inputs, raw)
 			}
-			gen, err := simulation.NewCoupledCorpus(inputs...)
+			corpus, err := simulation.NewCoupledCorpus(inputs...)
 			if err != nil {
 				return err
 			}
+			var gen simulation.Generator = corpus
+			label := "finite-coupled-corpus"
 			count := uint64(len(inputs))
 			if maxCases > 0 && maxCases < count {
 				count = maxCases
 			}
-			cfg := simulation.SearchConfig{MaxCases: count, MaxDuration: duration, MaxInFlight: 1, SettleBudget: time.Second, CleanupBudget: time.Second, MaxTraceBytes: 8 << 20, WorkloadSeed: workloadSeed, FaultSeed: faultSeed, Limits: simulation.WorkloadLimits{MaxOperations: 256, MaxDepth: 1, MaxPayloadBytes: 1 << 20, Features: []string{simulation.CoupledKind}}}
+			if interleave {
+				gen, err = simulation.NewCoupledInterleavings(inputs[0])
+				if err != nil {
+					return err
+				}
+				count = maxCases
+				label = "seeded-coupled-delivery-interleavings"
+			}
+			cfg := simulation.SearchConfig{MaxCases: count, Continuous: continuous, MaxDuration: duration, MaxInFlight: 1, SettleBudget: time.Second, CleanupBudget: time.Second, MaxTraceBytes: 8 << 20, WorkloadSeed: workloadSeed, FaultSeed: faultSeed, Limits: simulation.WorkloadLimits{MaxOperations: 256, MaxDepth: 1, MaxPayloadBytes: 1 << 20, Features: []string{simulation.CoupledKind}}}
 			result, err := simulation.Search(cmd.Context(), cfg, gen, runner)
-			return simulationResult(cmd, development, "finite-coupled-corpus", result, err)
+			return simulationResult(cmd, development, label, result, err)
 		}
 		return cmd
 	}
 	test := &cobra.Command{Use: "test", Short: "Run an implemented verification profile", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }}
 	test.AddCommand(makeSearch("simulation", "Verify one saved coupled production-Step scenario", true))
-	search := makeSearch("search", "Explore a finite corpus of saved coupled production-Step scenarios", false)
+	search := makeSearch("search", "Search saved simulation scenarios or fresh real workflows", false)
 	var artifact, evidence string
 	var development bool
 	replay := &cobra.Command{Use: "replay", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.NoArgs, PersistentPreRunE: recordCancellation}
@@ -111,7 +150,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 			if _, err = resident.bind(runner); err != nil {
 				return err
 			}
-			mode = "exact-resident-workflow-replay"
+			mode = "saved-input-resident-workflow-replay; real scheduling is not deterministic"
 		}
 		if allowLegacy {
 			mode = "legacy-unverified-artifact-replay"

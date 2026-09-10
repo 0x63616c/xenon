@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -18,6 +20,32 @@ func TestResidentWorkflowHelpDoesNotStartBackend(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "resident-fixture") || errout.Len() != 0 {
 		t.Fatalf("%s %s", &out, &errout)
+	}
+}
+
+func TestSearchModeAndRealLimitsRejectBeforeEffects(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--mode", "unknown"}, "--mode must"},
+		{[]string{"--mode", "simulation", "--continuous"}, "require --mode real"},
+		{[]string{"--mode", "real", "--scenario", "missing"}, "only supported in simulation"},
+		{[]string{"--mode", "real", "--bundle", "missing"}, "either positive --max-cases"},
+		{[]string{"--mode", "real", "--bundle", "missing", "--max-cases", "1", "--continuous"}, "either positive --max-cases"},
+		{[]string{"--mode", "real", "--bundle", "missing", "--max-cases", "1", "--workflow-concurrency", "2"}, "workflow-concurrency must"},
+		{[]string{"--mode", "real", "--bundle", "missing", "--max-cases", "1"}, "explicit resident"},
+		{[]string{"--mode", "real", "--bundle", "missing", "--continuous"}, "explicit resident"},
+	} {
+		evidence := filepath.Join(t.TempDir(), "new")
+		args := append([]string{"search", "--development", "--evidence", evidence}, tc.args...)
+		code, _, diagnostics := runSimulationCLI(t, context.Background(), args...)
+		if code != 1 || !strings.Contains(diagnostics, tc.want) {
+			t.Fatalf("%v: code %d diagnostics %s", tc.args, code, diagnostics)
+		}
+		if _, err := os.Stat(evidence); !os.IsNotExist(err) {
+			t.Fatalf("validation created evidence: %v", err)
+		}
 	}
 }
 func TestResidentWorkflowRequiresExplicitRuntime(t *testing.T) {

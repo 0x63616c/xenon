@@ -84,21 +84,37 @@ func workflowCommand() *cobra.Command {
 		if e != nil {
 			return e
 		}
-		runtime, e := f.bind(r)
-		if e != nil {
-			return e
-		}
-		generator, e := simulation.NewWorkflowGenerator(bundle)
-		if e != nil {
-			return e
-		}
-		cfg := simulation.SearchConfig{MaxCases: cases, MaxDuration: time.Duration(cases) * 370 * time.Second, MaxInFlight: 1, SettleBudget: 60 * time.Second, CleanupBudget: 30 * time.Second, MaxTraceBytes: 8 << 20, WorkloadSeed: seed, FaultSeed: fault, Limits: simulation.WorkloadLimits{MaxOperations: 2048, MaxDepth: 64, MaxPayloadBytes: 1 << 20, Features: []string{simulation.WorkflowInputKind}}}
-		var source simulation.Generator = simulation.ResidentGenerator{Input: generator, Topology: runtime.Topology()}
-		if workflows > 1 {
-			source = simulation.WorkflowBatchGenerator{Input: generator, Topology: runtime.Topology(), Count: workflows, Concurrency: concurrency}
-		}
-		result, e := simulation.Search(c.Context(), cfg, source, r)
-		return simulationResult(c, development, "resident-generated-workflow-component", result, e)
+		cfg := simulation.SearchConfig{MaxCases: cases, MaxDuration: time.Duration(cases) * 370 * time.Second, WorkloadSeed: seed, FaultSeed: fault}
+		return runResidentSearch(c, r, f, bundle, cfg, workflows, concurrency, development)
 	}
 	return c
+}
+
+// Both real search and the bounded workflow profile use the same execution path.
+func runResidentSearch(c *cobra.Command, r *simulation.Runner, f residentFlags, bundle string, cfg simulation.SearchConfig, workflows, concurrency int, development bool) error {
+	if workflows < 1 || workflows > 16 || concurrency < 1 || concurrency > workflows {
+		return errors.New("workflows-per-case must be 1 to 16 and workflow-concurrency must be 1 to workflows-per-case")
+	}
+	if bundle == "" || cfg.MaxDuration <= 0 || (!cfg.Continuous && cfg.MaxCases == 0) || (cfg.Continuous && cfg.MaxCases != 0) {
+		return errors.New("real search requires --bundle, positive --duration, and either positive --max-cases or --continuous")
+	}
+	runtime, err := f.bind(r)
+	if err != nil {
+		return err
+	}
+	generator, err := simulation.NewWorkflowGenerator(bundle)
+	if err != nil {
+		return err
+	}
+	cfg.MaxInFlight = 1
+	cfg.SettleBudget = 60 * time.Second
+	cfg.CleanupBudget = 30 * time.Second
+	cfg.MaxTraceBytes = 8 << 20
+	cfg.Limits = simulation.WorkloadLimits{MaxOperations: 2048, MaxDepth: 64, MaxPayloadBytes: 1 << 20, Features: []string{simulation.WorkflowInputKind}}
+	var source simulation.Generator = simulation.ResidentGenerator{Input: generator, Topology: runtime.Topology()}
+	if workflows > 1 {
+		source = simulation.WorkflowBatchGenerator{Input: generator, Topology: runtime.Topology(), Count: workflows, Concurrency: concurrency}
+	}
+	result, err := simulation.Search(c.Context(), cfg, source, r)
+	return simulationResult(c, development, "resident-generated-workflow-component", result, err)
 }

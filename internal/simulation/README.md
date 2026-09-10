@@ -132,3 +132,24 @@ concurrency limits of one and four, queued admission cutoff, stale callbacks and
 changed tool metadata. This does not yet prove GEN-02: real Temporal overlap,
 complete child/Continue-As-New/Nexus census and fan-out limits still require the
 real acceptance journey. The component declares no injected faults.
+
+## Unified search modes
+
+`xenon search --mode simulation --interleave --scenario FILE --max-cases 1000`
+expands fresh seeded delivery orders from one coupled production-Step scenario.
+The workload and external registry/native linearization order stay fixed; this
+is completion-order exploration, not arbitrary fault injection. Omit
+`--interleave` to keep the existing finite saved-corpus behavior.
+
+`xenon search --mode real --bundle DIR --max-cases 3 --workflows-per-case 4
+--workflow-concurrency 4` uses the same resident execution path as `test workflow`.
+It additionally requires the existing explicit runtime-build, resident-fixture,
+history-oracle, history-oracle-sha256, runtime-evidence and evidence flags. No
+cluster is discovered or adopted, and this mode currently injects no faults.
+
+For either generated mode, replace `--max-cases` with `--continuous` and provide
+`--duration` for a bounded failure hunt. Budget exhaustion returns exit 2, never
+success. All commands still require an evidence directory and normal source/tool
+provenance; `--development` explicitly records weaker build provenance.
+Saved simulation replay preserves the expanded schedule. Real replay preserves
+inputs and records observations; it does not promise deterministic real timing.

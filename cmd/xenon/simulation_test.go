@@ -15,6 +15,52 @@ import (
 
 const coupledInput = "../../test/scenarios/simulation/coordinator-move.json"
 
+func TestSearchGeneratedInterleavingsAndReplay(t *testing.T) {
+	evidence := filepath.Join(t.TempDir(), "search")
+	code, result, diagnostic := runSimulationCLI(t, context.Background(), "search", "--mode", "simulation", "--interleave", "--scenario", coupledInput, "--max-cases", "3", "--fault-seed", "42", "--evidence", evidence, "--development")
+	if code != 0 || result.Result.Completed != 3 || result.Mode != "seeded-coupled-delivery-interleavings" {
+		t.Fatalf("generated search: %d %+v %s", code, result, diagnostic)
+	}
+	orders := map[string]bool{}
+	for _, name := range []string{"case-00000000000000000000", "case-00000000000000000001", "case-00000000000000000002"} {
+		raw, err := os.ReadFile(filepath.Join(evidence, name, "scenario.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var saved struct {
+			Scenario simulation.Scenario `json:"scenario"`
+		}
+		if err := json.Unmarshal(raw, &saved); err != nil {
+			t.Fatal(err)
+		}
+		orders[string(saved.Scenario.Faults)] = true
+	}
+	if len(orders) < 2 {
+		t.Fatal("generated search repeated one schedule")
+	}
+	original := filepath.Join(evidence, "case-00000000000000000000")
+	replay := filepath.Join(t.TempDir(), "replay")
+	code, _, diagnostic = runSimulationCLI(t, context.Background(), "replay", "--artifact", filepath.Join(original, "scenario.json"), "--evidence", replay, "--development")
+	if code != 0 {
+		t.Fatalf("replay: %d %s", code, diagnostic)
+	}
+	before, err := os.ReadFile(filepath.Join(original, "trace.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(filepath.Join(replay, "case-00000000000000000000", "trace.jsonl"))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("generated trace replay changed: %v", err)
+	}
+}
+
+func TestContinuousGeneratedSearchBudgetIsNotPass(t *testing.T) {
+	code, result, diagnostic := runSimulationCLI(t, context.Background(), "search", "--interleave", "--continuous", "--scenario", coupledInput, "--duration", "1ns", "--evidence", filepath.Join(t.TempDir(), "budget"), "--development")
+	if code != 2 || result.Result.StopReason != "budget" || result.Result.Completed != 0 {
+		t.Fatalf("continuous budget: %d %+v %s", code, result, diagnostic)
+	}
+}
+
 func runSimulationCLI(t *testing.T, ctx context.Context, args ...string) (int, simulationOutput, string) {
 	t.Helper()
 	var out, diagnostics bytes.Buffer
