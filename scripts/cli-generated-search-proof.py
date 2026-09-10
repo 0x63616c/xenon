@@ -56,15 +56,6 @@ def main():
                       'no instrumented zero-I/O proof; native library is linked but engine use is modeled',
                       'generator-free replay checks absent source input and empty tool PATH, not a filesystem sandbox'])
     env = {k: v for k, v in os.environ.items() if not k.startswith(('AWS_', 'DYLD_', 'LD_', 'CGO_'))}
-    pins = json.loads((ROOT / 'tools/slatedb-native.json').read_text())
-    native_root = args.native_root.resolve()
-    receipt_path = native_root / '.local/go-node-build.json'
-    native = json.loads(receipt_path.read_text())
-    library = (native_root / native['shared_library']).resolve()
-    require(library.is_relative_to(native_root / '.local'), 'native library escapes declared root')
-    env.update(GOTOOLCHAIN=pins['go_toolchain'], GOENV='off', GOWORK='off', GOFLAGS='-mod=readonly',
-               CGO_ENABLED='1', CGO_LDFLAGS='-L' + str(library.parent),
-               DYLD_LIBRARY_PATH=str(library.parent), LD_LIBRARY_PATH=str(library.parent))
 
     def run(argv, expected=0, cwd=ROOT, extra_env=None, timeout=60):
         index = len(report['commands'])
@@ -83,6 +74,15 @@ def main():
         return stdout.read_text()
 
     try:
+        pins = json.loads((ROOT / 'tools/slatedb-native.json').read_text())
+        native_root = args.native_root.resolve()
+        receipt_path = native_root / '.local/go-node-build.json'
+        native = json.loads(receipt_path.read_text())
+        library = (native_root / native['shared_library']).resolve()
+        require(library.is_relative_to(native_root / '.local'), 'native library escapes declared root')
+        env.update(GOTOOLCHAIN=pins['go_toolchain'], GOENV='off', GOWORK='off', GOFLAGS='-mod=readonly',
+                   CGO_ENABLED='1', CGO_LDFLAGS='-L' + str(library.parent),
+                   DYLD_LIBRARY_PATH=str(library.parent), LD_LIBRARY_PATH=str(library.parent))
         revision = run(['git', 'rev-parse', 'HEAD']).strip()
         require(not run(['git', 'status', '--porcelain', '--untracked-files=all']).strip(), 'clean source checkout required')
         report.update(source_revision=revision, source_dirty=False)
