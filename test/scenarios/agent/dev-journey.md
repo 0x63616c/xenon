@@ -6,6 +6,7 @@ candidate checkout. Build the host `xenon` CLI using the pinned native setup. Th
 ```sh
 python3 scripts/dev-journey.py \
   --cli /absolute/path/to/xenon \
+  --native-library /absolute/path/to/libslatedb_uniffi.dylib \
   --build-receipt /absolute/path/to/image-evidence/build.json \
   --fixture /absolute/path/to/image-evidence/fixture.json \
   --evidence /absolute/path/to/new-journey-evidence
@@ -41,3 +42,9 @@ Run the independent authority assertion controls without Docker:
 ```sh
 python3 -m unittest discover -s scripts -p test_dev_journey.py
 ```
+
+Non-discovery runs execute `xenon version` before provisioning and reject stale or
+modified CLI builds, unknown native identity, wrong native library checksums,
+dependency replacements or mismatched Go/Temporal/SlateDB pins. The loader search
+path is bound to the explicitly supplied library directory. Native identity remains
+a build attestation, not independent dynamic-loader introspection.

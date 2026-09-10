@@ -53,4 +53,23 @@ class SentinelTest(unittest.TestCase):
                     self.assertEqual(removed, ['container'])
 
 
+
+class IdentityTest(unittest.TestCase):
+    def test_stale_dirty_unknown_native_and_dependency_builds_rejected(self):
+        pins = {'go_toolchain': 'go1.27.1', 'go_module': 'slate', 'go_version': 'v1', 'source_commit': 'native'}
+        temporal = {'module': 'temporal', 'version': 'v2'}
+        sums = {('slate', 'v1'): 'sum1', ('temporal', 'v2'): 'sum2'}
+        valid = {'revision': 'source', 'modified': 'false', 'go': 'go1.27.1',
+                 'slatedb_go': {'path': 'slate', 'version': 'v1', 'sum': 'sum1'},
+                 'temporal': {'path': 'temporal', 'version': 'v2', 'sum': 'sum2'},
+                 'slatedb_native': {'source_commit': 'native', 'artifact_sha256': 'hash', 'identity_source': 'build-attestation'}}
+        journey.check_cli_identity(valid, 'source', pins, temporal, 'hash', sums)
+        for field, replacement in [('revision', 'stale'), ('modified', 'true'), ('modified', 'unknown'), ('go', 'go1.0'),
+                                   ('slatedb_native', {}), ('slatedb_go', {}), ('temporal', {})]:
+            with self.subTest(field=field, replacement=replacement):
+                bad = copy.deepcopy(valid)
+                bad[field] = replacement
+                with self.assertRaises(ValueError): journey.check_cli_identity(bad, 'source', pins, temporal, 'hash', sums)
+        with self.assertRaises(ValueError): journey.check_cli_identity(valid, 'source', pins, temporal, 'wrong-library', sums)
+
 if __name__ == '__main__': unittest.main()

@@ -44,6 +44,21 @@ def check_snapshot(raw, inspection, config):
     return control
 
 
+def check_cli_identity(info, revision, pins, temporal, native_sha, sums):
+    if info.get('revision') != revision or info.get('modified') != 'false':
+        raise ValueError('CLI must be built from this clean source revision')
+    if info.get('go') != pins['go_toolchain']:
+        raise ValueError('CLI Go toolchain mismatch')
+    for key, module, version in (('slatedb_go', pins['go_module'], pins['go_version']),
+                                 ('temporal', temporal['module'], temporal['version'])):
+        actual = info.get(key, {})
+        if not sums.get((module, version)) or (actual.get('path'), actual.get('version'), actual.get('sum')) != (module, version, sums.get((module, version))) or actual.get('replacement'):
+            raise ValueError('CLI dependency pin mismatch: ' + key)
+    native = info.get('slatedb_native', {})
+    if native != {'source_commit': pins['source_commit'], 'artifact_sha256': native_sha, 'identity_source': 'build-attestation'}:
+        raise ValueError('CLI native attestation differs from pinned source/library')
+
+
 def reconcile_sentinel(run, obj, name, token, expected, pending):
     found = run(['docker', 'ps', '-aq', '--no-trunc', '--filter', 'name=^/' + name + '$', '--filter', 'label=io.xenon.journey=' + token]).splitlines()
     if len(found) > 1 or expected and found != [expected]:
@@ -65,6 +80,7 @@ def main():
     p.add_argument('--fixture', required=True, type=Path)
     p.add_argument('--evidence', required=True, type=Path)
     p.add_argument('--discovery', action='store_true')
+    p.add_argument('--native-library', type=Path, help='Exact host dynamic library required outside discovery')
     args = p.parse_args()
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT))
@@ -72,6 +88,8 @@ def main():
     fixture = json.loads(args.fixture.read_text())
     if build['status'] != 'built' or build['image'] != fixture['image']:
         p.error('fixture must match successful immutable image build receipt')
+    if not args.discovery and not args.native_library:
+        p.error('--native-library required outside discovery')
     if not args.discovery and (dirty or build['source_dirty'] or build['source_revision'] != revision):
         p.error('clean matching image/source required; --discovery cannot qualify acceptance')
     evidence = args.evidence.resolve()
@@ -86,6 +104,10 @@ def main():
     env = dict(os.environ, AWS_DEFAULT_REGION='us-east-1', AWS_ACCESS_KEY_ID='xenon-local',
                AWS_SECRET_ACCESS_KEY='xenon-local-test-only', AWS_ALLOW_HTTP='true',
                AWS_ENDPOINT=f"http://127.0.0.1:{fixture['s3_port']}")
+    if args.native_library:
+        library_dir = str(args.native_library.resolve().parent)
+        env['DYLD_LIBRARY_PATH'] = library_dir
+        env['LD_LIBRARY_PATH'] = library_dir
     sentinel = None
     sentinel_name = 'xenon-journey-sentinel-' + uuid.uuid4().hex
     sentinel_token = uuid.uuid4().hex
@@ -114,6 +136,14 @@ def main():
         return result
 
     try:
+        version = obj([cli, 'version'])
+        report['cli_version'] = version
+        if not args.discovery:
+            pins = json.loads((ROOT / 'tools/slatedb-native.json').read_text())
+            temporal = json.loads((ROOT / 'test/scenarios/ministack/pins.json').read_text())['temporal']
+            sums = {(module, ver): checksum for module, ver, checksum in (line.split() for line in (ROOT / 'go.sum').read_text().splitlines())}
+            check_cli_identity(version, revision, pins, temporal, sha(args.native_library), sums)
+            report['assertions'].append('matching-clean-host-cli-native-and-dependencies')
         for port in [fixture[k] for k in ('s3_port', 'temporal_port', 'http_port', 'storage_port')] + fixture['diagnostics_ports']:
             with socket.socket() as s:
                 s.bind(('127.0.0.1', port))
