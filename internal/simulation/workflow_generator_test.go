@@ -116,6 +116,68 @@ func TestActualPreparedWorkflowGenerator(t *testing.T) {
 	}
 }
 
+// Diversity must exclude envelope metadata such as the input seed.
+func generatedInputDigest(t *testing.T, workload []byte) string {
+	t.Helper()
+	var input GeneratedWorkflow
+	if err := json.Unmarshal(workload, &input); err != nil {
+		t.Fatal(err)
+	}
+	return hash(input.Input)
+}
+
+func TestGeneratedInputDiversityExcludesSeedMetadata(t *testing.T) {
+	unique := map[string]bool{}
+	for _, seed := range []uint64{1, 42} {
+		workload, err := json.Marshal(GeneratedWorkflow{Input: []byte("same protobuf"), WorkloadSeed: seed})
+		if err != nil {
+			t.Fatal(err)
+		}
+		unique[generatedInputDigest(t, workload)] = true
+	}
+	if len(unique) != 1 {
+		t.Fatal("seed metadata masqueraded as input diversity")
+	}
+}
+
+func TestPreparedWorkflowGeneratorAcceptanceSeeds(t *testing.T) {
+	directory := os.Getenv("XENON_WORKFLOW_GENERATOR_BUNDLE")
+	if directory == "" {
+		t.Skip("opt-in pinned generator qualification; gate must provide bundle")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	g, err := NewWorkflowGenerator(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, seed := range []uint64{1, 42, 2026090701} {
+		unique := map[string]bool{}
+		for index := uint64(0); index < 100; index++ {
+			request := GenerateRequest{Index: index, WorkloadSeed: streamSeed("workload/v1", seed, index), FaultSeed: streamSeed("fault/v1", 99, index), Limits: workflowLimits()}
+			first, err := g.Next(ctx, request)
+			if err != nil {
+				t.Fatalf("seed %d index %d: %v", seed, index, err)
+			}
+			// Change only the fault stream in the second complete generation.
+			// Both reproducibility and workload/fault independence must hold.
+			request.FaultSeed = streamSeed("fault/v1", 101, index)
+			second, err := g.Next(ctx, request)
+			if err != nil || !bytes.Equal(first.Workload, second.Workload) {
+				t.Fatalf("seed %d index %d input changed: %v", seed, index, err)
+			}
+			if err := (&WorkflowPreparationDriver{}).Validate(first, request.Limits); err != nil {
+				t.Fatal(err)
+			}
+			unique[generatedInputDigest(t, first.Workload)] = true
+		}
+		if len(unique) < 2 {
+			t.Fatalf("seed %d produced no input variation", seed)
+		}
+		t.Logf("seed=%d cases=100 generations=200 unique=%d generator=%s", seed, len(unique), g.Info().SHA256)
+	}
+}
+
 func TestGeneratedWorkflowUsesSharedEnvelopeAndReplayWithoutTools(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
