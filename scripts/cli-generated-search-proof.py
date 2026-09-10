@@ -31,6 +31,21 @@ def validate_native(pins, receipt, library, go_sum):
             'binding checksum does not match go.sum')
 
 
+def check_cli_identity(info, revision, pins, temporal, native_sha, sums):
+    if info.get('revision') != revision or info.get('modified') != 'false':
+        raise ValueError('CLI must be built from this clean source revision')
+    if info.get('go') != pins['go_toolchain']:
+        raise ValueError('CLI Go toolchain mismatch')
+    for key, module, version in (('slatedb_go', pins['go_module'], pins['go_version']),
+                                 ('temporal', temporal['module'], temporal['version'])):
+        actual = info.get(key, {})
+        if not sums.get((module, version)) or (actual.get('path'), actual.get('version'), actual.get('sum')) != (module, version, sums.get((module, version))) or actual.get('replacement'):
+            raise ValueError('CLI dependency pin mismatch: ' + key)
+    native = info.get('slatedb_native', {})
+    if native != {'source_commit': pins['source_commit'], 'artifact_sha256': native_sha, 'identity_source': 'build-attestation'}:
+        raise ValueError('CLI native attestation differs from pinned source/library')
+
+
 def check_output(output, mode, completed=None, reason='completed'):
     require(output['schema'] == 1 and output['qualification'] == 'component', 'unqualified CLI result')
     require(output['mode'] == mode, 'unexpected execution mode')
@@ -98,7 +113,10 @@ def main():
         flags = f"-X github.com/0x63616c/xenon/internal/buildinfo.NativeCommit={pins['source_commit']} -X github.com/0x63616c/xenon/internal/buildinfo.NativeSHA256={digest(library)}"
         run(['go', 'build', '-buildvcs=true', '-ldflags', flags, '-o', binary, './cmd/xenon'], timeout=180)
         info = json.loads(run([binary, 'version']))
-        require(info['revision'] == revision and info['modified'] == 'false' and info['go'] == pins['go_toolchain'], 'built CLI source/tool mismatch')
+        temporal = json.loads((ROOT / 'test/scenarios/ministack/pins.json').read_text())['temporal']
+        sums = {(module, ver): checksum for module, ver, checksum in
+                (line.split() for line in (ROOT / 'go.sum').read_text().splitlines())}
+        check_cli_identity(info, revision, pins, temporal, digest(library), sums)
         report['build'] = info
         report['binary_sha256'] = digest(binary)
         source_input = ROOT / 'test/scenarios/simulation/coordinator-move.json'

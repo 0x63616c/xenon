@@ -1,3 +1,4 @@
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -26,6 +27,40 @@ class ProofControls(unittest.TestCase):
             library.write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 proof.validate_native(pins, receipt, library, 'binding v1 sum')
+
+    def test_actual_binary_metadata_must_match_pins(self):
+        pins = dict(source_commit='native-rev', go_module='binding',
+                    go_version='v1', go_toolchain='go1.27.1')
+        temporal = dict(module='temporal', version='v2')
+        sums = {('binding', 'v1'): 'binding-sum', ('temporal', 'v2'): 'temporal-sum'}
+        info = dict(revision='revision', modified='false', go='go1.27.1',
+                    slatedb_go=dict(path='binding', version='v1', sum='binding-sum'),
+                    temporal=dict(path='temporal', version='v2', sum='temporal-sum'),
+                    slatedb_native=dict(source_commit='native-rev', artifact_sha256='native-sha',
+                                        identity_source='build-attestation'))
+        proof.check_cli_identity(info, 'revision', pins, temporal, 'native-sha', sums)
+        for field, value in [('revision', 'other'), ('modified', 'true'), ('go', 'other')]:
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                proof.check_cli_identity(info | {field: value}, 'revision', pins, temporal, 'native-sha', sums)
+        for dependency in ['slatedb_go', 'temporal']:
+            for field, value in [('path', 'other'), ('version', 'other'), ('sum', 'other'),
+                                 ('replacement', {'path': '/local/replacement'})]:
+                changed = copy.deepcopy(info)
+                changed[dependency][field] = value
+                with self.subTest(dependency=dependency, field=field), self.assertRaises(ValueError):
+                    proof.check_cli_identity(changed, 'revision', pins, temporal, 'native-sha', sums)
+        for field in ['source_commit', 'artifact_sha256', 'identity_source']:
+            changed = copy.deepcopy(info)
+            changed['slatedb_native'][field] = 'wrong'
+            with self.subTest(native=field), self.assertRaises(ValueError):
+                proof.check_cli_identity(changed, 'revision', pins, temporal, 'native-sha', sums)
+        for field in ['slatedb_go', 'temporal', 'slatedb_native']:
+            changed = copy.deepcopy(info)
+            del changed[field]
+            with self.subTest(missing=field), self.assertRaises(ValueError):
+                proof.check_cli_identity(changed, 'revision', pins, temporal, 'native-sha', sums)
+        with self.assertRaises(ValueError):
+            proof.check_cli_identity(info, 'revision', pins, temporal, 'native-sha', {})
 
     def test_result_cannot_hide_incomplete_or_wrong_mode(self):
         result = dict(schema=1, qualification='component', mode='generated',

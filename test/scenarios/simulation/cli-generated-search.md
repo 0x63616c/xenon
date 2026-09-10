@@ -11,7 +11,9 @@ python3 scripts/cli-generated-search-proof.py \
 The optional native root defaults to the current checkout. The script verifies
 its build receipt, library checksum, binding checksum, clean pinned native source
 and Cargo lock. It builds the actual CLI from the current clean revision with
-pinned Go and records the binary hash and embedded build identity. Reused native
+pinned Go and checks the binary's actual SlateDB/Temporal module paths, versions,
+checksums and absence of replacements, plus its exact native build attestation.
+It records the binary hash and embedded build identity. Reused native
 artifacts remain build attestations, not independent runtime loader proof.
 
 Four finite seeded searches must complete with fixed workflow bytes and at least
