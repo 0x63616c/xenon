@@ -14,6 +14,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const startupBanner = `
+ __  __  _____  _   _   ___   _   _
+ \ \/ / | ____|| \ | | / _ \ | \ | |
+  \  /  |  _|  |  \| || | | ||  \| |
+  /  \  | |___ | |\  || |_| || |\  |
+ /_/\_\ |_____||_| \_| \___/ |_| \_|
+
+`
+
 // execute owns CLI diagnostics and the existing 0/1 exit convention. The runtime
 // owns bounded shutdown; a successful foreground shutdown remains exit 0.
 func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics io.Writer, start func(context.Context, app.Config) error) int {
@@ -100,6 +109,9 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 			}
 			// Preserve the existing secret-free startup metadata before network work.
 			if err = json.NewEncoder(cmd.OutOrStdout()).Encode(buildinfo.Read()); err != nil {
+				return err
+			}
+			if _, err = io.WriteString(cmd.ErrOrStderr(), startupBanner); err != nil {
 				return err
 			}
 			return start(cmd.Context(), c)

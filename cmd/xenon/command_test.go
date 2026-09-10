@@ -126,10 +126,10 @@ func TestStartReceivesValidatedConfigAndCallerCancellation(t *testing.T) {
 		if called != 1 {
 			t.Fatal("start calls", called)
 		}
-		if failure == nil && (code != 0 || diagnostics.Len() != 0) {
+		if failure == nil && (code != 0 || diagnostics.String() != startupBanner) {
 			t.Fatal(code, &diagnostics)
 		}
-		if failure != nil && (code != 1 || diagnostics.String() != failure.Error()+"\n") {
+		if failure != nil && (code != 1 || diagnostics.String() != startupBanner+failure.Error()+"\n") {
 			t.Fatal("lost primary failure", code, &diagnostics)
 		}
 	}
