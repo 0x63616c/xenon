@@ -147,6 +147,9 @@ func TestDevOwnedLifecyclePreservesVolumeAndSentinel(t *testing.T) {
 		return result
 	}
 	first := call("up", false)
+	if !strings.HasPrefix(first.Run, "dev_") {
+		t.Fatal("new fixture lacks typed ID", first.Run)
+	}
 	if first.Status != "started" || len(fake.containers) != 3 || fake.volume == nil {
 		t.Fatal(first, fake)
 	}
@@ -355,5 +358,23 @@ func TestDevInitializationRecordedOnlyAfterReadyAndDisablesBootstrap(t *testing.
 	}
 	if !plan.Containers[1].Config.Bootstrap || !plan.Containers[1].Config.ServiceStorage.FreshNamespace {
 		t.Fatal("fixture identity mutated")
+	}
+}
+
+func TestDevLegacyRunOwnershipRemainsReadable(t *testing.T) {
+	path, dir, plan := devTestFixture(t)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.Repeat("a", 32)
+	if err := saveDevState(dir, devState{Schema: 1, Run: legacy, Hash: fixtureHash(plan), Fixture: plan}); err != nil {
+		t.Fatal(err)
+	}
+	fake := newDevFake()
+	for _, action := range []string{"up", "down"} {
+		got, err := runDev(devTestContext(t), action, path, dir, false, fake.call)
+		if err != nil || got.Run != legacy {
+			t.Fatal("legacy identity rewritten or rejected", got, err)
+		}
 	}
 }

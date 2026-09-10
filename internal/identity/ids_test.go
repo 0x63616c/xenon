@@ -25,7 +25,7 @@ func TestEncodingVectorsAndTypeBoundaries(t *testing.T) {
 		{append(make([]byte, 15), 1), "0000000000000000000001"},
 		{bytes.Repeat([]byte{255}, 16), "7n42DGM5Tflk9n8mt7Fhc7"},
 	} {
-		for _, prefix := range []string{"clu", "nod", "inc", "prt", "op", "trn"} {
+		for _, prefix := range []string{"clu", "nod", "inc", "prt", "op", "trn", "dev"} {
 			got, err := (Generator{bytes.NewReader(tc.raw)}).NewID(prefix)
 			if err != nil || got != prefix+"_"+tc.value {
 				t.Fatalf("vector %s: %q %v", prefix, got, err)
@@ -33,7 +33,7 @@ func TestEncodingVectorsAndTypeBoundaries(t *testing.T) {
 			if err = validate(got, prefix); err != nil {
 				t.Fatal(err)
 			}
-			for _, other := range []string{"clu", "nod", "inc", "prt", "op", "trn"} {
+			for _, other := range []string{"clu", "nod", "inc", "prt", "op", "trn", "dev"} {
 				if other != prefix && validate(got, other) == nil {
 					t.Fatalf("accepted cross-type %s as %s", got, other)
 				}
@@ -47,7 +47,11 @@ func TestEncodingVectorsAndTypeBoundaries(t *testing.T) {
 	}
 }
 func TestTypedConstructorsAndEntropyFailures(t *testing.T) {
-	s := Generator{bytes.NewReader(make([]byte, 16*6))}
+	s := Generator{bytes.NewReader(make([]byte, 16*7))}
+	d, e := NewDevRunID(s)
+	if e != nil || d.Validate() != nil {
+		t.Fatal(d, e)
+	}
 	c, e := NewClusterID(s)
 	if e != nil || c.Validate() != nil {
 		t.Fatal(c, e)

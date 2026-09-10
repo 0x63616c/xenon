@@ -39,3 +39,7 @@ python3 scripts/build-dev-fixture.py --evidence /absolute/new/evidence-directory
 That command builds the pinned `dev-runtime` Docker target and saves its immutable
 image ID and generated fixture; it does not start a cluster. Real CLI-02 proof
 still requires the declared up/workflow/Nexus/inspect/down journey.
+
+New fixture lifecycle IDs use the `dev_` prefix and the shared 128-bit base62
+identity generator. Existing 32-character hexadecimal lifecycle IDs remain
+readable unchanged so their recorded Docker ownership and teardown still work.

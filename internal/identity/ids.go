@@ -18,6 +18,9 @@ type PartitionID string
 type OperationID string
 type TransitionID string
 
+// DevRunID identifies one local fixture lifecycle across preserved restarts.
+type DevRunID string
+
 // Source is independent of placement and fault-schedule randomness. Call once
 // per logical identity and retain the result across retries.
 type Source interface {
@@ -35,7 +38,7 @@ const Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 
 func validPrefix(prefix string) bool {
 	switch prefix {
-	case "clu", "nod", "inc", "prt", "op", "trn":
+	case "clu", "nod", "inc", "prt", "op", "trn", "dev":
 		return true
 	}
 	return false
@@ -84,6 +87,8 @@ func validate(value, prefix string) error {
 	return nil
 }
 
+func (id DevRunID) Validate() error { return validate(string(id), "dev") }
+
 func (id ClusterID) Validate() error     { return validate(string(id), "clu") }
 func (id NodeID) Validate() error        { return validate(string(id), "nod") }
 func (id IncarnationID) Validate() error { return validate(string(id), "inc") }
@@ -123,3 +128,5 @@ func NewTransitionID(s Source) (TransitionID, error) {
 	v, e := generate(s, "trn")
 	return TransitionID(v), e
 }
+
+func NewDevRunID(s Source) (DevRunID, error) { v, e := generate(s, "dev"); return DevRunID(v), e }

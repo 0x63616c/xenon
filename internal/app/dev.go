@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/0x63616c/xenon/internal/identity"
 	"golang.org/x/sys/unix"
 )
 
@@ -217,17 +217,18 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 	var state devState
 	err = readDevJSON(filepath.Join(dir, "state.json"), &state)
 	if errors.Is(err, os.ErrNotExist) && action == "up" {
-		id := make([]byte, 16)
-		if _, err = rand.Read(id); err != nil {
+		id, idErr := identity.NewDevRunID(identity.Generator{})
+		if idErr != nil {
+			err = idErr
 			return result, err
 		}
-		state = devState{Schema: 1, Run: hex.EncodeToString(id), Hash: fixtureHash(fixture), Fixture: fixture}
+		state = devState{Schema: 1, Run: string(id), Hash: fixtureHash(fixture), Fixture: fixture}
 		err = saveDevState(dir, state)
 	}
 	if err != nil {
 		return result, err
 	}
-	if state.Schema != 1 || !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(state.Run) || state.Fixture.validate() != nil || state.Hash != fixtureHash(state.Fixture) {
+	if state.Schema != 1 || (identity.DevRunID(state.Run).Validate() != nil && !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(state.Run)) || state.Fixture.validate() != nil || state.Hash != fixtureHash(state.Fixture) {
 		return result, errors.New("invalid recorded fixture identity")
 	}
 	if action == "up" && state.Hash != fixtureHash(fixture) {
