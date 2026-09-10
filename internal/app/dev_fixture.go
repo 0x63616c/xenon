@@ -98,9 +98,9 @@ func RunDev(ctx context.Context, action, fixturePath, dir string, ephemeral bool
 	}
 	hooks := devHooks{}
 	if action == "up" {
-		hooks.Started = func(ctx context.Context, role, id string) error {
+		hooks.Started = func(ctx context.Context, role, id string, state devState) error {
 			if role == "s3" {
-				return devBucket(ctx, f.S3Port)
+				return devStorage(ctx, f.S3Port, *plan.Containers[4].Config, state.Initialized, state.Initialization)
 			}
 			if role == "agent-3" {
 				// All nodes must reach real application readiness before namespace setup.
@@ -115,6 +115,9 @@ func RunDev(ctx context.Context, action, fixturePath, dir string, ephemeral bool
 				return err
 			}
 			return nil
+		}
+		hooks.Identity = func(ctx context.Context) (string, error) {
+			return devAuthority(ctx, devS3Client(f.S3Port), *plan.Containers[4].Config, "")
 		}
 		hooks.Ready = func(ctx context.Context) error {
 			if err := devReady(ctx, f.DiagnosticsPorts); err != nil {
@@ -191,11 +194,30 @@ func devWait(ctx context.Context, check func() error) error {
 		}
 	}
 }
-func devBucket(ctx context.Context, port int) error {
-	client := s3.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("xenon-local", "xenon-local-test-only", "")}, func(o *s3.Options) {
+
+func devS3Client(port int) *s3.Client {
+	return s3.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("xenon-local", "xenon-local-test-only", "")}, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(fmt.Sprintf("http://127.0.0.1:%d", port))
 		o.UsePathStyle = true
 	})
+}
+
+// devStorage verifies the preserved authority before starting any agent. A
+// successful previous initialization permanently removes permission to create
+// a missing bucket or bootstrap a missing cluster. Failed first starts remain
+// resumable, and readiness is recorded only after the complete fixture is ready.
+func devStorage(ctx context.Context, port int, config Config, initialized bool, identity string) error {
+	client := devS3Client(port)
+	if initialized {
+		if identity == "" {
+			return errors.New("preserved cluster has no recorded initialization identity")
+		}
+		err := devWait(ctx, func() error { _, err := devAuthority(ctx, client, config, identity); return err })
+		if err != nil {
+			return fmt.Errorf("preserved cluster unavailable; refusing bootstrap: %w", err)
+		}
+		return nil
+	}
 	return devWait(ctx, func() error {
 		_, err := client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String("xenon-agent-proof")})
 		var api smithy.APIError
@@ -204,4 +226,19 @@ func devBucket(ctx context.Context, port int) error {
 		}
 		return err
 	})
+}
+
+func devAuthority(ctx context.Context, client *s3.Client, config Config, expected string) (string, error) {
+	if _, err := inspectService(ctx, config, client); err != nil {
+		return "", err
+	}
+	manifest, err := readServiceManifest(ctx, client, config.Bucket, config.Prefix+"/metadata/cluster.json")
+	if err != nil {
+		return "", err
+	}
+	id := string(manifest.Initialization)
+	if id == "" || expected != "" && expected != id {
+		return "", errors.New("preserved cluster initialization identity changed")
+	}
+	return id, nil
 }

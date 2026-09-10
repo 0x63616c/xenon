@@ -305,3 +305,55 @@ func TestDevCleanupDeadlineRetainsPendingOwnership(t *testing.T) {
 		t.Fatal(result, err)
 	}
 }
+
+func TestDevInitializationRecordedOnlyAfterReadyAndDisablesBootstrap(t *testing.T) {
+	_, dir, plan := devTestFixture(t)
+	config := serviceConfig()
+	plan.Containers[1].Config = &config
+	fake := newDevFake()
+	ready := false
+	sawInitialized := false
+	hooks := devHooks{
+		Started: func(_ context.Context, role, _ string, state devState) error {
+			if role == "agent-a" {
+				sawInitialized = state.Initialized
+			}
+			return nil
+		},
+		Identity: func(context.Context) (string, error) { return "trn_0000000000000000000001", nil },
+		Ready: func(context.Context) error {
+			if !ready {
+				return fmt.Errorf("worker not ready")
+			}
+			return nil
+		},
+	}
+	if _, err := runDevPlan(devTestContext(t), "up", plan, dir, false, fake.call, hooks); err == nil {
+		t.Fatal("first startup unexpectedly ready")
+	}
+	var state devState
+	if err := readDevJSON(filepath.Join(dir, "state.json"), &state); err != nil || state.Initialized || state.Initialization != "" {
+		t.Fatal(state, err)
+	}
+	ready = true
+	if _, err := runDevPlan(devTestContext(t), "up", plan, dir, false, fake.call, hooks); err != nil || sawInitialized {
+		t.Fatal("first failed startup not resumable", err)
+	}
+	if err := readDevJSON(filepath.Join(dir, "state.json"), &state); err != nil || !state.Initialized || state.Initialization == "" {
+		t.Fatal(state, err)
+	}
+	// Existing containers are reused, so their mounted configuration must also be rewritten.
+	if _, err := runDevPlan(devTestContext(t), "up", plan, dir, false, fake.call, hooks); err != nil || !sawInitialized {
+		t.Fatal("initialization forgotten", err)
+	}
+	var saved Config
+	if err := readDevJSON(filepath.Join(dir, "agent-a.json"), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Bootstrap || saved.ServiceStorage.FreshNamespace {
+		t.Fatal("preserved restart can bootstrap empty storage")
+	}
+	if !plan.Containers[1].Config.Bootstrap || !plan.Containers[1].Config.ServiceStorage.FreshNamespace {
+		t.Fatal("fixture identity mutated")
+	}
+}

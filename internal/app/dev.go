@@ -42,13 +42,15 @@ type devResource struct {
 	Role string `json:"role"`
 }
 type devState struct {
-	Schema        int           `json:"schema"`
-	Run           string        `json:"run"`
-	Hash          string        `json:"fixture_sha256"`
-	Fixture       devPlan       `json:"fixture"`
-	Resources     []devResource `json:"resources"`
-	VolumeCreated string        `json:"volume_created,omitempty"`
-	Ephemeral     bool          `json:"ephemeral_authorized"`
+	Schema         int           `json:"schema"`
+	Run            string        `json:"run"`
+	Hash           string        `json:"fixture_sha256"`
+	Fixture        devPlan       `json:"fixture"`
+	Resources      []devResource `json:"resources"`
+	VolumeCreated  string        `json:"volume_created,omitempty"`
+	Ephemeral      bool          `json:"ephemeral_authorized"`
+	Initialized    bool          `json:"initialized,omitempty"`
+	Initialization string        `json:"initialization,omitempty"`
 }
 type DevResult struct {
 	Schema          int      `json:"schema"`
@@ -371,6 +373,33 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 	}
 	holder := ""
 	for _, spec := range fixture.Containers {
+		var configPath string
+		if spec.Config != nil {
+			config := *spec.Config
+			if state.Initialized {
+				config.Bootstrap = false
+				if config.ServiceStorage != nil {
+					settings := config.ServiceStorage.Clone()
+					settings.FreshNamespace = false
+					config.ServiceStorage = &settings
+				}
+			}
+			rawConfig, marshalErr := json.Marshal(config)
+			if marshalErr != nil {
+				return result, marshalErr
+			}
+			configPath, err = filepath.Abs(filepath.Join(dir, spec.Role+".json"))
+			if err != nil {
+				return result, err
+			}
+			if err = os.WriteFile(configPath, rawConfig, 0600); err != nil {
+				return result, err
+			}
+			// Container runtime uses the image's unprivileged UID.
+			if err = os.Chmod(configPath, 0644); err != nil {
+				return result, err
+			}
+		}
 		id := observed[spec.Role]
 		if id == "" {
 			args := appendDevLabels([]string{"create", "--name", devName(state, spec.Role), "--log-driver", "json-file", "--log-opt", "max-size=10m", "--log-opt", "max-file=1"}, devLabels(state, spec.Role))
@@ -388,21 +417,6 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 				args = append(args, "--env", e)
 			}
 			if spec.Config != nil {
-				rawConfig, marshalErr := json.Marshal(spec.Config)
-				if marshalErr != nil {
-					return result, marshalErr
-				}
-				configPath, pathErr := filepath.Abs(filepath.Join(dir, spec.Role+".json"))
-				if pathErr != nil {
-					return result, pathErr
-				}
-				if err = os.WriteFile(configPath, rawConfig, 0600); err != nil {
-					return result, err
-				}
-				// Container runtime uses the image's unprivileged UID.
-				if err = os.Chmod(configPath, 0644); err != nil {
-					return result, err
-				}
 				args = append(args, "--mount", "type=bind,source="+configPath+",target=/etc/xenon/dev.json,readonly")
 			}
 			if spec.Entrypoint != "" {
@@ -430,7 +444,7 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 			return result, err
 		}
 		if hooks.Started != nil {
-			if err = hooks.Started(ctx, spec.Role, id); err != nil {
+			if err = hooks.Started(ctx, spec.Role, id, state); err != nil {
 				return result, err
 			}
 		}
@@ -439,6 +453,16 @@ func runDevPlan(ctx context.Context, action string, fixture devPlan, dir string,
 	if hooks.Ready != nil {
 		if err = hooks.Ready(ctx); err != nil {
 			result.Status = "failed"
+			return result, err
+		}
+		if hooks.Identity != nil {
+			state.Initialization, err = hooks.Identity(ctx)
+			if err != nil {
+				return result, err
+			}
+		}
+		state.Initialized = true
+		if err = saveDevState(dir, state); err != nil {
 			return result, err
 		}
 		result.Status = "ready"
@@ -496,6 +520,7 @@ func devVolume(ctx context.Context, state *devState, docker devDocker, remove bo
 }
 
 type devHooks struct {
-	Started func(context.Context, string, string) error
-	Ready   func(context.Context) error
+	Started  func(context.Context, string, string, devState) error
+	Identity func(context.Context) (string, error)
+	Ready    func(context.Context) error
 }
