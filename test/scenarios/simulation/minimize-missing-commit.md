@@ -60,6 +60,8 @@ Old schema-1 artifacts are refused by default. `xenon replay
 --allow-legacy-artifact ...` explicitly permits their scenario-only checksum,
 labels the result `legacy-unverified-artifact-replay`, and still requires matching
 source/tool provenance. This mode cannot supply exact-revision acceptance proof.
+Replayed artifacts retain `legacy_unverified` ancestry: subsequent replays still
+require explicit legacy opt-in, and minimization refuses that ancestry.
 Minimization requires schema 2. `--development` permits matching unknown/dirty
 build identities and retains development qualification; it does not bypass a
 provenance mismatch. No cross-version compatibility override is implemented.

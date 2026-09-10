@@ -83,3 +83,35 @@ func TestReplayRejectsEnvelopeAndProvenanceChangesBeforeEffects(t *testing.T) {
 		t.Fatal("original changed", err)
 	}
 }
+
+func TestReplayLegacyAncestryCannotBecomeExactEvidence(t *testing.T) {
+	original := testRunner(t, testDriver{})
+	if _, err := Search(t.Context(), searchConfig(), &testGenerator{}, original); err != nil {
+		t.Fatal(err)
+	}
+	legacy := loadArtifact(t, scenarioFile(original))
+	legacy.Version = 1
+	legacy.EnvelopeSHA256 = ""
+	path := filepath.Join(t.TempDir(), "legacy.json")
+	if err := save(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		allowed := testRunner(t, testDriver{})
+		allowed.AllowLegacyArtifact = true
+		if _, err := Replay(t.Context(), path, allowed); err != nil {
+			t.Fatal(err)
+		}
+		path = scenarioFile(allowed)
+		rejected := testRunner(t, forbiddenReplayDriver{t: t})
+		if _, err := Replay(t.Context(), path, rejected); err == nil {
+			t.Fatal("legacy replay laundered into exact evidence")
+		}
+		if _, err := os.Stat(rejected.Directory); !os.IsNotExist(err) {
+			t.Fatal("rejection created evidence", err)
+		}
+		if _, err := MinimizeArtifact(t.Context(), path, reduceConfig(t), rejected); err == nil {
+			t.Fatal("minimizer accepted legacy ancestry")
+		}
+	}
+}

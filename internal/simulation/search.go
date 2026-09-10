@@ -112,15 +112,16 @@ type RunResult struct {
 	EvidencePath string `json:"evidence_path"`
 }
 type artifact struct {
-	Version        int             `json:"version"`
-	Config         SearchConfig    `json:"config"`
-	Request        GenerateRequest `json:"request"`
-	Generator      GeneratorInfo   `json:"generator"`
-	Provenance     Provenance      `json:"provenance"`
-	Scenario       Scenario        `json:"scenario"`
-	SHA256         string          `json:"scenario_sha256"`
-	ReplayOf       string          `json:"replay_of,omitempty"`
-	EnvelopeSHA256 string          `json:"envelope_sha256"`
+	Version          int             `json:"version"`
+	Config           SearchConfig    `json:"config"`
+	Request          GenerateRequest `json:"request"`
+	Generator        GeneratorInfo   `json:"generator"`
+	Provenance       Provenance      `json:"provenance"`
+	Scenario         Scenario        `json:"scenario"`
+	SHA256           string          `json:"scenario_sha256"`
+	ReplayOf         string          `json:"replay_of,omitempty"`
+	EnvelopeSHA256   string          `json:"envelope_sha256"`
+	LegacyUnverified bool            `json:"legacy_unverified,omitempty"`
 }
 type caseResult struct {
 	FailureFingerprint *FailureFingerprint `json:"failure_fingerprint,omitempty"`
@@ -304,6 +305,9 @@ func search(ctx context.Context, cfg SearchConfig, gen Generator, r *Runner, rep
 		}
 		raw, _ := json.Marshal(scenario)
 		record := artifact{Version: 2, Config: cfg, Request: request, Generator: info, Provenance: r.Provenance, Scenario: scenario, SHA256: hash(raw), ReplayOf: replayOf}
+		if saved, ok := gen.(*savedGenerator); ok {
+			record.LegacyUnverified = saved.record.Version == 1 || saved.record.LegacyUnverified
+		}
 		if err = saveArtifact(filepath.Join(dir, "scenario.json"), record); err != nil {
 			return result, err
 		}
@@ -534,6 +538,9 @@ func readReplayArtifact(path string, allowLegacy bool) (artifact, error) {
 		return artifact{}, errors.New("artifact envelope hash mismatch")
 	}
 	record.EnvelopeSHA256 = digest
+	if record.LegacyUnverified && !allowLegacy {
+		return artifact{}, errors.New("legacy artifact ancestry requires explicit legacy opt-in")
+	}
 	scenarioRaw, _ := json.Marshal(record.Scenario)
 	if hash(scenarioRaw) != record.SHA256 {
 		return artifact{}, errors.New("scenario hash mismatch")
