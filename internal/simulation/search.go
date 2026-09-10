@@ -88,10 +88,11 @@ type Provenance struct {
 	Versions map[string]string `json:"versions"` // tool/native/image versions, or explicit modeled/not-used values
 }
 type Runner struct {
-	Driver     Driver
-	Clock      Clock
-	Directory  string // new run-scoped directory; existing paths are never overwritten
-	Provenance Provenance
+	Driver              Driver
+	AllowLegacyArtifact bool // Explicit replay-only downgrade; no envelope integrity claim.
+	Clock               Clock
+	Directory           string // new run-scoped directory; existing paths are never overwritten
+	Provenance          Provenance
 }
 type SearchConfig struct {
 	MaxCases      uint64         `json:"max_cases"`
@@ -111,14 +112,15 @@ type RunResult struct {
 	EvidencePath string `json:"evidence_path"`
 }
 type artifact struct {
-	Version    int             `json:"version"`
-	Config     SearchConfig    `json:"config"`
-	Request    GenerateRequest `json:"request"`
-	Generator  GeneratorInfo   `json:"generator"`
-	Provenance Provenance      `json:"provenance"`
-	Scenario   Scenario        `json:"scenario"`
-	SHA256     string          `json:"scenario_sha256"`
-	ReplayOf   string          `json:"replay_of,omitempty"`
+	Version        int             `json:"version"`
+	Config         SearchConfig    `json:"config"`
+	Request        GenerateRequest `json:"request"`
+	Generator      GeneratorInfo   `json:"generator"`
+	Provenance     Provenance      `json:"provenance"`
+	Scenario       Scenario        `json:"scenario"`
+	SHA256         string          `json:"scenario_sha256"`
+	ReplayOf       string          `json:"replay_of,omitempty"`
+	EnvelopeSHA256 string          `json:"envelope_sha256"`
 }
 type caseResult struct {
 	FailureFingerprint *FailureFingerprint `json:"failure_fingerprint,omitempty"`
@@ -301,8 +303,8 @@ func search(ctx context.Context, cfg SearchConfig, gen Generator, r *Runner, rep
 			return result, errors.Join(err, save(filepath.Join(dir, "result.json"), caseResult{FailurePhase: "generation", FirstFailure: err.Error()}))
 		}
 		raw, _ := json.Marshal(scenario)
-		record := artifact{1, cfg, request, info, r.Provenance, scenario, hash(raw), replayOf}
-		if err = save(filepath.Join(dir, "scenario.json"), record); err != nil {
+		record := artifact{Version: 2, Config: cfg, Request: request, Generator: info, Provenance: r.Provenance, Scenario: scenario, SHA256: hash(raw), ReplayOf: replayOf}
+		if err = saveArtifact(filepath.Join(dir, "scenario.json"), record); err != nil {
 			return result, err
 		}
 		detail, err := r.runCase(ctx, cfg, scenario, dir, end)
@@ -493,8 +495,11 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 // Replay reads saved expanded bytes, never a generator. Original artifacts remain
 // untouched; Runner.Directory receives a new trace and current tool provenance.
 func Replay(ctx context.Context, path string, r *Runner) (RunResult, error) {
-	record, err := readReplayArtifact(path)
+	record, err := readReplayArtifact(path, r != nil && r.AllowLegacyArtifact)
 	if err != nil {
+		return RunResult{}, err
+	}
+	if err := validateReplayProvenance(record, r); err != nil {
 		return RunResult{}, err
 	}
 	cfg := record.Config
@@ -503,7 +508,7 @@ func Replay(ctx context.Context, path string, r *Runner) (RunResult, error) {
 	return search(ctx, cfg, &savedGenerator{record: record}, r, path)
 }
 
-func readReplayArtifact(path string) (artifact, error) {
+func readReplayArtifact(path string, allowLegacy bool) (artifact, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return artifact{}, err
@@ -519,9 +524,16 @@ func readReplayArtifact(path string) (artifact, error) {
 	var record artifact
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&record) != nil || decoder.Decode(new(any)) != io.EOF || record.Version != 1 {
-		return artifact{}, errors.New("invalid scenario artifact")
+	if decoder.Decode(&record) != nil || decoder.Decode(new(any)) != io.EOF || (record.Version != 2 && !(allowLegacy && record.Version == 1)) {
+		return artifact{}, errors.New("invalid scenario artifact: integrity-protected schema 2 required")
 	}
+	digest := record.EnvelopeSHA256
+	record.EnvelopeSHA256 = ""
+	envelope, _ := json.Marshal(record)
+	if record.Version == 2 && (digest == "" || hash(envelope) != digest) {
+		return artifact{}, errors.New("artifact envelope hash mismatch")
+	}
+	record.EnvelopeSHA256 = digest
 	scenarioRaw, _ := json.Marshal(record.Scenario)
 	if hash(scenarioRaw) != record.SHA256 {
 		return artifact{}, errors.New("scenario hash mismatch")
@@ -587,4 +599,34 @@ func minTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
+}
+
+// Envelope integrity detects accidental edits to inputs and provenance. This is
+// a checksum, not authentication against an author who can recompute it.
+func saveArtifact(path string, record artifact) error {
+	record.Version = 2
+	record.EnvelopeSHA256 = ""
+	raw, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	record.EnvelopeSHA256 = hash(raw)
+	return save(path, record)
+}
+func validateReplayProvenance(record artifact, runner *Runner) error {
+	// Schema 1 mixed corpus-input hashes into tool versions. They describe
+	// generator inputs, which are intentionally unnecessary for saved replay.
+	if record.Version == 1 {
+		record.Provenance.Versions = maps.Clone(record.Provenance.Versions)
+		for key := range record.Provenance.Versions {
+			var index uint64
+			if n, err := fmt.Sscanf(key, "scenario_input_%d_sha256", &index); n == 1 && err == nil && key == fmt.Sprintf("scenario_input_%d_sha256", index) {
+				delete(record.Provenance.Versions, key)
+			}
+		}
+	}
+	if runner == nil || record.Provenance.Source != runner.Provenance.Source || !maps.Equal(record.Provenance.Versions, runner.Provenance.Versions) {
+		return errors.New("replay source/tool provenance mismatch: use the original build and environment")
+	}
+	return nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -64,13 +63,11 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 				return err
 			}
 			inputs := make([][]byte, 0, len(paths))
-			for index, path := range paths {
+			for _, path := range paths {
 				raw, err := readScenario(path)
 				if err != nil {
 					return err
 				}
-				sum := sha256.Sum256(raw)
-				runner.Provenance.Versions[fmt.Sprintf("scenario_input_%d_sha256", index)] = hex.EncodeToString(sum[:])
 				inputs = append(inputs, raw)
 			}
 			gen, err := simulation.NewCoupledCorpus(inputs...)
@@ -93,8 +90,10 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	var artifact, evidence string
 	var development bool
 	replay := &cobra.Command{Use: "replay", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.NoArgs, PersistentPreRunE: recordCancellation}
+	var allowLegacy bool
 	var resident residentFlags
 	resident.add(replay)
+	replay.Flags().BoolVar(&allowLegacy, "allow-legacy-artifact", false, "Allow schema 1 replay without envelope integrity; never exact acceptance evidence")
 	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json artifact")
 	replay.Flags().StringVar(&evidence, "evidence", "", "New replay evidence directory (must not exist)")
 	replay.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
@@ -106,12 +105,16 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		if err != nil {
 			return err
 		}
+		runner.AllowLegacyArtifact = allowLegacy
 		mode := "exact-component-artifact-replay"
 		if resident.build != "" {
 			if _, err = resident.bind(runner); err != nil {
 				return err
 			}
 			mode = "exact-resident-workflow-replay"
+		}
+		if allowLegacy {
+			mode = "legacy-unverified-artifact-replay"
 		}
 		result, err := simulation.Replay(cmd.Context(), artifact, runner)
 		return simulationResult(cmd, development, mode, result, err)

@@ -48,3 +48,18 @@ Only complete coupled traces are currently reducible. Candidates remove one
 chosen action plus transitive effect/application/handle dependents. Their effect
 IDs and final assertions are preserved; production replay rejects any invalid
 remaining dependencies. The resident Omes artifact kind is explicitly unsupported.
+
+Replay integrity: new expanded artifacts use schema 2. An envelope checksum
+covers saved configuration, generator identity, provenance, expanded inputs and
+replay origin, in addition to the scenario checksum. Replay and minimization
+require the saved source revision and tool-version map to match the current
+runner before evidence creation or driver calls. Checksums detect accidental
+edits; they do not authenticate an author capable of recomputing checksums.
+
+Old schema-1 artifacts are refused by default. `xenon replay
+--allow-legacy-artifact ...` explicitly permits their scenario-only checksum,
+labels the result `legacy-unverified-artifact-replay`, and still requires matching
+source/tool provenance. This mode cannot supply exact-revision acceptance proof.
+Minimization requires schema 2. `--development` permits matching unknown/dirty
+build identities and retains development qualification; it does not bypass a
+provenance mismatch. No cross-version compatibility override is implemented.

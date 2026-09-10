@@ -117,3 +117,43 @@ func TestSimulationRequiresProvenanceAndExplicitInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestReplayLegacyArtifactRequiresExplicitWeakerMode(t *testing.T) {
+	original := filepath.Join(t.TempDir(), "original")
+	code, _, diagnostics := runSimulationCLI(t, t.Context(), "test", "simulation", "--scenario", coupledInput, "--evidence", original, "--development")
+	if code != 0 {
+		t.Fatal(code, diagnostics)
+	}
+	path := filepath.Join(original, "case-00000000000000000000", "scenario.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(raw, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["version"] = 1
+	delete(record, "envelope_sha256")
+	record["provenance"].(map[string]any)["versions"].(map[string]any)["scenario_input_0_sha256"] = strings.Repeat("a", 64)
+	raw, err = json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(t.TempDir(), "legacy.json")
+	if err := os.WriteFile(legacy, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	evidence := filepath.Join(t.TempDir(), "rejected")
+	code, _, _ = runSimulationCLI(t, t.Context(), "replay", "--artifact", legacy, "--evidence", evidence, "--development")
+	if code != 1 {
+		t.Fatal("legacy accepted by default", code)
+	}
+	if _, err := os.Stat(evidence); !os.IsNotExist(err) {
+		t.Fatal("default rejection created evidence", err)
+	}
+	code, out, diagnostics := runSimulationCLI(t, t.Context(), "replay", "--artifact", legacy, "--evidence", filepath.Join(t.TempDir(), "allowed"), "--development", "--allow-legacy-artifact")
+	if code != 0 || out.Mode != "legacy-unverified-artifact-replay" {
+		t.Fatal(code, out, diagnostics)
+	}
+}

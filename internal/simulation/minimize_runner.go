@@ -42,8 +42,8 @@ func (p *RunnerPredicate) Evaluate(ctx context.Context, s Scenario, budget time.
 	}
 	out.EvidencePath = dir
 	raw, _ := json.Marshal(s)
-	record := artifact{Version: 1, Config: cfg, Generator: GeneratorInfo{Version: "minimize-expanded-v1", SHA256: hash(raw), Capabilities: []string{s.Kind}}, Provenance: p.Runner.Provenance, Scenario: cloneScenario(s), SHA256: hash(raw)}
-	if err := save(filepath.Join(dir, "scenario.json"), record); err != nil {
+	record := artifact{Version: 2, Config: cfg, Generator: GeneratorInfo{Version: "minimize-expanded-v1", SHA256: hash(raw), Capabilities: []string{s.Kind}}, Provenance: p.Runner.Provenance, Scenario: cloneScenario(s), SHA256: hash(raw)}
+	if err := saveArtifact(filepath.Join(dir, "scenario.json"), record); err != nil {
 		return out, err
 	}
 	detail, err := p.Runner.runCase(ctx, cfg, cloneScenario(s), dir, start.Add(cfg.MaxDuration))

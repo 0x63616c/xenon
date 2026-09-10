@@ -14,8 +14,11 @@ import (
 // recorded primary fingerprint is a hypothesis until the original reproduces.
 // Expanded input decoding/checksum validation is identical to Replay.
 func MinimizeArtifact(ctx context.Context, path string, cfg MinimizeConfig, runner *Runner) (MinimizeResult, error) {
-	record, err := readReplayArtifact(path)
+	record, err := readReplayArtifact(path, false)
 	if err != nil {
+		return MinimizeResult{}, err
+	}
+	if err := validateReplayProvenance(record, runner); err != nil {
 		return MinimizeResult{}, err
 	}
 	if decoded, e := hex.DecodeString(record.Generator.SHA256); e != nil || len(decoded) != 32 || record.Generator.Version == "" || len(record.Generator.Capabilities) == 0 {
@@ -63,7 +66,7 @@ func MinimizeArtifact(ctx context.Context, path string, cfg MinimizeConfig, runn
 		raw, _ = json.Marshal(record.Scenario)
 		record.SHA256 = hash(raw)
 		record.ReplayOf = path
-		err = errors.Join(err, save(filepath.Join(cfg.Directory, "best-scenario.json"), record))
+		err = errors.Join(err, saveArtifact(filepath.Join(cfg.Directory, "best-scenario.json"), record))
 	}
 	return out, err
 }
