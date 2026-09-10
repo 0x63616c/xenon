@@ -32,4 +32,25 @@ class SnapshotTest(unittest.TestCase):
                 with self.assertRaises(ValueError): verify(altered, inspection)
 
 
+class SentinelTest(unittest.TestCase):
+    def test_unknown_create_is_reconciled_by_exact_identity_or_retained_pending(self):
+        for case in ('normal', 'unknown-found', 'unknown-absent', 'replacement', 'wrong-label'):
+            with self.subTest(case=case):
+                removed = []
+                def run(command):
+                    if command[1] == 'ps': return '' if case == 'unknown-absent' else 'container'
+                    self.assertEqual(command, ['docker', 'rm', 'container'])
+                    removed.append(command[-1])
+                def obj(command):
+                    self.assertEqual(command, ['docker', 'inspect', 'container'])
+                    return [{'Name': '/sentinel', 'Config': {'Labels': {'io.xenon.journey': 'wrong' if case == 'wrong-label' else 'token'}}}]
+                expected = 'replacement' if case == 'replacement' else ('container' if case == 'normal' else None)
+                if case in ('unknown-absent', 'replacement', 'wrong-label'):
+                    with self.assertRaises(RuntimeError): journey.reconcile_sentinel(run, obj, 'sentinel', 'token', expected, True)
+                    self.assertEqual(removed, [])
+                else:
+                    journey.reconcile_sentinel(run, obj, 'sentinel', 'token', expected, True)
+                    self.assertEqual(removed, ['container'])
+
+
 if __name__ == '__main__': unittest.main()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"go.temporal.io/api/taskqueue/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/log"
 )
 
 //go:embed dev_template.json
@@ -127,7 +129,7 @@ func RunDev(ctx context.Context, action, fixturePath, dir string, ephemeral bool
 			if err := devReady(ctx, f.DiagnosticsPorts); err != nil {
 				return err
 			}
-			c, err := client.DialContext(ctx, client.Options{HostPort: fmt.Sprintf("127.0.0.1:%d", f.TemporalPort), Namespace: "xenon-ministack"})
+			c, err := client.DialContext(ctx, client.Options{Logger: log.NewStructuredLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))), HostPort: fmt.Sprintf("127.0.0.1:%d", f.TemporalPort), Namespace: "xenon-ministack"})
 			if err != nil {
 				return err
 			}

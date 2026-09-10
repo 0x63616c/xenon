@@ -44,6 +44,20 @@ def check_snapshot(raw, inspection, config):
     return control
 
 
+def reconcile_sentinel(run, obj, name, token, expected, pending):
+    found = run(['docker', 'ps', '-aq', '--no-trunc', '--filter', 'name=^/' + name + '$', '--filter', 'label=io.xenon.journey=' + token]).splitlines()
+    if len(found) > 1 or expected and found != [expected]:
+        raise RuntimeError('sentinel ownership changed or disappeared')
+    if found:
+        observed = obj(['docker', 'inspect', found[0]])[0]
+        if observed['Name'] != '/' + name or observed['Config']['Labels'].get('io.xenon.journey') != token:
+            raise RuntimeError('sentinel identity mismatch')
+        run(['docker', 'rm', found[0]])
+        pending = False
+    if pending:
+        raise RuntimeError('sentinel create outcome unknown; ownership remains pending')
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--cli', required=True, type=Path)
@@ -73,6 +87,10 @@ def main():
                AWS_SECRET_ACCESS_KEY='xenon-local-test-only', AWS_ALLOW_HTTP='true',
                AWS_ENDPOINT=f"http://127.0.0.1:{fixture['s3_port']}")
     sentinel = None
+    sentinel_name = 'xenon-journey-sentinel-' + uuid.uuid4().hex
+    sentinel_token = uuid.uuid4().hex
+    sentinel_pending = False
+    (evidence / 'sentinel-plan.json').write_text(json.dumps({'name': sentinel_name, 'label': sentinel_token}) + '\n')
     paused = []
 
     def run(command, timeout=60, expected=0):
@@ -99,8 +117,10 @@ def main():
         for port in [fixture[k] for k in ('s3_port', 'temporal_port', 'http_port', 'storage_port')] + fixture['diagnostics_ports']:
             with socket.socket() as s:
                 s.bind(('127.0.0.1', port))
-        sentinel = run(['docker', 'create', '--name', 'xenon-journey-sentinel-' + uuid.uuid4().hex,
+        sentinel_pending = True
+        sentinel = run(['docker', 'create', '--name', sentinel_name, '--label', 'io.xenon.journey=' + sentinel_token,
                         '--entrypoint', '/bin/true', fixture['image']])
+        sentinel_pending = False
         up = obj([cli, 'dev', 'up', '--fixture', str(args.fixture.resolve()), '--state', str(state), '--timeout', '4m'], timeout=250)
         if up['status'] != 'ready':
             raise RuntimeError('up did not report ready')
@@ -109,7 +129,10 @@ def main():
         agent = resources['agent-1']
         probe = ['docker', 'exec', agent, '/usr/local/bin/xenon-sdk-probe', '--namespace', 'xenon-ministack', '--address', '127.0.0.1:17233']
         workflow_id = 'wf_' + uuid.uuid4().hex[:22]
-        started = obj(probe + ['--mode', 'start', '--workflow-id', workflow_id])
+        def probe_obj(arguments, **kwargs):
+            # The existing diagnostic probe prints SDK human logs before its final JSON.
+            return json.loads(run(probe + arguments, **kwargs).splitlines()[-1])
+        started = probe_obj(['--mode', 'start', '--workflow-id', workflow_id])
         run(probe + ['--mode', 'control', '--workflow-id', workflow_id], timeout=90)
         run(['docker', 'exec', agent, 'mkdir', '-p', '/tmp/journey-history'])
         verified = run(probe + ['--mode', 'verify', '--workflow-id', workflow_id, '--run-id', started['run_id'], '--output', '/tmp/journey-history'], timeout=90)
@@ -117,8 +140,8 @@ def main():
             raise RuntimeError('SDK history verification missing')
         run(['docker', 'cp', agent + ':/tmp/journey-history', str(evidence / 'sdk-history')])
         report['assertions'].append('sdk-result-and-complete-two-run-history')
-        obj(probe + ['--mode', 'fuzz-endpoint'])
-        nexus = obj(probe + ['--mode', 'fuzz-endpoint-ready'], timeout=75)
+        probe_obj(['--mode', 'fuzz-endpoint'])
+        nexus = probe_obj(['--mode', 'fuzz-endpoint-ready'], timeout=75)
         if nexus['history_shards_verified'] != 4 or len(nexus['runs']) != 4:
             raise RuntimeError('real Nexus operation coverage missing')
         report['assertions'].append('four-real-nexus-echo-operations')
@@ -169,11 +192,10 @@ def main():
                 down()
             except Exception as error:
                 cleanup_errors.append(str(error))
-        if sentinel:
-            try:
-                run(['docker', 'rm', sentinel])
-            except Exception as error:
-                cleanup_errors.append(str(error))
+        try:
+            reconcile_sentinel(run, obj, sentinel_name, sentinel_token, sentinel, sentinel_pending)
+        except Exception as error:
+            cleanup_errors.append(str(error))
         report['cleanup_errors'] = cleanup_errors
         if cleanup_errors:
             report['result'] = 'failed'

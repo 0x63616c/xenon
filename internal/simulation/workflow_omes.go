@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/log"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -151,7 +153,7 @@ func (r *OmesRuntime) Check(ctx context.Context, t ResidentTopology) error {
 	if e := r.checkTools(); e != nil {
 		return e
 	}
-	c, e := client.DialContext(ctx, client.Options{HostPort: t.Address, Namespace: t.Namespace})
+	c, e := client.DialContext(ctx, client.Options{Logger: log.NewStructuredLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))), HostPort: t.Address, Namespace: t.Namespace})
 	if e != nil {
 		return e
 	}
@@ -185,7 +187,7 @@ func (r *OmesRuntime) Empty(ctx context.Context, t ResidentTopology) error {
 	r.auditedRun = ""
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	c, e := client.DialContext(ctx, client.Options{HostPort: t.Address, Namespace: t.Namespace})
+	c, e := client.DialContext(ctx, client.Options{Logger: log.NewStructuredLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))), HostPort: t.Address, Namespace: t.Namespace})
 	if e != nil {
 		return e
 	}
@@ -258,7 +260,7 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 }
 func (r *OmesRuntime) Cleanup(ctx context.Context, t ResidentTopology, path string) (result error) {
 	defer func() { result = errors.Join(result, r.checkTools()) }()
-	c, e := client.DialContext(ctx, client.Options{HostPort: t.Address, Namespace: t.Namespace})
+	c, e := client.DialContext(ctx, client.Options{Logger: log.NewStructuredLogger(slog.New(slog.NewTextHandler(os.Stderr, nil))), HostPort: t.Address, Namespace: t.Namespace})
 	if e != nil {
 		return e
 	}
