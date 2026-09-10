@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "base_revision": "9c38f16",
+  "source_state": "base revision plus additions identified by source_sha256; not clean-checkout acceptance",
+  "source_sha256": {
+    "internal/simulation/coupled_generate.go": "94b71bb2feab541a6931c7a67c04f95649e5bcd499b35cde260dd89ee0f3a9cb",
+    "internal/simulation/coupled_generate_test.go": "d3f438c75d7369564679287801bfc8a89ad5464bdb2a453fea19e508801a28aa",
+    "test/scenarios/simulation/coordinator-move.json": "6c02896b8e9bf97149a6b46dc63c296089ef23d1a5b14300e55d821de678a2d0",
+    "internal/simulation/coupled.go": "4bb123a556cd500808899b685bdf63bfe809af72a6d00a00d361e1fa40490830",
+    "internal/simulation/coupled_checker.go": "17e65fb6d48060874a3e2e12e1fb060a8266ea72f40d6085483f0e7e6376f4ee"
+  },
+  "command": "go test -race ./internal/simulation -run 'TestCoupled(Seeded|Virtual|Interleavings)' -count=1 -v",
+  "toolchain": "go1.27.1",
+  "platform": "darwin/arm64",
+  "result": "passed",
+  "package_seconds": 82.83,
+  "schedules": 1000,
+  "seeds": 100,
+  "executions_per_schedule": 2,
+  "unique_expanded_orders": 1000,
+  "events_per_schedule": 84,
+  "observed_cuts": {
+    "stale_plan_rejected": 1000,
+    "stale_ready_rejected": 1000,
+    "displaced_writer_commit_fenced": 1000
+  },
+  "virtual_takeover_hours": 24,
+  "negative_controls": [
+    "stale_plan",
+    "old_ready",
+    "post_fence_commit"
+  ],
+  "negative_control_seeds": [
+    1,
+    42,
+    2026090701
+  ],
+  "wall_watchdog_seconds": 180,
+  "full_dst_01_acceptance": false,
+  "full_fault_01_acceptance": false
+}
