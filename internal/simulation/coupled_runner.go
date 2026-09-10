@@ -94,6 +94,9 @@ func (d *CoupledDriver) Validate(s Scenario, l WorkloadLimits) error {
 	if c.Version != 1 || len(c.Steps) == 0 || len(c.Steps) > 256 || len(c.Steps) > l.MaxOperations || len(c.Actors) != 5 || c.Toolchain != runtime.Version() {
 		return errors.New("unsupported coupled schedule bounds or toolchain")
 	}
+	if err := validateCoupledFaults(c.Steps); err != nil {
+		return err
+	}
 	for _, feature := range l.Features {
 		if feature != CoupledKind {
 			return errors.New("unsupported coupled feature")

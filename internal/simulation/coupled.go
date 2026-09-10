@@ -3,6 +3,7 @@ package simulation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -42,7 +43,7 @@ type CoupledInput struct {
 	Effect     uint64                  `json:"effect,omitempty"`
 	Transition ids.TransitionID        `json:"transition,omitempty"`
 	Membership *cluster.MembershipView `json:"membership,omitempty"`
-	Fault      string                  `json:"fault,omitempty"` // named injection point for negative controls
+	Fault      string                  `json:"fault,omitempty"` // explicit delivery fault or named negative-control cut
 }
 type CoupledTrace struct {
 	Input            CoupledInput           `json:"input"`
@@ -91,6 +92,9 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 	result := CoupledResult{}
 	if scenario.Version != 1 || len(scenario.Steps) == 0 || len(scenario.Steps) > 256 || len(scenario.Actors) != 5 {
 		return result, fmt.Errorf("invalid bounded coupled scenario")
+	}
+	if err := validateCoupledFaults(scenario.Steps); err != nil {
+		return result, err
 	}
 	if negative != "" && negative != "stale_plan" && negative != "old_ready" && negative != "post_fence_commit" {
 		return result, fmt.Errorf("unknown negative control %q", negative)
@@ -276,9 +280,28 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 				return fail(fmt.Errorf("missing completion or pending effect"))
 			}
 			delete(completions, slot)
+			// The operation linearized, but its response did not arrive. The
+			// controller receives uncertainty, never the successful receipt.
+			if input.Fault == "lost_publish_response" {
+				if completion.kind != "publish" || completion.err != nil {
+					return fail(fmt.Errorf("lost response requires a successful publication"))
+				}
+				transition := pe.Write.Transition
+				if machine.spec.Kind == "cluster" {
+					transition = ce.Write.Transition
+				}
+				completion.record = registry.Record{}
+				completion.err = &registry.UnknownOutcome{Key: coupledKey, Transition: transition, Cause: errors.New("simulated lost publication response")}
+			} else if input.Fault != "" {
+				return fail(fmt.Errorf("unsupported delivery fault %q", input.Fault))
+			}
 			entry.After = completion.record.Clone()
 			if completion.err != nil {
 				entry.Result = "conflict"
+				var unknown *registry.UnknownOutcome
+				if errors.As(completion.err, &unknown) {
+					entry.Result = "unknown_publication"
+				}
 			} else {
 				entry.Result = "success"
 			}
@@ -357,4 +380,31 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 		return result, err
 	}
 	return result, nil
+}
+
+// Fault capability validation precedes all actor construction and execution.
+func validateCoupledFaults(steps []CoupledInput) error {
+	applications := map[string]string{}
+	for _, step := range steps {
+		key := fmt.Sprintf("%s/%d", step.Actor, step.Effect)
+		switch step.Action {
+		case "read", "publish", "open", "close":
+			applications[key] = step.Action
+		}
+		valid := false
+		switch step.Fault {
+		case "":
+			valid = true
+		case "lost_publish_response":
+			valid = step.Action == "deliver" && step.Effect != 0 && applications[key] == "publish"
+		case "stale_plan", "old_ready":
+			valid = step.Action == "publish"
+		case "post_fence_commit":
+			valid = step.Action == "commit"
+		}
+		if !valid {
+			return fmt.Errorf("unsupported coupled fault %q on %s", step.Fault, step.Action)
+		}
+	}
+	return nil
 }
