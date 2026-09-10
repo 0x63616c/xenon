@@ -228,9 +228,7 @@ func run() error {
 			}
 			seenTokens[string(token)] = true
 		}
-		if *mixed {
-			histories[runs[i].RunID] = h
-		}
+		histories[runs[i].RunID] = h
 		if *mixed {
 			runs[i].Events, runs[i].NextRun, err = inspectMixed(h, statuses[runs[i].RunID])
 		} else {
@@ -257,6 +255,9 @@ func run() error {
 			return e
 		}
 	}
+	if err = childLinks(runs, histories); err != nil {
+		return err
+	}
 	if err = chains(runs); err != nil {
 		return err
 	}
@@ -265,7 +266,7 @@ func run() error {
 			return err
 		}
 	}
-	report := map[string]any{"mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories and continue-as-new successor graph; terminal result payloads retained, semantic result values not checked"}
+	report := map[string]any{"mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories, child-parent links and continue-as-new successor graph; expected generated root graph and semantic result values not checked"}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err
