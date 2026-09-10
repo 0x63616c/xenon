@@ -30,3 +30,21 @@ func TestResidentWorkflowRequiresExplicitRuntime(t *testing.T) {
 		t.Fatalf("%v", e)
 	}
 }
+
+func TestResidentWorkflowRejectsConcurrencyBeforeToolLoading(t *testing.T) {
+	for _, flags := range [][]string{
+		{"--workflows-per-case", "0"},
+		{"--workflows-per-case", "17"},
+		{"--workflow-concurrency", "0"},
+		{"--workflows-per-case", "4", "--workflow-concurrency", "5"},
+	} {
+		c := workflowCommand()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&out)
+		c.SetArgs(append([]string{"--bundle", "missing", "--evidence", t.TempDir() + "/new", "--development"}, flags...))
+		if err := c.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), "workflows-per-case") {
+			t.Fatalf("invalid concurrency reached tool loading: %v", err)
+		}
+	}
+}

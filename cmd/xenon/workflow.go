@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
+	"maps"
+	"path/filepath"
+	"time"
+
 	"github.com/0x63616c/xenon/internal/buildinfo"
 	"github.com/0x63616c/xenon/internal/simulation"
 	"github.com/spf13/cobra"
-	"path/filepath"
-	"time"
 )
 
 type residentFlags struct{ build, fixture, oracle, oracleSHA, logs string }
@@ -33,7 +35,18 @@ func (f residentFlags) bind(r *simulation.Runner) (*simulation.OmesRuntime, erro
 	if path == r.Directory {
 		return nil, errors.New("runtime evidence must be separate from shared evidence")
 	}
-	r.Driver = &simulation.ResidentWorkflowDriver{Runtime: runtime, Directory: path}
+	pinned := runtime.Provenance()
+	topology := runtime.Topology()
+	r.Driver = &simulation.BatchWorkflowDriver{Directory: path, NewRuntime: func() (simulation.WorkflowRuntime, error) {
+		next, err := simulation.NewOmesRuntime(f.build, f.fixture, f.oracle, f.oracleSHA)
+		if err != nil {
+			return nil, err
+		}
+		if !maps.Equal(pinned, next.Provenance()) || topology != next.Topology() {
+			return nil, errors.New("resident runtime changed after initial provenance binding")
+		}
+		return next, nil
+	}}
 	r.Provenance.Versions["native"] = "external resident fixture; see exact fixture pin"
 	r.Provenance.Versions["images"] = "external resident fixture; not independently qualified by CLI"
 	for key, value := range runtime.Provenance() {
@@ -47,8 +60,11 @@ func workflowCommand() *cobra.Command {
 	var bundle, evidence string
 	var development bool
 	var cases, seed, fault uint64
+	var workflows, concurrency int
 	c := &cobra.Command{Use: "workflow", Short: "Execute fresh seeded inputs on an explicit resident fixture; no faults", Args: cobra.NoArgs, PersistentPreRunE: func(*cobra.Command, []string) error { return nil }}
 	f.add(c)
+	c.Flags().IntVar(&workflows, "workflows-per-case", 1, "Independent root workflows per case (1 to 16)")
+	c.Flags().IntVar(&concurrency, "workflow-concurrency", 1, "Maximum concurrent roots within each case")
 	c.Flags().StringVar(&bundle, "bundle", "", "Prepared fresh input generator bundle")
 	c.Flags().StringVar(&evidence, "evidence", "", "New shared scenario evidence directory")
 	c.Flags().BoolVar(&development, "development", false, "Allow weaker CLI build provenance")
@@ -58,6 +74,9 @@ func workflowCommand() *cobra.Command {
 	_ = c.MarkFlagRequired("bundle")
 	_ = c.MarkFlagRequired("evidence")
 	c.RunE = func(c *cobra.Command, _ []string) error {
+		if workflows < 1 || workflows > 16 || concurrency < 1 || concurrency > workflows {
+			return errors.New("workflows-per-case must be 1 to 16 and workflow-concurrency must be 1 to workflows-per-case")
+		}
 		if cases < 1 || cases > 10 {
 			return errors.New("max-cases must be 1 to 10")
 		}
@@ -74,7 +93,11 @@ func workflowCommand() *cobra.Command {
 			return e
 		}
 		cfg := simulation.SearchConfig{MaxCases: cases, MaxDuration: time.Duration(cases) * 370 * time.Second, MaxInFlight: 1, SettleBudget: 60 * time.Second, CleanupBudget: 30 * time.Second, MaxTraceBytes: 8 << 20, WorkloadSeed: seed, FaultSeed: fault, Limits: simulation.WorkloadLimits{MaxOperations: 2048, MaxDepth: 64, MaxPayloadBytes: 1 << 20, Features: []string{simulation.WorkflowInputKind}}}
-		result, e := simulation.Search(c.Context(), cfg, simulation.ResidentGenerator{Input: generator, Topology: runtime.Topology()}, r)
+		var source simulation.Generator = simulation.ResidentGenerator{Input: generator, Topology: runtime.Topology()}
+		if workflows > 1 {
+			source = simulation.WorkflowBatchGenerator{Input: generator, Topology: runtime.Topology(), Count: workflows, Concurrency: concurrency}
+		}
+		result, e := simulation.Search(c.Context(), cfg, source, r)
 		return simulationResult(c, development, "resident-generated-workflow-component", result, e)
 	}
 	return c

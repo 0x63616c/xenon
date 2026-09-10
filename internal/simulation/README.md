@@ -111,3 +111,24 @@ cancellation/drain, blocked cleanup and evidence overwrite refusal. These APIs
 are not yet wired into `xenon` commands. General randomized event scheduling,
 real-stack drivers, Omes/Nexus input generation, minimization and full #119
 acceptance remain open.
+
+## Concurrent resident workflow component
+
+`xenon test workflow` accepts `--workflows-per-case` (1..16) and
+`--workflow-concurrency` (1..workflows-per-case). Defaults remain one root.
+Every case is expanded and saved before execution. A case contains independently
+seeded workflow inputs; `BatchWorkflowDriver` gives each member an isolated
+`WorkflowRuntime`, bounded worker admission, and its own evidence directory.
+Only one case is in flight, and all its members must settle and clean up before
+the next case starts. Legacy single-root resident artifacts use the same driver.
+
+Member runtimes must match the tool and fixture pins captured at initial CLI
+binding. Failure callbacks are bound to a phase generation, so a late callback
+cannot contaminate later phases or cases. Already admitted members are canceled
+and drained after failure; no later member is admitted.
+
+The component tests exercise three sequential cases, four roots per case,
+concurrency limits of one and four, queued admission cutoff, stale callbacks and
+changed tool metadata. This does not yet prove GEN-02: real Temporal overlap,
+complete child/Continue-As-New/Nexus census and fan-out limits still require the
+real acceptance journey. The component declares no injected faults.
