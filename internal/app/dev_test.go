@@ -266,6 +266,9 @@ func TestDevConstrainedThreeNodePlan(t *testing.T) {
 	}
 	nodes := 0
 	for _, container := range plan.Containers {
+		if container.Role == "omes-worker" && (len(container.Args) < 2 || container.Args[0] != "worker" || container.Args[1] != "--err-on-unimplemented") {
+			t.Fatal("pinned Omes worker subcommand or strict capability validation missing")
+		}
 		if container.Config != nil {
 			nodes++
 			if err := ValidateServiceLayout(*container.Config); err != nil {

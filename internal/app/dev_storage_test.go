@@ -35,9 +35,10 @@ func TestDevPreservedAuthorityCannotProvisionMissingOrReplacedCluster(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"intact", "missing bucket", "missing manifest", "missing control", "replacement identity"} {
+	for _, name := range []string{"intact", "delayed bootstrap", "missing bucket", "missing manifest", "missing control", "replacement identity"} {
 		t.Run(name, func(t *testing.T) {
 			var mutations atomic.Int64
+			var observations atomic.Int64
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
 					mutations.Add(1)
@@ -45,7 +46,7 @@ func TestDevPreservedAuthorityCannotProvisionMissingOrReplacedCluster(t *testing
 					return
 				}
 				isManifest := strings.HasSuffix(r.URL.Path, "cluster.json")
-				if name == "missing bucket" || name == "missing manifest" && isManifest || name == "missing control" && !isManifest {
+				if name == "delayed bootstrap" && observations.Add(1) < 3 || name == "missing bucket" || name == "missing manifest" && isManifest || name == "missing control" && !isManifest {
 					w.WriteHeader(404)
 					_, _ = w.Write([]byte(`<Error><Code>NoSuchKey</Code></Error>`))
 					return
@@ -64,10 +65,19 @@ func TestDevPreservedAuthorityCannotProvisionMissingOrReplacedCluster(t *testing
 			if name == "replacement identity" {
 				expected = "trn_0000000000000000000002"
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+			budget := 250 * time.Millisecond
+			if name == "delayed bootstrap" {
+				budget = time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), budget)
 			defer cancel()
-			err := devStorage(ctx, port, c, true, expected)
-			if (err == nil) != (name == "intact") || mutations.Load() != 0 {
+			var err error
+			if name == "delayed bootstrap" {
+				err = devAwaitAuthority(ctx, devS3Client(port), c, "")
+			} else {
+				err = devStorage(ctx, port, c, true, expected)
+			}
+			if (err == nil) != (name == "intact" || name == "delayed bootstrap") || mutations.Load() != 0 {
 				t.Fatalf("err=%v mutations=%d", err, mutations.Load())
 			}
 		})

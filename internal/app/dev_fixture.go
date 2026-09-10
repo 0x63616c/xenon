@@ -77,7 +77,7 @@ func (f DevFixture) plan() (devPlan, error) {
 		plan.Containers = append(plan.Containers, devContainer{Role: fmt.Sprintf("agent-%d", i+1), Image: f.Image, Args: []string{"start", "--config", "/etc/xenon/dev.json"}, Config: &c, Environment: []string{"AWS_DEFAULT_REGION=us-east-1", "AWS_ACCESS_KEY_ID=xenon-local", "AWS_SECRET_ACCESS_KEY=xenon-local-test-only", "AWS_ENDPOINT=http://127.0.0.1:9000", "AWS_ALLOW_HTTP=true", "AWS_VIRTUAL_HOSTED_STYLE_REQUEST=false", "SLATEDB_UNIFFI_RUNTIME_THREADS=2"}})
 	}
 	plan.Containers = append(plan.Containers, devContainer{Role: "worker", Image: f.Image, Entrypoint: "/usr/local/bin/xenon-sdk-probe", Args: []string{"--mode", "worker", "--namespace", "xenon-ministack", "--address", "127.0.0.1:17233"}})
-	plan.Containers = append(plan.Containers, devContainer{Role: "omes-worker", Image: f.Image, Entrypoint: "/usr/local/bin/omes-worker", Args: []string{"--server-address", "127.0.0.1:17233", "--namespace", "xenon-ministack", "--task-queue", "omes-xenon-dev"}})
+	plan.Containers = append(plan.Containers, devContainer{Role: "omes-worker", Image: f.Image, Entrypoint: "/usr/local/bin/omes-worker", Args: []string{"worker", "--err-on-unimplemented", "--server-address", "127.0.0.1:17233", "--namespace", "xenon-ministack", "--task-queue", "omes-xenon-dev"}})
 	return plan, plan.validate()
 }
 
@@ -101,6 +101,10 @@ func RunDev(ctx context.Context, action, fixturePath, dir string, ephemeral bool
 		hooks.Started = func(ctx context.Context, role, id string, state devState) error {
 			if role == "s3" {
 				return devStorage(ctx, f.S3Port, *plan.Containers[4].Config, state.Initialized, state.Initialization)
+			}
+			if role == "agent-1" {
+				// Non-bootstrap nodes must not race the initial manifest/control publication.
+				return devAwaitAuthority(ctx, devS3Client(f.S3Port), *plan.Containers[4].Config, "")
 			}
 			if role == "agent-3" {
 				// All nodes must reach real application readiness before namespace setup.
@@ -212,7 +216,7 @@ func devStorage(ctx context.Context, port int, config Config, initialized bool, 
 		if identity == "" {
 			return errors.New("preserved cluster has no recorded initialization identity")
 		}
-		err := devWait(ctx, func() error { _, err := devAuthority(ctx, client, config, identity); return err })
+		err := devAwaitAuthority(ctx, client, config, identity)
 		if err != nil {
 			return fmt.Errorf("preserved cluster unavailable; refusing bootstrap: %w", err)
 		}
@@ -241,4 +245,11 @@ func devAuthority(ctx context.Context, client *s3.Client, config Config, expecte
 		return "", errors.New("preserved cluster initialization identity changed")
 	}
 	return id, nil
+}
+
+func devAwaitAuthority(ctx context.Context, client *s3.Client, config Config, expected string) error {
+	return devWait(ctx, func() error {
+		_, err := devAuthority(ctx, client, config, expected)
+		return err
+	})
 }
