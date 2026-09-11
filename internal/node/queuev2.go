@@ -7,11 +7,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type QueueV2Server struct {
@@ -36,8 +36,8 @@ func (s *QueueV2Server) Execute(ctx context.Context, q *wire.QueueV2Request) (*w
 	if !bytes.Equal(h[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "QueueV2 digest mismatch")
 	}
-	data, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, e := s.Owner.journal(q.OperationId, q.CommandSha256, queuev2Family, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	data, e := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		out, e := s.Owner.journal(q.OperationId, q.CommandSha256, queuev2Family, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyQueueV2(tx, c)
 			if e != nil {
 				return nil, e
@@ -68,8 +68,8 @@ func qv2Messages(t int64, n string) string {
 func qv2MessageKey(t int64, n string, id int64) string {
 	return fmt.Sprintf("%s%016x", qv2Messages(t, n), id)
 }
-func applyQueueV2(tx *native.DbTransaction, c *wire.QueueV2Command) (*wire.QueueV2Result, error) {
-	out, err := persistence.ApplyQueueV2(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyQueueV2(tx partitions.Transaction, c *wire.QueueV2Command) (*wire.QueueV2Result, error) {
+	out, err := persistence.ApplyQueueV2(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

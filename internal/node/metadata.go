@@ -6,12 +6,12 @@ import (
 	"crypto/sha256"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type MetadataServer struct {
@@ -36,8 +36,8 @@ func (s *MetadataServer) Execute(ctx context.Context, request *wire.MetadataRequ
 	if !bytes.Equal(digest[:], request.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "command digest mismatch")
 	}
-	resultBytes, err := s.Owner.Run(ctx, func(_ *native.Db) ([]byte, error) {
-		outcome, err := s.Owner.journal(request.OperationId, request.CommandSha256, metadataFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	resultBytes, err := s.Owner.Run(ctx, func(_ partitions.Writer) ([]byte, error) {
+		outcome, err := s.Owner.journal(request.OperationId, request.CommandSha256, metadataFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			result, err := applyNamespace(tx, c)
 			if err != nil {
 				return nil, err
@@ -61,8 +61,8 @@ func (s *MetadataServer) Execute(ctx context.Context, request *wire.MetadataRequ
 
 // applyNamespace retains the legacy Owner.Run/journal execution boundary while
 // sharing conditional/index semantics with the new partition persistence service.
-func applyNamespace(tx *native.DbTransaction, c *wire.MetadataCommand) (*wire.MetadataResult, error) {
-	outcome, err := persistence.ApplyNamespace(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyNamespace(tx partitions.Transaction, c *wire.MetadataCommand) (*wire.MetadataResult, error) {
+	outcome, err := persistence.ApplyNamespace(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

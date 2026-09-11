@@ -8,6 +8,7 @@ import (
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/node"
 	"github.com/0x63616c/xenon/internal/ownership"
+	partitiondb "github.com/0x63616c/xenon/internal/partitions/slatedb"
 	"github.com/0x63616c/xenon/internal/processcut"
 	"google.golang.org/grpc"
 	"io"
@@ -74,7 +75,11 @@ func main() {
 	}
 	config := node.DefaultConfig(partition)
 	config.MaxOutcomes = outcomeLimit()
-	owner, err := node.NewOwner(result.db, config)
+	writer, err := partitiondb.AdoptNative(result.db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	owner, err := node.NewOwner(writer, config)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 // Matching shares the owner partition, including all subqueues. No per-subqueue routing.
@@ -33,7 +33,7 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 	if !bytes.Equal(req.CommandSha256, digest[:]) {
 		return nil, status.Error(codes.InvalidArgument, "matching digest mismatch")
 	}
-	outcome, err := s.Owner.runJournalResult(ctx, req.OperationId, req.CommandSha256, matchingFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	outcome, err := s.Owner.runJournalResult(ctx, req.OperationId, req.CommandSha256, matchingFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 		r, e := applyMatching(tx, c)
 		if e != nil {
 			return nil, e
@@ -48,8 +48,8 @@ func (s *MatchingServer) Execute(ctx context.Context, req *wire.MatchingRequest)
 	return r, nil
 }
 
-func applyMatching(tx *native.DbTransaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
-	outcome, err := persistence.ApplyMatching(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyMatching(tx partitions.Transaction, c *wire.MatchingCommand) (*wire.MatchingResult, error) {
+	outcome, err := persistence.ApplyMatching(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

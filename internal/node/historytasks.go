@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type HistoryTasksServer struct {
@@ -34,8 +34,8 @@ func (s *HistoryTasksServer) Execute(ctx context.Context, q *wire.HistoryTasksRe
 	if !bytes.Equal(d[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
 	}
-	raw, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, e := s.Owner.journal(q.OperationId, d[:], historyTasksFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	raw, e := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		out, e := s.Owner.journal(q.OperationId, d[:], historyTasksFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyHistoryTasks(tx, c)
 			if e != nil {
 				return nil, e
@@ -57,8 +57,8 @@ func (s *HistoryTasksServer) Execute(ctx context.Context, q *wire.HistoryTasksRe
 	return r, nil
 }
 
-func applyHistoryTasks(tx *native.DbTransaction, c *wire.HistoryTasksCommand) (*wire.HistoryTasksResult, error) {
-	out, err := persistence.ApplyHistoryTasks(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyHistoryTasks(tx partitions.Transaction, c *wire.HistoryTasksCommand) (*wire.HistoryTasksResult, error) {
+	out, err := persistence.ApplyHistoryTasks(context.Background(), tx, c)
 	if err != nil {
 		return nil, legacyExecutionError(err)
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
+	partitiondb "github.com/0x63616c/xenon/internal/partitions/slatedb"
 	"github.com/0x63616c/xenon/internal/routing"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -209,7 +210,11 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 	readyRecord := record
 	readyRecord.State = "ready"
 	config.Authority = func(c context.Context) error { return m.authority(c, d, readyRecord) }
-	owner, e := node.NewOwner(db, config)
+	writer, e := partitiondb.AdoptNative(db)
+	if e != nil {
+		return e
+	}
+	owner, e := node.NewOwner(writer, config)
 	if e != nil {
 		return e
 	}

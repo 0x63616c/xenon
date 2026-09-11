@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/0x63616c/xenon/internal/identity"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/processcut"
 	"github.com/google/uuid"
@@ -17,7 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 // Temporary compatibility shim shared by all retiring operation handlers.
@@ -49,7 +49,7 @@ func DefaultConfig(partition string) Config {
 // reopen admission. Process replacement is required to recover service.
 type Owner struct {
 	wire.UnimplementedShardPersistenceServer
-	db          *native.Db
+	writer      partitions.Writer
 	config      Config
 	gate        chan struct{}
 	admitted    chan struct{}
@@ -61,11 +61,11 @@ type Owner struct {
 	cutReady bool
 }
 
-func NewOwner(db *native.Db, c Config) (*Owner, error) {
-	if db == nil || c.Partition == "" || c.MaxOutcomes == 0 || c.OperationTimeout <= 0 || c.AdmissionTimeout <= 0 || c.MaxAdmitted <= 0 {
+func NewOwner(writer partitions.Writer, c Config) (*Owner, error) {
+	if writer == nil || c.Partition == "" || c.MaxOutcomes == 0 || c.OperationTimeout <= 0 || c.AdmissionTimeout <= 0 || c.MaxAdmitted <= 0 {
 		return nil, fmt.Errorf("invalid owner configuration")
 	}
-	return &Owner{db: db, config: c, gate: make(chan struct{}, 1), admitted: make(chan struct{}, c.MaxAdmitted)}, nil
+	return &Owner{writer: writer, config: c, gate: make(chan struct{}, 1), admitted: make(chan struct{}, c.MaxAdmitted)}, nil
 }
 func (o *Owner) Retire()                       { o.quarantined.Store(true) }
 func (o *Owner) Quarantined() bool             { return o.quarantined.Load() }
@@ -92,8 +92,7 @@ func (o *Owner) Close(ctx context.Context) error {
 	done := make(chan error, 1)
 	o.active.Add(1)
 	go func() {
-		err := o.db.Shutdown()
-		o.db.Destroy()
+		err := o.writer.Close(context.Background())
 		o.destroyed.Store(true)
 		o.active.Add(-1)
 		<-o.gate
@@ -129,7 +128,7 @@ func (o *Owner) Execute(ctx context.Context, request *wire.ShardRequest) (*wire.
 	if !bytes.Equal(digest[:], request.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "command digest mismatch")
 	}
-	encodedResult, err := o.Run(ctx, func(_ *native.Db) ([]byte, error) {
+	encodedResult, err := o.Run(ctx, func(_ partitions.Writer) ([]byte, error) {
 		result, err := o.apply(request)
 		if err != nil {
 			return nil, err
@@ -150,14 +149,14 @@ func (o *Owner) Execute(ctx context.Context, request *wire.ShardRequest) (*wire.
 // and their Shutdown/Destroy actions must remain inside operation. The callback
 // may outlive ctx; it must never export native handles. Logical persisted errors
 // belong in the encoded result, while Unavailable means uncertain native state.
-func (o *Owner) Run(ctx context.Context, operation func(*native.Db) ([]byte, error)) ([]byte, error) {
+func (o *Owner) Run(ctx context.Context, operation func(partitions.Writer) ([]byte, error)) ([]byte, error) {
 	return o.run(ctx, operation, false)
 }
 
 // committedJournalResult is true only through runJournalResult or the private
 // execution runner. Both construct the entire callback and return only the final
 // durable journal outcome, with no caller code or database reads after commit.
-func (o *Owner) run(ctx context.Context, operation func(*native.Db) ([]byte, error), committedJournalResult bool) ([]byte, error) {
+func (o *Owner) run(ctx context.Context, operation func(partitions.Writer) ([]byte, error), committedJournalResult bool) ([]byte, error) {
 	if operation == nil {
 		return nil, status.Error(codes.InvalidArgument, "nil operation")
 	}
@@ -214,7 +213,7 @@ func (o *Owner) run(ctx context.Context, operation func(*native.Db) ([]byte, err
 		if err != nil {
 			err = status.Errorf(codes.Unavailable, "ownership authority unavailable: %v", err)
 		} else {
-			result, err = operation(o.db)
+			result, err = operation(o.writer)
 			if err == nil && o.config.Authority != nil && !committedJournalResult {
 				err = o.authorityBarrier()
 			}
@@ -252,34 +251,32 @@ func backend(err error) error {
 	}
 	return status.Errorf(codes.Unavailable, "storage outcome unknown: %v", err)
 }
-func get(tx *native.DbTransaction, key string) ([]byte, error) {
-	value, err := tx.Get([]byte(key))
+func get(tx partitions.Transaction, key string) ([]byte, error) {
+	value, err := tx.Get(context.Background(), []byte(key))
 	if err != nil {
 		return nil, backend(err)
 	}
 	if value == nil {
 		return nil, nil
 	}
-	return *value, nil
+	return value, nil
 }
-func put(tx *native.DbTransaction, key string, value []byte) error {
+func put(tx partitions.Transaction, key string, value []byte) error {
 	return backend(tx.Put([]byte(key), value))
 }
-func commit(tx *native.DbTransaction) error {
-	optional, err := tx.Commit()
+func (o *Owner) commit(tx partitions.Transaction) error {
+	receipt, err := tx.Commit(context.Background())
 	if err != nil {
 		return backend(err)
 	}
-	if optional == nil || *optional == nil {
+	if receipt == nil {
 		return status.Error(codes.Unavailable, "missing durability handle")
 	}
-	handle := *optional
-	defer handle.Destroy()
-	return backend(handle.AwaitDurable())
+	return backend(o.writer.AwaitDurable(context.Background(), receipt))
 }
 func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
-	outcome, err := o.journal(request.OperationId, request.CommandSha256, shardFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
-		return persistence.ApplyShard(context.Background(), legacyShardTransaction{tx}, request.Command)
+	outcome, err := o.journal(request.OperationId, request.CommandSha256, shardFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
+		return persistence.ApplyShard(context.Background(), tx, request.Command)
 	})
 	if err != nil {
 		return nil, err
@@ -287,26 +284,16 @@ func (o *Owner) apply(request *wire.ShardRequest) (*wire.ShardResult, error) {
 	return outcome.GetShardResult(), nil
 }
 
-// legacyShardTransaction keeps native types in the retiring handler while both
-// runtimes use identical conditional shard semantics. Owner.Run retains this
-// synchronous native call even if its external RPC context has expired.
-type legacyShardTransaction struct{ tx *native.DbTransaction }
-
-func (t legacyShardTransaction) Get(_ context.Context, key []byte) ([]byte, error) {
-	return get(t.tx, string(key))
-}
-func (t legacyShardTransaction) Put(key, value []byte) error { return put(t.tx, string(key), value) }
-
 // authorityBarrier overwrites one reserved key. Even read/replay-only operations
 // must touch the WAL and await durability to detect a delayed opener's fence.
 func (o *Owner) authorityBarrier() error {
-	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
+	tx, err := o.writer.Begin(context.Background())
 	if err != nil {
 		return backend(err)
 	}
-	defer tx.Destroy()
+	defer tx.Abort()
 	if err = put(tx, "v1/ownership/read-barrier", []byte(uuid.NewString())); err != nil {
 		return err
 	}
-	return commit(tx)
+	return o.commit(tx)
 }

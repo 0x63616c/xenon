@@ -6,12 +6,11 @@ import (
 	"crypto/sha256"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type NexusServer struct {
@@ -36,8 +35,8 @@ func (s *NexusServer) Execute(ctx context.Context, q *wire.NexusRequest) (*wire.
 	if !bytes.Equal(digest[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "nexus digest mismatch")
 	}
-	data, err := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, err := s.Owner.journal(q.OperationId, q.CommandSha256, nexusFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	data, err := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		out, err := s.Owner.journal(q.OperationId, q.CommandSha256, nexusFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, err := applyNexus(tx, c)
 			if err != nil {
 				return nil, err
@@ -61,8 +60,8 @@ func (s *NexusServer) Execute(ctx context.Context, q *wire.NexusRequest) (*wire.
 
 // applyNexus delegates only semantics; Owner.Run and its journal retain the
 // existing native transaction, serialization, replay and durability boundary.
-func applyNexus(tx *native.DbTransaction, c *wire.NexusCommand) (*wire.NexusResult, error) {
-	outcome, err := persistence.ApplyNexus(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyNexus(tx partitions.Transaction, c *wire.NexusCommand) (*wire.NexusResult, error) {
+	outcome, err := persistence.ApplyNexus(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

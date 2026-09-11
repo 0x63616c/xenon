@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type QueueServer struct {
@@ -35,8 +35,8 @@ func (s *QueueServer) Execute(ctx context.Context, request *wire.QueueRequest) (
 	if !bytes.Equal(digest[:], request.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "command digest mismatch")
 	}
-	encoded, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		outcome, e := s.Owner.journal(request.OperationId, digest[:], queueFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	encoded, e := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		outcome, e := s.Owner.journal(request.OperationId, digest[:], queueFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyQueue(tx, c)
 			if e != nil {
 				return nil, e
@@ -61,7 +61,7 @@ func queuePrefix(t int32) string { return fmt.Sprintf("v1/queue/%d/", t) }
 func queueEntryKey(t int32, id int64) string {
 	return fmt.Sprintf("%sm/%016x", queuePrefix(t), uint64(id))
 }
-func queueMetadata(tx *native.DbTransaction, t int32) (*wire.QueueMetadataRecord, error) {
+func queueMetadata(tx partitions.Transaction, t int32) (*wire.QueueMetadataRecord, error) {
 	raw, e := get(tx, queuePrefix(t)+"meta")
 	if e != nil || raw == nil {
 		return nil, e
@@ -72,8 +72,8 @@ func queueMetadata(tx *native.DbTransaction, t int32) (*wire.QueueMetadataRecord
 	}
 	return r, nil
 }
-func applyQueue(tx *native.DbTransaction, c *wire.QueueCommand) (*wire.QueueResult, error) {
-	out, err := persistence.ApplyQueue(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyQueue(tx partitions.Transaction, c *wire.QueueCommand) (*wire.QueueResult, error) {
+	out, err := persistence.ApplyQueue(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

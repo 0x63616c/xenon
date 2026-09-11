@@ -7,13 +7,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	enumspb "go.temporal.io/api/enums/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type VisibilityServer struct {
@@ -49,8 +49,8 @@ func (s *VisibilityServer) Execute(ctx context.Context, q *wire.VisibilityReques
 	if !bytes.Equal(d[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
 	}
-	raw, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, e := s.Owner.journal(q.OperationId, d[:], visibilityFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	raw, e := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		out, e := s.Owner.journal(q.OperationId, d[:], visibilityFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyVisibility(tx, c)
 			if e != nil {
 				return nil, e
@@ -105,8 +105,8 @@ func visibilityIndices(d *wire.VisibilityDocument) ([]string, error) {
 	}
 	return keys, nil
 }
-func applyVisibility(tx *native.DbTransaction, c *wire.VisibilityCommand) (*wire.VisibilityResult, error) {
-	outcome, err := persistence.ApplyVisibility(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyVisibility(tx partitions.Transaction, c *wire.VisibilityCommand) (*wire.VisibilityResult, error) {
+	outcome, err := persistence.ApplyVisibility(context.Background(), tx, c)
 	if err != nil {
 		return nil, err
 	}

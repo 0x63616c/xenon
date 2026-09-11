@@ -3,12 +3,10 @@ package node
 import (
 	"context"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"github.com/0x63616c/xenon/internal/processcut"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type outcomeFamily int
@@ -59,12 +57,12 @@ func belongs(outcome *wire.StoredOutcome, family outcomeFamily) bool {
 }
 
 // journal runs only inside Owner.Run. All families share capacity and IDs.
-func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply func(*native.DbTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
-	tx, err := o.db.Begin(native.IsolationLevelSerializableSnapshot)
+func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply func(partitions.Transaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
+	tx, err := o.writer.Begin(context.Background())
 	if err != nil {
 		return nil, backend(err)
 	}
-	defer tx.Destroy()
+	defer tx.Abort()
 	return persistence.RunReplay(persistence.ReplayEffects{
 		Get:     func(key string) ([]byte, error) { return get(tx, key) },
 		Put:     func(key string, value []byte) error { return put(tx, key, value) },
@@ -88,7 +86,7 @@ func (o *Owner) journal(id string, digest []byte, family outcomeFamily, apply fu
 			if outcome != nil && o.cutReady {
 				err = o.commitCut(tx)
 			} else {
-				err = commit(tx)
+				err = o.commit(tx)
 			}
 			return err
 		},
@@ -104,24 +102,21 @@ func (o *Owner) cutStage(stage string) error {
 	}
 	return nil
 }
-func (o *Owner) commitCut(tx *native.DbTransaction) error {
+func (o *Owner) commitCut(tx partitions.Transaction) error {
 	if e := o.cut.Candidate(); e != nil {
 		o.quarantined.Store(true)
 		return backend(e)
 	}
-	optional, e := tx.Commit()
+	receipt, e := tx.Commit(context.Background())
 	if e != nil {
 		return backend(e)
 	}
-	if optional == nil || *optional == nil {
-		return status.Error(codes.Unavailable, "missing durability handle")
+	if receipt == nil {
+		return backend(partitions.ErrInvalid)
 	}
-	handle := *optional
-	defer handle.Destroy()
 	pauseErr := o.cutStage(processcut.BeforeAwait)
-	// Even after timeout, retain the handle and drain the native durability call.
-	// Outer Owner.Run may time out meanwhile, retaining this worker and its gate.
-	if e = handle.AwaitDurable(); e != nil {
+	// Even after timeout, retain the receipt and drain durability.
+	if e = o.writer.AwaitDurable(context.Background(), receipt); e != nil {
 		return backend(e)
 	}
 	if pauseErr != nil {
@@ -135,8 +130,8 @@ func (o *Owner) commitCut(tx *native.DbTransaction) error {
 // after that commit under this gate. Thus the journal's nonempty durable write
 // itself is the read/fencing barrier. Arbitrary exported Run keeps its trailing
 // barrier, even if its callback happens to call journal before additional reads.
-func (o *Owner) runJournalResult(ctx context.Context, id string, digest []byte, family outcomeFamily, apply func(*native.DbTransaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
-	raw, err := o.run(ctx, func(*native.Db) ([]byte, error) {
+func (o *Owner) runJournalResult(ctx context.Context, id string, digest []byte, family outcomeFamily, apply func(partitions.Transaction) (*wire.StoredOutcome, error)) (*wire.StoredOutcome, error) {
+	raw, err := o.run(ctx, func(partitions.Writer) ([]byte, error) {
 		outcome, err := o.journal(id, digest, family, apply)
 		if err != nil {
 			return nil, err

@@ -1,3 +1,5 @@
+//go:build slatedb
+
 package node
 
 import (

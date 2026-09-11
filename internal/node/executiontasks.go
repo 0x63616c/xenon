@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 	"errors"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type ExecutionTasksServer struct {
@@ -35,8 +35,8 @@ func (s *ExecutionTasksServer) Execute(ctx context.Context, q *wire.ExecutionTas
 	if !bytes.Equal(d[:], q.CommandSha256) {
 		return nil, status.Error(codes.InvalidArgument, "digest mismatch")
 	}
-	raw, e := s.Owner.Run(ctx, func(*native.Db) ([]byte, error) {
-		out, e := s.Owner.journal(q.OperationId, d[:], executionTasksFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	raw, e := s.Owner.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		out, e := s.Owner.journal(q.OperationId, d[:], executionTasksFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyExecutionTasks(tx, c)
 			if e != nil {
 				return nil, e
@@ -49,7 +49,7 @@ func (s *ExecutionTasksServer) Execute(ctx context.Context, q *wire.ExecutionTas
 			if failure.result.Error == wire.ExecutionResult_INTERNAL {
 				r.Error = wire.ExecutionTasksResult_INTERNAL
 			}
-			out, e = s.Owner.journal(q.OperationId, d[:], executionTasksFamily, func(*native.DbTransaction) (*wire.StoredOutcome, error) { return executionTasksOutcome(r), nil })
+			out, e = s.Owner.journal(q.OperationId, d[:], executionTasksFamily, func(partitions.Transaction) (*wire.StoredOutcome, error) { return executionTasksOutcome(r), nil })
 		}
 		if e != nil {
 			return nil, e
@@ -65,8 +65,8 @@ func (s *ExecutionTasksServer) Execute(ctx context.Context, q *wire.ExecutionTas
 	}
 	return r, nil
 }
-func applyExecutionTasks(tx *native.DbTransaction, c *wire.ExecutionTasksCommand) (*wire.ExecutionTasksResult, error) {
-	out, err := persistence.ApplyExecutionTasks(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyExecutionTasks(tx partitions.Transaction, c *wire.ExecutionTasksCommand) (*wire.ExecutionTasksResult, error) {
+	out, err := persistence.ApplyExecutionTasks(context.Background(), tx, c)
 	if err != nil {
 		return nil, legacyExecutionError(err)
 	}

@@ -1,4 +1,4 @@
-//go:build integration_s3
+//go:build slatedb && integration_s3
 
 package node
 

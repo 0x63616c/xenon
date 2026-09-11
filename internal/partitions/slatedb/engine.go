@@ -520,3 +520,12 @@ func (w *writer) Close(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
+
+// AdoptNative confines legacy database construction to the SlateDB adapter while
+// callers migrate to Engine.Open.
+func AdoptNative(db *native.Db) (p.Writer, error) {
+	if db == nil {
+		return nil, p.ErrInvalid
+	}
+	return newWriter(db), nil
+}

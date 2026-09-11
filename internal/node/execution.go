@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 // executionFailure aborts all staged changes before its outcome is journaled.
@@ -58,15 +58,15 @@ func (s *ExecutionServer) Execute(ctx context.Context, q *wire.ExecutionRequest)
 // gives the same fencing point for fresh, replayed and logical-error results.
 func (s *ExecutionServer) runExecutionResult(ctx context.Context, q *wire.ExecutionRequest, digest []byte) ([]byte, error) {
 	c := q.Command
-	return s.Owner.run(ctx, func(*native.Db) ([]byte, error) {
+	return s.Owner.run(ctx, func(partitions.Writer) ([]byte, error) {
 		// Check the root before independent history prewrites. A replay must never
 		// recreate events removed after the original completed operation.
-		tx, e := s.Owner.db.Begin(native.IsolationLevelSerializableSnapshot)
+		tx, e := s.Owner.writer.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
 		saved, e := get(tx, "v1/outcome/"+q.OperationId)
-		tx.Destroy()
+		_ = tx.Abort()
 		if e != nil {
 			return nil, e
 		}
@@ -77,7 +77,7 @@ func (s *ExecutionServer) runExecutionResult(ctx context.Context, q *wire.Execut
 					return nil, backend(e)
 				}
 				hd := sha256.Sum256(b)
-				_, e = s.Owner.journal(fmt.Sprintf("%s-h-%d", q.OperationId, index), hd[:], historyFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+				_, e = s.Owner.journal(fmt.Sprintf("%s-h-%d", q.OperationId, index), hd[:], historyFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 					r, e := applyHistory(tx, h)
 					if e != nil {
 						return nil, e
@@ -89,7 +89,7 @@ func (s *ExecutionServer) runExecutionResult(ctx context.Context, q *wire.Execut
 				}
 			}
 		}
-		outcome, e := s.Owner.journal(q.OperationId, digest, executionFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+		outcome, e := s.Owner.journal(q.OperationId, digest, executionFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			r, e := applyExecution(tx, c)
 			if e != nil {
 				return nil, e
@@ -98,7 +98,9 @@ func (s *ExecutionServer) runExecutionResult(ctx context.Context, q *wire.Execut
 		})
 		var logical *executionFailure
 		if errors.As(e, &logical) {
-			outcome, e = s.Owner.journal(q.OperationId, digest, executionFamily, func(*native.DbTransaction) (*wire.StoredOutcome, error) { return executionOutcome(logical.result), nil })
+			outcome, e = s.Owner.journal(q.OperationId, digest, executionFamily, func(partitions.Transaction) (*wire.StoredOutcome, error) {
+				return executionOutcome(logical.result), nil
+			})
 		}
 		if e != nil {
 			return nil, e
@@ -120,15 +122,15 @@ func legacyExecutionError(err error) error {
 	}
 	return err
 }
-func applyExecution(tx *native.DbTransaction, c *wire.ExecutionCommand) (*wire.ExecutionResult, error) {
-	out, err := persistence.ApplyExecution(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, c)
+func applyExecution(tx partitions.Transaction, c *wire.ExecutionCommand) (*wire.ExecutionResult, error) {
+	out, err := persistence.ApplyExecution(context.Background(), tx, c)
 	if err != nil {
 		return nil, legacyExecutionError(err)
 	}
 	return out.GetExecutionResult(), nil
 }
-func stageExecutionTasks(tx *native.DbTransaction, shard int32, tasks []*wire.ExecutionTask) error {
-	return legacyExecutionError(persistence.StageExecutionTasks(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, shard, tasks))
+func stageExecutionTasks(tx partitions.Transaction, shard int32, tasks []*wire.ExecutionTask) error {
+	return legacyExecutionError(persistence.StageExecutionTasks(context.Background(), tx, shard, tasks))
 }
 func executionTaskKey(shard int32, task *wire.ExecutionTask) string {
 	return persistence.ExecutionTaskKey(shard, task)
@@ -136,6 +138,6 @@ func executionTaskKey(shard int32, task *wire.ExecutionTask) string {
 func execKey(shard int32, ns, wf, run string) string {
 	return persistence.ExecutionKey(shard, ns, wf, run)
 }
-func loadImage(tx *native.DbTransaction, key string) (*wire.ExecutionImage, error) {
-	return persistence.LoadExecutionImage(context.Background(), legacyClusterTransaction{legacyShardTransaction{tx}}, key)
+func loadImage(tx partitions.Transaction, key string) (*wire.ExecutionImage, error) {
+	return persistence.LoadExecutionImage(context.Background(), tx, key)
 }
