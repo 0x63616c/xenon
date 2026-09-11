@@ -32,6 +32,7 @@
   "inputs": [
     "docs/design/issue-119-acceptance.md",
     "internal/simulation/acceptance_controls_test.go",
+    "internal/simulation/transport_faults_test.go",
     "internal/simulation/coupled_generate_test.go",
     "internal/simulation/workflow_cleanup_controls_test.go",
     "internal/simulation/stop_reason_test.go"

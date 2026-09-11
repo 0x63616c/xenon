@@ -63,6 +63,8 @@ ACCEPTANCE_COMPONENT_TESTS = {
             "TestCoupledStorageReadFailureRecovers",
             "TestCoupledRenewalUnknownAfterReplacement",
             "TestCoupledAssignmentABARereservesWriter",
+            "TestProductionTransportDropDelayDuplicate",
+            "TestCoupledOwnershipCutOccurrenceReceipt",
             "TestSimulationNamedOracleMutants",
             "TestCheckerRejectsNonAtomicOutcome",
             "TestCheckerRejectsStaleOwnerAcknowledgement",
