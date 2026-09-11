@@ -6,6 +6,7 @@ import (
 
 	common "go.temporal.io/api/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -84,7 +85,7 @@ func workflowValue(raw []byte) map[string]any {
 }
 func matchesInput(actual, want *common.Payload, initialRoot bool) bool {
 	if !initialRoot {
-		return proto.Equal(unwrap(actual), want)
+		return equalWorkflowInput(unwrap(actual), want)
 	}
 	if actual == nil || len(actual.Metadata) != 2 || string(actual.Metadata["encoding"]) != "json/protobuf" || string(actual.Metadata["messageType"]) != "temporal.omes.kitchen_sink.WorkflowInput" || len(actual.ProtoReflect().GetUnknown()) != 0 {
 		return false
@@ -94,4 +95,17 @@ func matchesInput(actual, want *common.Payload, initialRoot bool) bool {
 		return false
 	}
 	return reflect.DeepEqual(value, workflowValue(want.Data))
+}
+
+func equalWorkflowInput(actual, want *common.Payload) bool {
+	valid := func(p *common.Payload) bool {
+		if p == nil || len(p.Metadata) != 2 || string(p.Metadata["encoding"]) != "binary/protobuf" || string(p.Metadata["messageType"]) != "temporal.omes.kitchen_sink.WorkflowInput" || len(p.ProtoReflect().GetUnknown()) != 0 {
+			return false
+		}
+		raw := protowire.AppendTag(nil, 1, protowire.BytesType)
+		raw = protowire.AppendBytes(raw, p.Data)
+		_, err := Derive(raw)
+		return err == nil
+	}
+	return valid(actual) && valid(want) && reflect.DeepEqual(workflowValue(actual.Data), workflowValue(want.Data))
 }

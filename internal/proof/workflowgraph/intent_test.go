@@ -19,7 +19,7 @@ func wire(n protowire.Number, b []byte) []byte {
 	return protowire.AppendBytes(out, b)
 }
 func marsh(m proto.Message) []byte {
-	b, e := proto.Marshal(m)
+	b, e := (proto.MarshalOptions{Deterministic: true}).Marshal(m)
 	if e != nil {
 		panic(e)
 	}

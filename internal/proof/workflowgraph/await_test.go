@@ -7,7 +7,26 @@ import (
 	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
 	history "go.temporal.io/api/history/v1"
+	"google.golang.org/protobuf/encoding/protowire"
 )
+
+func payloadWithMetadataOrder(p *common.Payload, keys ...string) []byte {
+	var out []byte
+	for _, key := range keys {
+		entry := protowire.AppendTag(nil, 1, protowire.BytesType)
+		entry = protowire.AppendString(entry, key)
+		entry = protowire.AppendTag(entry, 2, protowire.BytesType)
+		entry = protowire.AppendBytes(entry, p.Metadata[key])
+		out = protowire.AppendTag(out, 1, protowire.BytesType)
+		out = protowire.AppendBytes(out, entry)
+	}
+	out = protowire.AppendTag(out, 2, protowire.BytesType)
+	return protowire.AppendBytes(out, p.Data)
+}
+
+func childWithPayload(id string, payload []byte) []byte {
+	return wire(3, append(wire(3, []byte(id)), wire(6, payload)...))
+}
 
 func childInitiated(id string, input []byte) *history.HistoryEvent {
 	return &history.HistoryEvent{EventType: enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED, Attributes: &history.HistoryEvent_StartChildWorkflowExecutionInitiatedEventAttributes{StartChildWorkflowExecutionInitiatedEventAttributes: &history.StartChildWorkflowExecutionInitiatedEventAttributes{WorkflowId: id, Input: &common.Payloads{Payloads: []*common.Payload{wrapped(argument(input))}}}}}
@@ -110,5 +129,24 @@ func TestContinuedChildRequiresFinalParentCompletion(t *testing.T) {
 	runs[0].History = h(append(runs[0].History.Events[:3], runs[0].History.Events[4:]...)...)
 	if e = Check(g, "w-case-", runs); e == nil || e.Error() != "expected_graph/child_completion" {
 		t.Fatal(e)
+	}
+}
+
+func TestWorkflowInputComparisonIgnoresProtobufMapWireOrder(t *testing.T) {
+	leaf := workflow(ret("leaf"))
+	argument := argument(leaf)
+	canonical := workflow(child("wf_leaf", leaf), ret("parent"))
+	reordered := workflow(childWithPayload("wf_leaf", payloadWithMetadataOrder(argument, "messageType", "encoding")), ret("parent"))
+	if string(canonical) == string(reordered) {
+		t.Fatal("fixture did not change protobuf wire order")
+	}
+	actual := wrapped(&common.Payload{Metadata: argument.Metadata, Data: reordered})
+	want := &common.Payload{Metadata: argument.Metadata, Data: canonical}
+	if !matchesInput(actual, want, false) {
+		t.Fatal("semantic WorkflowInput comparison depended on protobuf map wire order")
+	}
+	changed := workflow(child("wf_other", leaf), ret("parent"))
+	if matchesInput(wrapped(&common.Payload{Metadata: argument.Metadata, Data: changed}), want, false) {
+		t.Fatal("semantic WorkflowInput comparison accepted changed child identity")
 	}
 }
