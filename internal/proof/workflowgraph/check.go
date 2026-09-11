@@ -39,7 +39,7 @@ func Check(g *Graph, rootPrefix string, runs []Execution) error {
 			return fail("history_shape")
 		}
 		if s.ParentWorkflowExecution == nil && s.ContinuedExecutionRunId == "" {
-			if root != "" || rootPrefix == "" || !strings.HasPrefix(r.WorkflowID, rootPrefix) || !strings.HasSuffix(r.WorkflowID, "-0") {
+			if root != "" || rootPrefix == "" || !strings.HasPrefix(r.WorkflowID, rootPrefix) || !strings.HasSuffix(r.WorkflowID, "-1") {
 				return fail("root_identity")
 			}
 			root = r.RunID
@@ -110,6 +110,9 @@ func Check(g *Graph, rootPrefix string, runs []Execution) error {
 			if e := check(child, children[g.Nodes[child].WorkflowID]); e != nil {
 				return e
 			}
+		}
+		if err := checkAwaitedChildren(g, n, r.History, bound); err != nil {
+			return err
 		}
 		last := r.History.Events[len(r.History.Events)-1]
 		if n.Next >= 0 {

@@ -71,7 +71,7 @@ func fixture() ([]byte, []Execution) {
 	childFirst := workflow(can(childLast))
 	rootLast := workflow(ret("root-value"))
 	rootFirst := workflow(child("wf_child", childFirst), can(rootLast))
-	childEvent := &history.HistoryEvent{EventType: enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_STARTED, Attributes: &history.HistoryEvent_ChildWorkflowExecutionStartedEventAttributes{ChildWorkflowExecutionStartedEventAttributes: &history.ChildWorkflowExecutionStartedEventAttributes{WorkflowExecution: &common.WorkflowExecution{WorkflowId: "wf_child", RunId: "run_child1"}}}}
+	childEvent := &history.HistoryEvent{EventType: enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_STARTED, Attributes: &history.HistoryEvent_ChildWorkflowExecutionStartedEventAttributes{ChildWorkflowExecutionStartedEventAttributes: &history.ChildWorkflowExecutionStartedEventAttributes{WorkflowExecution: &common.WorkflowExecution{WorkflowId: "wf_child", RunId: "run_child1"}, InitiatedEventId: 2}}}
 	rootJSON, err := json.Marshal(map[string]any{"initialActions": []any{map[string]any{"actions": []any{map[string]any{"execChildWorkflow": map[string]any{"workflowId": "wf_child", "input": []any{map[string]any{"metadata": map[string][]byte{"encoding": []byte("binary/protobuf"), "messageType": []byte("temporal.omes.kitchen_sink.WorkflowInput")}, "data": childFirst}}}}, map[string]any{"continueAsNew": map[string]any{"arguments": []any{map[string]any{"metadata": map[string][]byte{"encoding": []byte("binary/protobuf"), "messageType": []byte("temporal.omes.kitchen_sink.WorkflowInput")}, "data": rootLast}}}}}}}})
 	if err != nil {
 		panic(err)
@@ -79,10 +79,10 @@ func fixture() ([]byte, []Execution) {
 	rootStart := start(rootFirst, "", "", "")
 	rootStart.GetWorkflowExecutionStartedEventAttributes().Input.Payloads[0] = &common.Payload{Metadata: map[string][]byte{"encoding": []byte("json/protobuf"), "messageType": []byte("temporal.omes.kitchen_sink.WorkflowInput")}, Data: rootJSON}
 	return wire(1, rootFirst), []Execution{
-		{"w-case-opaque-0", "run_root1", h(rootStart, childEvent, continued("run_root2", rootLast))},
-		{"wf_child", "run_child1", h(start(childFirst, "w-case-opaque-0", "run_root1", ""), continued("run_child2", childLast))},
-		{"wf_child", "run_child2", h(start(childLast, "w-case-opaque-0", "run_root1", "run_child1"), end("child-value"))},
-		{"w-case-opaque-0", "run_root2", h(start(rootLast, "", "", "run_root1"), end("root-value"))},
+		{"w-case-opaque-1", "run_root1", h(rootStart, childInitiated("wf_child", childFirst), childEvent, childCompleted("wf_child", "run_child2", "child-value", 2, 3), continued("run_root2", rootLast))},
+		{"wf_child", "run_child1", h(start(childFirst, "w-case-opaque-1", "run_root1", ""), continued("run_child2", childLast))},
+		{"wf_child", "run_child2", h(start(childLast, "w-case-opaque-1", "run_root1", "run_child1"), end("child-value"))},
+		{"w-case-opaque-1", "run_root2", h(start(rootLast, "", "", "run_root1"), end("root-value"))},
 	}
 }
 func TestSerialIntentGraphAndExactResults(t *testing.T) {
@@ -106,17 +106,17 @@ func TestExpectedGraphNegativeControls(t *testing.T) {
 		mutate     func([]Execution) []Execution
 	}{
 		{"child omitted from both inventory and parent", "execution_inventory", func(r []Execution) []Execution {
-			r[0].History = h(r[0].History.Events[0], r[0].History.Events[2])
+			r[0].History = h(r[0].History.Events[0], r[0].History.Events[len(r[0].History.Events)-1])
 			return []Execution{r[0], r[3]}
 		}},
 		{"child command omitted", "child_inventory", func(r []Execution) []Execution {
-			r[0].History = h(r[0].History.Events[0], r[0].History.Events[2])
+			r[0].History = h(r[0].History.Events[0], r[0].History.Events[len(r[0].History.Events)-1])
 			return r
 		}},
 		{"child result corrupted", "corrupt_result", func(r []Execution) []Execution { r[2].History = h(r[2].History.Events[0], end("wrong")); return r }},
 		{"root result corrupted", "corrupt_result", func(r []Execution) []Execution { r[3].History = h(r[3].History.Events[0], end("wrong")); return r }},
 		{"continuation missing", "omitted_continuation", func(r []Execution) []Execution {
-			r[0].History = h(r[0].History.Events[0], r[0].History.Events[1], end("root-value"))
+			r[0].History = h(append(r[0].History.Events[:4], end("root-value"))...)
 			return r
 		}},
 		{"history event omitted", "history_shape", func(r []Execution) []Execution {
@@ -128,7 +128,7 @@ func TestExpectedGraphNegativeControls(t *testing.T) {
 			return r
 		}},
 		{"wrong continuation input", "continuation_input", func(r []Execution) []Execution {
-			r[0].History.Events[2].GetWorkflowExecutionContinuedAsNewEventAttributes().Input.Payloads[0].Data = []byte("wrong")
+			r[0].History.Events[4].GetWorkflowExecutionContinuedAsNewEventAttributes().Input.Payloads[0].Data = []byte("wrong")
 			return r
 		}},
 	}
@@ -202,7 +202,9 @@ func TestPinnedOmesProtobufAndConverterFixture(t *testing.T) {
 	for i, key := range []string{"root_start", "child_start", "child_continued", "root_continued"} {
 		runs[i].History.Events[0].GetWorkflowExecutionStartedEventAttributes().Input.Payloads[0] = p(key)
 	}
-	runs[0].History.Events[2].GetWorkflowExecutionContinuedAsNewEventAttributes().Input.Payloads[0] = p("root_continued")
+	runs[0].History.Events[4].GetWorkflowExecutionContinuedAsNewEventAttributes().Input.Payloads[0] = p("root_continued")
+	runs[0].History.Events[1].GetStartChildWorkflowExecutionInitiatedEventAttributes().Input.Payloads[0] = p("child_start")
+	runs[0].History.Events[3].GetChildWorkflowExecutionCompletedEventAttributes().Result.Payloads[0] = p("child_result")
 	runs[1].History.Events[1].GetWorkflowExecutionContinuedAsNewEventAttributes().Input.Payloads[0] = p("child_continued")
 	runs[2].History.Events[1].GetWorkflowExecutionCompletedEventAttributes().Result.Payloads[0] = p("child_result")
 	runs[3].History.Events[1].GetWorkflowExecutionCompletedEventAttributes().Result.Payloads[0] = p("root_result")
@@ -216,6 +218,21 @@ func TestPinnedOmesProtobufAndConverterFixture(t *testing.T) {
 	// Decoder format alone cannot replace exact semantic result comparison.
 	runs[3].History.Events[1].GetWorkflowExecutionCompletedEventAttributes().Result.Payloads[0] = p("child_result")
 	if err = Check(graph, "w-case-", runs); err == nil || err.Error() != "expected_graph/corrupt_result" {
+		t.Fatal(err)
+	}
+}
+
+func TestPinnedOmesFirstIterationIsOneBased(t *testing.T) {
+	raw, runs := fixture()
+	graph, err := Derive(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = Check(graph, "w-case-", runs); err != nil {
+		t.Fatal(err)
+	}
+	runs[0].WorkflowID = "w-case-opaque-0"
+	if err = Check(graph, "w-case-", runs); err == nil || err.Error() != "expected_graph/root_identity" {
 		t.Fatal(err)
 	}
 }

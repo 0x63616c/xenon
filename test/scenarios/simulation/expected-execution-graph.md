@@ -39,7 +39,7 @@ negative controls together. No YAML or scenario DSL is introduced.
 A root is a logical input node. Upstream Omes generates its opaque ExecutionID,
 and Temporal generates run IDs; those cannot be known from workflow bytes.
 The checker requires exactly one initial root under the saved case's Omes ID
-prefix (iteration zero), with matching input semantics. Child workflow IDs come
+prefix (pinned Omes first iteration is one), with matching input semantics. Child workflow IDs come
 exactly from input. Opaque child/continuation run IDs are bound through complete
 histories, then checked against all expected nodes, parent links and predecessor
 links. They never determine which nodes ought to exist. Omitted child commands
@@ -96,3 +96,27 @@ These are component proofs with synthetic complete histories and real pinned
 protobuf/converter output. No new real Temporal journey was run for this batch.
 Nexus intent/handler graphs, concurrent/signal-driven semantics, full fan-out
 limits, and the complete ORACLE-01/GEN-02 gates remain unfinished.
+
+## Parent-side await and ordering controls
+
+The checker also requires each input-declared child to have matching parent-side
+StartChildWorkflowExecutionInitiated, ChildWorkflowExecutionStarted and
+ChildWorkflowExecutionCompleted events. It verifies both event-ID links, the
+initiated input, final continued-child run identity and copied result. Each child
+initiation must follow the preceding child's completion in input order; every
+completion must precede the parent's terminal action. A child that completes
+elsewhere without its parent awaiting it cannot satisfy this contract.
+
+Positive histories include these parent-side completion events. Additional
+controls remove an await, reverse two fixed children while preserving their
+individual links/results, issue the next child too early, corrupt the completion
+links/result, and complete the parent too early. A continued child must complete
+with its final run ID, not its original started run ID. This matches the pinned
+Temporal server's `tests/continue_as_new_test.go` child completion assertions and
+`MutableStateImpl.AddChildWorkflowExecutionCompletedEvent` behavior. These source
+checks do not substitute for a newly executed real workflow.
+
+The root ID suffix is `-1`: pinned Omes `GenericExecutor` calls `NewRun(i + 1)`.
+A negative control rejects a `-0` first-iteration identity. The saved upstream
+payload fixture contains no history or runtime IDs and needs no encoding change;
+its accompanying hand-authored histories now model the required await events.
