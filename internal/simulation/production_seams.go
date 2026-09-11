@@ -25,13 +25,16 @@ import (
 type seamResolver struct {
 	calls int
 	mode  string
+	last  string
 }
 
 func (r *seamResolver) Resolve(_ context.Context, _ string, refresh bool) (routing.Route, error) {
 	r.calls++
 	if r.mode == "route_refresh" && !refresh {
+		r.last = "stale"
 		return routing.Route{Node: "stale", Address: "same:8080"}, nil
 	}
+	r.last = "current"
 	return routing.Route{Node: "current", Address: "same:8080"}, nil
 }
 
@@ -86,6 +89,10 @@ func runProductionSeam(mode string) error {
 	}
 	if len(mode) > len("partition_") && mode[:len("partition_")] == "partition_" {
 		return runPartitionTransitionSeam(mode)
+	}
+	negative := ""
+	if len(mode) > len("negative_") && mode[:len("negative_")] == "negative_" {
+		negative, mode = mode[len("negative_"):], ""
 	}
 	disk := &seamDisk{durable: map[string][]byte{}}
 	digest := sha256.Sum256([]byte("dst-operation"))
@@ -162,12 +169,61 @@ func runProductionSeam(mode string) error {
 			return first
 		}
 	}
-	count := disk.durable["v1/outcome_count"]
-	if len(count) != 8 || binary.BigEndian.Uint64(count) != 1 || disk.commits < 1 || disk.applications != 1 {
-		return errors.New("routing seam lost exactly-once outcome")
+	observation := productionSeamObservation{disk: disk, request: request, expectedDigest: digest, acknowledged: true, acknowledgedNode: resolver.last}
+	switch negative {
+	case "acknowledged_write_loss":
+		delete(disk.durable, "v1/outcome_count")
+	case "duplicate_application":
+		disk.applications++
+	case "changed_operation_digest":
+		request.CommandSha256[0] ^= 0xff
+	case "stale_owner_acknowledgment":
+		observation.acknowledgedNode = "stale"
+	case "failed_healthy_settle":
+		disk.commits = 0
+	case "":
+	default:
+		return fmt.Errorf("unknown production seam negative control %q", negative)
+	}
+	if err := checkProductionSeam(observation); err != nil {
+		return err
 	}
 	if mode == "route_refresh" && resolver.calls != 2 {
 		return errors.New("stale route did not refresh")
+	}
+	return nil
+}
+
+type productionSeamObservation struct {
+	disk             *seamDisk
+	request          *wire.ShardRequest
+	expectedDigest   [32]byte
+	acknowledged     bool
+	acknowledgedNode string
+}
+
+// checkProductionSeam is the independent assertion path used by every routing
+// production-seam DST case. Negative controls corrupt its observed inputs; they
+// do not call a separate test-only oracle.
+func checkProductionSeam(o productionSeamObservation) error {
+	fail := func(invariant, mechanism, diagnostic string) error {
+		return checkerFailure(invariant, mechanism, diagnostic)
+	}
+	count := o.disk.durable["v1/outcome_count"]
+	if o.acknowledged && (len(count) != 8 || binary.BigEndian.Uint64(count) != 1) {
+		return fail("acknowledged_write", "missing_after_recovery", "acknowledged outcome is absent after recovery")
+	}
+	if o.disk.applications != 1 {
+		return fail("application", "duplicate", "logical operation applied more than once")
+	}
+	if !bytes.Equal(o.request.CommandSha256, o.expectedDigest[:]) {
+		return fail("operation_digest", "changed", "operation digest changed across routing")
+	}
+	if o.acknowledged && o.acknowledgedNode != "current" {
+		return fail("authority", "stale_acknowledgment", "stale owner acknowledged routed work")
+	}
+	if o.disk.commits < 1 {
+		return fail("progress", "stalled", "healthy owner did not make durable progress")
 	}
 	return nil
 }

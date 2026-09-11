@@ -96,17 +96,12 @@ func TestSimulationNamedOracleMutants(t *testing.T) {
 		want   FailureFingerprint
 		mutate func(*oracleObservation)
 	}{
-		"lost acknowledged write": {FailureFingerprint{"acknowledged_write", "missing_after_recovery"}, func(o *oracleObservation) { delete(o.acknowledged, "op_1") }},
-		"duplicate application":   {FailureFingerprint{"application", "duplicate"}, func(o *oracleObservation) { o.applied["op_1"] = 2 }},
-		"wrong digest":            {FailureFingerprint{"operation_digest", "changed"}, func(o *oracleObservation) { o.digests["op_1"] = "sha256:other" }},
-		"stale acknowledgment":    {FailureFingerprint{"authority", "stale_acknowledgment"}, func(o *oracleObservation) { o.staleAcknowledged = true }},
 		"partial atomic recovery": {FailureFingerprint{"atomic_record", "partial_recovery"}, func(o *oracleObservation) { o.atomic = false }},
 		"omitted child":           {FailureFingerprint{"execution_graph", "omitted_child"}, func(o *oracleObservation) { o.children = 0 }},
 		"corrupt result":          {FailureFingerprint{"workflow_result", "corrupt_result"}, func(o *oracleObservation) { o.acknowledged["op_1"] = "bad" }},
 		"omitted durable result":  {FailureFingerprint{"durable_replay", "omitted_result"}, func(o *oracleObservation) { o.durableResults = 0 }},
 		"retry deadline reset":    {FailureFingerprint{"retry_deadline", "reset"}, func(o *oracleObservation) { o.deadlineReset = true }},
 		"post-fence commit":       {FailureFingerprint{"writer_fence", "post_fence_commit"}, func(o *oracleObservation) { o.postFenceCommit = true }},
-		"stalled progress":        {FailureFingerprint{"progress", "stalled"}, func(o *oracleObservation) { o.settledProgress = false }},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -115,6 +110,25 @@ func TestSimulationNamedOracleMutants(t *testing.T) {
 			got, ok := FingerprintOf(checkOracle(o))
 			if !ok || got != tc.want {
 				t.Fatalf("mutant failed wrong invariant: got=%+v valid=%t want=%+v", got, ok, tc.want)
+			}
+		})
+	}
+}
+
+func TestProductionSeamNamedNegativeControls(t *testing.T) {
+	tests := map[string]FailureFingerprint{
+		"acknowledged_write_loss":    {"acknowledged_write", "missing_after_recovery"},
+		"duplicate_application":      {"application", "duplicate"},
+		"changed_operation_digest":   {"operation_digest", "changed"},
+		"stale_owner_acknowledgment": {"authority", "stale_acknowledgment"},
+		"failed_healthy_settle":      {"progress", "stalled"},
+	}
+	for name, want := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := runProductionSeam("negative_" + name)
+			got, ok := FingerprintOf(err)
+			if !ok || got != want {
+				t.Fatalf("production-seam detector failed wrong invariant: got=%+v valid=%t want=%+v err=%v", got, ok, want, err)
 			}
 		})
 	}
