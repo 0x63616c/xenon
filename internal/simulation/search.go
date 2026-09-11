@@ -124,6 +124,7 @@ type artifact struct {
 	LegacyUnverified bool            `json:"legacy_unverified,omitempty"`
 }
 type caseResult struct {
+	StopReason         string              `json:"stop_reason,omitempty"`
 	FailureFingerprint *FailureFingerprint `json:"failure_fingerprint,omitempty"`
 	FailurePhase       string              `json:"failure_phase,omitempty"`
 	FirstFailure       string              `json:"first_failure,omitempty"`
@@ -268,27 +269,41 @@ func search(ctx context.Context, cfg SearchConfig, gen Generator, r *Runner, rep
 			return result, err
 		}
 		var scenario Scenario
+		var generationMu sync.Mutex
+		var generationFailure error
 		err, pending := bounded(ctx, r.Clock, end.Sub(r.Clock.Now()), func(c context.Context) error {
 			var e error
 			generatedRequest := request
 			generatedRequest.Limits.Features = slices.Clone(request.Limits.Features)
 			scenario, e = gen.Next(c, generatedRequest)
+			generationMu.Lock()
+			if e != nil && ctx.Err() == nil && r.Clock.Now().Before(end) {
+				generationFailure = e
+			}
+			generationMu.Unlock()
 			return e
 		})
 		if err != nil {
+			generationMu.Lock()
+			observedFailure := generationFailure
+			generationMu.Unlock()
+			if observedFailure != nil {
+				err = observedFailure
+			}
 			result.StopReason = "first_failure"
 			phase := "generation"
 			if errors.Is(err, io.EOF) {
 				result.StopReason = "completed"
 				err = nil
 			}
-			if errors.Is(err, context.Canceled) {
-				result.StopReason = "canceled"
+			if observedFailure == nil {
+				if ctx.Err() != nil {
+					result.StopReason = "canceled"
+				} else if !r.Clock.Now().Before(end) {
+					result.StopReason = "budget"
+				}
 			}
-			if errors.Is(err, context.DeadlineExceeded) {
-				result.StopReason = "budget"
-			}
-			detail := caseResult{FailurePhase: phase}
+			detail := caseResult{FailurePhase: phase, StopReason: result.StopReason}
 			if err != nil {
 				detail.FirstFailure = err.Error()
 			}
@@ -315,10 +330,10 @@ func search(ctx context.Context, cfg SearchConfig, gen Generator, r *Runner, rep
 		err = errors.Join(err, save(filepath.Join(dir, "result.json"), detail))
 		if err != nil {
 			result.StopReason = "first_failure"
-			if errors.Is(err, context.Canceled) {
-				result.StopReason = "canceled"
-			} else if errors.Is(err, context.DeadlineExceeded) && detail.FailurePhase == "run" {
-				result.StopReason = "budget"
+			// Classification belongs to the observed phase latch, not an
+			// internal RPC error's context sentinel or secondary cleanup error.
+			if detail.StopReason == "canceled" || detail.StopReason == "budget" {
+				result.StopReason = detail.StopReason
 			}
 			return result, err
 		}
@@ -329,6 +344,7 @@ func search(ctx context.Context, cfg SearchConfig, gen Generator, r *Runner, rep
 }
 
 func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir string, end time.Time) (detail caseResult, primary error) {
+	detail.StopReason = "first_failure"
 	limits := cfg.Limits
 	limits.Features = slices.Clone(limits.Features)
 	if err := guarded(func() error { return r.Driver.Validate(cloneScenario(s), limits) }); err != nil {
@@ -383,6 +399,7 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	traceError := func() error { mu.Lock(); defer mu.Unlock(); return traceFailure }
 	// Each phase owns a reporting generation and deadline. A late callback or
 	// returned error cannot supersede an earlier stop, nor enter a later phase.
+	phase := "run"
 	runPhase := func(budget time.Duration, fn func(context.Context) error) (error, <-chan error) {
 		mu.Lock()
 		phaseGeneration++
@@ -420,19 +437,23 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 		reportOpen = false
 		reported, observedTrace, earlierTrace := reportedFailure, traceFailure, tracePrimary
 		mu.Unlock()
+		detail.StopReason = "first_failure"
 		switch {
 		case earlierTrace:
 			result = observedTrace
 		case reported != nil:
 			result = reported
 		case ctx.Err() != nil:
+			detail.StopReason = "canceled"
 			result = ctx.Err()
 		case !r.Clock.Now().Before(deadline):
+			if phase == "run" {
+				detail.StopReason = "budget"
+			}
 			result = context.DeadlineExceeded
 		}
 		return result, pending
 	}
-	phase := "run"
 	primary, pending := runPhase(end.Sub(r.Clock.Now()), func(c context.Context) error { return r.Driver.Run(c, cloneScenario(s), emit) })
 	if primary == nil {
 		phase = "settle"
@@ -493,6 +514,9 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 				primary = errors.Join(primary, secondary)
 			}
 		}
+	}
+	if primary == nil {
+		detail.StopReason = "completed"
 	}
 	return detail, primary
 }
