@@ -94,6 +94,10 @@ ACCEPTANCE_COMPONENT_TESTS = {
     },
 }
 
+ACCEPTANCE_EXECUTABLES = {
+    "workflow-search-real": "scripts/workflow-search-real-proof.py",
+}
+
 SCENARIO_MANIFESTS = {
     name: "test/scenarios/ministack/manifests/" + name + ".json"
     for name in ("runtime-measurements", "nexus-http", "nexus-readiness", "corrected-fuzz-controls")
@@ -522,6 +526,11 @@ def main():
     parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "simulation", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut", *ACCEPTANCE_CRITERIA])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
+    if args.name in ACCEPTANCE_EXECUTABLES:
+        if args.allow_dirty:
+            print("workflow-search-real requires a clean committed checkout", file=sys.stderr)
+            return 1
+        return subprocess.call([sys.executable, ACCEPTANCE_EXECUTABLES[args.name]], cwd=ROOT)
     if args.name in ACCEPTANCE_COMPONENT_TESTS:
         return run_acceptance_component(args.name, ROOT, args.allow_dirty)
     if args.name in ACCEPTANCE_CRITERIA:

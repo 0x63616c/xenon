@@ -31,6 +31,10 @@
   },
   "inputs": [
     "docs/design/issue-119-acceptance.md",
+    "scripts/workflow-search-real-proof.py",
+    "scripts/build-dev-fixture.py",
+    "scripts/prepare-workflow-generator.py",
+    "scripts/agent-smoke.py",
     "scripts/dev-journey.py",
     "scripts/workflow_journey.py"
   ],

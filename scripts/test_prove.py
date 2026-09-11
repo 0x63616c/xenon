@@ -321,7 +321,7 @@ class AcceptanceRegistrationTests(unittest.TestCase):
             return receipt
 
     def test_registered_gates_fail_even_with_allow_dirty(self):
-        for name in set(prove.ACCEPTANCE_CRITERIA) - set(prove.ACCEPTANCE_COMPONENT_TESTS):
+        for name in set(prove.ACCEPTANCE_CRITERIA) - set(prove.ACCEPTANCE_COMPONENT_TESTS) - set(prove.ACCEPTANCE_EXECUTABLES):
             with self.subTest(gate=name):
                 receipt = self.run_registration(name)
                 self.assertEqual(receipt["result"], "incomplete")
