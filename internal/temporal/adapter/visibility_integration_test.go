@@ -233,9 +233,11 @@ func TestVisibilityRPC(t *testing.T) {
 	proxy.mu.Lock()
 	proxy.failPartition = "vis-v1-3"
 	proxy.mu.Unlock()
-	if r, e := s.CountWorkflowExecutions(ctx, &manager.CountWorkflowExecutionsRequest{NamespaceID: namespace.ID(ns)}); e == nil || r != nil {
+	failureCtx, stopFailure := context.WithTimeout(ctx, 100*time.Millisecond)
+	if r, e := s.CountWorkflowExecutions(failureCtx, &manager.CountWorkflowExecutionsRequest{NamespaceID: namespace.ID(ns)}); e == nil || r != nil {
 		t.Fatal("partial successful count")
 	}
+	stopFailure()
 	proxy.mu.Lock()
 	proxy.failPartition = ""
 	proxy.mu.Unlock()

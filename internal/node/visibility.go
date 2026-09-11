@@ -30,17 +30,6 @@ func (s *VisibilityServer) Execute(ctx context.Context, q *wire.VisibilityReques
 	if e := persistence.ValidateVisibilityCommand(c); e != nil {
 		return nil, status.Error(codes.InvalidArgument, e.Error())
 	}
-	if c.Kind <= wire.VisibilityCommand_GET {
-		n, r := c.NamespaceId, c.RunId
-		if c.Document != nil {
-			n, r = c.Document.NamespaceId, c.Document.RunId
-		}
-		partition, e := vmodel.Partition(n, r)
-		if e != nil || partition != s.Owner.config.Partition {
-			return nil, status.Error(codes.InvalidArgument, "visibility document routed to wrong partition")
-		}
-	}
-
 	b, e := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	if e != nil {
 		return nil, status.Error(codes.InvalidArgument, e.Error())

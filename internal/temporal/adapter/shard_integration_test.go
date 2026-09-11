@@ -1,17 +1,12 @@
 package adapter
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"google.golang.org/grpc"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +16,7 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/server/common/persistence"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -57,44 +53,7 @@ func TestShardRPC(t *testing.T) {
 	if cfg.SchemaVersion != 1 {
 		t.Fatal("unknown fixture version")
 	}
-	binary, err := filepath.Abs("../../../target/debug/xenon-node")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if value := os.Getenv("XENON_NODE_BINARY"); value != "" {
-		binary = value
-	}
-	command := exec.Command(binary)
-	command.Env = append(os.Environ(), "XENON_BACKEND="+cfg.Backend, "XENON_PARTITION="+cfg.Partition, "XENON_PREFIX="+cfg.Prefix, "XENON_LISTEN=127.0.0.1:0")
-	command.Stderr = os.Stderr
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = command.Start(); err != nil {
-		t.Fatalf("build the pinned node via scripts/test-shard.sh: %v", err)
-	}
-	t.Cleanup(func() { _ = command.Process.Kill(); _ = command.Wait() })
-	ready := make(chan string, 1)
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			if address, ok := strings.CutPrefix(scanner.Text(), "READY "); ok {
-				ready <- address
-				return
-			}
-		}
-		ready <- ""
-	}()
-	var address string
-	select {
-	case address = <-ready:
-		if address == "" {
-			t.Fatal("node exited before readiness")
-		}
-	case <-time.After(time.Duration(cfg.StartupTimeoutSeconds) * time.Second):
-		t.Fatal("node startup timeout")
-	}
+	address := startNamespaceNode(t, namespaceCase{Backend: cfg.Backend, Partition: cfg.Partition, Prefix: cfg.Prefix, StartupTimeoutSeconds: cfg.StartupTimeoutSeconds})
 	store, err := NewShardStore(address, cfg.Partition, "proof-cluster")
 	if err != nil {
 		t.Fatal(err)

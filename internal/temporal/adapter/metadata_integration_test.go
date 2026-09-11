@@ -1,17 +1,17 @@
 package adapter
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"github.com/0x63616c/xenon/internal/identity"
+	"github.com/0x63616c/xenon/internal/node"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type namespaceCase struct {
@@ -47,45 +48,62 @@ type namespaceCase struct {
 
 func startNamespaceNode(t *testing.T, cfg namespaceCase) string {
 	t.Helper()
-	binary, err := filepath.Abs("../../../target/debug/xenon-node")
+	if cfg.Backend != "memory" {
+		t.Fatalf("fast adapter fixture requires memory backend, got %q", cfg.Backend)
+	}
+	physical := identity.PartitionID("prt_0000000000000000000001")
+	writer, err := memory.New().Open(t.Context(), partitions.OpenRequest{
+		Path: cfg.Prefix, Partition: physical,
+		AssignmentRevision: 1, Generation: 1,
+		Reservation: identity.TransitionID("trn_0000000000000000000001"),
+		Incarnation: identity.IncarnationID("inc_0000000000000000000001"),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value := os.Getenv("XENON_NODE_BINARY"); value != "" {
-		binary = value
-	}
-	command := exec.Command(binary)
-	command.Env = append(os.Environ(), "XENON_BACKEND="+cfg.Backend, "XENON_PARTITION="+cfg.Partition, "XENON_PREFIX="+cfg.Prefix, "XENON_LISTEN=127.0.0.1:0")
-	command.Stderr = os.Stderr
-	stdout, err := command.StdoutPipe()
+	owner, err := node.NewOwner(writer, node.DefaultConfig(string(physical)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = command.Start(); err != nil {
-		t.Fatal("build xenon-node before namespace fixture", err)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = command.Process.Kill(); _ = command.Wait() })
-	ready := make(chan string, 1)
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			if address, ok := strings.CutPrefix(scanner.Text(), "READY "); ok {
-				ready <- address
-				return
-			}
+	// Production routing resolves a stable logical name to a physical prt_ ID
+	// before dispatch. This in-process fixture retains that real node boundary.
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		message, ok := request.(proto.Message)
+		if !ok {
+			return handler(ctx, request)
 		}
-		ready <- ""
-	}()
-	select {
-	case address := <-ready:
-		if address == "" {
-			t.Fatal("node exited before readiness")
+		local := proto.Clone(message)
+		field := local.ProtoReflect().Descriptor().Fields().ByName("partition")
+		if field != nil {
+			local.ProtoReflect().Set(field, protoreflect.ValueOfString(string(physical)))
 		}
-		return address
-	case <-time.After(time.Duration(cfg.StartupTimeoutSeconds) * time.Second):
-		t.Fatal("namespace node startup timeout")
-	}
-	return ""
+		return handler(ctx, local)
+	}))
+	wire.RegisterShardPersistenceServer(server, owner)
+	wire.RegisterQueuePersistenceServer(server, &node.QueueServer{Owner: owner})
+	wire.RegisterQueueV2PersistenceServer(server, &node.QueueV2Server{Owner: owner})
+	wire.RegisterHistoryPersistenceServer(server, &node.HistoryServer{Owner: owner})
+	wire.RegisterExecutionPersistenceServer(server, &node.ExecutionServer{Owner: owner})
+	wire.RegisterExecutionTasksPersistenceServer(server, &node.ExecutionTasksServer{Owner: owner})
+	wire.RegisterHistoryTasksPersistenceServer(server, &node.HistoryTasksServer{Owner: owner})
+	wire.RegisterMetadataPersistenceServer(server, &node.MetadataServer{Owner: owner})
+	wire.RegisterMatchingPersistenceServer(server, &node.MatchingServer{Owner: owner})
+	wire.RegisterClusterPersistenceServer(server, &node.ClusterServer{Owner: owner})
+	wire.RegisterNexusPersistenceServer(server, &node.NexusServer{Owner: owner})
+	wire.RegisterVisibilityPersistenceServer(server, &node.VisibilityServer{Owner: owner})
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() {
+		server.Stop()
+		_ = listener.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = owner.Close(ctx)
+	})
+	return listener.Addr().String()
 }
 func TestNamespaceRPC(t *testing.T) {
 	fixture, err := os.ReadFile("../../../proof/namespace/case.json")
