@@ -349,6 +349,14 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 				return fail(fmt.Errorf("fence requires an obsolete live native handle"))
 			}
 			emitPartition(partitions.Event{Kind: partitions.Fenced, Handle: partitions.EffectID(input.Effect)})
+		case "seam":
+			if input.Effect != 0 {
+				return fail(fmt.Errorf("seam action contains effect"))
+			}
+			if err := runProductionSeam(input.Fault); err != nil {
+				return fail(err)
+			}
+			entry.Result = input.Fault
 		case "commit":
 			writer := writers[slot]
 			if writer == nil {
@@ -420,6 +428,11 @@ func validateCoupledFaults(steps []CoupledInput) error {
 			valid = step.Action == "publish"
 		case "post_fence_commit":
 			valid = step.Action == "commit"
+		case "crash_before_commit", "response_lost_after_commit", "drop_then_retry", "duplicate_delivery", "route_refresh", "closed_admission", "overlapping_join",
+			"partition_before_reservation", "partition_after_reservation",
+			"partition_before_open", "partition_after_open",
+			"partition_before_ready", "partition_after_ready":
+			valid = step.Action == "seam" && step.Effect == 0
 		}
 		if !valid {
 			return fmt.Errorf("unsupported coupled fault %q on %s", step.Fault, step.Action)

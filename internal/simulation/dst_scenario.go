@@ -24,6 +24,16 @@ func DefaultDSTGenerator() (Generator, error) {
 		storageErrorDSTScenario(scenario, "writer-old"),
 		sameAddressDSTScenario(scenario),
 	}
+	for _, fault := range []string{
+		"crash_before_commit", "response_lost_after_commit", "drop_then_retry", "duplicate_delivery", "route_refresh", "closed_admission", "overlapping_join",
+		"partition_before_reservation", "partition_after_reservation",
+		"partition_before_open", "partition_after_open",
+		"partition_before_ready", "partition_after_ready",
+	} {
+		candidate := cloneCoupledScenario(scenario)
+		candidate.Steps = append(candidate.Steps, CoupledInput{Action: "seam", Actor: "coordinator-new", At: 100, Fault: fault})
+		scenarios = append(scenarios, candidate)
+	}
 	aba, err := assignmentABADSTScenario(scenario)
 	if err != nil {
 		return nil, err

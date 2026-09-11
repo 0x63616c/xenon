@@ -31,7 +31,7 @@ func NewCoupledInterleavings(raw []byte) (*CoupledInterleavings, error) {
 	}
 	for _, step := range c.Steps {
 		switch step.Action {
-		case "poll", "deliver", "read", "publish", "open", "close", "fence", "commit":
+		case "poll", "deliver", "read", "publish", "open", "close", "fence", "commit", "seam":
 		default:
 			return nil, errors.New("unsupported coupled interleaving action")
 		}
