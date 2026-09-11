@@ -132,7 +132,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	replay := &cobra.Command{Use: "replay FILE", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.MaximumNArgs(1), PersistentPreRunE: recordCancellation}
 	var allowLegacy bool
 	replay.Flags().BoolVar(&allowLegacy, "allow-legacy-artifact", false, "Allow schema 1 replay without envelope integrity; never exact acceptance evidence")
-	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json artifact")
+	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case failure.json receipt or scenario.json artifact")
 	replay.Flags().StringVar(&evidence, "evidence", "", "New replay evidence directory (must not exist)")
 	replay.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
 	_ = replay.MarkFlagFilename("artifact", "json")
