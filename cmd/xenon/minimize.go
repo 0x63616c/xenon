@@ -35,6 +35,7 @@ func minimizeCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra
 		if artifact == "" {
 			return errors.New("artifact FILE required")
 		}
+		artifact = scenarioArtifactPath(artifact)
 		if evidence == "" {
 			var err error
 			evidence, err = unusedTempPath("xenon-minimize-")

@@ -41,7 +41,7 @@ func TestSearchGeneratedInterleavingsAndReplay(t *testing.T) {
 	}
 	original := filepath.Join(evidence, "case-00000000000000000000")
 	replay := filepath.Join(t.TempDir(), "replay")
-	code, _, diagnostic = runSimulationCLI(t, context.Background(), "replay", "--artifact", filepath.Join(original, "scenario.json"), "--evidence", replay, "--development")
+	code, _, diagnostic = runSimulationCLI(t, context.Background(), "replay", "--artifact", filepath.Join(original, "failure.json"), "--evidence", replay, "--development")
 	if code != 0 {
 		t.Fatalf("replay: %d %s", code, diagnostic)
 	}

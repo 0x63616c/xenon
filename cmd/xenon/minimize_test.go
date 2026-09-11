@@ -19,11 +19,12 @@ func TestMinimizeCLIActualCoupledFailure(t *testing.T) {
 	}
 	var out, stderr bytes.Buffer
 	artifact := filepath.Join(original, "case-00000000000000000000", "scenario.json")
+	failure := filepath.Join(filepath.Dir(artifact), "failure.json")
 	before, err := os.ReadFile(artifact)
 	if err != nil {
 		t.Fatal(err)
 	}
-	code = execute(t.Context(), []string{"minimize", artifact, "--development", "--max-attempts", "3"}, forbiddenInput{t}, &out, &stderr, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
+	code = execute(t.Context(), []string{"minimize", failure, "--development", "--max-attempts", "3"}, forbiddenInput{t}, &out, &stderr, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 	var receipt struct {
 		Result struct {
 			StopReason       string `json:"stop_reason"`

@@ -146,6 +146,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		if artifact == "" {
 			return errors.New("artifact FILE required")
 		}
+		artifact = scenarioArtifactPath(artifact)
 		if evidence == "" {
 			var err error
 			evidence, err = unusedTempPath("xenon-replay-")
@@ -167,6 +168,14 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	}
 	return []*cobra.Command{test, search, replay, minimizeCommand(build, clock)}
 }
+
+func scenarioArtifactPath(path string) string {
+	if filepath.Base(path) == "failure.json" {
+		return filepath.Join(filepath.Dir(path), "scenario.json")
+	}
+	return path
+}
+
 func unusedTempPath(prefix string) (string, error) {
 	path, err := os.MkdirTemp("", prefix)
 	if err != nil {
