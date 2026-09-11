@@ -135,8 +135,30 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 		stopTraffic()
 		return result, err
 	}
+	nodes := make([]identity.NodeID, len(configs))
+	for i := range configs {
+		nodes[i] = configs[i].ServiceStorage.NodeID
+	}
+	slots := make([]identity.PartitionID, len(configs[0].ServiceStorage.Layout.Partitions))
+	for i, partition := range configs[0].ServiceStorage.Layout.Partitions {
+		slots[i] = partition.ID
+	}
+	planned, err := cluster.PlanPlacement(configs[0].ServiceStorage.Layout.Placement, slots, nodes)
+	if err != nil {
+		stopTraffic()
+		return result, fmt.Errorf("final placement plan: %w", err)
+	}
 	moved, err := waitControl(ctx, store, func(c cluster.Control) bool {
-		return readyOwner(c, "global") == configs[1].ServiceStorage.NodeID && c.AssignmentRevision > initial.AssignmentRevision
+		if c.ActiveMove != "" || c.AssignmentRevision <= initial.AssignmentRevision {
+			return false
+		}
+		for partition, owner := range planned {
+			state, ok := c.Partitions[partition]
+			if !ok || !state.Ready || state.Desired.Node != owner {
+				return false
+			}
+		}
+		return true
 	})
 	stopTraffic()
 	<-trafficDone
