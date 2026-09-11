@@ -1,0 +1,447 @@
+{
+  "schema": 1,
+  "qualification": "clean-matching-revision-real-generated-component",
+  "full_acceptance": false,
+  "result": "journey-passed",
+  "source_revision": "82408eb068d46aa7da386277dd16cc1befc0de8f",
+  "source_dirty": false,
+  "image_source_revision": "82408eb068d46aa7da386277dd16cc1befc0de8f",
+  "image": "sha256:1aab96ff822b224be3ade82b61050af9fc789e063f7be742db39fa408f5e693e",
+  "cli_sha256": "fab6ea965e602ef5d2a340767fbd87e810dfa781677c05025c0d3c0697df908c",
+  "cli_version": {
+    "xenon": "v0.0.0-20260911034225-82408eb068d4",
+    "go": "go1.27.1",
+    "revision": "82408eb068d46aa7da386277dd16cc1befc0de8f",
+    "modified": "false",
+    "temporal": {
+      "path": "go.temporal.io/server",
+      "version": "v1.31.2",
+      "sum": "h1:0O4zQ0NGRit2Z32s1XUHfs9k8zSKqff2n1QvFttYN0M="
+    },
+    "slatedb_go": {
+      "path": "slatedb.io/slatedb-go",
+      "version": "v0.16.0",
+      "sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0="
+    },
+    "slatedb_native": {
+      "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+      "artifact_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+      "identity_source": "build-attestation"
+    }
+  },
+  "source_evidence_directory": "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four",
+  "source_journey_sha256": "ed60a618c855a08bea67af8e6c00125732097c7049939ce0235a4cd13f0e207f",
+  "source_build_directory": "/Users/calum/Documents/ChatGPT/xenon-dev-build-82408eb",
+  "source_build_receipt_sha256": "a68e0f2a9bbe8def28b6d84e25e1dd568b41d280ffaaf8d6e788a01901a3ce48",
+  "build_inputs": {
+    "Dockerfile.unified-agent": "8c83249568aed9e2071803629e9f5aaa155f384cd912cacd11e007082a0ba2ff",
+    ".dockerignore": "05d051b048fd0f51f129db9506ed260acedb6a573143d452ed50ec3c60162422",
+    "tools/slatedb-native.json": "16148c4dbe475ada2ea4eba95880de11156af6483fafaf1d04fb7a013e21e816",
+    "test/scenarios/ministack/pins.json": "548b562bcf655610a0b06238cb2035e3c26cabe4ca3abb7789aa3492820d025a"
+  },
+  "fixture": {
+    "schema": 1,
+    "image": "sha256:1aab96ff822b224be3ade82b61050af9fc789e063f7be742db39fa408f5e693e",
+    "s3_port": 30006,
+    "temporal_port": 30233,
+    "http_port": 30243,
+    "storage_port": 30935,
+    "diagnostics_ports": [
+      30250,
+      31250,
+      32250
+    ]
+  },
+  "fixture_sha256": "9315663959731af4754fab506cc1856ef24eae3ad9418b4b06f4c1a3af6da7ed",
+  "resident_fixture_sha256": "8424e57e2ca0d366b742b9b5b4b82dac097c5600579516fd165367757b684e92",
+  "run": {
+    "Config": {
+      "max_cases": 3,
+      "continuous": false,
+      "max_duration": 360000000000,
+      "max_in_flight": 1,
+      "settle_budget": 60000000000,
+      "cleanup_budget": 30000000000,
+      "max_trace_bytes": 8388608,
+      "workload_seed": 42,
+      "fault_seed": 1,
+      "limits": {
+        "max_operations": 2048,
+        "max_depth": 64,
+        "max_payload_bytes": 1048576,
+        "features": [
+          "omes-corrected-workflow-input-v1"
+        ]
+      }
+    },
+    "Generator": {
+      "version": "omes-seeded-corrected-v1/resident-batch-v1",
+      "sha256": "08375ee67c2ed0454442b9ae3501c0ef5bd99d8d64e194d9c7deac2417230447",
+      "capabilities": [
+        "omes-resident-batch-v1",
+        "concurrent-roots",
+        "no-fault-exploration"
+      ]
+    },
+    "Provenance": {
+      "source": "82408eb068d46aa7da386277dd16cc1befc0de8f",
+      "versions": {
+        "build_modified": "false",
+        "corrected_omes_build_sha256": "178f10493101b986206b4a4e44ec2d48ed6497c92ee9a123b46bcc34a5a2f7d5",
+        "history_oracle_sha256": "64cbfd003ec76462a1119358045c58c7a726e534352ee2f679e90fb9b0a41768",
+        "images": "external resident fixture; not independently qualified by CLI",
+        "native": "external resident fixture; see exact fixture pin",
+        "omes_binary_sha256": "e040ae71e551a9ed400895f38678feea925340396bdf4eab0afeae39b624c16a",
+        "resident_fixture_sha256": "8424e57e2ca0d366b742b9b5b4b82dac097c5600579516fd165367757b684e92",
+        "toolchain": "go1.27.1",
+        "worker_sdk": "v1.48.0"
+      }
+    }
+  },
+  "cases": [
+    {
+      "request.json": {
+        "index": 0,
+        "workload_seed": 8563712589834033862,
+        "fault_seed": 16361518203497954311,
+        "limits": {
+          "max_operations": 2048,
+          "max_depth": 64,
+          "max_payload_bytes": 1048576,
+          "features": [
+            "omes-corrected-workflow-input-v1"
+          ]
+        }
+      },
+      "result.json": {
+        "settled": true,
+        "cleaned": true
+      },
+      "scenario_sha256": "58e0b4ad784b39a54592bcbae8c3bea9e0ecfcaabdd361252f67d889ddf1a410",
+      "trace_sha256": "9af16baf1efedcff2078630d3ee60efac8e73a3402088b36de62acb62ee926c5",
+      "directory": "workflow-search/case-00000000000000000000"
+    },
+    {
+      "request.json": {
+        "index": 1,
+        "workload_seed": 12473594156012887581,
+        "fault_seed": 18231132433296794075,
+        "limits": {
+          "max_operations": 2048,
+          "max_depth": 64,
+          "max_payload_bytes": 1048576,
+          "features": [
+            "omes-corrected-workflow-input-v1"
+          ]
+        }
+      },
+      "result.json": {
+        "settled": true,
+        "cleaned": true
+      },
+      "scenario_sha256": "256f0bf82447d76fc7e551d967cf12c39402d29da4991860f87de3de88bdb00e",
+      "trace_sha256": "9ec77924fd795ab9b719735681ed883d7861590cf8779568c2c60204673ebdeb",
+      "directory": "workflow-search/case-00000000000000000001"
+    },
+    {
+      "request.json": {
+        "index": 2,
+        "workload_seed": 10413053991976063333,
+        "fault_seed": 1004217829404278191,
+        "limits": {
+          "max_operations": 2048,
+          "max_depth": 64,
+          "max_payload_bytes": 1048576,
+          "features": [
+            "omes-corrected-workflow-input-v1"
+          ]
+        }
+      },
+      "result.json": {
+        "settled": true,
+        "cleaned": true
+      },
+      "scenario_sha256": "258a1e47624c43e9dca8e20dfd706f4676b014a89ae6f3f9ca26ce6ab0ebb141",
+      "trace_sha256": "c5e648a2cd7b7cc6f041b7dc26d517f94688e4aebf123366e1f8aa6f39bea9c0",
+      "directory": "workflow-search/case-00000000000000000002"
+    }
+  ],
+  "observations": {
+    "totals": {
+      "initial_roots": 12,
+      "child_runs": 69,
+      "continued_runs": 2,
+      "nexus_handler_runs": 0
+    },
+    "case_execution_interval_peak": {
+      "xenon-generated-76d86b3a5b991ac6-0000000000000000": 4,
+      "xenon-generated-9082996f5ab25165-0000000000000002": 4,
+      "xenon-generated-ad1b1bcc05895e1d-0000000000000001": 4
+    },
+    "limitations": [
+      "No admission barrier yet: observed overlap does not prove four roots simultaneously Running before release.",
+      "History inventory is visibility-derived; complete expected child/Nexus graph census remains required.",
+      "Concurrency-one comparison and independent fan-out limits remain unqualified."
+    ]
+  },
+  "assertions": [
+    "matching-clean-host-cli-native-and-dependencies",
+    "sdk-result-and-complete-two-run-history",
+    "four-real-nexus-echo-operations",
+    "three-generated-cases-four-roots-history-observed",
+    "inspect-equals-independent-frozen-authority",
+    "down-idempotent-zero-owned-containers",
+    "object-volume-preserved",
+    "sentinel-survived",
+    "unavailable-inspect-no-control"
+  ],
+  "assertion_count": 9,
+  "search_result": {
+    "completed": 3,
+    "stop_reason": "completed",
+    "evidence_path": "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/workflow-search"
+  },
+  "nexus_worker_ownership": {
+    "argv": [
+      "/Users/calum/Documents/ChatGPT/xenon-runtime-tools-proof/.local/generator-bundle/worker/source/workers/go/prepared/program",
+      "worker",
+      "--err-on-unimplemented",
+      "--server-address",
+      "127.0.0.1:30233",
+      "--namespace",
+      "xenon-ministack",
+      "--task-queue",
+      "omes-xenon-ministack-fuzz"
+    ],
+    "pid": 55131,
+    "cleanup_verified": true,
+    "exit_code": 0
+  },
+  "cleanup_errors": [],
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "version"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "stdout_sha256": "e682a3db0bcc92c81bd7c9be037c4882e111be896bb3f2918fe1b78aa37ee348",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 2,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "dev",
+        "up",
+        "--fixture",
+        "/Users/calum/Documents/ChatGPT/xenon-dev-build-82408eb/fixture.json",
+        "--state",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state",
+        "--timeout",
+        "4m"
+      ],
+      "timeout_seconds": 250,
+      "exit_code": 0,
+      "stdout_sha256": "4ebdb62c117aa72849a7053e638768760ec7e873f1262bef3161de688f5b8511",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 10,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "search",
+        "--mode",
+        "real",
+        "--max-cases",
+        "3",
+        "--duration",
+        "6m",
+        "--workflows-per-case",
+        "4",
+        "--workflow-concurrency",
+        "4",
+        "--workload-seed",
+        "42",
+        "--fault-seed",
+        "1",
+        "--bundle",
+        "/Users/calum/Documents/ChatGPT/xenon-runtime-tools-proof/.local/generator-bundle",
+        "--runtime-build",
+        "/Users/calum/Documents/ChatGPT/xenon-runtime-tools-proof/.local/generator-bundle/worker/build.json",
+        "--resident-fixture",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/resident.json",
+        "--history-oracle",
+        "/private/tmp/xenon-82408eb-oracle",
+        "--history-oracle-sha256",
+        "64cbfd003ec76462a1119358045c58c7a726e534352ee2f679e90fb9b0a41768",
+        "--runtime-evidence",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/workflow-runtime",
+        "--evidence",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/workflow-search",
+        "--development"
+      ],
+      "timeout_seconds": 420,
+      "exit_code": 0,
+      "stdout_sha256": "235587346336d65c8f84855bf9919674bd0d8b774d535cd3264ff4d6523d78f5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 15,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "inspect",
+        "--config",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state/inspect.json",
+        "--output",
+        "json"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "stdout_sha256": "ef02e271257bf0921e148c1aefe1fa1731cc3dae24e1c9e2ca6020360805cf2d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 21,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "dev",
+        "down",
+        "--state",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state",
+        "--timeout",
+        "90s"
+      ],
+      "timeout_seconds": 100,
+      "exit_code": 0,
+      "stdout_sha256": "1c97740c038b6c9aac71bed7944c99e187d00e0caea62268f035a266fc7496f4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 22,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "dev",
+        "down",
+        "--state",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state",
+        "--timeout",
+        "90s"
+      ],
+      "timeout_seconds": 100,
+      "exit_code": 0,
+      "stdout_sha256": "1c97740c038b6c9aac71bed7944c99e187d00e0caea62268f035a266fc7496f4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 23,
+      "argv": [
+        "docker",
+        "ps",
+        "-aq",
+        "--filter",
+        "label=io.xenon.dev.run=dev_4zzRemdwh8wRd57APmEGzA"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 26,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "inspect",
+        "--config",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state/inspect.json",
+        "--output",
+        "json",
+        "--timeout",
+        "1s"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 1,
+      "stdout_sha256": "fab26e423ccaf1730ccaaa80cff1dd421b1de2c60814208145ce55bdd61909a1",
+      "stderr_sha256": "051a17524e84bf618e33c3816e285bd0b6440675c69b770cdfa4181298a22de1"
+    },
+    {
+      "index": 27,
+      "argv": [
+        "/private/tmp/xenon-82408eb-cli",
+        "dev",
+        "down",
+        "--state",
+        "/Users/calum/Documents/ChatGPT/xenon-generated-82408eb-three-four/state",
+        "--timeout",
+        "90s"
+      ],
+      "timeout_seconds": 100,
+      "exit_code": 0,
+      "stdout_sha256": "1c97740c038b6c9aac71bed7944c99e187d00e0caea62268f035a266fc7496f4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "index": 28,
+      "argv": [
+        "docker",
+        "ps",
+        "-aq",
+        "--no-trunc",
+        "--filter",
+        "name=^/xenon-journey-sentinel-2e387703dc094025bb4a5941a7dcd374$",
+        "--filter",
+        "label=io.xenon.journey=935a3d18461441268909751bac0eb3ff"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "stdout_sha256": "86f895e28c0b27a6a884b0d2a52fe198fbf3456519c8b430396616f86ac97a32",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verified_output_count": 266,
+  "limitations": [
+    "component boundary instrumentation and aggregate same-revision build validation remain separate",
+    "No admission barrier yet: observed overlap does not prove four roots simultaneously Running before release.",
+    "History inventory is visibility-derived; complete expected child/Nexus graph census remains required.",
+    "Concurrency-one comparison and independent fan-out limits remain unqualified.",
+    "The search command was explicitly invoked with --development by the component script, although actual CLI metadata and matching image identify clean82408eb.",
+    "No injected faults, full execution-graph oracle, admission barrier, concurrency-one comparison, full cleanup census or full #119 acceptance follows from this checkpoint.",
+    "Source output files remain in the preserved evidence directory; this compact checkpoint does not embed bulky raw logs, process state, or generated histories."
+  ],
+  "cleanup_enumeration": [
+    {
+      "command_index": 21,
+      "dev_down": {
+        "schema": 1,
+        "status": "stopped",
+        "run": "dev_4zzRemdwh8wRd57APmEGzA",
+        "cleanup_verified": true
+      }
+    },
+    {
+      "command_index": 22,
+      "dev_down": {
+        "schema": 1,
+        "status": "stopped",
+        "run": "dev_4zzRemdwh8wRd57APmEGzA",
+        "cleanup_verified": true
+      }
+    },
+    {
+      "command_index": 23,
+      "owned_container_ids": [],
+      "exit_code": 0
+    },
+    {
+      "command_index": 27,
+      "dev_down": {
+        "schema": 1,
+        "status": "stopped",
+        "run": "dev_4zzRemdwh8wRd57APmEGzA",
+        "cleanup_verified": true
+      }
+    }
+  ]
+}
