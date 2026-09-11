@@ -82,6 +82,9 @@ type GeneratedWorkflowNode struct {
 	Activities      int      `json:"activities"`
 	NexusOperations int      `json:"nexus_operations"`
 	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
+	Terminal        string   `json:"terminal"`
+	ResultSHA256    string   `json:"result_sha256,omitempty"`
+	ResultString    string   `json:"result_string,omitempty"`
 }
 
 // GeneratedWorkflowIntent is emitted by the pinned generator-side inspector
@@ -212,8 +215,20 @@ func validateGeneratedIntent(intent GeneratedWorkflowIntent, input []byte) error
 	byID := make(map[string]GeneratedWorkflowNode, len(intent.Nodes))
 	observed := WorkflowEffectCounts{}
 	for _, node := range intent.Nodes {
-		if node.ID == "" || byID[node.ID].ID != "" || !digestPattern.MatchString(node.InputSHA256) || node.Activities < 0 || node.NexusOperations < 0 {
+		if node.ID == "" || byID[node.ID].ID != "" || !digestPattern.MatchString(node.InputSHA256) || node.Activities < 0 || node.NexusOperations < 0 ||
+			(node.ResultSHA256 != "" && !digestPattern.MatchString(node.ResultSHA256)) {
 			return errors.New("invalid generated workflow intent node")
+		}
+		if node.Kind == "nexus-handler" {
+			if node.Terminal != "completed-nexus" || node.ResultSHA256 != "" {
+				return errors.New("invalid generated Nexus terminal")
+			}
+		} else if node.Next != "" {
+			if node.Terminal != "continued-as-new" {
+				return errors.New("invalid generated continuation terminal")
+			}
+		} else if node.Terminal != "completed" || node.ResultSHA256 == "" {
+			return errors.New("invalid generated workflow terminal")
 		}
 		byID[node.ID] = node
 		observed.Activities += node.Activities
@@ -249,10 +264,13 @@ func validateGeneratedIntent(intent GeneratedWorkflowIntent, input []byte) error
 				return errors.New("invalid generated workflow parent edge")
 			}
 		}
+		refs := map[string]bool{}
 		for _, child := range append(append([]string(nil), node.Children...), node.NexusHandlers...) {
-			if target, ok := byID[child]; !ok || target.Parent != node.ID {
+			target, ok := byID[child]
+			if !ok || target.Parent != node.ID || refs[child] || child == node.ID {
 				return errors.New("invalid generated workflow child edge")
 			}
+			refs[child] = true
 		}
 		if node.Next != "" {
 			if next, ok := byID[node.Next]; !ok || next.Previous != node.ID {

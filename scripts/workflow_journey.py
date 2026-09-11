@@ -23,8 +23,26 @@ def history_counts(directory):
     members = []
     initial_root_runs = []
     totals = dict(initial_roots=0, child_runs=0, continued_runs=0, nexus_handler_runs=0, child_starts=0, activity_scheduled=0, activity_started=0, nexus_operation_scheduled=0, nexus_operation_started=0)
+    expected = dict(roots=0, children=0, continuations=0, activities=0, nexus_operations=0, nexus_handlers=0)
+    observed = dict(expected)
+    fanout = dict(children=0, activities=0, nexus=0)
+    limits = None
     for receipt in sorted(directory.glob('**/histories/result.json')):
         result = json.loads(receipt.read_text())
+        proof = result.get('generated_intent')
+        if not proof or proof.get('contract') != 'omes-generated-intent-v1' or proof.get('expected') != proof.get('observed'):
+            raise ValueError('missing or mismatched generated intent audit')
+        if limits is None:
+            limits = proof['limits']
+        if proof['limits'] != limits:
+            raise ValueError('generated intent limits changed between members')
+        for key in expected:
+            expected[key] += proof['expected'][key]
+            observed[key] += proof['observed'][key]
+        for key in fanout:
+            fanout[key] = max(fanout[key], proof['observed_max_fanout'][key])
+            if proof['observed_max_fanout'][key] > proof['limits'][key]:
+                raise ValueError('generated workflow fanout exceeds explicit limit')
         roots = set()
         intervals = []
         for run in result['runs']:
@@ -68,10 +86,15 @@ def history_counts(directory):
         cases.setdefault(case, []).append(interval)
     if len(cases) != 3 or any(len(items) != 4 for items in cases.values()) or totals['initial_roots'] != 12:
         raise ValueError('expected three cases each containing four initial roots')
+    if limits is None or expected != observed:
+        raise ValueError('generated intent census missing')
+    actual = dict(roots=totals['initial_roots'], children=totals['child_runs'], continuations=totals['continued_runs'], activities=totals['activity_scheduled'], nexus_operations=totals['nexus_operation_scheduled'], nexus_handlers=totals['nexus_handler_runs'])
+    if actual != observed:
+        raise ValueError('history event census disagrees with generated intent audit')
     return dict(totals=totals, initial_root_runs=initial_root_runs, case_execution_interval_peak={case: overlap([interval for member in items for interval in member]) for case, items in cases.items()},
+                generated_intent=dict(expected=expected, observed=observed, observed_max_fanout=fanout, limits=limits),
                 limitations=['No admission barrier yet: observed overlap does not prove four roots simultaneously Running before release.',
-                             'History inventory is visibility-derived; complete expected child/Nexus graph census remains required.',
-                             'Concurrency-one comparison and independent fan-out limits remain unqualified.'])
+                             'Concurrency-one comparison remains unqualified.'])
 
 
 @contextmanager
@@ -161,8 +184,7 @@ def run_search(cli, bundle, oracle, evidence, fixture, env, run, proxy=None, con
             result['admission'] = admission_counts(evidence / 'admission.json', concurrency, result['initial_root_runs'])
             if any(peak != concurrency for peak in result['case_execution_interval_peak'].values()):
                 raise RuntimeError('actual execution interval peak disagrees with admission limit')
-            result['limitations'] = ['History inventory is visibility-derived; complete expected child/Nexus graph census remains required.',
-                                      'Independent child/activity/Nexus fan-out limits remain unqualified.']
+            result['limitations'] = []
             (evidence / 'workflow-observations.json').write_text(json.dumps(result, indent=2) + '\n')
             return result
     return _run_search(cli, bundle, oracle, evidence, env, run, build_path, build, worker, address, address, concurrency)

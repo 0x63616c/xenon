@@ -252,10 +252,7 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 	r.failureMu.Lock()
 	report := r.reportFailure
 	r.failureMu.Unlock()
-	args := []string{"--address", t.Address, "--namespace", t.Namespace, "--omes-run-id", t.RunID, "--minimum-runs", "1", "--output", output}
-	if r.RequireExpectedGraph {
-		args = append(args, "--expected-input", filepath.Join(path, "input.proto"))
-	}
+	args := []string{"--address", t.Address, "--namespace", t.Namespace, "--omes-run-id", t.RunID, "--minimum-runs", "1", "--output", output, "--expected-input", filepath.Join(path, "input.proto"), "--expected-intent", filepath.Join(path, "intent.json")}
 	if e := runOmesProcess(ctx, r.oracle, args, r.build.Source, filepath.Join(path, "audit.log"), report); e != nil {
 		return nil, e
 	}
@@ -266,6 +263,7 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 	var proof struct {
 		ExpectedContract string `json:"expected_graph_contract"`
 		ExpectedInputSHA string `json:"expected_input_sha256"`
+		ExpectedRuns     int    `json:"expected_runs"`
 		Schema           int    `json:"schema"`
 		Visible          int    `json:"visible_runs"`
 		Query            string `json:"query"`
@@ -273,8 +271,30 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 			HistoryFile string `json:"history_file"`
 			HistorySHA  string `json:"history_sha256"`
 		} `json:"runs"`
+		Generated struct {
+			Contract     string               `json:"contract"`
+			InputSHA256  string               `json:"input_sha256"`
+			IntentSHA256 string               `json:"intent_sha256"`
+			Expected     WorkflowEffectCounts `json:"expected"`
+			Observed     WorkflowEffectCounts `json:"observed"`
+			Limits       WorkflowFanout       `json:"limits"`
+			ObservedMax  WorkflowFanout       `json:"observed_max_fanout"`
+		} `json:"generated_intent"`
 	}
 	if e = json.Unmarshal(raw, &proof); e != nil {
+		return nil, e
+	}
+	intentRaw, e := readWorkflowFile(filepath.Join(path, "intent.json"), 8<<20)
+	if e != nil {
+		return nil, e
+	}
+	var expectedIntent struct {
+		Schema       int             `json:"schema"`
+		InputSHA256  string          `json:"input_sha256"`
+		IntentSHA256 string          `json:"intent_sha256"`
+		Intent       json.RawMessage `json:"intent"`
+	}
+	if e = strictJSON(intentRaw, &expectedIntent); e != nil {
 		return nil, e
 	}
 	if proof.Schema != 1 || proof.Visible < 1 || proof.Visible != len(proof.Runs) || proof.Query != queueQuery(t) {
@@ -288,13 +308,11 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 			return nil, e
 		}
 	}
-	if r.RequireExpectedGraph {
-		if proof.ExpectedContract != workflowgraph.Contract {
-			return nil, errors.New("missing expected graph audit")
-		}
-		if err := checkFile(filepath.Join(path, "input.proto"), proof.ExpectedInputSHA); err != nil {
-			return nil, err
-		}
+	if proof.ExpectedContract != "omes-generated-intent-v1" || proof.ExpectedRuns != proof.Visible || proof.Generated.Contract != proof.ExpectedContract || proof.Generated.InputSHA256 != proof.ExpectedInputSHA || proof.Generated.IntentSHA256 != expectedIntent.IntentSHA256 || proof.Generated.Expected != proof.Generated.Observed || proof.Generated.Limits != generatedWorkflowFanoutLimits || proof.Generated.ObservedMax.Children > proof.Generated.Limits.Children || proof.Generated.ObservedMax.Activities > proof.Generated.Limits.Activities || proof.Generated.ObservedMax.Nexus > proof.Generated.Limits.Nexus {
+		return nil, errors.New("missing generated intent audit")
+	}
+	if err := checkFile(filepath.Join(path, "input.proto"), proof.ExpectedInputSHA); err != nil {
+		return nil, err
 	}
 	r.auditedRun = t.RunID
 	result, _ := json.Marshal(map[string]any{"event": "resident-workflow-history-verified", "audit_sha256": hash(raw), "visible_runs": proof.Visible, "qualification": "resident-workflow-component; no faults or cold recovery"})

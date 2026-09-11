@@ -38,6 +38,9 @@ type intentNode struct {
 	Activities      int      `json:"activities"`
 	NexusOperations int      `json:"nexus_operations"`
 	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
+	Terminal        string   `json:"terminal"`
+	ResultSHA256    string   `json:"result_sha256,omitempty"`
+	ResultString    string   `json:"result_string,omitempty"`
 }
 type generatedIntent struct {
 	Schema        int             `json:"schema"`
@@ -122,6 +125,12 @@ func (b *intentBuilder) action(n *intentNode, a *pb.Action) error {
 		return fmt.Errorf("generated intent empty action")
 	}
 	switch x := a.Variant.(type) {
+	case *pb.Action_ReturnResult:
+		raw, e := marshalIntentMessage(x.ReturnResult.GetReturnThis())
+		if e != nil { return e }
+		n.Terminal, n.ResultSHA256 = "completed", digestIntent(raw)
+	case *pb.Action_ReturnError:
+		return fmt.Errorf("generated intent unsupported return error")
 	case *pb.Action_ExecActivity:
 		n.Activities++
 		b.intent.Counts.Activities++
@@ -150,6 +159,7 @@ func (b *intentBuilder) action(n *intentNode, a *pb.Action) error {
 		}
 		id := b.next("continuation")
 		n.Next = id
+		n.Terminal = "continued-as-new"
 		_, e = b.addWorkflow(input, id, "continuation", n.Parent, n.ID)
 		return e
 	case *pb.Action_NestedActionSet:
@@ -165,11 +175,12 @@ func (b *intentBuilder) action(n *intentNode, a *pb.Action) error {
 		if x.NexusOperation.Operation == "echo-async" {
 			id := b.next("nexus-handler")
 			n.NexusHandlers = append(n.NexusHandlers, id)
-			raw, e := marshalIntentMessage(x.NexusOperation)
+			handlerInput := &pb.NexusHandlerInput{Input: x.NexusOperation.Input, BeforeActions: x.NexusOperation.BeforeActions, HandlerWorkflowId: x.NexusOperation.HandlerWorkflowId, HandlerWorkflowIdConflictPolicy: x.NexusOperation.HandlerWorkflowIdConflictPolicy, WaitForSignal: x.NexusOperation.WaitForSignal}
+			raw, e := marshalIntentMessage(handlerInput)
 			if e != nil {
 				return e
 			}
-			h := &intentNode{ID: id, Kind: "nexus-handler", Parent: n.ID, InputSHA256: digestIntent(raw)}
+			h := &intentNode{ID: id, Kind: "nexus-handler", Parent: n.ID, InputSHA256: digestIntent(raw), Terminal: "completed-nexus", ResultString: x.NexusOperation.Input}
 			b.intent.Nodes = append(b.intent.Nodes, h)
 			b.intent.Counts.NexusHandlers++
 			for _, set := range x.NexusOperation.BeforeActions {

@@ -31,6 +31,10 @@ ACCEPTANCE_CRITERIA = {
 ACCEPTANCE_COMPONENT_TESTS = {
     "cli-contracts": {
         "package": "./cmd/xenon",
+        "required_output": {
+            "CLI_CONTRACT_MATRIX": {"rows": 46, "help_paths": 23, "config_sources": 1},
+            "CLI_EFFECT_NEGATIVE_CONTROLS": {"boundaries": 4, "counters": 4},
+        },
         "expected_tests": [
             "TestLightweightCommandsNeverStartBackend",
             "TestCommandErrorsUseOnlyStderrAndDoNotStart",
@@ -46,6 +50,8 @@ ACCEPTANCE_COMPONENT_TESTS = {
             "TestSimulationHelpDoesNotReadInputsOrStartBackend",
             "TestResidentWorkflowHelpDoesNotStartBackend",
             "TestRealProfileHelpNeverInitializesBackend",
+            "TestCLIContractMatrixAndZeroEffects",
+            "TestCLIContractEffectCountersDetectEveryBoundary",
         ],
     },
     "workflow-search-dst": {
@@ -290,6 +296,17 @@ def run_acceptance_component(name, root, allow_dirty=False):
         if code or expired:
             raise ValueError(f"component command failed (exit={code}, timeout={expired})")
         verify_go_top_level_tests(output, expected, "github.com/0x63616c/xenon/" + plan["package"].removeprefix("./"))
+        summaries = {}
+        for label, required in plan.get("required_output", {}).items():
+            match = re.search(r"\b" + re.escape(label) + r"((?: [a-z_]+=[0-9]+)+)", output)
+            if match is None:
+                raise ValueError(f"missing {label} executable summary")
+            actual = {key: int(value) for key, value in re.findall(r"([a-z_]+)=([0-9]+)", match.group(1))}
+            if actual != required:
+                raise ValueError(f"{label} summary mismatch: {actual} != {required}")
+            summaries[label] = actual
+        if summaries:
+            report["executable_summaries"] = summaries
         for relative, expected_hash in report["config_sha256"].items():
             if digest(root / relative) != expected_hash:
                 raise ValueError(f"input changed while component checks ran: {relative}")

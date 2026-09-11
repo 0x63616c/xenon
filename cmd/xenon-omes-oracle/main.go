@@ -129,10 +129,22 @@ func run() error {
 	activity := flag.Bool("require-activity-per-run", false, "require completed activity in each run")
 	mixed := flag.Bool("mixed-profile", false, "validate frozen mixed40 history semantics")
 	expectedInput := flag.String("expected-input", "", "Saved Omes TestInput; require strict serial expected graph contract")
+	expectedIntent := flag.String("expected-intent", "", "Saved generated intent; requires its exact Omes TestInput")
 	flag.Parse()
 	var graph *workflowgraph.Graph
+	var generated *generatedIntentFile
 	var expectedSHA string
-	if *expectedInput != "" {
+	if *expectedIntent != "" {
+		if *expectedInput == "" || *mixed {
+			return fmt.Errorf("generated intent requires expected input and excludes mixed profile")
+		}
+		var e error
+		generated, e = loadGeneratedIntent(*expectedIntent, *expectedInput)
+		if e != nil {
+			return e
+		}
+		expectedSHA = generated.InputSHA256
+	} else if *expectedInput != "" {
 		if *mixed {
 			return fmt.Errorf("expected graph and mixed profile are exclusive")
 		}
@@ -295,12 +307,26 @@ func run() error {
 			return err
 		}
 	}
+	var generatedProof generatedAudit
+	if generated != nil {
+		generatedProof, err = checkGeneratedIntent(generated, runs, histories, *namespace)
+		if err != nil {
+			return err
+		}
+	}
 	report := map[string]any{"generated_parent_close_checked": !*mixed, "mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories, child-parent links and continue-as-new successor graph; expected generated root graph and semantic result values not checked"}
 	if graph != nil {
 		report["expected_graph_contract"] = workflowgraph.Contract
 		report["expected_input_sha256"] = expectedSHA
 		report["expected_runs"] = len(graph.Nodes)
 		report["scope"] = "input-derived serial root/awaited child/continuation graph and exact result payloads; no Nexus, signals or arbitrary generated grammar"
+	}
+	if generated != nil {
+		report["generated_intent"] = generatedProof
+		report["expected_graph_contract"] = generatedIntentContract
+		report["expected_input_sha256"] = expectedSHA
+		report["expected_runs"] = len(generated.Intent.Nodes)
+		report["scope"] = "input-derived generated execution graph, typed effect counts, result predicates and independent observed fanout"
 	}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
