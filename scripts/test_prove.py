@@ -1,4 +1,5 @@
 import os
+import copy
 from contextlib import ExitStack
 import subprocess
 import json
@@ -184,6 +185,9 @@ class RunnerTests(unittest.TestCase):
             manifest = json.loads(path.read_text())
             help_text = subprocess.check_output([sys.executable, str(prove.ROOT / "scripts/prove.py"), "--help"], text=True)
             self.assertIn(manifest["name"], help_text)
+            if manifest["name"] in prove.ACCEPTANCE_CRITERIA:
+                prove.validate_acceptance_manifest(manifest, manifest["name"], prove.ROOT)
+                continue
             if manifest["name"] == "go-bindings":
                 self.assertEqual(manifest["source_commit"], "3fb9e8abab0c9f5833f0c154140ceef009fea02a")
                 self.assertEqual(len(manifest["expected_tests"]), 4)
@@ -250,6 +254,106 @@ class RunnerTests(unittest.TestCase):
         code, _, expired = prove.run_process([sys.executable, '-c', 'import time; time.sleep(10)'], 0.05, os.environ.copy(), Path.cwd())
         self.assertTrue(expired)
         self.assertNotEqual(code, 0)
+
+
+class AcceptanceRegistrationTests(unittest.TestCase):
+    def manifest(self, name="cli-contracts"):
+        return json.loads(prove.manifest_path(name).read_text())
+
+    def test_all_five_names_and_exact_requirement_mappings(self):
+        expected = {
+            "cli-contracts", "workflow-search-dst", "workflow-search-real",
+            "workflow-replay-minimize", "issue-119-acceptance",
+        }
+        self.assertEqual(set(prove.ACCEPTANCE_CRITERIA), expected)
+        for name in expected:
+            prove.validate_acceptance_manifest(self.manifest(name), name, prove.ROOT)
+
+    def test_manifest_cannot_omit_obligations_or_self_certify(self):
+        original = self.manifest()
+        changes = [
+            {"status": "passed"}, {"proof_pass": True}, {"schema": True},
+            {"criteria": {}}, {"commands": []}, {"inputs": []},
+            {"inputs": ["docs/design/issue-119-acceptance.md", "missing-input"]},
+            {"inputs": ["docs/design/issue-119-acceptance.md", str(prove.ROOT / "AGENTS.md")]},
+            {"child_gates": ["workflow-search-dst"]},
+        ]
+        for criterion in original["criteria"]:
+            for detail in ({"status": "passed", "missing": "none"},
+                           {"status": "unverified", "missing": ""},
+                           {"status": "unverified", "missing": "still missing", "receipt": {"passed": True}}):
+                criteria = copy.deepcopy(original["criteria"])
+                criteria[criterion] = detail
+                changes.append({"criteria": criteria})
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                prove.validate_acceptance_manifest({**original, **change}, "cli-contracts", prove.ROOT)
+        aggregate = self.manifest("issue-119-acceptance")
+        with self.assertRaises(ValueError):
+            prove.validate_acceptance_manifest({**aggregate, "child_gates": []}, aggregate["name"], prove.ROOT)
+
+    def run_registration(self, name, damage=None):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            for gate in prove.ACCEPTANCE_CRITERIA:
+                manifest = self.manifest(gate)
+                for relative in manifest["inputs"]:
+                    path = root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("fixture source input\n")
+                path = prove.manifest_path(gate, root)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(manifest))
+            (root / "scripts/prove.py").write_text("fixture runner input\n")
+            if damage:
+                damage(root)
+            with patch.object(prove, "ROOT", root), patch.object(sys, "argv", ["prove.py", name, "--allow-dirty"]), patch.object(
+                    prove.subprocess, "check_output", side_effect=["a" * 40, " M source"]), patch.object(
+                    prove, "run_process", side_effect=AssertionError("incomplete gate executed a command")):
+                self.assertEqual(prove.main(), 1)
+            path = next((root / ".local/evidence").glob("*/result.json"))
+            receipt = json.loads(path.read_text())
+            self.assertFalse(receipt["proof_pass"])
+            self.assertFalse(receipt["acceptance_pass"])
+            self.assertEqual(receipt["executed_tests"], 0)
+            for relative, expected in receipt["config_sha256"].items():
+                self.assertEqual(prove.digest(root / relative), expected)
+            return receipt
+
+    def test_registered_gates_fail_even_with_allow_dirty(self):
+        for name in prove.ACCEPTANCE_CRITERIA:
+            with self.subTest(gate=name):
+                receipt = self.run_registration(name)
+                self.assertEqual(receipt["result"], "incomplete")
+                self.assertEqual(set(receipt["criteria"]), set(prove.ACCEPTANCE_CRITERIA[name]))
+                self.assertIn("zero tests executed", receipt["error"])
+                self.assertTrue(receipt["config_sha256"])
+                for child in receipt["child_gates"]:
+                    self.assertFalse(child["receipt_verified"])
+
+    def test_missing_child_manifest_and_claimed_pass_fail_aggregate(self):
+        def claimed_pass(root):
+            path = prove.manifest_path("cli-contracts", root)
+            manifest = json.loads(path.read_text())
+            manifest["status"] = "passed"
+            path.write_text(json.dumps(manifest))
+        for damage in (lambda root: prove.manifest_path("cli-contracts", root).unlink(), claimed_pass):
+            receipt = self.run_registration("issue-119-acceptance", damage)
+            self.assertEqual(receipt["result"], "failed")
+
+    def test_zero_expected_tests_and_skipped_negative_controls_fail(self):
+        package = "github.com/0x63616c/xenon/internal/simulation"
+        summary = {"Action": "pass", "Package": package}
+        positive = {"Action": "pass", "Package": package, "Test": "TestPositive"}
+        mutant = {"Action": "pass", "Package": package, "Test": "TestMutant"}
+        output = lambda events: "\n".join(json.dumps(event) for event in events)
+        for expected, events in [([], [summary]), (["TestPositive", "TestPositive"], [positive, summary]),
+                                 (["TestPositive", "TestMutant"], [positive, summary]),
+                                 (["TestPositive", "TestMutant"], [positive, {**mutant, "Action": "skip"}, summary]),
+                                 (["TestPositive", "TestMutant"], [positive, {**mutant, "Action": "fail"}, summary])]:
+            with self.subTest(expected=expected, events=events), self.assertRaises(ValueError):
+                prove.verify_go_tests(output(events), expected, package)
+        prove.verify_go_tests(output([positive, mutant, summary]), ["TestPositive", "TestMutant"], package)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,38 @@
+{
+  "schema": 2,
+  "name": "workflow-search-real",
+  "kind": "acceptance-registration",
+  "status": "incomplete",
+  "criteria": {
+    "CLI-02": {
+      "status": "unverified",
+      "missing": "Validate clean pinned three-node CLI lifecycle, independently matching inspection and scoped teardown in the acceptance gate."
+    },
+    "GEN-02": {
+      "status": "unverified",
+      "missing": "Validate three generated concurrent four-root cases, exact concurrency, histories and separate execution counts in the acceptance gate."
+    },
+    "FAULT-01:real": {
+      "status": "unverified",
+      "missing": "Validate the complete observed-trigger join, kill, takeover, same-address restart and disposable-state cold restart matrix."
+    },
+    "ORACLE-01:real": {
+      "status": "unverified",
+      "missing": "Validate independent complete execution-graph, histories, visibility, acknowledged-state and progress assertions for real fixtures."
+    },
+    "CLEAN-01:real": {
+      "status": "unverified",
+      "missing": "Validate exact independent process/container/execution census and baseline reuse across three concurrent real cases."
+    },
+    "EVID-01": {
+      "status": "unverified",
+      "missing": "Validate required source, tool, input, fault, outcome, cleanup and output hashes/counts across the real gate."
+    }
+  },
+  "inputs": [
+    "docs/design/issue-119-acceptance.md",
+    "scripts/dev-journey.py",
+    "scripts/workflow_journey.py"
+  ],
+  "child_gates": []
+}

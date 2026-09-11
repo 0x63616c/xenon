@@ -1,0 +1,39 @@
+{
+  "schema": 2,
+  "name": "workflow-search-dst",
+  "kind": "acceptance-registration",
+  "status": "incomplete",
+  "criteria": {
+    "GEN-01": {
+      "status": "unverified",
+      "missing": "Bind the existing generated-case repetitions, limits and generator-error controls to validated exact-count gate receipts."
+    },
+    "DST-01": {
+      "status": "unverified",
+      "missing": "Bind seeded production-Step schedules, replay, virtual-24h instrumentation and measured budgets to one validated gate receipt; the named fault matrix remains partial."
+    },
+    "FAULT-01:simulation": {
+      "status": "unverified",
+      "missing": "Complete and execute the full named simulation fault matrix with per-cut trigger and occurrence counts."
+    },
+    "ORACLE-01:mutants": {
+      "status": "unverified",
+      "missing": "Complete the named independent invariant mutant set and verify each expected fingerprint in the gate."
+    },
+    "STOP-01": {
+      "status": "unverified",
+      "missing": "Complete competing-cause/admission ordering coverage and validate exact test and negative-control counts."
+    },
+    "CLEAN-01:controls": {
+      "status": "unverified",
+      "missing": "Complete cleanup controls including evidence quota/full disk and 100-case resource baseline accounting, then validate gate evidence."
+    }
+  },
+  "inputs": [
+    "docs/design/issue-119-acceptance.md",
+    "internal/simulation/coupled_generate_test.go",
+    "internal/simulation/workflow_cleanup_controls_test.go",
+    "internal/simulation/stop_reason_test.go"
+  ],
+  "child_gates": []
+}

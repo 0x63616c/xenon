@@ -1,0 +1,30 @@
+{
+  "schema": 2,
+  "name": "workflow-replay-minimize",
+  "kind": "acceptance-registration",
+  "status": "incomplete",
+  "criteria": {
+    "REPLAY-01:simulation": {
+      "status": "unverified",
+      "missing": "Bind passing/failing generator-free exact replay and corruption controls to validated gate receipts."
+    },
+    "REPLAY-01:real": {
+      "status": "unverified",
+      "missing": "Validate saved real input/fault replay and rejection of incompatible or nonempty fixtures with actual observations."
+    },
+    "MIN-01:simulation": {
+      "status": "unverified",
+      "missing": "Bind committed reduction, stable fingerprint, dependency repair and budget controls to validated gate receipts."
+    },
+    "MIN-01:real": {
+      "status": "unverified",
+      "missing": "Execute the controlled real failure reduction and require three of three matching bounded fingerprints for each accepted reduction."
+    }
+  },
+  "inputs": [
+    "docs/design/issue-119-acceptance.md",
+    "internal/simulation/replay_integrity_test.go",
+    "internal/simulation/minimize_coupled_test.go"
+  ],
+  "child_gates": []
+}

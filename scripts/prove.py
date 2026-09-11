@@ -15,10 +15,22 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Full acceptance is deliberately separate from component experiments. Until a
+# gate has an executable verifier, its registration can only produce a non-pass.
+ACCEPTANCE_CRITERIA = {
+    "cli-contracts": ["CLI-01", "command-exit-compatibility"],
+    "workflow-search-dst": ["GEN-01", "DST-01", "FAULT-01:simulation", "ORACLE-01:mutants", "STOP-01", "CLEAN-01:controls"],
+    "workflow-search-real": ["CLI-02", "GEN-02", "FAULT-01:real", "ORACLE-01:real", "CLEAN-01:real", "EVID-01"],
+    "workflow-replay-minimize": ["REPLAY-01:simulation", "REPLAY-01:real", "MIN-01:simulation", "MIN-01:real"],
+    "issue-119-acceptance": ["cli-contracts", "workflow-search-dst", "workflow-search-real", "workflow-replay-minimize", "source-layout", "evidence-validation"],
+}
+
 SCENARIO_MANIFESTS = {
     name: "test/scenarios/ministack/manifests/" + name + ".json"
     for name in ("runtime-measurements", "nexus-http", "nexus-readiness", "corrected-fuzz-controls")
 }
+
+SCENARIO_MANIFESTS.update({name: "test/scenarios/acceptance/manifests/" + name + ".json" for name in ACCEPTANCE_CRITERIA})
 
 def manifest_path(name, root=None):
     root = ROOT if root is None else root
@@ -52,6 +64,70 @@ def cargo_configs(root, env):
     paths = [d / ".cargo" / n for d in dirs for n in ("config", "config.toml")]
     paths += [home / n for n in ("config", "config.toml")]
     return sorted({str(p.resolve()) for p in paths if p.is_file()})
+
+
+def validate_acceptance_manifest(manifest, name, root):
+    """Validate registration, never certify criteria from declarations or links."""
+    fields = {"schema", "name", "kind", "status", "criteria", "inputs", "child_gates"}
+    if set(manifest) != fields or name not in ACCEPTANCE_CRITERIA:
+        raise ValueError("invalid acceptance manifest fields or gate name")
+    if (type(manifest["schema"]) is not int or manifest["schema"] != 2
+            or manifest["name"] != name or manifest["kind"] != "acceptance-registration"
+            or manifest["status"] != "incomplete"):
+        raise ValueError("acceptance registration cannot assert completion")
+    criteria = manifest["criteria"]
+    if not isinstance(criteria, dict) or set(criteria) != set(ACCEPTANCE_CRITERIA[name]):
+        raise ValueError("acceptance criteria missing or unexpected")
+    for criterion, detail in criteria.items():
+        if (not isinstance(detail, dict) or set(detail) != {"status", "missing"}
+                or detail["status"] != "unverified" or not isinstance(detail["missing"], str)
+                or not detail["missing"].strip()):
+            raise ValueError(f"criterion {criterion} needs an explicit unverified obligation")
+    children = list(ACCEPTANCE_CRITERIA)[:-1] if name == "issue-119-acceptance" else []
+    if manifest["child_gates"] != children:
+        raise ValueError("acceptance child gates missing or unexpected")
+    inputs = manifest["inputs"]
+    if (not isinstance(inputs, list) or not inputs or any(not isinstance(p, str) for p in inputs)
+            or len(set(inputs)) != len(inputs)
+            or "docs/design/issue-119-acceptance.md" not in inputs):
+        raise ValueError("acceptance source inputs must include the authoritative spec")
+    for relative in inputs:
+        path = (root / relative).resolve()
+        if Path(relative).is_absolute() or not path.is_relative_to(root.resolve()) or not path.is_file():
+            raise ValueError(f"missing or invalid acceptance input: {relative}")
+
+
+def run_acceptance_registration(name, root):
+    """Emit reproducible refusal; component receipts are not acceptance receipts."""
+    report = {"schema": 2, "gate": name, "result": "incomplete", "proof_pass": False,
+              "acceptance_pass": False, "executed_tests": 0, "criteria": {},
+              "child_gates": [], "config_sha256": {}}
+    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + name + "-" + uuid.uuid4().hex[:8]
+    evidence = root / ".local/evidence" / run_id
+    evidence.mkdir(parents=True)
+    try:
+        report["commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+        report["dirty_status"] = subprocess.check_output(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root, text=True).strip()
+        inputs = {"scripts/prove.py"}
+        # Validate the complete registry, including every aggregate dependency.
+        for gate in ACCEPTANCE_CRITERIA:
+            path = manifest_path(gate, root)
+            manifest = json.loads(path.read_text())
+            validate_acceptance_manifest(manifest, gate, root)
+            inputs.add(str(path.relative_to(root)))
+            inputs.update(manifest["inputs"])
+            if gate == name:
+                report["criteria"] = manifest["criteria"]
+                report["child_gates"] = [{"gate": child, "result": "unverified", "receipt_verified": False}
+                                         for child in manifest["child_gates"]]
+        report["config_sha256"] = {p: digest(root / p) for p in sorted(inputs)}
+        report["error"] = "gate incomplete: no registered executable acceptance verifier; zero tests executed"
+    except Exception as error:
+        report.update(result="failed", error=str(error))
+    path = evidence / "result.json"
+    path.write_text(json.dumps(report, indent=2) + "\n")
+    print(f"{report['result'].upper()}: {path}", flush=True)
+    return 1
 
 
 def command(spec):
@@ -201,6 +277,8 @@ def command(spec):
 
 
 def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/internal/temporal/adapter"):
+    if not expected or len(set(expected)) != len(expected):
+        raise ValueError("Go expected tests must be nonempty and unique")
     events = [json.loads(line) for line in output.splitlines() if line.strip() and not line.startswith("go: downloading ")]
     if any(event.get("Action") in ("skip", "fail") for event in events):
         raise ValueError("Go test skipped or failed")
@@ -258,9 +336,11 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "simulation", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut"])
+    parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "simulation", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut", *ACCEPTANCE_CRITERIA])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
+    if args.name in ACCEPTANCE_CRITERIA:
+        return run_acceptance_registration(args.name, ROOT)
     if args.name == "go-bindings":
         return subprocess.call([sys.executable, str(ROOT / "scripts/prove-go-bindings.py"), *(["--allow-dirty"] if args.allow_dirty else [])], cwd=ROOT)
     selected_manifest = manifest_path(args.name)

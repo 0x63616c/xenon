@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "name": "issue-119-acceptance",
+  "kind": "acceptance-registration",
+  "status": "incomplete",
+  "criteria": {
+    "cli-contracts": {
+      "status": "unverified",
+      "missing": "cli-contracts must have a verified executable receipt from the same clean candidate."
+    },
+    "workflow-search-dst": {
+      "status": "unverified",
+      "missing": "workflow-search-dst must have a verified executable receipt from the same clean candidate."
+    },
+    "workflow-search-real": {
+      "status": "unverified",
+      "missing": "workflow-search-real must have a verified executable receipt from the same clean candidate."
+    },
+    "workflow-replay-minimize": {
+      "status": "unverified",
+      "missing": "workflow-replay-minimize must have a verified executable receipt from the same clean candidate."
+    },
+    "source-layout": {
+      "status": "unverified",
+      "missing": "Execute the source/layout checker against the accepted design on the integrated candidate."
+    },
+    "evidence-validation": {
+      "status": "unverified",
+      "missing": "Implement aggregate child receipt, artifact hash, assertion count and named negative-control validation; do not trust passed flags."
+    }
+  },
+  "inputs": [
+    "docs/design/issue-119-acceptance.md",
+    "AGENTS.md"
+  ],
+  "child_gates": [
+    "cli-contracts",
+    "workflow-search-dst",
+    "workflow-search-real",
+    "workflow-replay-minimize"
+  ]
+}

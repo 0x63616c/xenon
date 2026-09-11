@@ -1,0 +1,22 @@
+{
+  "schema": 2,
+  "name": "cli-contracts",
+  "kind": "acceptance-registration",
+  "status": "incomplete",
+  "criteria": {
+    "CLI-01": {
+      "status": "unverified",
+      "missing": "Execute all command and configuration-source pairs with counters for backend mutations, native opens, child launches and network calls; current backend-start mocks do not instrument every category."
+    },
+    "command-exit-compatibility": {
+      "status": "unverified",
+      "missing": "Bind exact command, stream and exit expectations plus negative controls to an executable full CLI gate."
+    }
+  },
+  "inputs": [
+    "docs/design/issue-119-acceptance.md",
+    "cmd/xenon/command_test.go",
+    "cmd/xenon/inspect_test.go"
+  ],
+  "child_gates": []
+}
