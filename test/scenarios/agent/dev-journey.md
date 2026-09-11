@@ -124,3 +124,17 @@ It completed SDK/Nexus setup but failed the first generated case; this is not
 controlled-admission acceptance. Its exact owned-container census is empty and
 both helper process groups were drained. Both real concurrency controls must be
 rerun from an integrated candidate containing the composite-start fix.
+
+The next `b4536f1` controlled run observed four Running roots but then rejected a
+legitimate generated signal-with-start targeting another admitted root. The
+relay now distinguishes follow-ups by both workflow ID and member queue. It
+preserves the original composite RPC and verifies that its response reused the
+admitted run or a Describe-confirmed Continue-As-New chain. A response reporting
+a newly started root, missing identity or unrelated chain invalidates the run;
+request policies are not silently rewritten. Replacement detection is after the
+original RPC and is not a claim that its side effects were prevented.
+
+That failed run's logs, four-root admission receipt and independent empty cleanup
+census remain at
+`/Users/calum/Documents/ChatGPT/xenon-generated-b4536f1-concurrency4`.
+Both complete real concurrency controls remain outstanding.

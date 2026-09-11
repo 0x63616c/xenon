@@ -23,10 +23,11 @@ import (
 
 type fake struct {
 	workflow.WorkflowServiceClient
-	mu       sync.Mutex
-	statuses map[string]enums.WorkflowExecutionStatus
-	observed []string
-	starts   int
+	mu         sync.Mutex
+	statuses   map[string]enums.WorkflowExecutionStatus
+	observed   []string
+	starts     int
+	firstRunID string
 }
 
 func (f *fake) StartWorkflowExecution(_ context.Context, r *workflow.StartWorkflowExecutionRequest, _ ...grpc.CallOption) (*workflow.StartWorkflowExecutionResponse, error) {
@@ -44,7 +45,15 @@ func (f *fake) DescribeWorkflowExecution(_ context.Context, r *workflow.Describe
 	if !exists {
 		return nil, status.Error(codes.NotFound, "absent")
 	}
-	return &workflow.DescribeWorkflowExecutionResponse{WorkflowExecutionInfo: &info.WorkflowExecutionInfo{Status: state, Execution: &common.WorkflowExecution{WorkflowId: r.Execution.WorkflowId, RunId: "run-" + r.Execution.WorkflowId}}}, nil
+	id := r.Execution.RunId
+	if id == "" {
+		id = "run-" + r.Execution.WorkflowId
+	}
+	first := "run-" + r.Execution.WorkflowId
+	if f.firstRunID != "" {
+		first = f.firstRunID
+	}
+	return &workflow.DescribeWorkflowExecutionResponse{WorkflowExecutionInfo: &info.WorkflowExecutionInfo{Status: state, Execution: &common.WorkflowExecution{WorkflowId: r.Execution.WorkflowId, RunId: id}, FirstRunId: first}}, nil
 }
 func request(caseIndex, member int) *workflow.StartWorkflowExecutionRequest {
 	return &workflow.StartWorkflowExecutionRequest{Namespace: "test", WorkflowId: fmt.Sprintf("root-%d-%d", caseIndex, member), TaskQueue: &taskqueue.TaskQueue{Name: fmt.Sprintf("omes-xenon-generated-%016x-%016x-%02d", 42, caseIndex, member)}}
@@ -176,6 +185,8 @@ type upstreamServer struct {
 	polls          chan struct{}
 	complete       <-chan struct{}
 	compositeCalls chan string
+	signalReply    *workflow.SignalWithStartWorkflowExecutionResponse
+	multiReply     *workflow.ExecuteMultiOperationResponse
 }
 
 func (s *upstreamServer) StartWorkflowExecution(c context.Context, r *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error) {
@@ -334,6 +345,9 @@ func TestFailureUnblocksWaitingPoll(t *testing.T) {
 
 func (s *upstreamServer) SignalWithStartWorkflowExecution(ctx context.Context, r *workflow.SignalWithStartWorkflowExecutionRequest) (*workflow.SignalWithStartWorkflowExecutionResponse, error) {
 	s.compositeCalls <- "signal"
+	if s.signalReply != nil {
+		return s.signalReply, nil
+	}
 	out, err := s.f.StartWorkflowExecution(ctx, &workflow.StartWorkflowExecutionRequest{WorkflowId: r.WorkflowId})
 	if err != nil {
 		return nil, err
@@ -342,6 +356,9 @@ func (s *upstreamServer) SignalWithStartWorkflowExecution(ctx context.Context, r
 }
 func (s *upstreamServer) ExecuteMultiOperation(ctx context.Context, r *workflow.ExecuteMultiOperationRequest) (*workflow.ExecuteMultiOperationResponse, error) {
 	s.compositeCalls <- "multi"
+	if s.multiReply != nil {
+		return s.multiReply, nil
+	}
 	if _, err := s.f.StartWorkflowExecution(ctx, r.Operations[0].GetStartWorkflow()); err != nil {
 		return nil, err
 	}
@@ -445,5 +462,67 @@ func TestCompositeStartRejectsEagerAndExistingRootBeforeForwarding(t *testing.T)
 			default:
 			}
 		})
+	}
+}
+
+func TestKnownRootCompositeFollowupsDoNotReadmitAndRejectReplacement(t *testing.T) {
+	for _, kind := range []string{"signal", "multi"} {
+		for _, variant := range []string{"same", "continued", "foreign", "replacement", "missing"} {
+			t.Run(kind+"/"+variant, func(t *testing.T) {
+				b, f := setup(1)
+				r := request(0, 0)
+				runID := "run-" + r.WorkflowId
+				started := false
+				switch variant {
+				case "continued":
+					runID = "continued-run"
+				case "foreign":
+					runID = "foreign-run"
+					f.firstRunID = "unrelated-first"
+				case "replacement":
+					started = true
+				case "missing":
+					runID = ""
+				}
+				calls := make(chan string, 2)
+				server := &upstreamServer{f: f, compositeCalls: calls,
+					signalReply: &workflow.SignalWithStartWorkflowExecutionResponse{RunId: runID, Started: started},
+					multiReply:  &workflow.ExecuteMultiOperationResponse{Responses: []*workflow.ExecuteMultiOperationResponse_Response{{Response: &workflow.ExecuteMultiOperationResponse_Response_StartWorkflow{StartWorkflow: &workflow.StartWorkflowExecutionResponse{RunId: runID, Started: started}}}}}}
+				up := grpc.NewServer()
+				workflow.RegisterWorkflowServiceServer(up, server)
+				conn := localConnection(t, up)
+				b.client = workflow.NewWorkflowServiceClient(conn)
+				relay := grpc.NewServer(grpc.ForceServerCodec(codec{}), grpc.UnknownServiceHandler(b.relay(conn)))
+				client := workflow.NewWorkflowServiceClient(localConnection(t, relay))
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if _, err := client.StartWorkflowExecution(ctx, r); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				if kind == "signal" {
+					_, err = client.SignalWithStartWorkflowExecution(ctx, &workflow.SignalWithStartWorkflowExecutionRequest{Namespace: r.Namespace, WorkflowId: r.WorkflowId, TaskQueue: r.TaskQueue})
+				} else {
+					_, err = client.ExecuteMultiOperation(ctx, &workflow.ExecuteMultiOperationRequest{Namespace: r.Namespace, Operations: []*workflow.ExecuteMultiOperationRequest_Operation{{Operation: &workflow.ExecuteMultiOperationRequest_Operation_StartWorkflow{StartWorkflow: r}}}})
+				}
+				valid := variant == "same" || variant == "continued"
+				if valid && err != nil {
+					t.Fatal(err)
+				}
+				if !valid && status.Code(err) != codes.FailedPrecondition {
+					t.Fatalf("invalid follow-up accepted: %v", err)
+				}
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				if len(b.windows) != 1 || len(b.windows[0].Roots) != 1 {
+					t.Fatal("follow-up changed root census")
+				}
+				f.mu.Lock()
+				defer f.mu.Unlock()
+				if f.starts != 1 {
+					t.Fatal("follow-up produced standalone start")
+				}
+			})
+		}
 	}
 }

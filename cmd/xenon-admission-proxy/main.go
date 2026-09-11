@@ -238,6 +238,9 @@ func (b *barrier) relayWithWait(conn *grpc.ClientConn, wait func(context.Context
 			}
 		}
 		if composite != nil && strings.HasPrefix(composite.GetTaskQueue().GetName(), "omes-xenon-generated-") {
+			if prior, ok := b.knownRoot(composite); ok {
+				return b.followupComposite(ctx, s, conn, method, request, composite, prior)
+			}
 			return b.compositeStart(ctx, s, conn, method, request, composite)
 		}
 		if strings.HasSuffix(method, "/PollWorkflowTaskQueue") {
@@ -268,6 +271,83 @@ func (b *barrier) relayWithWait(conn *grpc.ClientConn, wait func(context.Context
 		}
 		return s.SendMsg(&response)
 	}
+}
+
+// knownRoot distinguishes a generated client action targeting an admitted root
+// from another independent admission. Queue reuse alone is never sufficient.
+func (b *barrier) knownRoot(r *workflow.StartWorkflowExecutionRequest) (root, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if w := b.queues[r.GetTaskQueue().GetName()]; w != nil {
+		for _, p := range w.Roots {
+			if p.WorkflowID == r.WorkflowId {
+				return p, true
+			}
+		}
+	}
+	return root{}, false
+}
+
+func (b *barrier) followupComposite(ctx context.Context, s grpc.ServerStream, conn *grpc.ClientConn, method string, request wire, r *workflow.StartWorkflowExecutionRequest, prior root) error {
+	fail := func(err error) error { b.mu.Lock(); defer b.mu.Unlock(); return b.fail(err) }
+	b.mu.Lock()
+	failure := b.failure
+	b.mu.Unlock()
+	if failure != nil {
+		return status.Error(codes.FailedPrecondition, failure.Error())
+	}
+	if r.Namespace != b.namespace || r.RequestEagerExecution {
+		return fail(fmt.Errorf("invalid follow-up namespace or eager execution"))
+	}
+	var out wire
+	var header, trailer metadata.MD
+	err := conn.Invoke(ctx, method, &request, &out, grpc.ForceCodec(codec{}), grpc.Header(&header), grpc.Trailer(&trailer))
+	if err != nil {
+		return fail(err)
+	}
+	var runID string
+	var started bool
+	if strings.HasSuffix(method, "/SignalWithStartWorkflowExecution") {
+		var result workflow.SignalWithStartWorkflowExecutionResponse
+		if err := proto.Unmarshal(out, &result); err != nil {
+			return fail(err)
+		}
+		runID, started = result.RunId, result.Started
+	} else {
+		var result workflow.ExecuteMultiOperationResponse
+		if err := proto.Unmarshal(out, &result); err != nil {
+			return fail(err)
+		}
+		for _, response := range result.Responses {
+			if start := response.GetStartWorkflow(); start != nil {
+				runID, started = start.RunId, start.Started
+				if start.EagerWorkflowTask != nil {
+					return fail(fmt.Errorf("unexpected eager follow-up task"))
+				}
+			}
+		}
+	}
+	// A terminal-race replacement is an invalid run, never counted as an existing
+	// root. Preserve the original request semantics rather than rewrite its policy.
+	if runID == "" || started {
+		return fail(fmt.Errorf("follow-up created an unadmitted root or omitted its run ID"))
+	}
+	if runID != prior.RunID {
+		d, err := b.client.DescribeWorkflowExecution(ctx, &workflow.DescribeWorkflowExecutionRequest{Namespace: b.namespace, Execution: &common.WorkflowExecution{WorkflowId: prior.WorkflowID, RunId: runID}})
+		if err != nil {
+			return fail(err)
+		}
+		if d.GetWorkflowExecutionInfo().GetFirstRunId() != prior.RunID {
+			return fail(fmt.Errorf("follow-up execution is outside admitted root chain"))
+		}
+	}
+	s.SetTrailer(trailer)
+	if len(header) > 0 {
+		if err := s.SendHeader(header); err != nil {
+			return err
+		}
+	}
+	return s.SendMsg(&out)
 }
 
 // compositeStart forwards exactly one original RPC; it never substitutes a
