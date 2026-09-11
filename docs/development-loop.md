@@ -4,7 +4,7 @@ Xenon's primary developer workflow is Go-first. Run commands from the repository
 root; neither Make nor Python is part of the required interface.
 
 ```sh
-# Prepare the pinned native library and CLI. Verified results are cached.
+# Run the current source. Relevant edits rebuild; unchanged runs reuse verified caches.
 just xenon
 
 # Fast package tests. This is the ordinary edit loop.

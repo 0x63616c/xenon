@@ -8,10 +8,11 @@ go test ./...
 xenon test dst
 ```
 
-`just xenon` invokes a dependency-free Go bootstrap. It verifies the pinned
-SlateDB source and Go binding, builds a missing or stale native library, embeds
-the native commit and artifact hash in Xenon's build metadata, and reuses valid
-native and binary caches.
+`just xenon` invokes a dependency-free Go bootstrap. It fingerprints the current
+working-tree source, verifies the pinned SlateDB source and Go binding, builds a
+missing or stale native library, embeds the native commit and artifact hash in
+Xenon's build metadata, and reuses valid native and binary caches. Relevant
+source edits invalidate the executable cache automatically.
 
 Run a larger deterministic search explicitly:
 

@@ -35,9 +35,9 @@ See the [verification matrix](docs/design/verification-matrix.md) for the eviden
 
 ## Develop and test
 
-[`just`](https://just.systems/) runs the Xenon CLI from the latest source. It
-caches the executable at `.local/bin/xenon` and rebuilds it only when executable
-source inputs change:
+[`just`](https://just.systems/) runs the Xenon CLI from the current working-tree
+source. It caches the executable at `.local/bin/xenon`, rebuilds after a relevant
+source change, and verifies and reuses the cached build when the tree is unchanged:
 
 ```sh
 just xenon

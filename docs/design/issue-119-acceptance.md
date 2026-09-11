@@ -21,10 +21,11 @@ xenon minimize failure.json
 xenon test integration
 ```
 
-`just xenon` is the normal developer entrypoint. It fingerprints the executable's
-Go and embedded source inputs, rebuilds the cached `.local/bin/xenon` only when
-those inputs change, and then runs it. Additional arguments are forwarded to the
-same binary, such as `just xenon test dst`.
+`just xenon` is the normal developer entrypoint. It fingerprints the current
+working tree's executable Go and embedded source inputs, rebuilds the cached
+`.local/bin/xenon` when any relevant input changes, and then runs that binary.
+An unchanged tree reuses the verified binary and native-library caches. Additional
+arguments are forwarded to the same binary, such as `just xenon test dst`.
 
 Commands choose sensible defaults and create temporary artifacts themselves.
 Users do not provide internal oracle binaries, hashes, fixture files or runtime
@@ -129,6 +130,9 @@ and DST do not claim to prove AWS behavior.
 
 ## Definition of done
 
+- [ ] `just xenon` runs Xenon from the current working-tree source. A relevant
+  source edit invalidates and rebuilds the executable; a second unchanged run
+  verifies and reuses the cached executable and native library.
 - [ ] `go test ./...` has a fast default path that does not require Python,
   Make, Docker, MinIO or Temporal. Native/integration tests are explicitly
   selected when needed.
