@@ -124,6 +124,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		return cmd
 	}
 	test := &cobra.Command{Use: "test", Short: "Run an implemented verification profile", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }}
+	test.AddCommand(dstCommand(build, clock))
 	test.AddCommand(makeSearch("simulation", "Verify one saved coupled production-Step scenario", true))
 	search := makeSearch("search", "Search saved simulation scenarios or fresh real workflows", false)
 	var artifact, evidence string
@@ -160,6 +161,47 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	}
 	return []*cobra.Command{test, search, replay, minimizeCommand(build, clock)}
 }
+func dstCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra.Command {
+	const defaultCases = 100
+	var seed, cases uint64
+	cmd := &cobra.Command{
+		Use:   "dst",
+		Short: "Run fast deterministic ownership simulations",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cases == 0 {
+				return errors.New("--cases must be positive")
+			}
+			parent, err := os.MkdirTemp("", "xenon-dst-")
+			if err != nil {
+				return err
+			}
+			evidence := filepath.Join(parent, "evidence")
+			keep := false
+			defer func() {
+				if !keep {
+					_ = os.RemoveAll(parent)
+				}
+			}()
+			info := build()
+			provenance := simulation.Provenance{Source: info.Revision, Versions: map[string]string{
+				"toolchain": info.Go, "native": "modeled; no native engine executed", "images": "none", "build_modified": info.Modified,
+			}}
+			if provenance.Source == "" {
+				provenance.Source = "development"
+			}
+			if provenance.Versions["toolchain"] == "" {
+				provenance.Versions["toolchain"] = "unknown"
+			}
+			result, runErr := simulation.RunDST(cmd.Context(), seed, cases, evidence, provenance, clock)
+			return simulationResult(cmd, false, "go-dst", result, runErr)
+		},
+	}
+	cmd.Flags().Uint64Var(&seed, "seed", 1, "Deterministic schedule seed")
+	cmd.Flags().Uint64Var(&cases, "cases", defaultCases, "Number of schedules to explore")
+	return cmd
+}
+
 func simulationRunner(directory string, development bool, info buildinfo.Info, clock simulation.Clock) (*simulation.Runner, error) {
 	if directory == "" {
 		return nil, errors.New("--evidence DIRECTORY required")

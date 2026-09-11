@@ -203,3 +203,20 @@ func TestReplayLegacyArtifactRequiresExplicitWeakerMode(t *testing.T) {
 		t.Fatal(code, out, diagnostics)
 	}
 }
+
+func TestDSTCommandUsesCodeScenarioAndCleansPassingEvidence(t *testing.T) {
+	code, out, diagnostics := runSimulationCLI(t, t.Context(), "test", "dst", "--seed", "42", "--cases", "3")
+	if code != 0 || diagnostics != "" || out.Mode != "go-dst" || out.Result.Completed != 3 || out.Result.StopReason != "completed" {
+		t.Fatalf("dst: code=%d output=%+v diagnostics=%q", code, out, diagnostics)
+	}
+	if out.Result.EvidencePath != "" {
+		t.Fatalf("passing temporary evidence leaked through CLI: %q", out.Result.EvidencePath)
+	}
+}
+
+func TestDSTCommandRejectsZeroCasesWithoutStartingBackend(t *testing.T) {
+	code, out, diagnostics := runSimulationCLI(t, t.Context(), "test", "dst", "--cases", "0")
+	if code != 1 || out.Schema != 0 || !strings.Contains(diagnostics, "--cases must be positive") {
+		t.Fatalf("zero cases: code=%d output=%+v diagnostics=%q", code, out, diagnostics)
+	}
+}

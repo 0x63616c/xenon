@@ -39,6 +39,22 @@ func NewCoupledInterleavings(raw []byte) (*CoupledInterleavings, error) {
 	return &CoupledInterleavings{base: s}, nil
 }
 
+// NewCoupledInterleavingsScenario accepts Go-authored scenarios without a JSON input seam.
+func NewCoupledInterleavingsScenario(c CoupledScenario) (*CoupledInterleavings, error) {
+	s, err := ExpandCoupledScenario(c)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = NewCoupledInterleavings(raw); err != nil {
+		return nil, err
+	}
+	return &CoupledInterleavings{base: s}, nil
+}
+
 func (*CoupledInterleavings) Info() GeneratorInfo {
 	return GeneratorInfo{"coupled-interleavings-v1", hash(coupledGenerateSource), []string{CoupledKind, "actor-delivery-interleavings; fixed linearization order; workload RNG unused"}}
 }

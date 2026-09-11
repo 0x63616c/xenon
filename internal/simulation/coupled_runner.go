@@ -43,14 +43,8 @@ func strictJSON(raw []byte, out any) error {
 	return nil
 }
 
-// ExpandCoupled preserves every selected event, actor, tick and effect identity.
-// It performs no generation or rescheduling. The source fixture's historical
-// revision is retained separately from Runner's actual executing provenance.
-func ExpandCoupled(raw []byte) (Scenario, error) {
-	var c CoupledScenario
-	if err := strictJSON(raw, &c); err != nil {
-		return Scenario{}, err
-	}
+// ExpandCoupledScenario converts a code-authored scenario into the generic search envelope.
+func ExpandCoupledScenario(c CoupledScenario) (Scenario, error) {
 	workload, err := json.Marshal(coupledWorkload{c.Version, c.ProductionRevision, c.Toolchain, c.RequiredPartition, c.RequiredOwner})
 	if err != nil {
 		return Scenario{}, err
@@ -61,6 +55,17 @@ func ExpandCoupled(raw []byte) (Scenario, error) {
 	}
 	faults, err := json.Marshal(c.Steps)
 	return Scenario{1, CoupledKind, workload, topology, faults}, err
+}
+
+// ExpandCoupled preserves every selected event, actor, tick and effect identity.
+// It performs no generation or rescheduling. The source fixture's historical
+// revision is retained separately from Runner's actual executing provenance.
+func ExpandCoupled(raw []byte) (Scenario, error) {
+	var c CoupledScenario
+	if err := strictJSON(raw, &c); err != nil {
+		return Scenario{}, err
+	}
+	return ExpandCoupledScenario(c)
 }
 func decodeCoupled(s Scenario) (CoupledScenario, error) {
 	var w coupledWorkload
