@@ -161,7 +161,7 @@ func run() error {
 			if page >= 1000 {
 				return fmt.Errorf("visibility pagination did not terminate")
 			}
-			response, e := c.WorkflowService().ListWorkflowExecutions(ctx, &workflowservice.ListWorkflowExecutionsRequest{Namespace: *namespace, Query: *query, PageSize: 1, NextPageToken: token})
+			response, e := c.WorkflowService().ListWorkflowExecutions(ctx, &workflowservice.ListWorkflowExecutionsRequest{Namespace: *namespace, Query: *query, PageSize: 5, NextPageToken: token})
 			if e != nil {
 				return e
 			}
