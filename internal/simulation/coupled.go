@@ -214,9 +214,16 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 				if machine.spec.Kind == "cluster" && ce.Kind != cluster.ReadControl || machine.spec.Kind == "partition" && pe.Kind != partitions.ReadControl {
 					return fail(fmt.Errorf("not a read effect"))
 				}
-				completion.record = current.Clone()
-				entry.After = current.Clone()
-				entry.Result = "read"
+				if input.Fault == "storage_read_error" {
+					completion.err = errors.New("simulated registry read failure")
+					entry.Before = current.Clone()
+					entry.After = current.Clone()
+					entry.Result = "storage_read_error"
+				} else {
+					completion.record = current.Clone()
+					entry.After = current.Clone()
+					entry.Result = "read"
+				}
 			case "publish":
 				var w registry.Write
 				var expected registry.Version
@@ -298,7 +305,11 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 			}
 			entry.After = completion.record.Clone()
 			if completion.err != nil {
-				entry.Result = "conflict"
+				entry.Result = "storage_error"
+				var conflict *registry.Conflict
+				if errors.As(completion.err, &conflict) {
+					entry.Result = "conflict"
+				}
 				var unknown *registry.UnknownOutcome
 				if errors.As(completion.err, &unknown) {
 					entry.Result = "unknown_publication"
@@ -401,6 +412,8 @@ func validateCoupledFaults(steps []CoupledInput) error {
 		switch step.Fault {
 		case "":
 			valid = true
+		case "storage_read_error":
+			valid = step.Action == "read" && step.Effect != 0
 		case "lost_publish_response":
 			valid = step.Action == "deliver" && step.Effect != 0 && applications[key] == "publish"
 		case "stale_plan", "old_ready":

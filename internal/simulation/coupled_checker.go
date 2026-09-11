@@ -51,6 +51,10 @@ func checkerControl(r registry.Record) (cluster.Control, error) {
 func (c *coupledChecker) observe(e CoupledTrace) error {
 	key := fmt.Sprintf("%s/%d", e.Input.Actor, e.Input.Effect)
 	switch e.Input.Action {
+	case "read":
+		if e.Input.Fault == "storage_read_error" && (e.Result != "storage_read_error" || e.Before.Version != c.record.Version || !bytes.Equal(e.Before.Body, c.record.Body) || e.After.Version != e.Before.Version || !bytes.Equal(e.After.Body, e.Before.Body)) {
+			return checkerFailure("registry_read", "failed_read_mutated_authority", "failed registry read changed authority")
+		}
 	case "open":
 		if e.Epoch != c.epochs[e.Open.Partition]+1 {
 			return checkerFailure("native_epoch", "nonmonotonic_open", "nonmonotonic native open")
