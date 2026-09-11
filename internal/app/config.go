@@ -18,14 +18,16 @@ import (
 // TemporalConfig validates the full application configuration before projecting
 // the immutable values consumed by Temporal. CLI validation and Run share this seam.
 func (c Config) TemporalConfig() (temporal.Config, error) {
+	clusterID := c.Cluster
 	if c.ServiceStorage != nil {
 		copy := c.ServiceStorage.Clone()
 		c.ServiceStorage = &copy
+		clusterID = string(c.ServiceStorage.ClusterID)
 	}
 	if err := c.Validate(); err != nil {
 		return temporal.Config{}, err
 	}
-	return temporal.Config{Cluster: c.Cluster, HistoryShards: c.HistoryShards,
+	return temporal.Config{Cluster: c.Cluster, ClusterID: clusterID, HistoryShards: c.HistoryShards,
 		BindIP: c.BindIP, AdvertiseIP: c.AdvertiseIP, BasePort: c.BasePort,
 		PublicAddress: c.PublicAddress, PublicHTTPAddress: c.PublicHTTPAddress,
 		StorageAddress: c.Address(8)}, nil

@@ -10,6 +10,7 @@ import (
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	persistencespb "go.temporal.io/server/api/persistence/v1"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -148,6 +149,65 @@ func TestClusterRetryAndErrors(t *testing.T) {
 	}
 	if _, e = clusterRecord(&wire.ClusterRecord{}); e == nil {
 		t.Fatal("missing blob accepted")
+	}
+}
+
+func equivalentClusterBlobsWithDifferentMapOrder(t *testing.T) (*commonpb.DataBlob, *commonpb.DataBlob) {
+	t.Helper()
+	metadata := &persistencespb.ClusterMetadata{ClusterName: "xenon", ClusterId: "fixed-id", Tags: map[string]string{"alpha": "1", "beta": "2", "gamma": "3"}}
+	canonical, err := proto.MarshalOptions{Deterministic: true}.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reordered []byte
+	for i := 0; i < 128; i++ {
+		reordered, err = proto.Marshal(metadata)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(canonical, reordered) {
+			break
+		}
+	}
+	if bytes.Equal(canonical, reordered) {
+		t.Fatal("test did not produce alternate protobuf map ordering")
+	}
+	return &commonpb.DataBlob{Data: canonical, EncodingType: enumspb.ENCODING_TYPE_PROTO3}, &commonpb.DataBlob{Data: reordered, EncodingType: enumspb.ENCODING_TYPE_PROTO3}
+}
+
+func TestInitialClusterMetadataReconcilesEquivalentMapEncoding(t *testing.T) {
+	stored, proposed := equivalentClusterBlobsWithDifferentMapOrder(t)
+	newStore := func(existing *commonpb.DataBlob) (*ClusterStore, *int) {
+		calls := 0
+		return &ClusterStore{partition: "control", invocationTimeout: time.Second, client: clusterWireFunc(func(_ context.Context, q *wire.ClusterRequest) (*wire.ClusterResult, error) {
+			calls++
+			switch q.Command.Kind {
+			case wire.ClusterCommand_SAVE:
+				return &wire.ClusterResult{Error: wire.ClusterResult_UNAVAILABLE, Message: "cluster metadata version mismatch"}, nil
+			case wire.ClusterCommand_GET:
+				return &wire.ClusterResult{Record: &wire.ClusterRecord{Version: 1, Blob: &wire.ClusterBlob{Data: existing.Data, Encoding: int32(existing.EncodingType)}}}, nil
+			default:
+				t.Fatalf("unexpected command: %v", q.Command.Kind)
+				return nil, nil
+			}
+		})}, &calls
+	}
+	store, calls := newStore(stored)
+	applied, err := store.SaveClusterMetadata(context.Background(), &p.InternalSaveClusterMetadataRequest{ClusterName: "xenon", Version: 0, ClusterMetadata: proposed})
+	if err != nil || !applied || *calls != 2 {
+		t.Fatal("equivalent initial metadata was not reconciled", applied, err, *calls)
+	}
+	var changed persistencespb.ClusterMetadata
+	if err := proto.Unmarshal(stored.Data, &changed); err != nil {
+		t.Fatal(err)
+	}
+	changed.ClusterId = "different"
+	changedRaw, _ := proto.Marshal(&changed)
+	store, calls = newStore(&commonpb.DataBlob{Data: changedRaw, EncodingType: enumspb.ENCODING_TYPE_PROTO3})
+	applied, err = store.SaveClusterMetadata(context.Background(), &p.InternalSaveClusterMetadataRequest{ClusterName: "xenon", Version: 0, ClusterMetadata: proposed})
+	var unavailable *serviceerror.Unavailable
+	if applied || !errors.As(err, &unavailable) || *calls != 2 {
+		t.Fatal("conflicting initial metadata was accepted", applied, err, *calls)
 	}
 }
 

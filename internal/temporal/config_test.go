@@ -13,7 +13,7 @@ func TestConfigRejectsInvalidOwnedSettings(t *testing.T) {
 		func(c *Config) { c.PublicHTTPAddress = "host:65536" },
 		func(c *Config) { c.StorageAddress = "host:not-a-port" },
 	} {
-		c := Config{Cluster: "cluster", BindIP: "0.0.0.0", AdvertiseIP: "127.0.0.1", BasePort: 17233, HistoryShards: 4, PublicAddress: "localhost:7233", PublicHTTPAddress: "localhost:7242", StorageAddress: "127.0.0.1:17241"}
+		c := Config{Cluster: "cluster", ClusterID: "clu_0000000000000000000001", BindIP: "0.0.0.0", AdvertiseIP: "127.0.0.1", BasePort: 17233, HistoryShards: 4, PublicAddress: "localhost:7233", PublicHTTPAddress: "localhost:7242", StorageAddress: "127.0.0.1:17241"}
 		change(&c)
 		if runtime, err := New(c); err == nil || runtime != nil {
 			t.Fatalf("invalid owned settings accepted: %+v, %v", c, err)

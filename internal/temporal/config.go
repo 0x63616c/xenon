@@ -9,7 +9,7 @@ import (
 // Config contains only the settings consumed by the upstream embedding boundary.
 // Application storage, identity, bootstrap and lifecycle settings belong to app.
 type Config struct {
-	Cluster                                          string
+	Cluster, ClusterID                               string
 	HistoryShards                                    int32
 	BindIP, AdvertiseIP                              string
 	BasePort                                         int
@@ -17,8 +17,8 @@ type Config struct {
 }
 
 func (c Config) Validate() error {
-	if c.Cluster == "" || len(c.Cluster) > 128 {
-		return fmt.Errorf("Temporal cluster required")
+	if c.Cluster == "" || len(c.Cluster) > 128 || c.ClusterID == "" {
+		return fmt.Errorf("Temporal cluster and durable cluster ID required")
 	}
 	if net.ParseIP(c.BindIP) == nil || net.ParseIP(c.AdvertiseIP) == nil || net.ParseIP(c.AdvertiseIP).IsUnspecified() {
 		return fmt.Errorf("bind_ip and reachable advertise_ip must be IP addresses")

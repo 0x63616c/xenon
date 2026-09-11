@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
+	"github.com/google/uuid"
 	"go.temporal.io/server/common/cluster"
 	"go.temporal.io/server/common/config"
 	temporalserver "go.temporal.io/server/temporal"
@@ -47,6 +48,9 @@ func Configuration(c Config) (*config.Config, error) {
 	}
 	info := out.ClusterMetadata.ClusterInformation["active"]
 	info.RPCAddress, info.HTTPAddress = c.PublicAddress, c.PublicHTTPAddress
+	// Temporal requires a UUID here. Derive it from Xenon's durable cluster ID
+	// so concurrent first-start instances propose identical metadata.
+	info.ClusterID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("xenon-temporal-cluster/v1/"+c.ClusterID)).String()
 	out.ClusterMetadata.ClusterInformation = map[string]cluster.ClusterInformation{c.Cluster: info}
 	out.ClusterMetadata.CurrentClusterName, out.ClusterMetadata.MasterClusterName = c.Cluster, c.Cluster
 	out.PublicClient.HostPort, out.PublicClient.HTTPHostPort = c.PublicAddress, c.PublicHTTPAddress

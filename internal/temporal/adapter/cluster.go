@@ -3,14 +3,16 @@ package adapter
 import (
 	"context"
 	"crypto/sha256"
-	"github.com/0x63616c/xenon/internal/rpctrace"
+	"errors"
 	"net"
 	"time"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/rpctrace"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	persistencespb "go.temporal.io/server/api/persistence/v1"
 	p "go.temporal.io/server/common/persistence"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -133,9 +135,27 @@ func (s *ClusterStore) SaveClusterMetadata(ctx context.Context, q *p.InternalSav
 	}
 	r, e := s.invokeCluster(ctx, &wire.ClusterCommand{Kind: wire.ClusterCommand_SAVE, ClusterName: q.ClusterName, Version: q.Version, Blob: &wire.ClusterBlob{Data: q.ClusterMetadata.Data, Encoding: int32(q.ClusterMetadata.EncodingType)}})
 	if e != nil {
+		var unavailable *serviceerror.Unavailable
+		if q.Version == 0 && errors.As(e, &unavailable) {
+			// Concurrent first-start and lost-response retries can observe version 1.
+			// Reconcile typed metadata because Temporal's protobuf map encoding is
+			// intentionally nondeterministic; raw serialized bytes are insufficient.
+			existing, getErr := s.GetClusterMetadata(ctx, &p.InternalGetClusterMetadataRequest{ClusterName: q.ClusterName})
+			if getErr == nil && existing.Version == 1 && equalClusterMetadata(existing.ClusterMetadata, q.ClusterMetadata) {
+				return true, nil
+			}
+		}
 		return false, e
 	}
 	return r.Applied, nil
+}
+
+func equalClusterMetadata(a, b *commonpb.DataBlob) bool {
+	if a == nil || b == nil || a.EncodingType != enumspb.ENCODING_TYPE_PROTO3 || b.EncodingType != enumspb.ENCODING_TYPE_PROTO3 {
+		return false
+	}
+	var left, right persistencespb.ClusterMetadata
+	return proto.Unmarshal(a.Data, &left) == nil && proto.Unmarshal(b.Data, &right) == nil && proto.Equal(&left, &right)
 }
 func (s *ClusterStore) DeleteClusterMetadata(ctx context.Context, q *p.InternalDeleteClusterMetadataRequest) error {
 	if q == nil {
