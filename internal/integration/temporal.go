@@ -136,8 +136,13 @@ func runOutput(ctx context.Context, dir string, env []string, argv ...string) (s
 func probe(ctx context.Context, root string, env []string, bin string, fixture temporalCase, mode string, extra ...string) ([]byte, error) {
 	timeout := 15 * time.Second
 	switch mode {
-	case "bootstrap", "fuzz-endpoint", "fuzz-endpoint-ready", "control", "verify", "visibility":
+	case "bootstrap", "fuzz-endpoint", "fuzz-endpoint-ready", "control", "visibility":
 		timeout = 90 * time.Second
+	case "verify":
+		// After both Temporal processes are killed, the retained SDK worker may
+		// need to exhaust transport backoff before it can finish the workflow.
+		// The journey's six-minute context remains the outer hard bound.
+		timeout = 4 * time.Minute
 	}
 	attempt, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
