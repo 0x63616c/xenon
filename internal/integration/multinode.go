@@ -227,6 +227,7 @@ func (b *synchronizedBuffer) String() string { b.Lock(); defer b.Unlock(); retur
 type nodeProcess struct {
 	command *exec.Cmd
 	output  *synchronizedBuffer
+	done    chan struct{}
 	once    sync.Once
 }
 
@@ -248,8 +249,12 @@ func startNode(ctx context.Context, binary string, config app.Config) (*nodeProc
 		_ = os.RemoveAll(directory)
 		return nil, err
 	}
-	process := &nodeProcess{command: command, output: buffer}
-	go func() { _ = command.Wait(); _ = os.RemoveAll(directory) }()
+	process := &nodeProcess{command: command, output: buffer, done: make(chan struct{})}
+	go func() {
+		_ = command.Wait()
+		_ = os.RemoveAll(directory)
+		close(process.done)
+	}()
 	return process, nil
 }
 func (p *nodeProcess) kill() {
@@ -257,6 +262,7 @@ func (p *nodeProcess) kill() {
 		if p.command.Process != nil {
 			_ = p.command.Process.Kill()
 		}
+		p.wait()
 	})
 }
 func (p *nodeProcess) stop() {
@@ -266,7 +272,15 @@ func (p *nodeProcess) stop() {
 			time.Sleep(200 * time.Millisecond)
 			_ = p.command.Process.Kill()
 		}
+		p.wait()
 	})
+}
+
+func (p *nodeProcess) wait() {
+	select {
+	case <-p.done:
+	case <-time.After(10 * time.Second):
+	}
 }
 
 func reservePortBlocks(count int) ([]int, error) {

@@ -180,9 +180,22 @@ func newCommandWithDependencies(in io.Reader, out, diagnostics io.Writer, depend
 	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
 	for _, command := range simulation {
 		if command.Name() == "test" {
-			command.AddCommand(integrationCommand(func(ctx context.Context, diagnostics io.Writer) (integration.JourneyResult, error) {
+			command.AddCommand(integrationCommand(func(ctx context.Context, only string, diagnostics io.Writer) (integration.JourneyResult, error) {
 				observe(effectBackendMutation, effectNativeOpen, effectChildLaunch, effectNetworkCall)
-				return integration.RunSlateDBMinIO(ctx, diagnostics)
+				switch only {
+				case "slatedb-minio":
+					return integration.RunSlateDBMinIO(ctx, diagnostics)
+				case "multi-node-ownership":
+					return integration.RunMultiNodeOwnership(ctx, diagnostics, integration.MultiNodeOptions{})
+				case "temporal-compatibility":
+					binary, err := os.Executable()
+					if err != nil {
+						return integration.JourneyResult{}, err
+					}
+					return integration.RunTemporalCompatibility(ctx, diagnostics, integration.TemporalOptions{XenonBinary: binary})
+				default:
+					return integration.JourneyResult{}, fmt.Errorf("unknown integration journey %q", only)
+				}
 			}))
 			command.AddCommand(realProfileCommands(func(ctx context.Context, request profileRequest, diagnostics io.Writer) (profileResult, error) {
 				observe(effectBackendMutation, effectNativeOpen, effectChildLaunch, effectNetworkCall)
