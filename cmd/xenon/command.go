@@ -10,6 +10,7 @@ import (
 
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
+	"github.com/0x63616c/xenon/internal/integration"
 	"github.com/0x63616c/xenon/internal/simulation"
 	"github.com/0x63616c/xenon/internal/temporal"
 	"github.com/spf13/cobra"
@@ -179,6 +180,10 @@ func newCommandWithDependencies(in io.Reader, out, diagnostics io.Writer, depend
 	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
 	for _, command := range simulation {
 		if command.Name() == "test" {
+			command.AddCommand(integrationCommand(func(ctx context.Context, diagnostics io.Writer) (integration.JourneyResult, error) {
+				observe(effectBackendMutation, effectNativeOpen, effectChildLaunch, effectNetworkCall)
+				return integration.RunSlateDBMinIO(ctx, diagnostics)
+			}))
 			command.AddCommand(realProfileCommands(func(ctx context.Context, request profileRequest, diagnostics io.Writer) (profileResult, error) {
 				observe(effectBackendMutation, effectNativeOpen, effectChildLaunch, effectNetworkCall)
 				return dependencies.profile(ctx, request, diagnostics)
