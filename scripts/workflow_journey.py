@@ -23,7 +23,8 @@ def history_counts(directory):
     totals = dict(initial_roots=0, child_runs=0, continued_runs=0, nexus_handler_runs=0)
     for receipt in sorted(directory.glob('**/histories/result.json')):
         result = json.loads(receipt.read_text())
-        roots = {}
+        roots = set()
+        intervals = []
         for run in result['runs']:
             path = receipt.parent / run['history_file']
             raw = path.read_bytes()
@@ -43,17 +44,17 @@ def history_counts(directory):
                 def timestamp(event):
                     return datetime.datetime.fromisoformat(event['eventTime'].replace('Z', '+00:00')).timestamp()
                 start, end = timestamp(events[0]), timestamp(events[-1])
-                previous = roots.get(run['workflow_id'], (start, end))
-                roots[run['workflow_id']] = (min(start, previous[0]), max(end, previous[1]))
+                roots.add(run['workflow_id'])
+                intervals.append((start, end))
         if len(roots) != 1:
             raise ValueError('expected one root chain per member')
-        members.append((receipt.relative_to(directory).parts[0], next(iter(roots.values()))))
+        members.append((receipt.relative_to(directory).parts[0], intervals))
     cases = {}
     for case, interval in members:
         cases.setdefault(case, []).append(interval)
     if len(cases) != 3 or any(len(items) != 4 for items in cases.values()) or totals['initial_roots'] != 12:
         raise ValueError('expected three cases each containing four initial roots')
-    return dict(totals=totals, case_history_peak={case: overlap(items) for case, items in cases.items()},
+    return dict(totals=totals, case_execution_interval_peak={case: overlap([interval for member in items for interval in member]) for case, items in cases.items()},
                 limitations=['No admission barrier yet: observed overlap does not prove four roots simultaneously Running before release.',
                              'History inventory is visibility-derived; complete expected child/Nexus graph census remains required.',
                              'Concurrency-one comparison and independent fan-out limits remain unqualified.'])
