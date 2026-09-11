@@ -80,8 +80,12 @@ def main():
     p.add_argument('--fixture', required=True, type=Path)
     p.add_argument('--evidence', required=True, type=Path)
     p.add_argument('--discovery', action='store_true')
+    p.add_argument('--search-bundle', type=Path, help='Opt-in generated three-case/four-root component')
+    p.add_argument('--history-oracle', type=Path)
     p.add_argument('--native-library', type=Path, help='Exact host dynamic library required outside discovery')
     args = p.parse_args()
+    if bool(args.search_bundle) != bool(args.history_oracle):
+        p.error('--search-bundle and --history-oracle must be supplied together')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT))
     build = json.loads(args.build_receipt.read_text())
@@ -175,6 +179,11 @@ def main():
         if nexus['history_shards_verified'] != 4 or len(nexus['runs']) != 4:
             raise RuntimeError('real Nexus operation coverage missing')
         report['assertions'].append('four-real-nexus-echo-operations')
+        if args.search_bundle:
+            from workflow_journey import run_search
+            report['workflow_helper_sha256'] = sha(ROOT / 'scripts/workflow_journey.py')
+            report['workflow_observations'] = run_search(cli, args.search_bundle, args.history_oracle, evidence, fixture, env, run)
+            report['assertions'].append('three-generated-cases-four-roots-history-observed')
         # Freeze only our three writers to obtain an identical authority version.
         for role in ('agent-1', 'agent-2', 'agent-3'):
             run(['docker', 'pause', resources[role]])

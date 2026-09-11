@@ -48,3 +48,21 @@ modified CLI builds, unknown native identity, wrong native library checksums,
 dependency replacements or mismatched Go/Temporal/SlateDB pins. The loader search
 path is bound to the explicitly supplied library directory. Native identity remains
 a build attestation, not independent dynamic-loader introspection.
+
+## Generated concurrent component
+
+Add `--search-bundle /absolute/prepared/generator-bundle --history-oracle
+/absolute/xenon-omes-oracle` to execute three fresh generated cases with four
+root inputs and concurrency four. Build the oracle from this checkout with
+`go build -o /absolute/xenon-omes-oracle ./cmd/xenon-omes-oracle` using the same
+pinned native environment. The generator bundle comes from the existing pinned
+`prepare-workflow-generator.py` setup. The selected worker's checksum is checked;
+its process group is recorded and drained before fixture teardown. No previously
+running fixture is adopted.
+
+`workflow-observations.json` counts initial roots, child runs, continued runs and
+Nexus handler runs from the saved, checksum-verified histories and measures
+actual interval overlap. This is component evidence: it has no admission barrier,
+no concurrency-one comparison, and no independent complete expected execution
+graph census yet. It cannot satisfy full GEN-02/CLEAN-01 by itself. Search errors
+stop immediately, retain all artifacts, and trigger owned fixture teardown.
