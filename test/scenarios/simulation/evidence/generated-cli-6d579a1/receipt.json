@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "scope": "generated coupled CLI component",
+  "result": "component-passed",
+  "full_dst_acceptance": false,
+  "full_issue_119_acceptance": false,
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/Users/calum/Documents/ChatGPT/xenon/.local/slatedb-native-source",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "cwd": "/Users/calum/Documents/ChatGPT/xenon/.local/slatedb-native-source",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "go",
+        "version"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-buildvcs=true",
+        "-ldflags",
+        "-X github.com/0x63616c/xenon/internal/buildinfo.NativeCommit=3fb9e8abab0c9f5833f0c154140ceef009fea02a -X github.com/0x63616c/xenon/internal/buildinfo.NativeSHA256=cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+        "-o",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/xenon",
+        "./cmd/xenon"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 180,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/xenon",
+        "version"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/xenon",
+        "search",
+        "--interleave",
+        "--scenario",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/source-input.json",
+        "--workload-seed",
+        "42",
+        "--fault-seed",
+        "119",
+        "--max-cases",
+        "4",
+        "--duration",
+        "30s",
+        "--evidence",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/finite"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/xenon",
+        "replay",
+        "--artifact",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/finite/case-00000000000000000003/scenario.json",
+        "--evidence",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/replay"
+      ],
+      "cwd": "/private/tmp/xenon-generated-cli-proof-6d579a1/empty-cwd",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/xenon",
+        "search",
+        "--interleave",
+        "--scenario",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/source-input.json",
+        "--workload-seed",
+        "42",
+        "--fault-seed",
+        "119",
+        "--continuous",
+        "--duration",
+        "250ms",
+        "--evidence",
+        "/private/tmp/xenon-generated-cli-proof-6d579a1/continuous"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 2
+    },
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "cwd": "/private/tmp/xenon-generated-search-integrated-proof",
+      "timeout_seconds": 60,
+      "exit_code": 0
+    }
+  ],
+  "assertions": [
+    "four generated completed cases; multiple orders and fixed workload",
+    "saved generated case replayed without source input/tool PATH; exact expanded input and trace",
+    "continuous budget returns exit 2; no full correctness claim"
+  ],
+  "limitations": [
+    "fixed workflow bytes and external linearization order; three existing safety cuts only",
+    "no instrumented zero-I/O proof; native library is linked but engine use is modeled",
+    "generator-free replay checks absent source input and empty tool PATH, not a filesystem sandbox"
+  ],
+  "source_revision": "6d579a1215c71fc444c5b6aeb1dd1b22760d43c1",
+  "source_dirty": false,
+  "native_receipt": {
+    "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+    "source_clean": true,
+    "source_cargo_lock_sha256": "1f61ad3d9c4bd67e6dfaa1b8caf62351aa77d1ee5da92dfc2608e6f375187077",
+    "binding_module": "slatedb.io/slatedb-go",
+    "binding_version": "v0.16.0",
+    "binding_sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0=",
+    "shared_library": ".local/slatedb-native-target/debug/libslatedb_uniffi.dylib",
+    "shared_library_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+    "node_binary": ".local/bin/xenon-go-node",
+    "node_binary_sha256": "4ae9a5fa4e6a27b8a64d6e27f35b28c78dfa8e2753555bf1719aad8c29a8dca2",
+    "agent_binary": ".local/bin/xenon",
+    "agent_binary_sha256": "e67986052f80afd1da1d25bc78d61d032d2b8ed7e92cc6ed9ac7e42a9b32556c",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cc": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "native_receipt_sha256": "0b7f3c11229efbf29d33416dab1bdbfc0156d65c7db3ec6e78eeaece90fce91d",
+  "build": {
+    "xenon": "v0.0.0-20260910214427-6d579a1215c7",
+    "go": "go1.27.1",
+    "revision": "6d579a1215c71fc444c5b6aeb1dd1b22760d43c1",
+    "modified": "false",
+    "temporal": {
+      "path": "go.temporal.io/server",
+      "version": "v1.31.2",
+      "sum": "h1:0O4zQ0NGRit2Z32s1XUHfs9k8zSKqff2n1QvFttYN0M="
+    },
+    "slatedb_go": {
+      "path": "slatedb.io/slatedb-go",
+      "version": "v0.16.0",
+      "sum": "h1:0ho3iuLFN7l9RS7HCwkWQwrV8J9/U2aX6025KmWXDG0="
+    },
+    "slatedb_native": {
+      "source_commit": "3fb9e8abab0c9f5833f0c154140ceef009fea02a",
+      "artifact_sha256": "cb60ae18f34498054cb6ab0d0a427df1a023a5470d10d7e75ab5b239297013c8",
+      "identity_source": "build-attestation"
+    }
+  },
+  "binary_sha256": "cc5311c3e583be31f1bb2e72baf4f9ccf4f0bb47ff28d7aba763349180cdddfa",
+  "input_sha256": "6c02896b8e9bf97149a6b46dc63c296089ef23d1a5b14300e55d821de678a2d0",
+  "replay_trace_sha256": "6776c763b3449fef6a9c64ef15c47d29310aa414cb07ffe131e761d24896c97a",
+  "outputs": {
+    "finite": {
+      "schema": 1,
+      "mode": "seeded-coupled-delivery-interleavings",
+      "qualification": "component",
+      "result": {
+        "completed": 4,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-generated-cli-proof-6d579a1/finite"
+      }
+    },
+    "replay": {
+      "schema": 1,
+      "mode": "exact-component-artifact-replay",
+      "qualification": "component",
+      "result": {
+        "completed": 1,
+        "stop_reason": "completed",
+        "evidence_path": "/private/tmp/xenon-generated-cli-proof-6d579a1/replay"
+      }
+    },
+    "continuous": {
+      "schema": 1,
+      "mode": "seeded-coupled-delivery-interleavings",
+      "qualification": "component",
+      "result": {
+        "completed": 0,
+        "stop_reason": "budget",
+        "evidence_path": "/private/tmp/xenon-generated-cli-proof-6d579a1/continuous"
+      }
+    }
+  },
+  "distinct_order_count": 4,
+  "files": {
+    "007.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "006.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "004.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "010.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "011.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "005.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "001.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "000.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "002.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "003.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "002.out": "fb69130bc1e9e67fa024dbced09ae45105463087712901e6df3034dc8828b1f1",
+    "003.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "001.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "000.out": "9a0b2b26b9fd532165b06c873004a1bdebf2f893607dffb9dab51443d3317336",
+    "004.out": "c528ba02b39880f1357f51dee70e41c1ef03e3a70c7a03055c080532b9635f58",
+    "xenon": "cc5311c3e583be31f1bb2e72baf4f9ccf4f0bb47ff28d7aba763349180cdddfa",
+    "010.out": "9a0b2b26b9fd532165b06c873004a1bdebf2f893607dffb9dab51443d3317336",
+    "011.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "005.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "007.out": "c19c136027f0833457443fd621298d6c7a5c609f2993264872f7cd2a456cf434",
+    "source-input.json": "6c02896b8e9bf97149a6b46dc63c296089ef23d1a5b14300e55d821de678a2d0",
+    "006.out": "d6a3cbd61834e9c035fe013aa01e841c08130c0c459755d6d478fb74ba5155c2",
+    "008.out": "81ae2c969b12ef38701a9c07795654206f4621e2183ce2bbf57a06116192f9d4",
+    "009.out": "24c1269b5056c70193838457ddf0d3a799ace25cb293811b8d928bf82f102b44",
+    "008.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "009.err": "ff0b142000f16b0b98c9ff243db59a282e37ede46cdc5cae77d4b896a7e10116",
+    "finite/result.json": "4f3eb14f6811ef4cba9c9f7d0ddcc6fa509be12d35646f34a708e66679f3f98b",
+    "finite/run.json": "b3f8615fde2e39eff25d0911eab9c82251a397b8894cf19d4a2c49d53327c936",
+    "replay/result.json": "c26cf99e0c0b1e9c78fcb5680d36b0d2f82aa47212d4e1f33195af6c2577f452",
+    "replay/run.json": "e33036b83197dac4a46f25ebaf47e1c0b29b07d25fa96eb95d96b8fc78a51ef9",
+    "continuous/result.json": "4e6bb95c4965a6dc9cba7a3a632e675f831a7691ad6b8941e94e672249f32672",
+    "continuous/run.json": "864f6784a001b0a8b9d984d140fb5d8a854f537173f1d1338353cba0f7c348d9",
+    "continuous/case-00000000000000000000/request.json": "f54404e2c1ce31f39aa35a3b23fbceb37939ffb6449651941f7adf0108812378",
+    "continuous/case-00000000000000000000/result.json": "ef211b089a96fa6528ab6867e755f1654475b0f3e8b1b446bf81c8d694bf172f",
+    "continuous/case-00000000000000000000/scenario.json": "d7ecc13ca1ecb5622bce874f147c13ff3e4c9bdcb39dfc1ff553a2f2e9c63321",
+    "continuous/case-00000000000000000000/trace.jsonl": "323ba6fa9cbd84ae5d959fce50b2bb3e5964ac6f2c83983526dd3537b4333a5d",
+    "continuous/case-00000000000000000000/failure.json": "d91329371cd1cf3f0e648b05b9694ebb953fe6c3120bbed12244cc97d3ecbc4e",
+    "replay/case-00000000000000000000/request.json": "a28e162e3c69f9a1886c95ad92b667e561d60dfcd9c1911d2f50329f3ab7ac99",
+    "replay/case-00000000000000000000/result.json": "f2aebcd4796ae8e8a3f729b5eb31efb5e337cb3825a2ffb1faf8c7c08995db2c",
+    "replay/case-00000000000000000000/scenario.json": "5d4f12e1a3cd74fabda70a36f4c4ec4a429ba44c40aabd280d2ef1e1b3375801",
+    "replay/case-00000000000000000000/trace.jsonl": "6776c763b3449fef6a9c64ef15c47d29310aa414cb07ffe131e761d24896c97a",
+    "finite/case-00000000000000000000/request.json": "f54404e2c1ce31f39aa35a3b23fbceb37939ffb6449651941f7adf0108812378",
+    "finite/case-00000000000000000000/result.json": "f2aebcd4796ae8e8a3f729b5eb31efb5e337cb3825a2ffb1faf8c7c08995db2c",
+    "finite/case-00000000000000000000/scenario.json": "0f941d48f18b4211fb7fe4c715774ce00ce645848744f9a1517ec8fdf8e43cd4",
+    "finite/case-00000000000000000000/trace.jsonl": "1b99d81ee791db432b97d9754d77678c0f29fc5d9bc72afd70fbc7058d255049",
+    "finite/case-00000000000000000001/request.json": "efa4060806d50b291be2f8db1831abf39bfeb590f439d64de685e9d77e1d4251",
+    "finite/case-00000000000000000001/result.json": "f2aebcd4796ae8e8a3f729b5eb31efb5e337cb3825a2ffb1faf8c7c08995db2c",
+    "finite/case-00000000000000000001/scenario.json": "000e71ab22c01cee52529c752abd8f64a4152e5ac62e6c07f297032d81c6da05",
+    "finite/case-00000000000000000001/trace.jsonl": "a81a5a8aeccd449d35c7e519363fc2e4d570aee4491c09af545b3409dcc8eba0",
+    "finite/case-00000000000000000003/request.json": "a28e162e3c69f9a1886c95ad92b667e561d60dfcd9c1911d2f50329f3ab7ac99",
+    "finite/case-00000000000000000003/result.json": "f2aebcd4796ae8e8a3f729b5eb31efb5e337cb3825a2ffb1faf8c7c08995db2c",
+    "finite/case-00000000000000000003/scenario.json": "b2839c90f5764da9301719706ad6c2a5036069c1accb8b6261fe21cefabca3df",
+    "finite/case-00000000000000000003/trace.jsonl": "6776c763b3449fef6a9c64ef15c47d29310aa414cb07ffe131e761d24896c97a",
+    "finite/case-00000000000000000002/request.json": "9f1db4d0d9099795e51ff87c233ed558b1727d5d244e4f32d4b6c102bac25fc7",
+    "finite/case-00000000000000000002/result.json": "f2aebcd4796ae8e8a3f729b5eb31efb5e337cb3825a2ffb1faf8c7c08995db2c",
+    "finite/case-00000000000000000002/scenario.json": "dd10891547509b57d5e947cd4b46961b924674d46095bf09fc5247677ead6b01",
+    "finite/case-00000000000000000002/trace.jsonl": "bfb2cd4829837816b8f4eaff9e21614c286ff9283b4f2e45df38b1dc8ad652e9"
+  }
+}
