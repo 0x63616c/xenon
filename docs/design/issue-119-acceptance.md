@@ -13,12 +13,18 @@ The primary developer interface is:
 
 ```sh
 go test ./...
+just xenon
 xenon test dst
 xenon test dst --seed 42 --cases 1000
 xenon replay failure.json
 xenon minimize failure.json
 xenon test integration
 ```
+
+`just xenon` is the normal developer entrypoint. It fingerprints the executable's
+Go and embedded source inputs, rebuilds the cached `.local/bin/xenon` only when
+those inputs change, and then runs it. Additional arguments are forwarded to the
+same binary, such as `just xenon test dst`.
 
 Commands choose sensible defaults and create temporary artifacts themselves.
 Users do not provide internal oracle binaries, hashes, fixture files or runtime

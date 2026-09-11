@@ -33,9 +33,29 @@ See the [verification matrix](docs/design/verification-matrix.md) for the eviden
 - Node movement and recovery without relying on local disks.
 - Compatibility with Temporal execution, visibility, SDKs, and UI.
 
+## Run Xenon
+
+[`just`](https://just.systems/) is the developer entrypoint. This runs the Xenon
+CLI from the latest source:
+
+```sh
+just xenon
+```
+
+The recipe caches the executable at `.local/bin/xenon` and rebuilds it only
+when Go source or module files change. Arguments are forwarded to the CLI, so
+the same entrypoint runs its tools:
+
+```sh
+just xenon test dst --seed 42 --cases 1000
+just xenon replay failure.json
+```
+
 ## Run the component proofs
 
-Requirements: Go 1.27.1, Rust 1.94.0 through `rustup`, Python 3, Git, platform C/C++ build tools, and Docker Compose for S3-emulator proofs.
+Requirements: `just`, Go 1.27.1, Rust 1.94.0 through `rustup`, Python 3, Git,
+platform C/C++ build tools, and Docker Compose for the legacy S3-emulator
+proofs below.
 
 ```sh
 python3 scripts/prove.py go-runtime-stores
