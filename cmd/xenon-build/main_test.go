@@ -27,6 +27,19 @@ func TestReadPinsIsStrict(t *testing.T) {
 	}
 }
 
+func TestXenonBuildUsesSlateDBProductionTag(t *testing.T) {
+	args := xenonBuildArgs("metadata", "/tmp/xenon")
+	want := []string{"build", "-buildvcs=true", "-tags=slatedb", "-ldflags", "metadata", "-o", "/tmp/xenon", "./cmd/xenon"}
+	if len(args) != len(want) {
+		t.Fatalf("build args = %q, want %q", args, want)
+	}
+	for i := range want {
+		if args[i] != want[i] {
+			t.Fatalf("build args = %q, want %q", args, want)
+		}
+	}
+}
+
 func TestHashFilesBindsNamesOrderAndContent(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "a"), []byte("same"), 0600); err != nil {

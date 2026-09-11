@@ -129,7 +129,7 @@ func build(ctx context.Context, root string) error {
 		} else {
 			flags += " -extldflags=-Wl,-rpath,$ORIGIN"
 		}
-		if err = run(ctx, root, buildEnv, "go", "build", "-buildvcs=true", "-ldflags", flags, "-o", binary, "./cmd/xenon"); err != nil {
+		if err = run(ctx, root, buildEnv, "go", xenonBuildArgs(flags, binary)...); err != nil {
 			return err
 		}
 	}
@@ -151,6 +151,10 @@ func build(ctx context.Context, root string) error {
 		fmt.Println("Built Xenon:", binary)
 	}
 	return nil
+}
+
+func xenonBuildArgs(flags, binary string) []string {
+	return []string{"build", "-buildvcs=true", "-tags=slatedb", "-ldflags", flags, "-o", binary, "./cmd/xenon"}
 }
 
 func readPins(path string) (pins, []byte, error) {
