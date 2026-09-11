@@ -33,19 +33,27 @@ type runAudit struct {
 	HistorySHA256 string         `json:"history_sha256"`
 }
 
-func inspect(h *historypb.History, status enums.WorkflowExecutionStatus) (map[string]int, string, error) {
+func historyShape(h *historypb.History) (map[string]int, error) {
 	if h == nil || len(h.Events) < 2 {
-		return nil, "", fmt.Errorf("missing complete history")
+		return nil, fmt.Errorf("missing complete history")
 	}
 	counts := map[string]int{}
 	for i, e := range h.Events {
 		if e == nil || e.EventId != int64(i+1) {
-			return nil, "", fmt.Errorf("history event gap or duplicate")
+			return nil, fmt.Errorf("history event gap or duplicate")
 		}
 		counts[e.EventType.String()]++
 	}
 	if h.Events[0].EventType != enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED || h.Events[0].GetWorkflowExecutionStartedEventAttributes() == nil {
-		return nil, "", fmt.Errorf("history does not start at workflow start")
+		return nil, fmt.Errorf("history does not start at workflow start")
+	}
+	return counts, nil
+}
+
+func inspect(h *historypb.History, status enums.WorkflowExecutionStatus) (map[string]int, string, error) {
+	counts, err := historyShape(h)
+	if err != nil {
+		return nil, "", err
 	}
 	last := h.Events[len(h.Events)-1]
 	switch status {
@@ -242,10 +250,17 @@ func run() error {
 			return e
 		}
 		histories[runs[i].RunID] = h
+	}
+	byRun := map[string]runAudit{}
+	for _, run := range runs {
+		byRun[run.RunID] = run
+	}
+	for i := range runs {
+		h := histories[runs[i].RunID]
 		if *mixed {
 			runs[i].Events, runs[i].NextRun, err = inspectMixed(h, statuses[runs[i].RunID])
 		} else {
-			runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
+			runs[i].Events, runs[i].NextRun, err = inspectGenerated(runs[i], histories, byRun, statuses, map[string]bool{})
 		}
 		if err != nil {
 			failure, _ := json.MarshalIndent(map[string]any{"schema": 1, "run": runs[i], "error": err.Error()}, "", "  ")
@@ -271,7 +286,7 @@ func run() error {
 			return err
 		}
 	}
-	report := map[string]any{"mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories, child-parent links and continue-as-new successor graph; expected generated root graph and semantic result values not checked"}
+	report := map[string]any{"generated_parent_close_checked": !*mixed, "mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories, child-parent links and continue-as-new successor graph; expected generated root graph and semantic result values not checked"}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err

@@ -1,0 +1,15 @@
+{
+  "source_receipt": "/Users/calum/Documents/ChatGPT/xenon-generated-rejected-history-recovery/result.json",
+  "source_receipt_sha256": "4ce2cd83f350d96a93ac6eaf21c9ae41ced3d5d46837baa11080f50d4a1a1683",
+  "parent_sha256": "665f540b3e50d9bb7d9a76d38db22d3e1392606f2b3a5054530f52985f060ded",
+  "child_sha256": "9999f32643486ff4ff200673483d634f538742fe47e3fbe4b5bc8c6eea7179c1",
+  "qualification_correction": "Historical receipt says read-only diagnostic. Server restoration can advance workflows/write metadata; only oracle fetch was read-only. No unchanged-state claim.",
+  "observations": {
+    "parent_child_initiated_event": 59,
+    "parent_close_policy": "PARENT_CLOSE_POLICY_TERMINATE",
+    "parent_completed": "2026-09-11T02:37:47.789731114Z",
+    "child_terminated": "2026-09-11T02:37:47.969844979Z",
+    "termination_reason": "by parent close policy",
+    "termination_identity": "history-service"
+  }
+}

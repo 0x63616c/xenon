@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only workflow diagnostic on an explicitly preserved initialized dev fixture."""
+"""Restore an explicitly preserved fixture and fetch rejected workflow histories."""
 import argparse
 import hashlib
 import json
@@ -18,8 +18,8 @@ if not state.get('initialized') or not state.get('initialization'):
     p.error('previously initialized preserved fixture required')
 a.evidence.mkdir(parents=True, exist_ok=False)
 env = dict(os.environ, DYLD_LIBRARY_PATH=str(a.native_library.parent), LD_LIBRARY_PATH=str(a.native_library.parent))
-report = dict(schema=1, qualification='preserved-fixture-read-only-diagnostic', source_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
-              fixture_run=state['run'], omes_run_id=a.omes_run_id, cli_sha256=hashlib.sha256(a.cli.read_bytes()).hexdigest(),
+report = dict(schema=1, qualification='restored-fixture-diagnostic', source_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              limitations=['Restoring servers can advance workflows and write authority/metadata; only oracle history fetch is read-only. No unchanged-state claim.'], fixture_run=state['run'], omes_run_id=a.omes_run_id, cli_sha256=hashlib.sha256(a.cli.read_bytes()).hexdigest(),
               oracle_sha256=hashlib.sha256(a.oracle.read_bytes()).hexdigest(), commands=[], cleanup_verified=False)
 
 def run(argv, timeout, expected=0):
