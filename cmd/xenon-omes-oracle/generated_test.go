@@ -36,9 +36,10 @@ func TestGeneratedIntentRejectsNamedGraphMutants(t *testing.T) {
 	}
 	for name, mutate := range map[string]func(*generatedIntentFile, *[]runAudit, map[string]*historypb.History){
 		"omitted execution": func(_ *generatedIntentFile, r *[]runAudit, _ map[string]*historypb.History) { *r = nil },
-		"wrong effect count": func(f *generatedIntentFile, _ *[]runAudit, _ map[string]*historypb.History) {
-			f.Intent.Nodes[0].Activities = 1
-			f.Intent.Counts.Activities = 1
+		"wrong effect count": func(_ *generatedIntentFile, _ *[]runAudit, h map[string]*historypb.History) {
+			h["run-1"].Events = append(h["run-1"].Events[:1],
+				&historypb.HistoryEvent{EventId: 2, EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED, Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{}}},
+				h["run-1"].Events[1])
 		},
 		"corrupt result": func(_ *generatedIntentFile, _ *[]runAudit, h map[string]*historypb.History) {
 			h["run-1"].Events[1].GetWorkflowExecutionCompletedEventAttributes().Result.Payloads[0].Data = []byte("bad")

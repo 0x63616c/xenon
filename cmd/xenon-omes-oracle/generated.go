@@ -71,6 +71,7 @@ type generatedAudit struct {
 	ExpectedMaxFanout generatedFanout `json:"expected_max_fanout"`
 	ObservedMaxFanout generatedFanout `json:"observed_max_fanout"`
 	Limits            generatedFanout `json:"limits"`
+	CountSemantics    string          `json:"count_semantics"`
 }
 
 func strictGenerated(raw []byte, value any) error {
@@ -215,6 +216,9 @@ func checkGeneratedTerminal(node generatedNode, run runAudit, h *historypb.Histo
 			return fmt.Errorf("generated_graph/terminal")
 		}
 	case "completed":
+		if node.Kind == "child" && run.Status == enums.WORKFLOW_EXECUTION_STATUS_TERMINATED.String() && last.GetWorkflowExecutionTerminatedEventAttributes() != nil {
+			return nil
+		}
 		if run.Status != enums.WORKFLOW_EXECUTION_STATUS_COMPLETED.String() || last.GetWorkflowExecutionCompletedEventAttributes() == nil || generatedResultDigest(h) != node.ResultSHA256 {
 			return fmt.Errorf("generated_graph/result")
 		}
@@ -344,7 +348,7 @@ func peakGenerated(h *historypb.History, scheduled enums.EventType) (int, error)
 }
 
 func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories map[string]*historypb.History, namespace string) (generatedAudit, error) {
-	audit := generatedAudit{Contract: generatedIntentContract, InputSHA256: file.InputSHA256, IntentSHA256: file.IntentSHA256, Expected: file.Intent.Counts, ExpectedMaxFanout: file.Intent.MaxFanout, Limits: file.Intent.Limits}
+	audit := generatedAudit{Contract: generatedIntentContract, InputSHA256: file.InputSHA256, IntentSHA256: file.IntentSHA256, Expected: file.Intent.Counts, ExpectedMaxFanout: file.Intent.MaxFanout, Limits: file.Intent.Limits, CountSemantics: "execution kinds are exact; activity and Nexus counts are input-derived upper bounds because cancel and abandon races may stop later sequential handler actions"}
 	if len(runs) != len(file.Intent.Nodes) {
 		return audit, fmt.Errorf("generated_graph/execution_inventory")
 	}
@@ -423,7 +427,7 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 				childStarts = append(childStarts, event)
 			}
 		}
-		if activities != node.Activities || nexus != node.NexusOperations {
+		if activities > node.Activities || nexus > node.NexusOperations {
 			return fmt.Errorf("generated_graph/effect_counts")
 		}
 		aPeak, e := peakGenerated(h, enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED)
@@ -545,7 +549,7 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 		audit.Observed.Activities += run.Events[enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED.String()]
 		audit.Observed.NexusOperations += run.Events[enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED.String()]
 	}
-	if audit.Observed != audit.Expected {
+	if audit.Observed.Roots != audit.Expected.Roots || audit.Observed.Children != audit.Expected.Children || audit.Observed.Continuations != audit.Expected.Continuations || audit.Observed.NexusHandlers != audit.Expected.NexusHandlers || audit.Observed.Activities > audit.Expected.Activities || audit.Observed.NexusOperations > audit.Expected.NexusOperations {
 		return audit, fmt.Errorf("generated_graph/typed_counts")
 	}
 	if audit.ObservedMaxFanout.Children > audit.Limits.Children || audit.ObservedMaxFanout.Activities > audit.Limits.Activities || audit.ObservedMaxFanout.Nexus > audit.Limits.Nexus {

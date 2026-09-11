@@ -272,13 +272,14 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 			HistorySHA  string `json:"history_sha256"`
 		} `json:"runs"`
 		Generated struct {
-			Contract     string               `json:"contract"`
-			InputSHA256  string               `json:"input_sha256"`
-			IntentSHA256 string               `json:"intent_sha256"`
-			Expected     WorkflowEffectCounts `json:"expected"`
-			Observed     WorkflowEffectCounts `json:"observed"`
-			Limits       WorkflowFanout       `json:"limits"`
-			ObservedMax  WorkflowFanout       `json:"observed_max_fanout"`
+			Contract       string               `json:"contract"`
+			InputSHA256    string               `json:"input_sha256"`
+			IntentSHA256   string               `json:"intent_sha256"`
+			CountSemantics string               `json:"count_semantics"`
+			Expected       WorkflowEffectCounts `json:"expected"`
+			Observed       WorkflowEffectCounts `json:"observed"`
+			Limits         WorkflowFanout       `json:"limits"`
+			ObservedMax    WorkflowFanout       `json:"observed_max_fanout"`
 		} `json:"generated_intent"`
 	}
 	if e = json.Unmarshal(raw, &proof); e != nil {
@@ -308,7 +309,7 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 			return nil, e
 		}
 	}
-	if proof.ExpectedContract != "omes-generated-intent-v1" || proof.ExpectedRuns != proof.Visible || proof.Generated.Contract != proof.ExpectedContract || proof.Generated.InputSHA256 != proof.ExpectedInputSHA || proof.Generated.IntentSHA256 != expectedIntent.IntentSHA256 || proof.Generated.Expected != proof.Generated.Observed || proof.Generated.Limits != generatedWorkflowFanoutLimits || proof.Generated.ObservedMax.Children > proof.Generated.Limits.Children || proof.Generated.ObservedMax.Activities > proof.Generated.Limits.Activities || proof.Generated.ObservedMax.Nexus > proof.Generated.Limits.Nexus {
+	if proof.ExpectedContract != "omes-generated-intent-v1" || proof.ExpectedRuns != proof.Visible || proof.Generated.Contract != proof.ExpectedContract || proof.Generated.InputSHA256 != proof.ExpectedInputSHA || proof.Generated.IntentSHA256 != expectedIntent.IntentSHA256 || proof.Generated.CountSemantics == "" || proof.Generated.Expected.Roots != proof.Generated.Observed.Roots || proof.Generated.Expected.Children != proof.Generated.Observed.Children || proof.Generated.Expected.Continuations != proof.Generated.Observed.Continuations || proof.Generated.Expected.NexusHandlers != proof.Generated.Observed.NexusHandlers || proof.Generated.Observed.Activities > proof.Generated.Expected.Activities || proof.Generated.Observed.NexusOperations > proof.Generated.Expected.NexusOperations || proof.Generated.Limits != generatedWorkflowFanoutLimits || proof.Generated.ObservedMax.Children > proof.Generated.Limits.Children || proof.Generated.ObservedMax.Activities > proof.Generated.Limits.Activities || proof.Generated.ObservedMax.Nexus > proof.Generated.Limits.Nexus {
 		return nil, errors.New("missing generated intent audit")
 	}
 	if err := checkFile(filepath.Join(path, "input.proto"), proof.ExpectedInputSHA); err != nil {

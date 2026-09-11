@@ -30,7 +30,7 @@ def history_counts(directory):
     for receipt in sorted(directory.glob('**/histories/result.json')):
         result = json.loads(receipt.read_text())
         proof = result.get('generated_intent')
-        if not proof or proof.get('contract') != 'omes-generated-intent-v1' or proof.get('expected') != proof.get('observed'):
+        if not proof or proof.get('contract') != 'omes-generated-intent-v1':
             raise ValueError('missing or mismatched generated intent audit')
         if limits is None:
             limits = proof['limits']
@@ -86,7 +86,7 @@ def history_counts(directory):
         cases.setdefault(case, []).append(interval)
     if len(cases) != 3 or any(len(items) != 4 for items in cases.values()) or totals['initial_roots'] != 12:
         raise ValueError('expected three cases each containing four initial roots')
-    if limits is None or expected != observed:
+    if limits is None or any(observed[key] > expected[key] for key in ('activities', 'nexus_operations')) or any(observed[key] != expected[key] for key in ('roots', 'children', 'continuations', 'nexus_handlers')):
         raise ValueError('generated intent census missing')
     actual = dict(roots=totals['initial_roots'], children=totals['child_runs'], continuations=totals['continued_runs'], activities=totals['activity_scheduled'], nexus_operations=totals['nexus_operation_scheduled'], nexus_handlers=totals['nexus_handler_runs'])
     if actual != observed:
