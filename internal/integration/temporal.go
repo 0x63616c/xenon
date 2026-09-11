@@ -130,7 +130,8 @@ func runOutput(ctx context.Context, dir string, env []string, argv ...string) (s
 }
 func probe(ctx context.Context, root string, env []string, bin string, fixture temporalCase, mode string, extra ...string) ([]byte, error) {
 	timeout := 15 * time.Second
-	if mode == "bootstrap" || mode == "fuzz-endpoint" || mode == "fuzz-endpoint-ready" || mode == "control" {
+	switch mode {
+	case "bootstrap", "fuzz-endpoint", "fuzz-endpoint-ready", "control", "verify", "visibility":
 		timeout = 90 * time.Second
 	}
 	attempt, cancel := context.WithTimeout(ctx, timeout)
