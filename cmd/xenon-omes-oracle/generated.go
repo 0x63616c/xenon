@@ -39,10 +39,10 @@ type generatedNode struct {
 	Previous        string   `json:"previous,omitempty"`
 	InputSHA256     string   `json:"input_sha256"`
 	Children        []string `json:"children,omitempty"`
-	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
 	Next            string   `json:"next,omitempty"`
 	Activities      int      `json:"activities"`
 	NexusOperations int      `json:"nexus_operations"`
+	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
 	Terminal        string   `json:"terminal"`
 	ResultSHA256    string   `json:"result_sha256,omitempty"`
 	ResultString    string   `json:"result_string,omitempty"`
@@ -125,8 +125,17 @@ func loadGeneratedIntent(path, inputPath string) (*generatedIntentFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	if file.Schema != 1 || file.InputSHA256 != digestGenerated(input) || file.IntentSHA256 != digestGenerated(intentRaw) || file.Intent.InputSHA256 != file.InputSHA256 || file.Intent.Schema != 1 || !json.Valid(file.Intent.ExpandedInput) {
-		return nil, fmt.Errorf("generated intent hash binding")
+	if file.Schema != 1 || file.Intent.Schema != 1 {
+		return nil, fmt.Errorf("generated intent schema binding")
+	}
+	if actual := digestGenerated(input); file.InputSHA256 != actual || file.Intent.InputSHA256 != actual {
+		return nil, fmt.Errorf("generated intent input binding")
+	}
+	if actual := digestGenerated(intentRaw); file.IntentSHA256 != actual {
+		return nil, fmt.Errorf("generated intent content binding: declared %s actual %s", file.IntentSHA256, actual)
+	}
+	if !json.Valid(file.Intent.ExpandedInput) {
+		return nil, fmt.Errorf("generated intent expanded input")
 	}
 	if file.Intent.Counts.Roots != 1 || file.Intent.Limits != (generatedFanout{2048, 2048, 2048}) || len(file.Intent.Nodes) != file.Intent.Counts.Roots+file.Intent.Counts.Children+file.Intent.Counts.Continuations+file.Intent.Counts.NexusHandlers {
 		return nil, fmt.Errorf("generated intent inventory")

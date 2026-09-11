@@ -51,7 +51,7 @@ func (residentInputControl) Info() GeneratorInfo {
 	return GeneratorInfo{"test-only", strings.Repeat("a", 64), []string{WorkflowInputKind}}
 }
 func testWorkflowIntent(raw []byte) (GeneratedWorkflowIntent, string) {
-	intent := GeneratedWorkflowIntent{Schema: 1, InputSHA256: hash(raw), ExpandedInput: json.RawMessage(`{}`), Nodes: []GeneratedWorkflowNode{{ID: "root", Kind: "root", InputSHA256: hash(raw)}}, Counts: WorkflowEffectCounts{Roots: 1}, Limits: generatedWorkflowFanoutLimits}
+	intent := GeneratedWorkflowIntent{Schema: 1, InputSHA256: hash(raw), ExpandedInput: json.RawMessage(`{}`), Nodes: []GeneratedWorkflowNode{{ID: "root", Kind: "root", InputSHA256: hash(raw), Terminal: "completed", ResultSHA256: hash(nil)}}, Counts: WorkflowEffectCounts{Roots: 1}, Limits: generatedWorkflowFanoutLimits}
 	encoded, _ := json.Marshal(intent)
 	return intent, hash(encoded)
 }
