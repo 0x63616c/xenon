@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
@@ -41,10 +42,14 @@ type MultiNodeOptions struct{ XenonBinary string }
 // routing boundaries. Detailed interleavings stay in DST; this journey is one
 // bounded correspondence check.
 func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options MultiNodeOptions) (result JourneyResult, err error) {
-	started := time.Now()
-	result.Name = "multi-node-ownership"
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
+	evidence, err := beginJourney(ctx, &result, "multi-node-ownership", diagnostics)
+	defer evidence.finish(ctx, &err)
+	if err != nil {
+		return result, err
+	}
+	diagnostics = evidence.writer()
 	runtime, err := startMinIO(ctx, diagnostics)
 	if err != nil {
 		return result, err
@@ -58,6 +63,9 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 		binary, err = os.Executable()
 	}
 	if err != nil {
+		return result, err
+	}
+	if err = evidence.file("xenon-binary", binary); err != nil {
 		return result, err
 	}
 	bucket, prefix := "xenon-integration-"+randomHex(8), "multi-node"
@@ -82,16 +90,19 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 		configs[i].PublicAddress = fmt.Sprintf("127.0.0.1:%d", bases[0])
 		configs[i].PublicHTTPAddress = fmt.Sprintf("127.0.0.1:%d", bases[0]+9)
 	}
+	if err = evidence.config("nodes", configs); err != nil {
+		return result, err
+	}
 	processes := make([]*nodeProcess, 3)
 	defer func() {
 		for _, process := range processes {
 			if process != nil {
-				process.stop()
+				err = errors.Join(err, process.stop())
 			}
 		}
 	}()
 	start := func(index int) error {
-		process, startErr := startNode(ctx, binary, configs[index])
+		process, startErr := startNode(ctx, binary, configs[index], evidence)
 		if startErr != nil {
 			return startErr
 		}
@@ -125,6 +136,14 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 				return
 			case <-time.After(20 * time.Millisecond):
 			}
+		}
+	}()
+	defer func() {
+		stopTraffic()
+		select {
+		case <-trafficDone:
+		case <-time.After(10 * time.Second):
+			err = errors.Join(err, errors.New("traffic cleanup timeout"))
 		}
 	}()
 	if err = start(1); err != nil {
@@ -161,7 +180,11 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 		return true
 	})
 	stopTraffic()
-	<-trafficDone
+	select {
+	case <-trafficDone:
+	case <-time.After(10 * time.Second):
+		return result, errors.New("traffic cleanup timeout")
+	}
 	if err != nil {
 		return result, fmt.Errorf("ownership movement: %w", err)
 	}
@@ -178,7 +201,9 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	}
 
 	oldIncarnation := moved.Partitions[moved.Layout.Partitions[0].ID].Desired.Incarnation
-	processes[1].kill()
+	if err = processes[1].kill(); err != nil {
+		return result, err
+	}
 	processes[1] = nil
 	// Before suspicion can publish takeover, ingress still resolves the killed
 	// owner. The failed request must exercise the bounded refresh attempt; it is
@@ -218,7 +243,6 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 		return result, fmt.Errorf("progress through replacement: %w", err)
 	}
 	result.Assertions = []string{"three nodes joined", "ownership moved while operations progressed", "stale ingress forwarded and refreshed within bounded routing", "killed owner was taken over", "same-address process acquired a new incarnation", "new progress succeeded"}
-	result.Duration = time.Since(started)
 	return result, nil
 }
 
@@ -231,6 +255,8 @@ func integrationNodeConfig(bucket, prefix string, ordinal, base int, bootstrap b
 	return app.Config{Cluster: "integration", Node: fmt.Sprintf("node-%d", ordinal), Bucket: bucket, Prefix: prefix, BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: base, PublicAddress: fmt.Sprintf("127.0.0.1:%d", base), PublicHTTPAddress: fmt.Sprintf("127.0.0.1:%d", base+9), DiagnosticsAddress: fmt.Sprintf("127.0.0.1:%d", base+10), HistoryShards: 4, Bootstrap: bootstrap, ServiceStorage: &app.ServiceStorageConfig{Format: 2, ClusterID: "clu_0000000000000000000001", NodeID: identity.NodeID(fmt.Sprintf("nod_%022d", ordinal)), Layout: cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: parts}, FreshNamespace: bootstrap, PollInterval: "50ms", HeartbeatInterval: "100ms", DiscoveryInterval: "50ms", RegistryTimeout: "5s", RenewalInterval: "250ms", SuspectAfter: "1s", MembershipFailureAfter: "500ms", MaxControlBytes: 1 << 20, MaxMembershipBytes: 1 << 20, MaxMembershipEntries: 16, MembershipReadBatch: 4, MaxOutcomes: 1000}}
 }
 
+const diagnosticLimit = 1 << 20
+
 type synchronizedBuffer struct {
 	sync.Mutex
 	bytes.Buffer
@@ -239,70 +265,125 @@ type synchronizedBuffer struct {
 func (b *synchronizedBuffer) Write(p []byte) (int, error) {
 	b.Lock()
 	defer b.Unlock()
-	if b.Len() > 1<<20 {
-		return len(p), nil
+	n := len(p)
+	if len(p) >= diagnosticLimit {
+		b.Reset()
+		p = p[len(p)-diagnosticLimit:]
 	}
-	return b.Buffer.Write(p)
+	if overflow := b.Len() + len(p) - diagnosticLimit; overflow > 0 {
+		b.Next(overflow)
+	}
+	_, _ = b.Buffer.Write(p)
+	return n, nil
 }
 func (b *synchronizedBuffer) String() string { b.Lock(); defer b.Unlock(); return b.Buffer.String() }
 
-type nodeProcess struct {
+type processLifecycle struct {
 	command *exec.Cmd
-	output  *synchronizedBuffer
 	done    chan struct{}
+	waitErr error
+	stopErr error
 	once    sync.Once
 }
 
-func startNode(ctx context.Context, binary string, config app.Config) (*nodeProcess, error) {
+func trackProcess(command *exec.Cmd) *processLifecycle {
+	p := &processLifecycle{command: command, done: make(chan struct{})}
+	go func() { p.waitErr = command.Wait(); close(p.done) }()
+	return p
+}
+func (p *processLifecycle) stop(kill bool) error {
+	p.once.Do(func() { p.stopErr = p.terminate(kill, 10*time.Second) })
+	return p.stopErr
+}
+func (p *processLifecycle) terminate(kill bool, grace time.Duration) error {
+	select {
+	case <-p.done:
+		// The command may have exited on cancellation while children still hold
+		// the process group. Retire that group even when the leader is gone.
+		killErr := syscall.Kill(-p.command.Process.Pid, syscall.SIGKILL)
+		if errors.Is(killErr, syscall.ESRCH) {
+			killErr = nil
+		}
+		return fmt.Errorf("process %d exited before requested shutdown: %w", p.command.Process.Pid, errors.Join(errors.New("unexpected exit"), p.waitErr, killErr))
+	default:
+	}
+	signal := syscall.SIGINT
+	if kill {
+		signal = syscall.SIGKILL
+	}
+	signalErr := syscall.Kill(-p.command.Process.Pid, signal)
+	if errors.Is(signalErr, syscall.ESRCH) {
+		signalErr = nil
+	}
+	select {
+	case <-p.done:
+		var exit *exec.ExitError
+		if errors.As(p.waitErr, &exit) {
+			if status, ok := exit.Sys().(syscall.WaitStatus); ok && status.Signaled() && status.Signal() == signal {
+				return signalErr
+			}
+		}
+		return errors.Join(signalErr, p.waitErr)
+	case <-time.After(grace):
+		timeoutErr := fmt.Errorf("process %d shutdown timeout after %s", p.command.Process.Pid, grace)
+		killErr := syscall.Kill(-p.command.Process.Pid, syscall.SIGKILL)
+		if errors.Is(killErr, syscall.ESRCH) {
+			killErr = nil
+		}
+		select {
+		case <-p.done:
+			return errors.Join(timeoutErr, signalErr, killErr)
+		case <-time.After(grace):
+			return errors.Join(timeoutErr, signalErr, killErr, errors.New("process did not exit after SIGKILL"))
+		}
+	}
+}
+
+type nodeProcess struct {
+	lifecycle   *processLifecycle
+	output      *synchronizedBuffer
+	directory   string
+	evidence    *journeyEvidence
+	cleanupOnce sync.Once
+	cleanupErr  error
+}
+
+func startNode(ctx context.Context, binary string, config app.Config, evidence *journeyEvidence) (*nodeProcess, error) {
 	directory, err := os.MkdirTemp("", "xenon-node-")
 	if err != nil {
 		return nil, err
 	}
 	path := filepath.Join(directory, "config.json")
-	raw, _ := json.Marshal(config)
-	if err = os.WriteFile(path, raw, 0600); err != nil {
-		_ = os.RemoveAll(directory)
-		return nil, err
+	raw, err := json.Marshal(config)
+	if err == nil {
+		err = os.WriteFile(path, raw, 0600)
+	}
+	if err != nil {
+		return nil, errors.Join(err, os.RemoveAll(directory))
+	}
+	if err = evidence.config(filepath.Base(directory)+"-config", config); err != nil {
+		return nil, errors.Join(err, os.RemoveAll(directory))
 	}
 	buffer := new(synchronizedBuffer)
 	command := exec.CommandContext(ctx, binary, "start", "--config", path)
 	command.Dir, command.Env, command.Stdout, command.Stderr = directory, os.Environ(), buffer, buffer
+	command.SysProcAttr, command.WaitDelay = &syscall.SysProcAttr{Setpgid: true}, time.Second
 	if err = command.Start(); err != nil {
-		_ = os.RemoveAll(directory)
-		return nil, err
+		return nil, errors.Join(err, os.RemoveAll(directory))
 	}
-	process := &nodeProcess{command: command, output: buffer, done: make(chan struct{})}
-	go func() {
-		_ = command.Wait()
-		_ = os.RemoveAll(directory)
-		close(process.done)
-	}()
-	return process, nil
+	return &nodeProcess{lifecycle: trackProcess(command), output: buffer, directory: directory, evidence: evidence}, nil
 }
-func (p *nodeProcess) kill() {
-	p.once.Do(func() {
-		if p.command.Process != nil {
-			_ = p.command.Process.Kill()
-		}
-		p.wait()
+func (p *nodeProcess) kill() error { return p.cleanup(true) }
+func (p *nodeProcess) stop() error { return p.cleanup(false) }
+func (p *nodeProcess) cleanup(kill bool) error {
+	p.cleanupOnce.Do(func() {
+		p.cleanupErr = p.lifecycle.stop(kill)
+		p.cleanupErr = errors.Join(p.cleanupErr, p.evidence.save(filepath.Base(p.directory)+".log", []byte(p.output.String())))
+		// Removing the local state makes subsequent starts true cold starts. The
+		// bounded log and exact generated config live in the journey bundle.
+		p.cleanupErr = errors.Join(p.cleanupErr, os.RemoveAll(p.directory))
 	})
-}
-func (p *nodeProcess) stop() {
-	p.once.Do(func() {
-		if p.command.Process != nil {
-			_ = p.command.Process.Signal(os.Interrupt)
-			time.Sleep(200 * time.Millisecond)
-			_ = p.command.Process.Kill()
-		}
-		p.wait()
-	})
-}
-
-func (p *nodeProcess) wait() {
-	select {
-	case <-p.done:
-	case <-time.After(10 * time.Second):
-	}
+	return p.cleanupErr
 }
 
 func reservePortBlocks(count int) ([]int, error) {
@@ -364,6 +445,9 @@ func waitMetric(ctx context.Context, address, fragment string) error {
 }
 func wait(ctx context.Context, condition func() bool) error {
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if condition() {
 			return nil
 		}

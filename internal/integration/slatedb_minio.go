@@ -26,22 +26,21 @@ import (
 
 const minioImage = "minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
 
-// JourneyResult is the stable summary printed by the integration command.
-type JourneyResult struct {
-	Name       string        `json:"name"`
-	Duration   time.Duration `json:"duration"`
-	Assertions []string      `json:"assertions"`
-}
-
 // RunSlateDBMinIO proves the native seam that deterministic simulation cannot:
 // remote durability, reopen after losing the response, idempotent reconciliation,
 // and fencing by a replacement native writer.
 func RunSlateDBMinIO(ctx context.Context, diagnostics io.Writer) (result JourneyResult, err error) {
-	started := time.Now()
-	result.Name = "slatedb-minio"
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-
+	evidence, err := beginJourney(ctx, &result, "slatedb-minio", diagnostics)
+	defer evidence.finish(ctx, &err)
+	if err != nil {
+		return result, err
+	}
+	diagnostics = evidence.writer()
+	if err = evidence.config("native-journey", map[string]any{"image": minioImage, "timeout": "2m", "wal_flush_interval_ms": 10, "operation": "op_0000000000000000000001", "digest": "digest-1", "faults": []string{"close-after-commit-before-response", "replacement-fences-stale-transaction"}}); err != nil {
+		return result, err
+	}
 	runtime, err := startMinIO(ctx, diagnostics)
 	if err != nil {
 		return result, err
@@ -67,10 +66,15 @@ func RunSlateDBMinIO(ctx context.Context, diagnostics io.Writer) (result Journey
 		return result, err
 	}
 	request := partitions.OpenRequest{Path: "integration/slatedb-minio", Partition: identity.PartitionID("prt_0000000000000000000001"), AssignmentRevision: 1, Reservation: identity.TransitionID("trn_0000000000000000000001"), Incarnation: identity.IncarnationID("inc_0000000000000000000001"), Generation: 1}
+	if err = evidence.config("native-open", map[string]any{"endpoint": runtime.endpoint, "bucket": bucket, "request": request}); err != nil {
+		return result, err
+	}
 	writer, err := engine.Open(ctx, request)
 	if err != nil {
 		return result, fmt.Errorf("open first writer: %w", err)
 	}
+
+	defer func() { err = errors.Join(err, closeWriter(writer, false)) }()
 
 	// The atomic operation record is the reconciliation point. The simulated
 	// lost response is deliberate: no receipt/result is retained by the caller.
@@ -87,7 +91,8 @@ func RunSlateDBMinIO(ctx context.Context, diagnostics io.Writer) (result Journey
 	if err != nil {
 		return result, fmt.Errorf("reopen from S3: %w", err)
 	}
-	defer closeWriter(reopened)
+	// Shutdown of this deliberately displaced writer may itself report fencing.
+	defer func() { err = errors.Join(err, closeWriter(reopened, true)) }()
 	if err = applyOnce(ctx, reopened, "op_0000000000000000000001", "digest-1"); err != nil {
 		return result, fmt.Errorf("reconcile lost response: %w", err)
 	}
@@ -109,7 +114,7 @@ func RunSlateDBMinIO(ctx context.Context, diagnostics io.Writer) (result Journey
 	if err != nil {
 		return result, fmt.Errorf("open replacement writer: %w", err)
 	}
-	defer closeWriter(replacement)
+	defer func() { err = errors.Join(err, closeWriter(replacement, false)) }()
 	receipt, staleErr := stale.Commit(ctx)
 	if staleErr == nil {
 		staleErr = reopened.AwaitDurable(ctx, receipt)
@@ -125,7 +130,6 @@ func RunSlateDBMinIO(ctx context.Context, diagnostics io.Writer) (result Journey
 	}
 
 	result.Assertions = []string{"remote durability survived reopen", "lost response reconciled exactly once", "displaced writer fenced", "stale mutation absent"}
-	result.Duration = time.Since(started)
 	return result, nil
 }
 
@@ -178,30 +182,33 @@ func read(ctx context.Context, writer partitions.Writer, key string) (string, er
 	return string(result.Entries[0].Value), nil
 }
 
-func closeWriter(writer partitions.Writer) {
+func closeWriter(writer partitions.Writer, allowFenced bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = writer.Close(ctx)
+	if err := writer.Close(ctx); err != nil && !(allowFenced && errors.Is(err, partitions.ErrFenced)) {
+		return fmt.Errorf("close native writer: %w", err)
+	}
+	return nil
 }
 
 type minioRuntime struct{ name, endpoint string }
 
-func startMinIO(ctx context.Context, diagnostics io.Writer) (*minioRuntime, error) {
+func startMinIO(ctx context.Context, diagnostics io.Writer) (_ *minioRuntime, err error) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return nil, fmt.Errorf("Docker CLI required for integration tests: %w", err)
 	}
 	name := "xenon-integration-" + randomHex(8)
-	cmd := exec.CommandContext(ctx, "docker", "run", "--detach", "--name", name, "--publish", "127.0.0.1::9000", "--env", "MINIO_ROOT_USER=xenon-local", "--env", "MINIO_ROOT_PASSWORD=xenon-local-test-only", minioImage, "server", "/data")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("start MinIO: %w: %s", err, strings.TrimSpace(string(output)))
-	}
 	runtime := &minioRuntime{name: name}
 	cleanup := true
 	defer func() {
 		if cleanup {
-			_ = runtime.close(diagnostics)
+			err = errors.Join(err, runtime.close(diagnostics))
 		}
 	}()
+	cmd := exec.CommandContext(ctx, "docker", "run", "--detach", "--name", name, "--publish", "127.0.0.1::9000", "--env", "MINIO_ROOT_USER=xenon-local", "--env", "MINIO_ROOT_PASSWORD=xenon-local-test-only", minioImage, "server", "/data")
+	if output, err := outputCommand(cmd); err != nil {
+		return nil, fmt.Errorf("start MinIO: %w: %s", err, strings.TrimSpace(string(output)))
+	}
 	port, err := dockerOutput(ctx, "port", name, "9000/tcp")
 	if err != nil {
 		return nil, err
@@ -229,14 +236,25 @@ func startMinIO(ctx context.Context, diagnostics io.Writer) (*minioRuntime, erro
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	logs, _ := dockerOutput(context.Background(), "logs", name)
+	logsCtx, cancelLogs := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelLogs()
+	logs, _ := dockerOutput(logsCtx, "logs", "--tail", "200", name)
 	return nil, fmt.Errorf("MinIO readiness timeout: %s", strings.TrimSpace(logs))
 }
 
 func (m *minioRuntime) close(diagnostics io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "docker", "rm", "--force", m.name).CombinedOutput()
+	logCtx, stopLogs := context.WithTimeout(context.Background(), 5*time.Second)
+	logs, logErr := dockerOutput(logCtx, "logs", "--tail", "200", m.name)
+	stopLogs()
+	if diagnostics != nil {
+		fmt.Fprintf(diagnostics, "MinIO %s logs (capture error: %v):\n%s\n", m.name, logErr, logs)
+	}
+	output, err := outputCommand(exec.CommandContext(ctx, "docker", "rm", "--force", m.name))
+	if err != nil && strings.Contains(string(output), "No such container") {
+		return nil
+	}
 	if err != nil && diagnostics != nil {
 		fmt.Fprintf(diagnostics, "MinIO cleanup: %s\n", output)
 	}
@@ -247,7 +265,7 @@ func (m *minioRuntime) close(diagnostics io.Writer) error {
 }
 
 func dockerOutput(ctx context.Context, args ...string) (string, error) {
-	output, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+	output, err := outputCommand(exec.CommandContext(ctx, "docker", args...))
 	if err != nil {
 		return "", fmt.Errorf("docker %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}

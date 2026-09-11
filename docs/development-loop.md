@@ -73,6 +73,20 @@ Go regression test.
 
 Real integration failures retain bounded logs and identify failed cleanup. A
 timeout never becomes a pass. The runner removes only resources it created.
+The CLI writes its JSON receipt even when a journey fails and prints the retained
+evidence directory on stderr. That directory contains `result.json`, bounded
+node/worker/container diagnostics, generated configuration and any collected
+Temporal history. Successful runs remove their temporary resources.
+
+Each journey receipt records the checkout revision and dirty flag, a digest of
+its source inputs, fixture/configuration and executable hashes, the runner's
+embedded build/native attestation, and Go, OS, architecture and Docker versions.
+Generated node configurations are included in the receipt. The `reproduce`
+command runs the pinned journey again; random resource names and available ports
+are allocated anew. A dirty checkout is identified explicitly; retain its changes
+alongside the receipt to reproduce that exact source. The embedded runner build
+identity is separate from checkout identity, and unknown native attestations are
+reported as unknown.
 
 ## Migration status
 

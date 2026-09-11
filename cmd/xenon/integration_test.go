@@ -59,3 +59,20 @@ func TestIntegrationCommandOnlyAndFailFast(t *testing.T) {
 		t.Fatal("unknown journey reached runner", err, called)
 	}
 }
+
+func TestIntegrationCommandPrintsFailureReceipt(t *testing.T) {
+	cmd := integrationCommand(func(_ context.Context, name string, _ io.Writer) (integration.JourneyResult, error) {
+		return integration.JourneyResult{Name: name, SourceRevision: "revision", EvidencePath: "/tmp/evidence"}, errors.New("cleanup timeout")
+	})
+	output := new(strings.Builder)
+	cmd.SetOut(output)
+	cmd.SetErr(io.Discard)
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("failed journey returned success")
+	}
+	for _, expected := range []string{`"status":"failed"`, `"source_revision":"revision"`, `"evidence_path":"/tmp/evidence"`, `"error":"cleanup timeout"`} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("missing %s: %s", expected, output)
+		}
+	}
+}

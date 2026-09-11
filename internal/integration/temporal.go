@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,12 +25,54 @@ type temporalCase struct {
 }
 
 type ownedProcess struct {
-	cmd   *exec.Cmd
-	log   *os.File
-	lines chan string
-	once  sync.Once
+	lifecycle *processLifecycle
+	log       *os.File
+	lines     chan string
+	once      sync.Once
+	stopErr   error
 }
 
+type processLog struct {
+	sync.Mutex
+	file    *os.File
+	lines   chan string
+	pending string
+	written int
+}
+
+func (l *processLog) Write(raw []byte) (int, error) {
+	l.Lock()
+	defer l.Unlock()
+	n := len(raw)
+	if remaining := diagnosticLimit - l.written; remaining > 0 {
+		part := raw
+		if len(part) > remaining {
+			part = part[:remaining]
+		}
+		written, err := l.file.Write(part)
+		l.written += written
+		if err != nil {
+			return 0, err
+		}
+	}
+	l.pending += string(raw)
+	for {
+		index := strings.IndexByte(l.pending, '\n')
+		if index < 0 {
+			break
+		}
+		line := l.pending[:index]
+		select {
+		case l.lines <- line:
+		default:
+		}
+		l.pending = l.pending[index+1:]
+	}
+	if len(l.pending) > diagnosticLimit {
+		l.pending = l.pending[len(l.pending)-diagnosticLimit:]
+	}
+	return n, nil
+}
 func startOwned(ctx context.Context, dir, logName string, env []string, argv ...string) (*ownedProcess, error) {
 	log, err := os.Create(logName)
 	if err != nil {
@@ -39,29 +80,13 @@ func startOwned(ctx context.Context, dir, logName string, env []string, argv ...
 	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir, cmd.Env, cmd.SysProcAttr = dir, env, &syscall.SysProcAttr{Setpgid: true}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Close()
-		return nil, err
-	}
-	cmd.Stderr = cmd.Stdout
-	p := &ownedProcess{cmd: cmd, log: log, lines: make(chan string, 128)}
+	p := &ownedProcess{log: log, lines: make(chan string, 128)}
+	output := &processLog{file: log, lines: p.lines}
+	cmd.Stdout, cmd.Stderr, cmd.WaitDelay = output, output, time.Second
 	if err = cmd.Start(); err != nil {
-		log.Close()
-		return nil, err
+		return nil, errors.Join(err, log.Close())
 	}
-	go func() {
-		s := bufio.NewScanner(stdout)
-		for s.Scan() {
-			line := s.Text()
-			_, _ = fmt.Fprintln(log, line)
-			select {
-			case p.lines <- line:
-			default:
-			}
-		}
-		close(p.lines)
-	}()
+	p.lifecycle = trackProcess(cmd)
 	return p, nil
 }
 
@@ -70,6 +95,8 @@ func (p *ownedProcess) waitLine(ctx context.Context, prefix string) (string, err
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
+		case <-p.lifecycle.done:
+			return "", fmt.Errorf("process exited before %q: %v", prefix, p.lifecycle.waitErr)
 		case line, ok := <-p.lines:
 			if !ok {
 				return "", fmt.Errorf("process exited before %q", prefix)
@@ -82,30 +109,8 @@ func (p *ownedProcess) waitLine(ctx context.Context, prefix string) (string, err
 }
 
 func (p *ownedProcess) stop(kill bool) error {
-	var result error
-	p.once.Do(func() {
-		signal := syscall.SIGTERM
-		if kill {
-			signal = syscall.SIGKILL
-		}
-		_ = syscall.Kill(-p.cmd.Process.Pid, signal)
-		done := make(chan error, 1)
-		go func() { done <- p.cmd.Wait() }()
-		select {
-		case err := <-done:
-			if err != nil {
-				var exit *exec.ExitError
-				if !errors.As(err, &exit) {
-					result = err
-				}
-			}
-		case <-time.After(10 * time.Second):
-			_ = syscall.Kill(-p.cmd.Process.Pid, syscall.SIGKILL)
-			result = <-done
-		}
-		result = errors.Join(result, p.log.Close())
-	})
-	return result
+	p.once.Do(func() { p.stopErr = errors.Join(p.lifecycle.stop(kill), p.log.Close()) })
+	return p.stopErr
 }
 
 func repositoryRoot(ctx context.Context) (string, error) {
@@ -122,7 +127,7 @@ func decodeFile(path string, value any) error {
 func runOutput(ctx context.Context, dir string, env []string, argv ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir, cmd.Env = dir, env
-	raw, err := cmd.CombinedOutput()
+	raw, err := outputCommand(cmd)
 	if err != nil {
 		return string(raw), fmt.Errorf("%s: %w: %s", argv[0], err, strings.TrimSpace(string(raw)))
 	}

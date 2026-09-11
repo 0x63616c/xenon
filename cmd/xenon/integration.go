@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -33,17 +34,26 @@ func integrationCommand(run integrationRunner) *cobra.Command {
 				names = []string{only}
 			}
 			results := make([]integration.JourneyResult, 0, len(names))
+			var runErr error
 			for _, name := range names {
 				result, err := run(cmd.Context(), name, cmd.ErrOrStderr())
+				if result.Name == "" {
+					result.Name = name
+				}
 				if err != nil {
-					return fmt.Errorf("%s: %w", name, err)
+					result.Status, result.Error = "failed", err.Error()
 				}
 				results = append(results, result)
+				if err != nil {
+					runErr = fmt.Errorf("%s: %w", name, err)
+					break
+				}
 			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
+			encodeErr := json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
 				Schema  int                         `json:"schema"`
 				Results []integration.JourneyResult `json:"results"`
 			}{1, results})
+			return errors.Join(runErr, encodeErr)
 		},
 	}
 	cmd.Flags().StringVar(&only, "only", "", "Run only one named integration journey")

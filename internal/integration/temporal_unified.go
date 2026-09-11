@@ -24,10 +24,14 @@ type TemporalOptions struct {
 }
 
 func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, options TemporalOptions) (result JourneyResult, err error) {
-	started := time.Now()
-	result.Name = "temporal-compatibility"
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
+	evidence, err := beginJourney(ctx, &result, "temporal-compatibility", diagnostics)
+	defer evidence.finish(ctx, &err)
+	if err != nil {
+		return result, err
+	}
+	diagnostics = evidence.writer()
 	root, err := repositoryRoot(ctx)
 	if err != nil {
 		return result, err
@@ -43,13 +47,21 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 		return result, errors.New("Xenon binary is required")
 	}
 	binary := options.XenonBinary
-	journeyDirectory, err := os.MkdirTemp("", "xenon-temporal-compatibility-")
+	journeyDirectory := evidence.directory
+	if err = evidence.config("fixture", fixture); err != nil {
+		return result, err
+	}
+	if err = evidence.file("xenon-binary", binary); err != nil {
+		return result, err
+	}
+	composeFile, err := prepareUnifiedIngress(root, journeyDirectory)
 	if err != nil {
 		return result, err
 	}
-	defer os.RemoveAll(journeyDirectory)
-	composeFile, err := prepareUnifiedIngress(root, journeyDirectory)
-	if err != nil {
+	if err = evidence.file("generated-compose", composeFile); err != nil {
+		return result, err
+	}
+	if err = evidence.file("generated-haproxy", filepath.Join(journeyDirectory, "haproxy.cfg")); err != nil {
 		return result, err
 	}
 	bin := filepath.Join(root, ".local/bin")
@@ -60,11 +72,18 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	if _, err = runOutput(ctx, root, os.Environ(), "go", "build", "-o", filepath.Join(bin, "xenon-sdk-probe"), "./cmd/xenon-sdk-probe"); err != nil {
 		return result, err
 	}
+	if err = evidence.file("sdk-probe-binary", filepath.Join(bin, "xenon-sdk-probe")); err != nil {
+		return result, err
+	}
 	project := "xenon-temporal-" + randomHex(6)
 	compose := []string{"compose", "--project-name", project, "-f", composeFile}
 	defer func() {
 		c, stop := context.WithTimeout(context.Background(), 30*time.Second)
 		defer stop()
+		logCtx, stopLogs := context.WithTimeout(context.Background(), 5*time.Second)
+		logs, captureErr := dockerOutput(logCtx, append(compose, "logs", "--tail", "200")...)
+		stopLogs()
+		fmt.Fprintf(diagnostics, "Compose logs (capture error: %v):\n%s\n", captureErr, logs)
 		_, e := dockerOutput(c, append(compose, "down", "--volumes", "--remove-orphans")...)
 		err = errors.Join(err, e)
 	}()
@@ -90,16 +109,19 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 		configs[i].PublicAddress = "127.0.0.1:17233"
 		configs[i].PublicHTTPAddress = "127.0.0.1:17243"
 	}
+	if err = evidence.config("nodes", configs); err != nil {
+		return result, err
+	}
 	processes := make([]*nodeProcess, 2)
 	defer func() {
 		for _, p := range processes {
 			if p != nil {
-				p.stop()
+				err = errors.Join(err, p.stop())
 			}
 		}
 	}()
 	start := func(i int) error {
-		p, e := startNode(ctx, binary, configs[i])
+		p, e := startNode(ctx, binary, configs[i], evidence)
 		if e != nil {
 			return e
 		}
@@ -144,7 +166,7 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	if err != nil {
 		return result, err
 	}
-	defer worker.stop(false)
+	defer func() { err = errors.Join(err, worker.stop(false)) }()
 	if _, err = worker.waitLine(ctx, "{"); err != nil {
 		return result, err
 	}
@@ -180,7 +202,9 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	if index < 0 {
 		return result, fmt.Errorf("history owner %s not a process", owner)
 	}
-	processes[index].kill()
+	if err = processes[index].kill(); err != nil {
+		return result, err
+	}
 	processes[index] = nil
 	if _, err = waitControl(ctx, store, func(c cluster.Control) bool {
 		next := readyOwner(c, bootstrap.HistoryPartition)
@@ -209,7 +233,9 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	}
 	fmt.Fprintf(diagnostics, "Restarted %s with a fresh incarnation\n", owner)
 	for i, p := range processes {
-		p.stop()
+		if err = p.stop(); err != nil {
+			return result, err
+		}
 		processes[i] = nil
 	}
 	for i := range configs {
@@ -244,7 +270,6 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 		"same node restarted with a new incarnation",
 		"cold local restart preserved acknowledged state",
 	}
-	result.Duration = time.Since(started)
 	return result, nil
 }
 
