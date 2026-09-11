@@ -28,6 +28,8 @@ it according to `xenon completion <shell> --help`. Commands never prompt.
 is the only source of agent configuration: there is no automatic environment
 merging, home-directory search or inferred layout. Existing `agent.Load`, exact
 service-layout validation and Temporal configuration validation remain in use.
+The CLI rejects `XENON_CONFIG` and `XENON_CONFIG_FILE`; they are not supported
+configuration sources. With one supported source there are no precedence pairs.
 External AWS credential/environment handling remains owned by the runtime and is
 not consulted by help, completion, version or configuration validation.
 

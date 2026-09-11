@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
@@ -26,7 +27,13 @@ const startupBanner = `
 // execute owns CLI diagnostics and the existing 0/1 exit convention. The runtime
 // owns bounded shutdown; a successful foreground shutdown remains exit 0.
 func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics io.Writer, start func(context.Context, app.Config) error) int {
-	command := newCommand(in, out, diagnostics, start)
+	return executeWithDependencies(ctx, args, in, out, diagnostics, commandDependencies{
+		start: start, inspect: app.Inspect, dev: app.RunDev, profile: runRealProfile, getenv: os.Getenv,
+	})
+}
+
+func executeWithDependencies(ctx context.Context, args []string, in io.Reader, out, diagnostics io.Writer, dependencies commandDependencies) int {
+	command := newCommandWithDependencies(in, out, diagnostics, dependencies)
 	command.SetArgs(args)
 	if err := command.ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(diagnostics, err)
@@ -40,6 +47,44 @@ func execute(ctx context.Context, args []string, in io.Reader, out, diagnostics 
 }
 
 func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Context, app.Config) error) *cobra.Command {
+	return newCommandWithDependencies(in, out, diagnostics, commandDependencies{
+		start: start, inspect: app.Inspect, dev: app.RunDev, profile: runRealProfile,
+		getenv: os.Getenv,
+	})
+}
+
+type commandEffect uint8
+
+const (
+	effectBackendMutation commandEffect = iota
+	effectNativeOpen
+	effectChildLaunch
+	effectNetworkCall
+)
+
+type commandDependencies struct {
+	start   func(context.Context, app.Config) error
+	inspect func(context.Context, app.Config) (app.Inspection, error)
+	dev     func(context.Context, string, string, string, bool) (app.DevResult, error)
+	profile profileExecutor
+	getenv  func(string) string
+	observe func(...commandEffect)
+}
+
+func newCommandWithDependencies(in io.Reader, out, diagnostics io.Writer, dependencies commandDependencies) *cobra.Command {
+	rejectConfigEnvironment := func() error {
+		for _, variable := range []string{"XENON_CONFIG", "XENON_CONFIG_FILE"} {
+			if dependencies.getenv != nil && dependencies.getenv(variable) != "" {
+				return fmt.Errorf("unsupported configuration override %s; use --config FILE", variable)
+			}
+		}
+		return nil
+	}
+	observe := func(effects ...commandEffect) {
+		if dependencies.observe != nil {
+			dependencies.observe(effects...)
+		}
+	}
 	root := &cobra.Command{
 		Use: "xenon", Short: "Run Temporal with S3-backed Xenon persistence",
 		SilenceErrors: true, SilenceUsage: true,
@@ -84,6 +129,9 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 					}()
 				}
 			}
+			if err := rejectConfigEnvironment(); err != nil {
+				return err
+			}
 			if path == "" {
 				return fmt.Errorf("--config FILE required")
 			}
@@ -114,17 +162,27 @@ func newCommand(in io.Reader, out, diagnostics io.Writer, start func(context.Con
 			if _, err = io.WriteString(cmd.ErrOrStderr(), startupBanner); err != nil {
 				return err
 			}
-			return start(cmd.Context(), c)
+			observe(effectBackendMutation, effectNativeOpen, effectNetworkCall)
+			return dependencies.start(cmd.Context(), c)
 		}
 		root.AddCommand(command)
 	}
-	root.AddCommand(inspectCommand(app.Inspect))
-	root.AddCommand(devCommand(app.RunDev))
+	root.AddCommand(inspectCommandWithPreflight(func(ctx context.Context, config app.Config) (app.Inspection, error) {
+		observe(effectNetworkCall)
+		return dependencies.inspect(ctx, config)
+	}, rejectConfigEnvironment))
+	root.AddCommand(devCommand(func(ctx context.Context, action, fixture, state string, ephemeral bool) (app.DevResult, error) {
+		observe(effectBackendMutation, effectChildLaunch, effectNetworkCall)
+		return dependencies.dev(ctx, action, fixture, state, ephemeral)
+	}))
 	root.AddCommand(generateCommand())
 	simulation := simulationCommands(buildinfo.Read, simulation.WallClock{})
 	for _, command := range simulation {
 		if command.Name() == "test" {
-			command.AddCommand(realProfileCommands(runRealProfile)...)
+			command.AddCommand(realProfileCommands(func(ctx context.Context, request profileRequest, diagnostics io.Writer) (profileResult, error) {
+				observe(effectBackendMutation, effectNativeOpen, effectChildLaunch, effectNetworkCall)
+				return dependencies.profile(ctx, request, diagnostics)
+			})...)
 			command.AddCommand(workflowCommand())
 		}
 	}

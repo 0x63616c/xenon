@@ -12,6 +12,10 @@ import (
 )
 
 func inspectCommand(inspect func(context.Context, app.Config) (app.Inspection, error)) *cobra.Command {
+	return inspectCommandWithPreflight(inspect, nil)
+}
+
+func inspectCommandWithPreflight(inspect func(context.Context, app.Config) (app.Inspection, error), preflight func() error) *cobra.Command {
 	var path, output string
 	var timeout time.Duration
 	command := &cobra.Command{Use: "inspect", Short: "Read persisted authority without provisioning or probing native storage", Args: cobra.NoArgs}
@@ -21,12 +25,15 @@ func inspectCommand(inspect func(context.Context, app.Config) (app.Inspection, e
 	command.RunE = func(cmd *cobra.Command, _ []string) error {
 		result := app.Inspection{Schema: 1, Status: "invalid"}
 		var err error
-		if output != "json" {
+		if preflight != nil {
+			err = preflight()
+		}
+		if err == nil && output != "json" {
 			return fmt.Errorf("--output must be json")
 		}
-		if path == "" {
+		if err == nil && path == "" {
 			err = fmt.Errorf("--config FILE required")
-		} else if timeout <= 0 || timeout > time.Minute {
+		} else if err == nil && (timeout <= 0 || timeout > time.Minute) {
 			err = fmt.Errorf("--timeout must be positive and at most one minute")
 		}
 		var c app.Config
