@@ -198,6 +198,9 @@ func (d *BatchWorkflowDriver) Run(ctx context.Context, s Scenario, emit func(jso
 			return e
 		}
 		child := &ResidentWorkflowDriver{Runtime: runtime, Directory: filepath.Join(d.Directory, topology.RunID, fmt.Sprintf("member-%02d", i))}
+		if err := validateRuntimeInput(runtime, member); err != nil {
+			return err
+		}
 		child.SetFailureReporter(report)
 		d.children = append(d.children, child)
 		d.scenarios = append(d.scenarios, member)

@@ -11,9 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type residentFlags struct{ build, fixture, oracle, oracleSHA, logs string }
+type residentFlags struct {
+	build, fixture, oracle, oracleSHA, logs string
+	expectedGraph                           bool
+}
 
 func (f *residentFlags) add(c *cobra.Command) {
+	c.Flags().BoolVar(&f.expectedGraph, "expected-graph", false, "Require serial input-derived execution/results contract; reject unsupported grammar before dispatch")
 	c.Flags().StringVar(&f.build, "runtime-build", "", "Pinned prepared corrected Omes build.json (trusted executable bundle)")
 	c.Flags().StringVar(&f.fixture, "resident-fixture", "", "Explicit externally supervised fixture JSON; exclusive case queues required")
 	c.Flags().StringVar(&f.oracle, "history-oracle", "", "Trusted xenon-omes-oracle executable")
@@ -28,6 +32,7 @@ func (f residentFlags) bind(r *simulation.Runner) (*simulation.OmesRuntime, erro
 	if e != nil {
 		return nil, e
 	}
+	runtime.RequireExpectedGraph = f.expectedGraph
 	path, e := filepath.Abs(f.logs)
 	if e != nil {
 		return nil, e
@@ -42,6 +47,7 @@ func (f residentFlags) bind(r *simulation.Runner) (*simulation.OmesRuntime, erro
 		if err != nil {
 			return nil, err
 		}
+		next.RequireExpectedGraph = f.expectedGraph
 		if !maps.Equal(pinned, next.Provenance()) || topology != next.Topology() {
 			return nil, errors.New("resident runtime changed after initial provenance binding")
 		}

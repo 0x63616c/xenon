@@ -110,7 +110,24 @@ func (d *ResidentWorkflowDriver) Validate(s Scenario, l WorkloadLimits) error {
 	prepared.Topology = []byte(`{"version":1,"runtime":"not-started","nexus_endpoint":"xenon-fuzz","sdk":"v1.48.0"}`)
 	return (&WorkflowPreparationDriver{}).Validate(prepared, l)
 }
+
+// validateRuntimeInput is pure and runs before any case member is dispatched.
+func validateRuntimeInput(runtime WorkflowRuntime, s Scenario) error {
+	validator, ok := runtime.(interface{ ValidateInput([]byte) error })
+	if !ok {
+		return nil
+	}
+	var input GeneratedWorkflow
+	if err := strictJSON(s.Workload, &input); err != nil {
+		return err
+	}
+	return validator.ValidateInput(input.Input)
+}
+
 func (d *ResidentWorkflowDriver) Run(ctx context.Context, s Scenario, emit func(json.RawMessage) error) error {
+	if err := validateRuntimeInput(d.Runtime, s); err != nil {
+		return err
+	}
 	d.mu.Lock()
 	if d.active {
 		d.mu.Unlock()

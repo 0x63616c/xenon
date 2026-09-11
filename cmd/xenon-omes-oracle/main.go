@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/0x63616c/xenon/internal/proof/workflowgraph"
 
 	commonpb "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
@@ -19,7 +22,6 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 type runAudit struct {
@@ -126,7 +128,32 @@ func run() error {
 	minimum := flag.Int("minimum-runs", 1, "minimum visible run count")
 	activity := flag.Bool("require-activity-per-run", false, "require completed activity in each run")
 	mixed := flag.Bool("mixed-profile", false, "validate frozen mixed40 history semantics")
+	expectedInput := flag.String("expected-input", "", "Saved Omes TestInput; require strict serial expected graph contract")
 	flag.Parse()
+	var graph *workflowgraph.Graph
+	var expectedSHA string
+	if *expectedInput != "" {
+		if *mixed {
+			return fmt.Errorf("expected graph and mixed profile are exclusive")
+		}
+		file, e := os.Open(*expectedInput)
+		if e != nil {
+			return e
+		}
+		raw, e := io.ReadAll(io.LimitReader(file, (1<<20)+1))
+		closeErr := file.Close()
+		if e == nil {
+			e = closeErr
+		}
+		if e != nil {
+			return e
+		}
+		graph, e = workflowgraph.Derive(raw)
+		if e != nil {
+			return e
+		}
+		expectedSHA = fmt.Sprintf("%x", sha256.Sum256(raw))
+	}
 	if *mixed && *exact != 0 {
 		return fmt.Errorf("mixed captures the entire queue; omit exact-runs and use internal baseline/Nexus counts")
 	}
@@ -203,38 +230,11 @@ func run() error {
 	histories := map[string]*historypb.History{}
 	totalBytes := 0
 	for i := range runs {
-		h := &historypb.History{}
-		token = nil
-		seenTokens = map[string]bool{}
-		size := 0
-		for page := 0; ; page++ {
-			if page >= 1000 {
-				return fmt.Errorf("history pagination bound exceeded")
-			}
-			call, done := bounded(ctx)
-			response, e := api.GetWorkflowExecutionHistory(call, &workflowservice.GetWorkflowExecutionHistoryRequest{Namespace: *namespace, Execution: &commonpb.WorkflowExecution{WorkflowId: runs[i].WorkflowID, RunId: runs[i].RunID}, MaximumPageSize: 1000, NextPageToken: token})
-			done()
-			if e != nil {
-				return e
-			}
-			if response == nil || response.History == nil {
-				return fmt.Errorf("missing history page")
-			}
-			for _, event := range response.History.Events {
-				size += proto.Size(event)
-				if size > 16*1024*1024 || len(h.Events) >= 100000 {
-					return fmt.Errorf("history size bound exceeded")
-				}
-				h.Events = append(h.Events, event)
-			}
-			token = response.NextPageToken
-			if len(token) == 0 {
-				break
-			}
-			if seenTokens[string(token)] {
-				return fmt.Errorf("history cursor cycle")
-			}
-			seenTokens[string(token)] = true
+		h, e := readCompleteHistory(ctx, func(call context.Context, token []byte) (*workflowservice.GetWorkflowExecutionHistoryResponse, error) {
+			return api.GetWorkflowExecutionHistory(call, &workflowservice.GetWorkflowExecutionHistoryRequest{Namespace: *namespace, Execution: &commonpb.WorkflowExecution{WorkflowId: runs[i].WorkflowID, RunId: runs[i].RunID}, MaximumPageSize: 1000, NextPageToken: token})
+		})
+		if e != nil {
+			return e
 		}
 		raw, e := protojson.Marshal(h)
 		if e != nil {
@@ -286,7 +286,22 @@ func run() error {
 			return err
 		}
 	}
+	if graph != nil {
+		executions := make([]workflowgraph.Execution, 0, len(runs))
+		for _, r := range runs {
+			executions = append(executions, workflowgraph.Execution{WorkflowID: r.WorkflowID, RunID: r.RunID, History: histories[r.RunID]})
+		}
+		if err := workflowgraph.Check(graph, "w-"+*runID+"-", executions); err != nil {
+			return err
+		}
+	}
 	report := map[string]any{"generated_parent_close_checked": !*mixed, "mixed_semantics_checked": *mixed, "mixed_nexus_checked": *mixed, "schema": 1, "full_acceptance": false, "query": query, "runs": runs, "visible_runs": len(runs), "exact_runs": *exact, "minimum_runs": *minimum, "activity_per_run_required": *activity, "scope": "closed visibility set, complete contiguous histories, child-parent links and continue-as-new successor graph; expected generated root graph and semantic result values not checked"}
+	if graph != nil {
+		report["expected_graph_contract"] = workflowgraph.Contract
+		report["expected_input_sha256"] = expectedSHA
+		report["expected_runs"] = len(graph.Nodes)
+		report["scope"] = "input-derived serial root/awaited child/continuation graph and exact result payloads; no Nexus, signals or arbitrary generated grammar"
+	}
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err

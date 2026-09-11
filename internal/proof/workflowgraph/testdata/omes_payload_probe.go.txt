@@ -1,0 +1,22 @@
+package main
+import (
+ "encoding/json"
+ "os"
+ pb "github.com/temporalio/omes/loadgen/kitchensink"
+ "github.com/temporalio/omes/clioptions"
+ common "go.temporal.io/api/common/v1"
+ "google.golang.org/protobuf/proto"
+ "google.golang.org/protobuf/encoding/protojson"
+)
+func marshal(m proto.Message)[]byte{b,e:=(proto.MarshalOptions{Deterministic:true}).Marshal(m);if e!=nil{panic(e)};return b}
+func value(s string)*common.Payload{return &common.Payload{Metadata:map[string][]byte{"encoding":[]byte("json/plain")},Data:[]byte(`"`+s+`"`)}}
+func wf(actions ...*pb.Action)*pb.WorkflowInput{return &pb.WorkflowInput{InitialActions:[]*pb.ActionSet{{Actions:actions}}}}
+func ret(s string)*pb.Action{return &pb.Action{Variant:&pb.Action_ReturnResult{ReturnResult:&pb.ReturnResultAction{ReturnThis:value(s)}}}}
+func arg(w *pb.WorkflowInput)*common.Payload{return &common.Payload{Metadata:map[string][]byte{"encoding":[]byte("binary/protobuf"),"messageType":[]byte("temporal.omes.kitchen_sink.WorkflowInput")},Data:marshal(w)}}
+func can(w *pb.WorkflowInput)*pb.Action{return &pb.Action{Variant:&pb.Action_ContinueAsNew{ContinueAsNew:&pb.ContinueAsNewAction{Arguments:[]*common.Payload{arg(w)}}}}}
+func payload(v any)json.RawMessage{p,e:=clioptions.OmesDataConverter().ToPayload(v);if e!=nil{panic(e)};b,e:=protojson.Marshal(p);if e!=nil{panic(e)};return b}
+func main(){
+ lastChild:=wf(ret("child-value"));firstChild:=wf(can(lastChild));lastRoot:=wf(ret("root-value"));firstRoot:=wf(&pb.Action{Variant:&pb.Action_ExecChildWorkflow{ExecChildWorkflow:&pb.ExecuteChildWorkflowAction{WorkflowId:"wf_child",Input:[]*common.Payload{arg(firstChild)}}}},can(lastRoot))
+ result:=map[string]any{"schema":1,"omes_commit":"c6978ba39aa03551ce28974117e8d7ecf983d2b3","input":marshal(&pb.TestInput{WorkflowInput:firstRoot}),"root_start":payload(firstRoot),"child_start":payload(arg(firstChild)),"child_continued":payload(arg(lastChild)),"root_continued":payload(arg(lastRoot)),"child_result":payload(value("child-value")),"root_result":payload(value("root-value"))}
+ e:=json.NewEncoder(os.Stdout);e.SetIndent("","  ");if err:=e.Encode(result);err!=nil{panic(err)}
+}

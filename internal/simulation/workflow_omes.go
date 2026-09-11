@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/0x63616c/xenon/internal/proof/workflowgraph"
+
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/workflowservice/v1"
@@ -27,6 +29,8 @@ import (
 // The fixture must provide the named Nexus endpoint AND its compatible worker.
 // No fault, cold recovery, or full release qualification follows from this driver.
 type OmesRuntime struct {
+	// RequireExpectedGraph rejects unsupported grammar before dispatch. Broad exploration remains weaker.
+	RequireExpectedGraph                                               bool
 	failureMu                                                          sync.Mutex
 	reportFailure                                                      func(error)
 	auditedRun                                                         string
@@ -201,10 +205,34 @@ func (r *OmesRuntime) Empty(ctx context.Context, t ResidentTopology) error {
 	}
 	return nil
 }
+func (r *OmesRuntime) ValidateInput(input []byte) error {
+	if !r.RequireExpectedGraph {
+		return nil
+	}
+	_, err := workflowgraph.Derive(input)
+	return err
+}
+
 func (r *OmesRuntime) Execute(ctx context.Context, t ResidentTopology, input, path string) error {
 	r.auditedRun = ""
+	raw, err := readWorkflowFile(input, 1<<20)
+	if err != nil {
+		return err
+	}
+	if err = r.ValidateInput(raw); err != nil {
+		return err
+	}
 
 	argv := []string{"run-scenario-with-worker", "--scenario", "fuzzer", "--language", "go", "--version", "v1.48.0", "--dir-name", "prepared", "--namespace", t.Namespace, "--server-address", t.Address, "--run-id", t.RunID, "--iterations", "1", "--max-concurrent", "1", "--max-iteration-attempts", "1", "--timeout", "300s", "--graceful-shutdown-duration", "5s", "--option", "nexus-endpoint=" + t.NexusEndpoint, "--option", "input-file=" + input}
+	if r.RequireExpectedGraph {
+		graph, e := workflowgraph.Derive(raw)
+		if e != nil {
+			return e
+		}
+		if e = save(filepath.Join(path, "expected-graph.json"), map[string]any{"contract": workflowgraph.Contract, "input_sha256": hash(raw), "graph": graph}); e != nil {
+			return e
+		}
+	}
 	inputHash, e := hashWorkflowFile(input)
 	if e != nil {
 		return e
@@ -224,7 +252,11 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 	r.failureMu.Lock()
 	report := r.reportFailure
 	r.failureMu.Unlock()
-	if e := runOmesProcess(ctx, r.oracle, []string{"--address", t.Address, "--namespace", t.Namespace, "--omes-run-id", t.RunID, "--minimum-runs", "1", "--output", output}, r.build.Source, filepath.Join(path, "audit.log"), report); e != nil {
+	args := []string{"--address", t.Address, "--namespace", t.Namespace, "--omes-run-id", t.RunID, "--minimum-runs", "1", "--output", output}
+	if r.RequireExpectedGraph {
+		args = append(args, "--expected-input", filepath.Join(path, "input.proto"))
+	}
+	if e := runOmesProcess(ctx, r.oracle, args, r.build.Source, filepath.Join(path, "audit.log"), report); e != nil {
 		return nil, e
 	}
 	raw, e := readWorkflowFile(filepath.Join(output, "result.json"), 1<<20)
@@ -232,10 +264,12 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 		return nil, e
 	}
 	var proof struct {
-		Schema  int    `json:"schema"`
-		Visible int    `json:"visible_runs"`
-		Query   string `json:"query"`
-		Runs    []struct {
+		ExpectedContract string `json:"expected_graph_contract"`
+		ExpectedInputSHA string `json:"expected_input_sha256"`
+		Schema           int    `json:"schema"`
+		Visible          int    `json:"visible_runs"`
+		Query            string `json:"query"`
+		Runs             []struct {
 			HistoryFile string `json:"history_file"`
 			HistorySHA  string `json:"history_sha256"`
 		} `json:"runs"`
@@ -252,6 +286,14 @@ func (r *OmesRuntime) Audit(ctx context.Context, t ResidentTopology, path string
 		}
 		if e = checkFile(filepath.Join(output, run.HistoryFile), run.HistorySHA); e != nil {
 			return nil, e
+		}
+	}
+	if r.RequireExpectedGraph {
+		if proof.ExpectedContract != workflowgraph.Contract {
+			return nil, errors.New("missing expected graph audit")
+		}
+		if err := checkFile(filepath.Join(path, "input.proto"), proof.ExpectedInputSHA); err != nil {
+			return nil, err
 		}
 	}
 	r.auditedRun = t.RunID
@@ -338,5 +380,9 @@ func (r *OmesRuntime) SetFailureReporter(report func(error)) {
 
 // Provenance returns a copy suitable for the shared pre-launch scenario envelope.
 func (r *OmesRuntime) Provenance() map[string]string {
-	return map[string]string{"resident_fixture_sha256": r.fixtureHash, "corrected_omes_build_sha256": r.buildHash, "omes_binary_sha256": r.build.BinarySHA, "history_oracle_sha256": r.oracleHash, "worker_sdk": "v1.48.0"}
+	contract := "exploratory-history-only"
+	if r.RequireExpectedGraph {
+		contract = workflowgraph.Contract
+	}
+	return map[string]string{"expected_graph_contract": contract, "resident_fixture_sha256": r.fixtureHash, "corrected_omes_build_sha256": r.buildHash, "omes_binary_sha256": r.build.BinarySHA, "history_oracle_sha256": r.oracleHash, "worker_sdk": "v1.48.0"}
 }
