@@ -131,8 +131,6 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	var development bool
 	replay := &cobra.Command{Use: "replay FILE", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.MaximumNArgs(1), PersistentPreRunE: recordCancellation}
 	var allowLegacy bool
-	var resident residentFlags
-	resident.add(replay)
 	replay.Flags().BoolVar(&allowLegacy, "allow-legacy-artifact", false, "Allow schema 1 replay without envelope integrity; never exact acceptance evidence")
 	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json artifact")
 	replay.Flags().StringVar(&evidence, "evidence", "", "New replay evidence directory (must not exist)")
@@ -161,12 +159,6 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 		}
 		runner.AllowLegacyArtifact = allowLegacy
 		mode := "exact-component-artifact-replay"
-		if resident.build != "" {
-			if _, err = resident.bind(runner); err != nil {
-				return err
-			}
-			mode = "saved-input-resident-workflow-replay; real scheduling is not deterministic"
-		}
 		if allowLegacy {
 			mode = "legacy-unverified-artifact-replay"
 		}
