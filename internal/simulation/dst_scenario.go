@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 
 	"github.com/0x63616c/xenon/internal/cluster"
@@ -242,16 +243,39 @@ func sameAddressDSTScenario(base CoupledScenario) CoupledScenario {
 
 func assignmentABADSTScenario(base CoupledScenario) (CoupledScenario, error) {
 	c := cloneCoupledScenario(base)
+	membership := func(actor string, node ids.NodeID, at cluster.Tick) (cluster.MembershipView, error) {
+		for _, step := range c.Steps {
+			if step.Actor != actor || step.At != at || step.Membership == nil {
+				continue
+			}
+			for _, member := range step.Membership.Members {
+				if member.Node == node {
+					return *step.Membership, nil
+				}
+			}
+		}
+		return cluster.MembershipView{}, fmt.Errorf("missing %s membership for %s at %d", actor, node, at)
+	}
+	coordinatorView, err := membership("coordinator-new", "nod_0000000000000000000003", 21)
+	if err != nil {
+		return CoupledScenario{}, err
+	}
 	emit := func(action, actor string, at cluster.Tick, effect uint64, transition ids.TransitionID) {
 		c.Steps = append(c.Steps, CoupledInput{Action: action, Actor: actor, At: at, Effect: effect, Transition: transition})
 	}
-	for i, memberIndex := range []int{5, 24} {
+	for i, fixture := range []struct {
+		node ids.NodeID
+		at   cluster.Tick
+	}{{"nod_0000000000000000000002", 0}, {"nod_0000000000000000000003", 2}} {
 		at := cluster.Tick(22 + i)
 		read := uint64(6 + i*2)
 		publish := read + 1
-		view := *c.Steps[memberIndex].Membership
+		view, err := membership("coordinator-old", fixture.node, fixture.at)
+		if err != nil {
+			return CoupledScenario{}, err
+		}
 		view.Generation = 2
-		view.Coordinator = c.Steps[35].Membership.Coordinator
+		view.Coordinator = coordinatorView.Coordinator
 		c.Steps = append(c.Steps, CoupledInput{Action: "poll", Actor: "coordinator-new", At: at, Membership: &view})
 		emit("read", "coordinator-new", at, read, "")
 		transition := ids.TransitionID("trn_0000000000000000000701")
