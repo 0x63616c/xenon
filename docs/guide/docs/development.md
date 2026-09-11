@@ -3,9 +3,15 @@
 Xenon uses a conventional Go testing pyramid. The ordinary edit loop is:
 
 ```sh
+just xenon
 go test ./...
 xenon test dst
 ```
+
+`just xenon` invokes a dependency-free Go bootstrap. It verifies the pinned
+SlateDB source and Go binding, builds a missing or stale native library, embeds
+the native commit and artifact hash in Xenon's build metadata, and reuses valid
+native and binary caches.
 
 Run a larger deterministic search explicitly:
 
