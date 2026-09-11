@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
@@ -77,6 +78,12 @@ func (b *barrier) fail(err error) error {
 	return status.Errorf(codes.FailedPrecondition, "admission proof failed: %v", err)
 }
 func (b *barrier) admit(ctx context.Context, r *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error) {
+	return b.admitWithStart(ctx, r, func(ctx context.Context, r *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error) {
+		return b.client.StartWorkflowExecution(ctx, r)
+	})
+}
+
+func (b *barrier) admitWithStart(ctx context.Context, r *workflow.StartWorkflowExecutionRequest, start func(context.Context, *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error)) (*workflow.StartWorkflowExecutionResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.failure != nil {
@@ -121,7 +128,7 @@ func (b *barrier) admit(ctx context.Context, r *workflow.StartWorkflowExecutionR
 	// Record the queue before forwarding: ambiguous upstream failure must never
 	// permit a retry to be mistaken for a new admission or yield passing evidence.
 	b.queues[r.TaskQueue.Name] = w
-	out, err := b.client.StartWorkflowExecution(ctx, r)
+	out, err := start(ctx, r)
 	if err != nil {
 		return nil, b.fail(err)
 	}
@@ -204,6 +211,35 @@ func (b *barrier) relayWithWait(conn *grpc.ClientConn, wait func(context.Context
 				return s.SendMsg(out)
 			}
 		}
+		// Composite starts must retain their original atomic RPC. In particular,
+		// update-with-start can wait for workflow execution before returning;
+		// observe creation independently so its held poll can be released.
+		var composite *workflow.StartWorkflowExecutionRequest
+		if strings.HasSuffix(method, "/SignalWithStartWorkflowExecution") {
+			var r workflow.SignalWithStartWorkflowExecutionRequest
+			if err := proto.Unmarshal(request, &r); err != nil {
+				return err
+			}
+			composite = &workflow.StartWorkflowExecutionRequest{Namespace: r.Namespace, WorkflowId: r.WorkflowId, TaskQueue: r.TaskQueue}
+		}
+		if strings.HasSuffix(method, "/ExecuteMultiOperation") {
+			var r workflow.ExecuteMultiOperationRequest
+			if err := proto.Unmarshal(request, &r); err != nil {
+				return err
+			}
+			for _, op := range r.Operations {
+				if start := op.GetStartWorkflow(); start != nil {
+					if composite != nil {
+						return status.Error(codes.InvalidArgument, "multiple starts are unsupported by admission fixture")
+					}
+					composite = proto.Clone(start).(*workflow.StartWorkflowExecutionRequest)
+					composite.Namespace = r.Namespace
+				}
+			}
+		}
+		if composite != nil && strings.HasPrefix(composite.GetTaskQueue().GetName(), "omes-xenon-generated-") {
+			return b.compositeStart(ctx, s, conn, method, request, composite)
+		}
 		if strings.HasSuffix(method, "/PollWorkflowTaskQueue") {
 			var r workflow.PollWorkflowTaskQueueRequest
 			if err := proto.Unmarshal(request, &r); err != nil {
@@ -233,6 +269,84 @@ func (b *barrier) relayWithWait(conn *grpc.ClientConn, wait func(context.Context
 		return s.SendMsg(&response)
 	}
 }
+
+// compositeStart forwards exactly one original RPC; it never substitutes a
+// separate StartWorkflowExecution and thereby weakens update-with-start atomicity.
+func (b *barrier) compositeStart(ctx context.Context, s grpc.ServerStream, conn *grpc.ClientConn, method string, request wire, r *workflow.StartWorkflowExecutionRequest) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	type result struct {
+		response        wire
+		header, trailer metadata.MD
+		err             error
+	}
+	done := make(chan result, 1)
+	_, err := b.admitWithStart(ctx, r, func(ctx context.Context, r *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error) {
+		// A signal-with-start retry must not adopt an older execution as new evidence.
+		_, err := b.client.DescribeWorkflowExecution(ctx, &workflow.DescribeWorkflowExecutionRequest{Namespace: r.Namespace, Execution: &common.WorkflowExecution{WorkflowId: r.WorkflowId}})
+		if status.Code(err) != codes.NotFound {
+			return nil, fmt.Errorf("composite root must be absent before start: %v", err)
+		}
+		go func() {
+			var out result
+			out.err = conn.Invoke(ctx, method, &request, &out.response, grpc.ForceCodec(codec{}), grpc.Header(&out.header), grpc.Trailer(&out.trailer))
+			done <- out
+		}()
+		ticker := time.NewTicker(5 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			d, err := b.client.DescribeWorkflowExecution(ctx, &workflow.DescribeWorkflowExecutionRequest{Namespace: r.Namespace, Execution: &common.WorkflowExecution{WorkflowId: r.WorkflowId}})
+			if err == nil {
+				if d.GetWorkflowExecutionInfo().GetStatus() != enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
+					return nil, fmt.Errorf("composite root is not Running")
+				}
+				id := d.GetWorkflowExecutionInfo().GetExecution().GetRunId()
+				if id == "" {
+					return nil, fmt.Errorf("composite root missing exact run ID")
+				}
+				return &workflow.StartWorkflowExecutionResponse{RunId: id}, nil
+			}
+			if status.Code(err) != codes.NotFound {
+				return nil, err
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case out := <-done:
+				// A successful completed RPC is also observed via Describe, never guessed.
+				done <- out
+				if out.err != nil {
+					return nil, out.err
+				}
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-ticker.C:
+				}
+			case <-ticker.C:
+			}
+		}
+	})
+	if err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case out := <-done:
+		s.SetTrailer(out.trailer)
+		if len(out.header) > 0 {
+			if err := s.SendHeader(out.header); err != nil {
+				return err
+			}
+		}
+		if out.err != nil {
+			return out.err
+		}
+		return s.SendMsg(&out.response)
+	}
+}
+
 func main() {
 	listen := flag.String("listen", "127.0.0.1:0", "local listening address")
 	upstream := flag.String("upstream", "", "real Temporal address")

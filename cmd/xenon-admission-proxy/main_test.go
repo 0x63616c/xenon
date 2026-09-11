@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
 	taskqueue "go.temporal.io/api/taskqueue/v1"
 	info "go.temporal.io/api/workflow/v1"
@@ -39,7 +40,11 @@ func (f *fake) DescribeWorkflowExecution(_ context.Context, r *workflow.Describe
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.observed = append(f.observed, r.Execution.WorkflowId)
-	return &workflow.DescribeWorkflowExecutionResponse{WorkflowExecutionInfo: &info.WorkflowExecutionInfo{Status: f.statuses[r.Execution.WorkflowId]}}, nil
+	state, exists := f.statuses[r.Execution.WorkflowId]
+	if !exists {
+		return nil, status.Error(codes.NotFound, "absent")
+	}
+	return &workflow.DescribeWorkflowExecutionResponse{WorkflowExecutionInfo: &info.WorkflowExecutionInfo{Status: state, Execution: &common.WorkflowExecution{WorkflowId: r.Execution.WorkflowId, RunId: "run-" + r.Execution.WorkflowId}}}, nil
 }
 func request(caseIndex, member int) *workflow.StartWorkflowExecutionRequest {
 	return &workflow.StartWorkflowExecutionRequest{Namespace: "test", WorkflowId: fmt.Sprintf("root-%d-%d", caseIndex, member), TaskQueue: &taskqueue.TaskQueue{Name: fmt.Sprintf("omes-xenon-generated-%016x-%016x-%02d", 42, caseIndex, member)}}
@@ -167,8 +172,10 @@ func TestPollBeforeAdmissionRetryable(t *testing.T) {
 // no wall-clock sleeps are needed to prove that the task is held at the seam.
 type upstreamServer struct {
 	workflow.UnimplementedWorkflowServiceServer
-	f     *fake
-	polls chan struct{}
+	f              *fake
+	polls          chan struct{}
+	complete       <-chan struct{}
+	compositeCalls chan string
 }
 
 func (s *upstreamServer) StartWorkflowExecution(c context.Context, r *workflow.StartWorkflowExecutionRequest) (*workflow.StartWorkflowExecutionResponse, error) {
@@ -322,5 +329,121 @@ func TestFailureUnblocksWaitingPoll(t *testing.T) {
 	b.admit(ctx, request(0, 4))
 	if status.Code(<-result) != codes.FailedPrecondition {
 		t.Fatal("failed gate did not fail poll promptly")
+	}
+}
+
+func (s *upstreamServer) SignalWithStartWorkflowExecution(ctx context.Context, r *workflow.SignalWithStartWorkflowExecutionRequest) (*workflow.SignalWithStartWorkflowExecutionResponse, error) {
+	s.compositeCalls <- "signal"
+	out, err := s.f.StartWorkflowExecution(ctx, &workflow.StartWorkflowExecutionRequest{WorkflowId: r.WorkflowId})
+	if err != nil {
+		return nil, err
+	}
+	return &workflow.SignalWithStartWorkflowExecutionResponse{RunId: out.RunId}, nil
+}
+func (s *upstreamServer) ExecuteMultiOperation(ctx context.Context, r *workflow.ExecuteMultiOperationRequest) (*workflow.ExecuteMultiOperationResponse, error) {
+	s.compositeCalls <- "multi"
+	if _, err := s.f.StartWorkflowExecution(ctx, r.Operations[0].GetStartWorkflow()); err != nil {
+		return nil, err
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-s.complete:
+		return &workflow.ExecuteMultiOperationResponse{}, nil
+	}
+}
+func TestCompositeStartsPreserveOriginalRPCAndObserveBeforeItReturns(t *testing.T) {
+	for _, kind := range []string{"signal", "multi"} {
+		t.Run(kind, func(t *testing.T) {
+			b, f := setup(4)
+			complete := make(chan struct{})
+			calls := make(chan string, 2)
+			up := grpc.NewServer()
+			workflow.RegisterWorkflowServiceServer(up, &upstreamServer{f: f, polls: make(chan struct{}, 1), complete: complete, compositeCalls: calls})
+			conn := localConnection(t, up)
+			b.client = workflow.NewWorkflowServiceClient(conn)
+			relay := grpc.NewServer(grpc.ForceServerCodec(codec{}), grpc.UnknownServiceHandler(b.relay(conn)))
+			client := workflow.NewWorkflowServiceClient(localConnection(t, relay))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			for i := range 3 {
+				if _, err := client.StartWorkflowExecution(ctx, request(0, i)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			recorded := make(chan struct{})
+			b.save = func([]*window) error { close(recorded); return nil }
+			result := make(chan error, 1)
+			r := request(0, 3)
+			go func() {
+				var err error
+				if kind == "signal" {
+					_, err = client.SignalWithStartWorkflowExecution(ctx, &workflow.SignalWithStartWorkflowExecutionRequest{Namespace: r.Namespace, WorkflowId: r.WorkflowId, TaskQueue: r.TaskQueue, SignalName: "preserved"})
+				} else {
+					_, err = client.ExecuteMultiOperation(ctx, &workflow.ExecuteMultiOperationRequest{Namespace: r.Namespace, Operations: []*workflow.ExecuteMultiOperationRequest_Operation{{Operation: &workflow.ExecuteMultiOperationRequest_Operation_StartWorkflow{StartWorkflow: r}}}})
+				}
+				result <- err
+			}()
+			select {
+			case <-ctx.Done():
+				t.Fatal("barrier deadlocked on pending composite response")
+			case <-recorded:
+			}
+			if kind == "multi" {
+				select {
+				case <-result:
+					t.Fatal("original composite RPC completed before server allowed it")
+				default:
+				}
+				close(complete)
+			}
+			if err := <-result; err != nil {
+				t.Fatal(err)
+			}
+			if got := <-calls; got != kind {
+				t.Fatal(got)
+			}
+			select {
+			case <-calls:
+				t.Fatal("original RPC invoked more than once")
+			default:
+			}
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			if f.starts != 4 {
+				t.Fatalf("unexpected standalone start: %d", f.starts)
+			}
+		})
+	}
+}
+
+func TestCompositeStartRejectsEagerAndExistingRootBeforeForwarding(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("existing=%v", existing), func(t *testing.T) {
+			b, f := setup(4)
+			calls := make(chan string, 1)
+			up := grpc.NewServer()
+			workflow.RegisterWorkflowServiceServer(up, &upstreamServer{f: f, compositeCalls: calls})
+			conn := localConnection(t, up)
+			b.client = workflow.NewWorkflowServiceClient(conn)
+			relay := grpc.NewServer(grpc.ForceServerCodec(codec{}), grpc.UnknownServiceHandler(b.relay(conn)))
+			client := workflow.NewWorkflowServiceClient(localConnection(t, relay))
+			r := request(0, 0)
+			r.RequestEagerExecution = !existing
+			if existing {
+				f.statuses[r.WorkflowId] = enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, err := client.ExecuteMultiOperation(ctx, &workflow.ExecuteMultiOperationRequest{Namespace: r.Namespace, Operations: []*workflow.ExecuteMultiOperationRequest_Operation{{Operation: &workflow.ExecuteMultiOperationRequest_Operation_StartWorkflow{StartWorkflow: r}}}})
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatal(err)
+			}
+			select {
+			case <-calls:
+				t.Fatal("rejected composite reached upstream")
+			default:
+			}
+		})
 	}
 }

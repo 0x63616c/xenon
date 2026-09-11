@@ -107,3 +107,20 @@ oracle coverage, fan-out policy enforcement, or full GEN-02/#119 acceptance.
 go test -race ./cmd/xenon-admission-proxy
 python3 -m unittest discover -s scripts -p 'test_*journey.py'
 ```
+
+
+The first controlled `ff8acce` run exposed a fixture gap: generated Omes cases
+can use signal-with-start and update-with-start (`ExecuteMultiOperation`). The
+latter may wait for update execution before returning. The relay now forwards
+these original atomic RPCs exactly once and observes their freshly created run
+IDs independently before releasing polls; it does not split an update-with-start
+into separate operations. Eager composite starts and preexisting root IDs are
+rejected before forwarding. Component controls keep the composite response
+pending while proving the barrier observation completes.
+
+Failed run evidence is retained at
+`/Users/calum/Documents/ChatGPT/xenon-generated-ff8acce-concurrency4-attested`.
+It completed SDK/Nexus setup but failed the first generated case; this is not
+controlled-admission acceptance. Its exact owned-container census is empty and
+both helper process groups were drained. Both real concurrency controls must be
+rerun from an integrated candidate containing the composite-start fix.
