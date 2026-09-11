@@ -95,7 +95,7 @@ func build(ctx context.Context, root string) error {
 	state := readState(statePath)
 	nativeWarm := state.NativeFingerprint == nativeFingerprint && state.NativeCommit == p.SourceCommit && fileHashEquals(library, state.NativeSHA256)
 	if !nativeWarm {
-		fmt.Println("Building pinned SlateDB native library...")
+		fmt.Fprintln(os.Stderr, "Building pinned SlateDB native library...")
 		if err = run(ctx, source, env, "cargo", "+"+p.RustToolchain, "build", "--locked", "-p", "slatedb-uniffi"); err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func build(ctx context.Context, root string) error {
 	binary := filepath.Join(bin, "xenon")
 	binaryWarm := nativeWarm && state.BinaryFingerprint == binaryFingerprint && state.SourceRevision == sourceRevision && fileHashEquals(binary, state.BinarySHA256)
 	if !binaryWarm {
-		fmt.Println("Building Xenon...")
+		fmt.Fprintln(os.Stderr, "Building Xenon...")
 		flags := fmt.Sprintf("-X github.com/0x63616c/xenon/internal/buildinfo.NativeCommit=%s -X github.com/0x63616c/xenon/internal/buildinfo.NativeSHA256=%s -X github.com/0x63616c/xenon/internal/buildinfo.SourceRevision=%s", p.SourceCommit, nativeSHA, sourceRevision)
 		buildEnv := append([]string{}, env...)
 		if runtime.GOOS == "darwin" {
@@ -145,10 +145,8 @@ func build(ctx context.Context, root string) error {
 	if err = os.WriteFile(statePath, append(encoded, '\n'), 0644); err != nil {
 		return err
 	}
-	if nativeWarm && binaryWarm {
-		fmt.Println("Xenon is up to date:", binary)
-	} else {
-		fmt.Println("Built Xenon:", binary)
+	if !nativeWarm || !binaryWarm {
+		fmt.Fprintln(os.Stderr, "Built Xenon:", binary)
 	}
 	return nil
 }
