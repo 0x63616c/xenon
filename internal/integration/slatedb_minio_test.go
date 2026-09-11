@@ -1,0 +1,22 @@
+//go:build integration
+
+package integration
+
+import (
+	"context"
+	"os"
+	"testing"
+)
+
+// This explicit integration-tag entry point is retained for CI and package
+// development. The normal developer interface is `xenon test integration`.
+func TestSlateDBMinIO(t *testing.T) {
+	result, err := RunSlateDBMinIO(context.Background(), os.Stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Assertions) != 4 {
+		t.Fatalf("incomplete assertion census: %+v", result)
+	}
+	t.Logf("%s passed in %s: %v", result.Name, result.Duration, result.Assertions)
+}
