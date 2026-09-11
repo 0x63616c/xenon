@@ -194,6 +194,10 @@ func dstCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra.Comm
 				provenance.Versions["toolchain"] = "unknown"
 			}
 			result, runErr := simulation.RunDST(cmd.Context(), seed, cases, evidence, provenance, clock)
+			if runErr != nil {
+				keep = true
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "DST failure retained at %s\n", evidence)
+			}
 			return simulationResult(cmd, false, "go-dst", result, runErr)
 		},
 	}
