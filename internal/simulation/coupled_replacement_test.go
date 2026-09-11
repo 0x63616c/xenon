@@ -44,44 +44,11 @@ func TestCoupledRenewalUnknownAfterReplacement(t *testing.T) {
 
 func assignmentABAScenario(t *testing.T) CoupledScenario {
 	t.Helper()
-	c, _ := loadCoupled(t)
-	emit := func(action, actor string, at cluster.Tick, effect uint64, transition ids.TransitionID) {
-		c.Steps = append(c.Steps, CoupledInput{Action: action, Actor: actor, At: at, Effect: effect, Transition: transition})
+	base, _ := loadCoupled(t)
+	c, err := assignmentABADSTScenario(base)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for i, memberIndex := range []int{5, 24} {
-		at := cluster.Tick(22 + i)
-		read := uint64(6 + i*2)
-		publish := read + 1
-		view := *c.Steps[memberIndex].Membership
-		view.Generation = 2
-		// Derive the current coordinator identity from the known new-coordinator poll.
-		view.Coordinator = c.Steps[35].Membership.Coordinator
-		c.Steps = append(c.Steps, CoupledInput{Action: "poll", Actor: "coordinator-new", At: at, Membership: &view})
-		emit("read", "coordinator-new", at, read, "")
-		transition := ids.TransitionID("trn_0000000000000000000701")
-		if i == 1 {
-			transition = "trn_0000000000000000000702"
-		}
-		emit("deliver", "coordinator-new", at, read, transition)
-		emit("publish", "coordinator-new", at, publish, "")
-		emit("deliver", "coordinator-new", at, publish, "")
-	}
-	emit("poll", "writer-current", 0, 0, "")
-	emit("read", "writer-current", 0, 12, "")
-	emit("deliver", "writer-current", 0, 12, "trn_0000000000000000000703")
-	emit("close", "writer-current", 0, 13, "")
-	emit("deliver", "writer-current", 0, 13, "")
-	emit("read", "writer-current", 0, 14, "")
-	emit("deliver", "writer-current", 0, 14, "trn_0000000000000000000704")
-	emit("publish", "writer-current", 0, 15, "")
-	emit("deliver", "writer-current", 0, 15, "")
-	emit("open", "writer-current", 0, 16, "")
-	emit("deliver", "writer-current", 0, 16, "")
-	emit("read", "writer-current", 0, 17, "")
-	emit("deliver", "writer-current", 0, 17, "trn_0000000000000000000705")
-	emit("publish", "writer-current", 0, 18, "")
-	emit("deliver", "writer-current", 0, 18, "")
-	emit("commit", "writer-current", 0, 16, "")
 	return c
 }
 

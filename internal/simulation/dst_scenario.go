@@ -1,6 +1,9 @@
 package simulation
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"runtime"
 
 	"github.com/0x63616c/xenon/internal/cluster"
@@ -14,7 +17,31 @@ func DefaultDSTGenerator() (Generator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewCoupledInterleavingsScenario(scenario)
+	scenarios := []CoupledScenario{
+		scenario,
+		lostResponseDSTScenario(scenario),
+		storageErrorDSTScenario(scenario, "coordinator-old"),
+		storageErrorDSTScenario(scenario, "writer-old"),
+		sameAddressDSTScenario(scenario),
+	}
+	aba, err := assignmentABADSTScenario(scenario)
+	if err != nil {
+		return nil, err
+	}
+	scenarios = append(scenarios, aba)
+	generators := make([]*CoupledInterleavings, 0, len(scenarios))
+	for _, candidate := range scenarios {
+		generator, err := NewCoupledInterleavingsScenario(candidate)
+		if err != nil {
+			return nil, err
+		}
+		generators = append(generators, generator)
+	}
+	raw, err := json.Marshal(scenarios)
+	if err != nil {
+		return nil, err
+	}
+	return &dstCatalog{generators: generators, info: GeneratorInfo{"go-dst-catalog-v1", hash(raw), []string{CoupledKind, "code-authored-fault-catalog"}}}, nil
 }
 
 func defaultDSTScenario() (CoupledScenario, error) {
@@ -143,4 +170,120 @@ func defaultDSTScenario() (CoupledScenario, error) {
 			{Action: "commit", Actor: "writer-current", Effect: 9},
 		},
 	}, nil
+}
+
+type dstCatalog struct {
+	generators []*CoupledInterleavings
+	info       GeneratorInfo
+}
+
+func (g *dstCatalog) Info() GeneratorInfo {
+	out := g.info
+	out.Capabilities = append([]string(nil), out.Capabilities...)
+	return out
+}
+func (g *dstCatalog) Next(ctx context.Context, request GenerateRequest) (Scenario, error) {
+	if len(g.generators) == 0 {
+		return Scenario{}, errors.New("empty DST catalog")
+	}
+	return g.generators[request.Index%uint64(len(g.generators))].Next(ctx, request)
+}
+
+func lostResponseDSTScenario(base CoupledScenario) CoupledScenario {
+	c := cloneCoupledScenario(base)
+	for i := range c.Steps {
+		step := &c.Steps[i]
+		if step.Actor == "coordinator-old" && step.Action == "deliver" && step.Effect == 2 {
+			step.Fault = "lost_publish_response"
+			break
+		}
+	}
+	return c
+}
+
+func storageErrorDSTScenario(base CoupledScenario, actor string) CoupledScenario {
+	c := cloneCoupledScenario(base)
+	prefix := []CoupledInput{{Action: "poll", Actor: actor}, {Action: "read", Actor: actor, Effect: 1, Fault: "storage_read_error"}, {Action: "deliver", Actor: actor, Effect: 1}}
+	for _, step := range c.Steps {
+		if step.Actor == actor && step.Effect != 0 {
+			step.Effect++
+		}
+		prefix = append(prefix, step)
+	}
+	c.Steps = prefix
+	return c
+}
+
+func sameAddressDSTScenario(base CoupledScenario) CoupledScenario {
+	c := cloneCoupledScenario(base)
+	for i := range c.Steps {
+		view := c.Steps[i].Membership
+		if view == nil {
+			continue
+		}
+		for j := range view.Members {
+			if view.Members[j].Incarnation == "inc_0000000000000000000003" {
+				view.Members[j].Address = "node-1:8080"
+			}
+		}
+	}
+	return c
+}
+
+func assignmentABADSTScenario(base CoupledScenario) (CoupledScenario, error) {
+	c := cloneCoupledScenario(base)
+	emit := func(action, actor string, at cluster.Tick, effect uint64, transition ids.TransitionID) {
+		c.Steps = append(c.Steps, CoupledInput{Action: action, Actor: actor, At: at, Effect: effect, Transition: transition})
+	}
+	for i, memberIndex := range []int{5, 24} {
+		at := cluster.Tick(22 + i)
+		read := uint64(6 + i*2)
+		publish := read + 1
+		view := *c.Steps[memberIndex].Membership
+		view.Generation = 2
+		view.Coordinator = c.Steps[35].Membership.Coordinator
+		c.Steps = append(c.Steps, CoupledInput{Action: "poll", Actor: "coordinator-new", At: at, Membership: &view})
+		emit("read", "coordinator-new", at, read, "")
+		transition := ids.TransitionID("trn_0000000000000000000701")
+		if i == 1 {
+			transition = "trn_0000000000000000000702"
+		}
+		emit("deliver", "coordinator-new", at, read, transition)
+		emit("publish", "coordinator-new", at, publish, "")
+		emit("deliver", "coordinator-new", at, publish, "")
+	}
+	emit("poll", "writer-current", 0, 0, "")
+	emit("read", "writer-current", 0, 12, "")
+	emit("deliver", "writer-current", 0, 12, "trn_0000000000000000000703")
+	emit("close", "writer-current", 0, 13, "")
+	emit("deliver", "writer-current", 0, 13, "")
+	emit("read", "writer-current", 0, 14, "")
+	emit("deliver", "writer-current", 0, 14, "trn_0000000000000000000704")
+	emit("publish", "writer-current", 0, 15, "")
+	emit("deliver", "writer-current", 0, 15, "")
+	emit("open", "writer-current", 0, 16, "")
+	emit("deliver", "writer-current", 0, 16, "")
+	emit("read", "writer-current", 0, 17, "")
+	emit("deliver", "writer-current", 0, 17, "trn_0000000000000000000705")
+	emit("publish", "writer-current", 0, 18, "")
+	emit("deliver", "writer-current", 0, 18, "")
+	emit("commit", "writer-current", 0, 16, "")
+	if len(c.Steps) > 256 {
+		return CoupledScenario{}, errors.New("assignment ABA DST exceeds bound")
+	}
+	return c, nil
+}
+
+func cloneCoupledScenario(c CoupledScenario) CoupledScenario {
+	out := c
+	out.Steps = append([]CoupledInput(nil), c.Steps...)
+	for i := range out.Steps {
+		if c.Steps[i].Membership != nil {
+			view := *c.Steps[i].Membership
+			view.Members = append([]cluster.Owner(nil), view.Members...)
+			out.Steps[i].Membership = &view
+		}
+	}
+	out.Actors = append([]CoupledActor(nil), c.Actors...)
+	return out
 }
