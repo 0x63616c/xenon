@@ -451,17 +451,28 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 		if len(childStarts) != len(node.Children) {
 			return fmt.Errorf("generated_graph/child_inventory")
 		}
-		for i, event := range childStarts {
+		remainingChildren := append([]string(nil), node.Children...)
+		for _, event := range childStarts {
 			a := event.GetChildWorkflowExecutionStartedEventAttributes()
 			child := byRun[a.GetWorkflowExecution().GetRunId()]
 			if a.InitiatedEventId < 1 || a.InitiatedEventId > int64(len(h.Events)) || h.Events[a.InitiatedEventId-1].EventId != a.InitiatedEventId {
 				return fmt.Errorf("generated_graph/child_initiated_reference")
 			}
 			initiated := h.Events[a.InitiatedEventId-1].GetStartChildWorkflowExecutionInitiatedEventAttributes()
-			if initiated == nil || generatedWorkflowDigest(initiated.Input) != nodes[node.Children[i]].InputSHA256 {
+			digest := generatedWorkflowDigest(initiated.GetInput())
+			matched := -1
+			for i, childID := range remainingChildren {
+				if childNode, ok := nodes[childID]; ok && childNode.InputSHA256 == digest {
+					matched = i
+					break
+				}
+			}
+			if initiated == nil || matched < 0 {
 				return fmt.Errorf("generated_graph/child_input")
 			}
-			if e = bind(node.Children[i], child); e != nil {
+			childID := remainingChildren[matched]
+			remainingChildren = append(remainingChildren[:matched], remainingChildren[matched+1:]...)
+			if e = bind(childID, child); e != nil {
 				return e
 			}
 		}
