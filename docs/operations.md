@@ -6,20 +6,20 @@ local test commands, not a production deployment certification.
 
 ## Start and rerun
 
-Use a clean committed checkout and the pinned prerequisites listed in README.
-`make test` runs Rust and Go checks, building the native dependency before Go tests.
-`make proof CASE=owner-manager` runs the declared ownership scenario with scoped
-MinIO setup and teardown. Other registered cases are listed by
-`python3 scripts/prove.py --help`.
+Use the smallest Go gate that covers the change:
 
-`python3 scripts/check-ministack.py` validates configuration only. It deliberately
-never produces a runtime proof pass. `python3 scripts/ministack-runtime.py` runs the
-candidate stack: two Temporal processes, two initial Xenon nodes, a third added
-node, and pinned MinIO, HAProxy and Temporal UI containers. Its smoke result is
-separate from `proof/acceptance/full-profile.json`; passing smoke cannot satisfy
-the larger workload, fault and measurement gates. See `test/scenarios/ministack/README.md`
-for pins, ports and assertions. Run one ministack at a time because its published
-ports are fixed. Avoid competing heavy builds during latency-sensitive runs.
+```sh
+go test ./...
+xenon test dst
+xenon test integration
+```
+
+The first two commands are the normal edit loop and do not start Docker. The
+integration command owns pinned MinIO and child-process lifecycle for exactly the
+three journeys documented in [the testing specification](design/issue-119-acceptance.md).
+Run one integration invocation at a time. Older proof scripts and Compose
+topologies are retained only while their unique behavior lacks Go parity; they
+are not the current operations interface.
 
 ## Failure and recovery boundaries
 

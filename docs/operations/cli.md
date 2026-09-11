@@ -72,133 +72,34 @@ the backend. The executable still links its existing native runtime dependency;
 this is not a claim of a separate native-free binary or full CLI delivery.
 
 
-## Saved simulation test, finite search and replay
+## Testing commands
 
-These journeys use the shared `internal/simulation` Runner and production-Step
-coupled driver. They do not start Temporal, SDK workers, SlateDB databases or
-containers. They execute the saved ordered coordinator/partition effects with
-modeled registry/native behavior and check final recovery/progress.
+The primary test interface is code-driven Go:
 
 ```sh
-xenon test simulation \
-  --scenario test/scenarios/simulation/coordinator-move.json \
-  --evidence /tmp/xenon-simulation-test
-xenon search \
-  --scenario test/scenarios/simulation/coordinator-move.json \
-  --max-cases 1 --duration 1m --evidence /tmp/xenon-simulation-search
-xenon replay \
-  --artifact /tmp/xenon-simulation-test/case-00000000000000000000/scenario.json \
-  --evidence /tmp/xenon-simulation-replay
+xenon test dst
+xenon test dst --seed 42 --cases 1000
+xenon replay failure.json
+xenon minimize failure.json
+xenon test integration
 ```
 
-Every evidence directory must be new and its parent must already exist. Search
-accepts repeated `--scenario FILE` flags and explores that **finite saved corpus**;
-zero `--max-cases` means all supplied files. It does not randomly generate new
-workflows or loop the corpus to manufacture coverage. `--workload-seed` and
-`--fault-seed` are recorded independently but unused by this fixed corpus.
+`test dst` uses virtual time and in-memory adapters. It does not start native
+SlateDB, Temporal, MinIO, Docker or child processes. The seed and case count fully
+determine the generated schedules. On failure it prints the saved artifact path.
 
-The supported profile has at most 256 ordered events, depth 1, 1 MiB expanded
-payload and 8 MiB trace per case. It allows one in-flight case, a one-minute
-default total budget (`--duration` overrides it), and one-second settle/cleanup
-budgets. These values are saved in each artifact. Replay uses the artifact's
-saved bytes, event ordering and budgets, independently of the current generator;
-its new evidence records the current executing build.
+`replay` executes the exact expanded schedule stored in an artifact; it does not
+need the original generator. `minimize` removes actions in deterministic order,
+preserves dependencies and accepts a reduction only when the same invariant
+fingerprint still fails. Neither command overwrites its input artifact.
 
-By default these commands require a known clean 40-hex source build revision.
-`--development` explicitly permits missing or dirty build identity and labels the
-JSON result `development`. Evidence records build revision/dirty state/toolchain,
-modeled native/no-image boundary, generator source hash, expanded bytes and hashes,
-original scenario file hashes, trace, first failure and cleanup outcomes. This is
-component evidence, not full Temporal/Nexus or real-S3 qualification.
+`test integration` is the explicit slow tier. Its Go runner owns lifecycle,
+readiness, observed fault barriers, assertions and cleanup for three bounded
+journeys: SlateDB with MinIO, three-node ownership recovery, and Temporal
+compatibility. Docker is required only for this tier. MinIO results do not claim
+AWS S3 qualification.
 
-Each invocation that reaches the runner writes exactly one stdout JSON object:
-`schema`, `mode`, `qualification` and `result` (including `completed`, `stop_reason`
-and absolute `evidence_path`). Diagnostics remain on stderr. CLI argument/file/
-provenance failures before runner entry use stderr without a result object.
-Test/search/replay share these exit codes:
-
-| Exit | Meaning |
-| --- | --- |
-| 0 | Requested cases completed and recovery/cleanup checks passed |
-| 1 | Invalid input, invariant/recovery/output failure, or failed cleanup |
-| 2 | Declared exploration budget ended; unfinished cases are not passes |
-| 130 | Caller cancellation; evidence and bounded cleanup were retained |
-
-A budget/cancellation result never reports an incomplete case as completed.
-Already completed cases are only the explored prefix. If cleanup cannot finish,
-the error reports process-exit-required; no next case is launched. The original
-artifact is never overwritten by replay. There is no `minimize` command yet.
-
-For an executable check, build the reviewed source using the repository's pinned
-Go/native environment, run the three commands above, and compare their saved
-`trace.jsonl` files. Unit contracts also execute these exact command paths against
-real saved production-Step bytes, checking finite limits, bad-effect failure,
-replay, canceled/budget exit codes, JSON streams, and backend-free help.
-
-The executable smoke harness makes these assertions automatically, including
-byte-identical traces and actual nonzero failure/budget exits:
-
-```sh
-python3 scripts/cli-simulation-proof.py --binary .local/xenon \
-  --source "$(git rev-parse HEAD)" --evidence /tmp/xenon-cli-proof
-```
-
-Build `.local/xenon` from that clean revision first. Retain the resulting
-`receipt.json` and case artifacts. The harness removes AWS credentials from child
-environments and accepts the repository's existing native loader environment;
-linking the binary does not execute a native storage scenario.
-
-## Real local agent profiles
-
-The single CLI also exposes the reviewed Python implementation helpers:
-
-```sh
-xenon test smoke --repository /absolute/path/to/xenon --evidence /tmp/xenon-smoke
-xenon test local-release-ten-minute --repository /absolute/path/to/xenon \
-  --evidence /tmp/xenon-ten-minute
-```
-
-Both paths are explicit; the evidence directory must be new and its parent must
-exist. The checkout must contain the pinned scenario scripts, config and sources.
-Python 3, Git, Go, Rust/rustup/Cargo, a C compiler, AWS CLI, Docker Compose and the
-already-pulled pinned local images are required. The helper validates source and
-build pins and refuses occupied scenario ports. `--development` explicitly
-permits a dirty checkout and retains development qualification. Help, version and
-config validation do not inspect these tools or initialize backends.
-
-The helper remains responsible for the actual workload and all owned agents,
-workers and Compose resources. See [the ten-minute contract](../../test/scenarios/agent/ten-minute.md)
-for separate setup/workload/drain/recovery budgets, exact saved corpus, faults and
-remaining oracle gaps. Exposing the command is not proof that either runtime
-profile has passed. The CLI records its own build independently from the explicit
-checkout used by the helper; the two source identities are not silently equated.
-
-Each invocation returns one stdout JSON object with schema, profile, status,
-evidence path, helper receipt and whether cleanup was verified. Raw helper output
-is retained in `helper.log`; command diagnostics/errors use stderr. `cli-request.json`
-and `cli-result.json` preserve the invocation and result; helper evidence lives in
-`run/`. Existing evidence is never overwritten. Exit 0 requires a passing helper
-receipt matching the requested profile. Failure is 1, an outer deadline is 2,
-and cancellation is 130. An already-recorded helper failure remains a failure if
-cancellation arrives afterward. Canceled/budget runs are never passes.
-
-On cancellation the CLI signals the helper group and allows 150 seconds for its
-bounded diagnostics and cleanup. It then kills and reaps the helper, with a final
-five-second reap bound. Forced termination reports cleanup unverified: a wedged
-helper may not have retired its separately supervised child groups or Compose
-project. Retain the evidence for scoped recovery; this is never reported as a
-clean shutdown. The outer ceilings are 20 minutes for smoke and three hours for
-the full profile; they do not extend any shorter helper workload budget.
-
-Tests execute the typed command binding and real child supervision with fake
-helpers: clean JSON, explicit paths, preserved receipts/logs, cancellation,
-forced termination, backend-free help and missing input/tool failures. These
-controls open no agent ports, storage engines or containers.
-
-Before launching real profile code, `cli-source.json` pins the explicit checkout's
-full HEAD, dirty state and helper SHA256. A passing final receipt must include
-schema 1, that exact revision/dirty state, requested profile/development mode and
-helper hash; the wrapper rereads repository/helper identity before accepting it.
-A two-field status receipt is insufficient. If cancellation interrupts cleanup,
-the wrapper also reads the helper's already-saved `first-failure.json`; a recorded
-non-signal failure remains primary with exit 1 even without final `result.json`.
+Legacy simulation scenario flags and Python-backed real profiles may remain in a
+migration checkout. They are compatibility paths, not the supported developer
+workflow, and receive no new coverage. Remove each after its unique assertions
+have an equivalent Go test.

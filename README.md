@@ -33,38 +33,35 @@ See the [verification matrix](docs/design/verification-matrix.md) for the eviden
 - Node movement and recovery without relying on local disks.
 - Compatibility with Temporal execution, visibility, SDKs, and UI.
 
-## Run Xenon
+## Develop and test
 
-[`just`](https://just.systems/) is the developer entrypoint. This runs the Xenon
-CLI from the latest source:
+[`just`](https://just.systems/) runs the Xenon CLI from the latest source. It
+caches the executable at `.local/bin/xenon` and rebuilds it only when executable
+source inputs change:
 
 ```sh
 just xenon
 ```
 
-The recipe caches the executable at `.local/bin/xenon` and rebuilds it only
-when Go source or module files change. Arguments are forwarded to the CLI, so
-the same entrypoint runs its tools:
+The ordinary loop is Go-first and does not start Docker or Temporal:
 
 ```sh
+go test ./...
+just xenon test dst
 just xenon test dst --seed 42 --cases 1000
-just xenon replay failure.json
 ```
 
-## Run the component proofs
+Replay and minimize a saved DST failure with `just xenon replay failure.json`
+and `just xenon minimize failure.json`. Real native and process boundaries run
+separately through `just xenon test integration`; only that command requires
+Docker and MinIO.
+See the [development loop](docs/development-loop.md) for the testing pyramid and
+current migration status.
 
-Requirements: `just`, Go 1.27.1, Rust 1.94.0 through `rustup`, Python 3, Git,
-platform C/C++ build tools, and Docker Compose for the legacy S3-emulator
-proofs below.
-
-```sh
-python3 scripts/prove.py go-runtime-stores
-python3 scripts/prove.py owner-manager
-python3 scripts/prove.py go-visibility
-python3 scripts/agent-smoke.py
-```
-
-These proofs use pinned local dependencies and write evidence under `.local/evidence/`. They do not validate real AWS S3 or establish full Temporal compatibility.
+The source tree pins Go 1.27.1, Rust 1.94.0 and SlateDB 0.16.0. Building the
+native binding requires Rust and the platform C/C++ toolchain. Historical Python
+proof runners and Make targets remain during migration where unique coverage has
+not yet moved to Go; they are not required developer entrypoints.
 
 ## Learn more
 
