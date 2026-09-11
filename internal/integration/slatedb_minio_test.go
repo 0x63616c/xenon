@@ -20,3 +20,18 @@ func TestSlateDBMinIO(t *testing.T) {
 	}
 	t.Logf("%s passed in %s: %v", result.Name, result.Duration, result.Assertions)
 }
+
+func TestMultiNodeOwnership(t *testing.T) {
+	binary := os.Getenv("XENON_INTEGRATION_XENON_BINARY")
+	if binary == "" {
+		t.Skip("set XENON_INTEGRATION_XENON_BINARY to the built xenon CLI")
+	}
+	result, err := RunMultiNodeOwnership(context.Background(), os.Stderr, MultiNodeOptions{XenonBinary: binary})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Assertions) != 6 {
+		t.Fatalf("incomplete assertion census: %+v", result)
+	}
+	t.Logf("%s passed in %s: %v", result.Name, result.Duration, result.Assertions)
+}
