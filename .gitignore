@@ -2,4 +2,7 @@
 /bin/
 /.env
 /.local/
+/.agent-runs/
+/output/
+/website/.local/
 *.log
