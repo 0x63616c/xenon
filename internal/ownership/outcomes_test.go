@@ -1,16 +1,20 @@
+//go:build slatedb
+
 package ownership
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"net/http/httptest"
+	"testing"
+
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
+	partitiondb "github.com/0x63616c/xenon/internal/partitions/slatedb"
 	"google.golang.org/protobuf/proto"
-	"net/http/httptest"
 	native "slatedb.io/slatedb-go/uniffi"
-	"testing"
 )
 
 func TestOutcomeMetrics(t *testing.T) {
@@ -33,7 +37,11 @@ func TestOutcomeMetrics(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	o, e := node.NewOwner(db, m.ownerConfig("p"))
+	writer, e := partitiondb.AdoptNative(db)
+	if e != nil {
+		t.Fatal(e)
+	}
+	o, e := node.NewOwner(writer, m.ownerConfig("p"))
 	if e != nil {
 		t.Fatal(e)
 	}

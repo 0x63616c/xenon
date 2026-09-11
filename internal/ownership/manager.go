@@ -8,12 +8,11 @@ import (
 
 	"github.com/0x63616c/xenon/internal/directory"
 	"github.com/0x63616c/xenon/internal/node"
-	partitiondb "github.com/0x63616c/xenon/internal/partitions/slatedb"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"github.com/0x63616c/xenon/internal/routing"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 type managed struct {
@@ -27,6 +26,7 @@ type Manager struct {
 	topology       *TopologyStore
 	identity       directory.Identity
 	objectURL      string
+	open           func(context.Context, directory.Record) (partitions.Writer, error)
 	maxOutcomes    uint64
 	dispatchCounts map[string]LocalDispatch
 	mu             sync.Mutex
@@ -43,7 +43,7 @@ func NewManager(topology *TopologyStore, nodeID, address, objectURL string, maxO
 	if maxOutcomes == 0 || topology == nil || nodeID == "" || address == "" || objectURL != "s3://"+topology.bucket {
 		return nil, directory.ErrInvalid
 	}
-	return &Manager{topology: topology, identity: directory.Identity{Node: nodeID, Address: address, Incarnation: uuid.NewString()}, objectURL: objectURL, maxOutcomes: maxOutcomes, dispatchCounts: map[string]LocalDispatch{}, owners: map[string]*managed{}, workers: map[string]bool{}, directories: map[string]*directory.Directory{}}, nil
+	return &Manager{topology: topology, identity: directory.Identity{Node: nodeID, Address: address, Incarnation: uuid.NewString()}, objectURL: objectURL, open: newPartitionOpener(objectURL), maxOutcomes: maxOutcomes, dispatchCounts: map[string]LocalDispatch{}, owners: map[string]*managed{}, workers: map[string]bool{}, directories: map[string]*directory.Directory{}}, nil
 }
 func (m *Manager) Identity() directory.Identity { return m.identity }
 func (m *Manager) desired(t Topology, id string) bool {
@@ -193,16 +193,9 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 	if m.beforeOpen != nil {
 		m.beforeOpen(record)
 	}
-	// Exactly one Build per reservation. Never retry this reservation after any
-	// result, timeout or supersession. A blocked Build occupies this worker forever.
-	store, e := native.ObjectStoreResolve(m.objectURL)
-	if e != nil {
-		return e
-	}
-	builder := native.NewDbBuilder(record.DataPrefix, store)
-	db, e := builder.Build()
-	builder.Destroy()
-	store.Destroy()
+	// Exactly one Open per reservation. Never retry this reservation after any
+	// result, timeout or supersession. A blocked Open occupies this worker forever.
+	writer, e := m.open(ctx, record)
 	if e != nil {
 		return e
 	}
@@ -210,10 +203,6 @@ func (m *Manager) reconcile(ctx context.Context, id string) error {
 	readyRecord := record
 	readyRecord.State = "ready"
 	config.Authority = func(c context.Context) error { return m.authority(c, d, readyRecord) }
-	writer, e := partitiondb.AdoptNative(db)
-	if e != nil {
-		return e
-	}
 	owner, e := node.NewOwner(writer, config)
 	if e != nil {
 		return e

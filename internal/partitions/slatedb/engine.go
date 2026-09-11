@@ -1,3 +1,5 @@
+//go:build slatedb
+
 // Package slatedb implements the serialized partition engine with the pinned
 // official Go binding and its Rust core. Native calls have no cancellation API.
 package slatedb

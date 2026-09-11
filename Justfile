@@ -18,7 +18,7 @@ xenon *args:
         echo "building xenon..." >&2
         CGO_ENABLED=1 \
         CGO_LDFLAGS="-L$native_dir" \
-        go build -o "$binary" ./cmd/xenon
+        go build -tags=slatedb -o "$binary" ./cmd/xenon
         printf '%s\n' "$fingerprint" > "$fingerprint_file"
     fi
 
