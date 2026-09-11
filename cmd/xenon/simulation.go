@@ -129,7 +129,7 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	search := makeSearch("search", "Search saved simulation scenarios or fresh real workflows", false)
 	var artifact, evidence string
 	var development bool
-	replay := &cobra.Command{Use: "replay", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.NoArgs, PersistentPreRunE: recordCancellation}
+	replay := &cobra.Command{Use: "replay FILE", Short: "Replay exact expanded simulation artifact bytes", Args: cobra.MaximumNArgs(1), PersistentPreRunE: recordCancellation}
 	var allowLegacy bool
 	var resident residentFlags
 	resident.add(replay)
@@ -137,10 +137,24 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	replay.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json artifact")
 	replay.Flags().StringVar(&evidence, "evidence", "", "New replay evidence directory (must not exist)")
 	replay.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
-	_ = replay.MarkFlagRequired("artifact")
-	_ = replay.MarkFlagRequired("evidence")
 	_ = replay.MarkFlagFilename("artifact", "json")
-	replay.RunE = func(cmd *cobra.Command, _ []string) error {
+	replay.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			if artifact != "" {
+				return errors.New("provide FILE or --artifact, not both")
+			}
+			artifact = args[0]
+		}
+		if artifact == "" {
+			return errors.New("artifact FILE required")
+		}
+		if evidence == "" {
+			var err error
+			evidence, err = unusedTempPath("xenon-replay-")
+			if err != nil {
+				return err
+			}
+		}
 		runner, err := simulationRunner(evidence, development, build(), clock)
 		if err != nil {
 			return err
@@ -161,6 +175,17 @@ func simulationCommands(build func() buildinfo.Info, clock simulation.Clock) []*
 	}
 	return []*cobra.Command{test, search, replay, minimizeCommand(build, clock)}
 }
+func unusedTempPath(prefix string) (string, error) {
+	path, err := os.MkdirTemp("", prefix)
+	if err != nil {
+		return "", err
+	}
+	if err = os.Remove(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
 func dstCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra.Command {
 	const defaultCases = 100
 	var seed, cases uint64

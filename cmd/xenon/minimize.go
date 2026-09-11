@@ -16,7 +16,7 @@ func minimizeCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra
 	var artifact, evidence string
 	var development bool
 	cfg := simulation.MinimizeConfig{Clock: clock, Simulation: true}
-	c := &cobra.Command{Use: "minimize", Short: "Reduce a saved coupled production-Step invariant failure", Args: cobra.NoArgs, PersistentPreRunE: func(*cobra.Command, []string) error { return nil }}
+	c := &cobra.Command{Use: "minimize FILE", Short: "Reduce a saved coupled production-Step invariant failure", Args: cobra.MaximumNArgs(1), PersistentPreRunE: func(*cobra.Command, []string) error { return nil }}
 	c.Flags().StringVar(&artifact, "artifact", "", "Saved case scenario.json with sibling failure.json")
 	c.Flags().StringVar(&evidence, "evidence", "", "New reduction evidence directory (must not exist)")
 	c.Flags().BoolVar(&development, "development", false, "Allow unknown/modified build provenance; label output development")
@@ -24,10 +24,24 @@ func minimizeCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra
 	c.Flags().DurationVar(&cfg.AttemptBudget, "attempt-budget", 5*time.Second, "Each replay budget including saved cleanup allowance")
 	c.Flags().Uint64Var(&cfg.MaxAttempts, "max-attempts", 256, "Maximum replay attempts; original consumes three")
 	c.Flags().Uint64Var(&cfg.MaxProposals, "max-proposals", 2048, "Maximum deterministic proposals including rejected inputs")
-	_ = c.MarkFlagRequired("artifact")
-	_ = c.MarkFlagRequired("evidence")
 	_ = c.MarkFlagFilename("artifact", "json")
-	c.RunE = func(c *cobra.Command, _ []string) error {
+	c.RunE = func(c *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			if artifact != "" {
+				return errors.New("provide FILE or --artifact, not both")
+			}
+			artifact = args[0]
+		}
+		if artifact == "" {
+			return errors.New("artifact FILE required")
+		}
+		if evidence == "" {
+			var err error
+			evidence, err = unusedTempPath("xenon-minimize-")
+			if err != nil {
+				return err
+			}
+		}
 		runner, err := simulationRunner(evidence, development, build(), clock)
 		if err != nil {
 			return err

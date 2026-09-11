@@ -563,6 +563,15 @@ func readReplayArtifact(path string, allowLegacy bool) (artifact, error) {
 		return artifact{}, errors.New("artifact envelope hash mismatch")
 	}
 	record.EnvelopeSHA256 = digest
+	if record.Version == 2 {
+		if record.Scenario.Version != 1 || record.Scenario.Kind == "" || !slices.Contains(record.Generator.Capabilities, record.Scenario.Kind) {
+			return artifact{}, errors.New("artifact scenario/generator precondition mismatch")
+		}
+		request := record.Request
+		if request.WorkloadSeed != streamSeed("workload/v1", record.Config.WorkloadSeed, request.Index) || request.FaultSeed != streamSeed("fault/v1", record.Config.FaultSeed, request.Index) || request.Limits.MaxOperations != record.Config.Limits.MaxOperations || request.Limits.MaxDepth != record.Config.Limits.MaxDepth || request.Limits.MaxPayloadBytes != record.Config.Limits.MaxPayloadBytes || !slices.Equal(request.Limits.Features, record.Config.Limits.Features) {
+			return artifact{}, errors.New("artifact request/config precondition mismatch")
+		}
+	}
 	if record.LegacyUnverified && !allowLegacy {
 		return artifact{}, errors.New("legacy artifact ancestry requires explicit legacy opt-in")
 	}

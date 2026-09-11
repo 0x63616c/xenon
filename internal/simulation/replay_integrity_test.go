@@ -48,6 +48,9 @@ func TestReplayRejectsEnvelopeAndProvenanceChangesBeforeEffects(t *testing.T) {
 		{"valid-envelope-wrong-source", func(a *artifact) { a.Provenance.Source = "different-source" }, true},
 		{"valid-envelope-wrong-tool", func(a *artifact) { a.Provenance.Versions["toolchain"] = "different-tool" }, true},
 		{"valid-envelope-extra-tool", func(a *artifact) { a.Provenance.Versions["extra"] = "unexpected" }, true},
+		{"valid-envelope-request-seed", func(a *artifact) { a.Request.FaultSeed++ }, true},
+		{"valid-envelope-request-limits", func(a *artifact) { a.Request.Limits.MaxOperations++ }, true},
+		{"valid-envelope-generator-kind", func(a *artifact) { a.Generator.Capabilities[0] = "different-kind" }, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

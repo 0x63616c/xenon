@@ -96,6 +96,15 @@ func TestSimulationCLIAndExactArtifactReplay(t *testing.T) {
 	if err != nil || !bytes.Equal(first, second) {
 		t.Fatal("replay trace changed", err)
 	}
+	code, out, diagnostics = runSimulationCLI(t, context.Background(), "replay", artifact, "--development")
+	if code != 0 || diagnostics != "" || out.Result.Completed != 1 || out.Result.EvidencePath == "" {
+		t.Fatal("positional replay", code, out, diagnostics)
+	}
+	defer os.RemoveAll(out.Result.EvidencePath)
+	third, err := os.ReadFile(filepath.Join(out.Result.EvidencePath, "case-00000000000000000000", "trace.jsonl"))
+	if err != nil || !bytes.Equal(first, third) {
+		t.Fatal("positional replay trace changed", err)
+	}
 }
 func TestSearchFiniteCorpusFailureAndPrefixBound(t *testing.T) {
 	raw, err := os.ReadFile(coupledInput)
