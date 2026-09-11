@@ -228,19 +228,6 @@ func run() error {
 			}
 			seenTokens[string(token)] = true
 		}
-		histories[runs[i].RunID] = h
-		if *mixed {
-			runs[i].Events, runs[i].NextRun, err = inspectMixed(h, statuses[runs[i].RunID])
-		} else {
-			runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
-		}
-		if err != nil {
-			return err
-		}
-		runs[i].PreviousRun = h.Events[0].GetWorkflowExecutionStartedEventAttributes().GetContinuedExecutionRunId()
-		if *activity && runs[i].Events[enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED.String()] == 0 {
-			return fmt.Errorf("run lacks required completed activity")
-		}
 		raw, e := protojson.Marshal(h)
 		if e != nil {
 			return e
@@ -254,6 +241,24 @@ func run() error {
 		if e = os.WriteFile(filepath.Join(*output, runs[i].HistoryFile), raw, 0600); e != nil {
 			return e
 		}
+		histories[runs[i].RunID] = h
+		if *mixed {
+			runs[i].Events, runs[i].NextRun, err = inspectMixed(h, statuses[runs[i].RunID])
+		} else {
+			runs[i].Events, runs[i].NextRun, err = inspect(h, statuses[runs[i].RunID])
+		}
+		if err != nil {
+			failure, _ := json.MarshalIndent(map[string]any{"schema": 1, "run": runs[i], "error": err.Error()}, "", "  ")
+			if writeErr := os.WriteFile(filepath.Join(*output, "failure.json"), failure, 0600); writeErr != nil {
+				return fmt.Errorf("%v; failure evidence: %w", err, writeErr)
+			}
+			return fmt.Errorf("workflow %s run %s history %s: %w", runs[i].WorkflowID, runs[i].RunID, runs[i].HistoryFile, err)
+		}
+		runs[i].PreviousRun = h.Events[0].GetWorkflowExecutionStartedEventAttributes().GetContinuedExecutionRunId()
+		if *activity && runs[i].Events[enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED.String()] == 0 {
+			return fmt.Errorf("run lacks required completed activity")
+		}
+
 	}
 	if err = childLinks(runs, histories); err != nil {
 		return err
