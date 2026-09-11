@@ -395,7 +395,7 @@ def main():
             record({'event':'identical-sdk-and-fuzz-histories-after-cold-recovery'})
         else:
             probe('visibility','--query',"TaskQueue = '"+omes_queue+"' AND ExecutionStatus = 'Completed'",'--expected-count','20')
-            report['ui_api_after_cold']=probe_ui_api()
+            report['ui_api_after_cold']=wait(lambda:probe_ui_api(),30)
             report['events'].append({'event':'identical-histories-after-cold-recovery'})
             report['events'].append({'event':'omes-visibility-and-ui-recovered-after-cold-restart','ui':report['ui_api_after_cold']})
         if run(['git','rev-parse','HEAD']).strip()!=report['revision']:raise RuntimeError('source revision changed')
