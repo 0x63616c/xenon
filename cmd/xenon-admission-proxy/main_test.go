@@ -194,45 +194,104 @@ func localConnection(t *testing.T, s *grpc.Server) *grpc.ClientConn {
 	return c
 }
 func TestRelayReleasesActualRPCOnlyAfterRecordedBarrier(t *testing.T) {
+	for _, bypass := range []bool{false, true} {
+		t.Run(fmt.Sprintf("bypass=%v", bypass), func(t *testing.T) {
+			b, f := setup(4)
+			up := grpc.NewServer()
+			polls := make(chan struct{}, 1)
+			entered := make(chan struct{}, 1)
+			b.waitEntered = func(string) { entered <- struct{}{} }
+			workflow.RegisterWorkflowServiceServer(up, &upstreamServer{f: f, polls: polls})
+			conn := localConnection(t, up)
+			b.client = workflow.NewWorkflowServiceClient(conn)
+			handler := b.relay(conn)
+			if bypass {
+				// Deliberately broken relay: identical forwarding, but no held-poll seam.
+				handler = b.relayWithWait(conn, func(context.Context, string) error { return nil })
+			}
+			relay := grpc.NewServer(grpc.ForceServerCodec(codec{}), grpc.UnknownServiceHandler(handler))
+			client := workflow.NewWorkflowServiceClient(localConnection(t, relay))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			for i := range 3 {
+				if _, err := client.StartWorkflowExecution(ctx, request(0, i)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result := make(chan error, 1)
+			go func() {
+				_, err := client.PollWorkflowTaskQueue(ctx, &workflow.PollWorkflowTaskQueueRequest{Namespace: "test", TaskQueue: request(0, 0).TaskQueue})
+				result <- err
+			}()
+			// No fourth start is issued until the relay has actually entered its wait.
+			// The broken control reaches upstream instead, so this guard rejects it.
+			observedWait := false
+			select {
+			case <-entered:
+				observedWait = true
+			case <-polls:
+			case <-ctx.Done():
+				t.Fatal("neither wait entry nor bypass was observed")
+			}
+			if bypass {
+				if observedWait {
+					t.Fatal("negative control was not rejected")
+				}
+				if err := <-result; err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if !observedWait {
+				t.Fatal("poll bypassed gate before fourth admission")
+			}
+			b.save = func([]*window) error {
+				select {
+				case <-polls:
+					return errors.New("poll reached server before persisted release")
+				default:
+				}
+				return nil
+			}
+			if _, err := client.StartWorkflowExecution(ctx, request(0, 3)); err != nil {
+				t.Fatal(err)
+			}
+			if err := <-result; err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-polls:
+			default:
+				t.Fatal("released poll never reached upstream")
+			}
+		})
+	}
+}
+
+func TestEagerStartRejectedBeforeUpstreamEffect(t *testing.T) {
 	b, f := setup(4)
 	up := grpc.NewServer()
-	polls := make(chan struct{}, 1)
-	workflow.RegisterWorkflowServiceServer(up, &upstreamServer{f: f, polls: polls})
+	workflow.RegisterWorkflowServiceServer(up, &upstreamServer{f: f, polls: make(chan struct{}, 1)})
 	conn := localConnection(t, up)
 	b.client = workflow.NewWorkflowServiceClient(conn)
 	relay := grpc.NewServer(grpc.ForceServerCodec(codec{}), grpc.UnknownServiceHandler(b.relay(conn)))
 	client := workflow.NewWorkflowServiceClient(localConnection(t, relay))
+	r := request(0, 0)
+	r.RequestEagerExecution = true
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	for i := range 3 {
-		if _, err := client.StartWorkflowExecution(ctx, request(0, i)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// The hook observes the real upstream poll counter before releasing the gate.
-	b.save = func([]*window) error {
-		select {
-		case <-polls:
-			t.Fatal("poll reached server before persisted release")
-		default:
-		}
-		return nil
-	}
-	result := make(chan error, 1)
-	go func() {
-		_, err := client.PollWorkflowTaskQueue(ctx, &workflow.PollWorkflowTaskQueueRequest{Namespace: "test", TaskQueue: request(0, 0).TaskQueue})
-		result <- err
-	}()
-	if _, err := client.StartWorkflowExecution(ctx, request(0, 3)); err != nil {
+	if _, err := client.StartWorkflowExecution(ctx, r); status.Code(err) != codes.FailedPrecondition {
 		t.Fatal(err)
 	}
-	if err := <-result; err != nil {
-		t.Fatal(err)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.starts != 0 {
+		t.Fatalf("eager start had %d upstream effects", f.starts)
 	}
-	select {
-	case <-polls:
-	default:
-		t.Fatal("released poll never reached upstream")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.windows) != 0 || len(b.queues) != 0 {
+		t.Fatal("eager request was admitted")
 	}
 }
 

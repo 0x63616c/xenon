@@ -65,6 +65,8 @@ type barrier struct {
 	save      func([]*window) error
 	failure   error
 	failed    chan struct{}
+	// waitEntered observes entry into the held-poll seam for deterministic controls.
+	waitEntered func(string)
 }
 
 func (b *barrier) fail(err error) error {
@@ -82,6 +84,9 @@ func (b *barrier) admit(ctx context.Context, r *workflow.StartWorkflowExecutionR
 	}
 	if !generatedQueue.MatchString(r.GetTaskQueue().GetName()) {
 		return nil, b.fail(fmt.Errorf("invalid generated root queue"))
+	}
+	if r.GetRequestEagerExecution() {
+		return nil, b.fail(fmt.Errorf("eager generated-root execution bypasses admission barrier"))
 	}
 	if r.Namespace != b.namespace {
 		return nil, b.fail(fmt.Errorf("unexpected namespace"))
@@ -154,6 +159,9 @@ func (b *barrier) wait(ctx context.Context, queue string) error {
 			return status.Error(codes.FailedPrecondition, failure.Error())
 		}
 		if w != nil {
+			if b.waitEntered != nil {
+				b.waitEntered(queue)
+			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -167,6 +175,12 @@ func (b *barrier) wait(ctx context.Context, queue string) error {
 	}
 }
 func (b *barrier) relay(conn *grpc.ClientConn) grpc.StreamHandler {
+	return b.relayWithWait(conn, b.wait)
+}
+
+// Keeping the wait seam explicit lets the component control prove it detects a
+// relay that bypasses the gate. The executable always uses b.wait.
+func (b *barrier) relayWithWait(conn *grpc.ClientConn, wait func(context.Context, string) error) grpc.StreamHandler {
 	return func(_ any, s grpc.ServerStream) error {
 		method, _ := grpc.MethodFromServerStream(s)
 		var request wire
@@ -199,7 +213,7 @@ func (b *barrier) relay(conn *grpc.ClientConn) grpc.StreamHandler {
 				if r.Namespace != b.namespace {
 					return status.Error(codes.FailedPrecondition, "unexpected poll namespace")
 				}
-				if err := b.wait(ctx, r.TaskQueue.Name); err != nil {
+				if err := wait(ctx, r.TaskQueue.Name); err != nil {
 					return err
 				}
 			}

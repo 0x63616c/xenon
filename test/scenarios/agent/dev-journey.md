@@ -79,7 +79,8 @@ go build -o /absolute/xenon-admission-proxy ./cmd/xenon-admission-proxy
 Add `--admission-proxy /absolute/xenon-admission-proxy --workflow-concurrency 4`
 to the generated journey above. The relay forwards normal Temporal unary RPCs
 but holds generated root workflow-task polls. It admits exactly one start per
-member queue, queries all four exact run IDs through Temporal Describe, and
+member queue, rejects eager-execution requests before forwarding them, queries
+all four exact run IDs through Temporal Describe, and
 persists their Running observations before releasing any workflow task. Before
 admitting another window it verifies each preceding root's latest run is terminal,
 so Continue-As-New cannot hide an unfinished chain. Ambiguous start results,
