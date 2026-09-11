@@ -125,9 +125,9 @@ func build(ctx context.Context, root string) error {
 		flags := fmt.Sprintf("-X github.com/0x63616c/xenon/internal/buildinfo.NativeCommit=%s -X github.com/0x63616c/xenon/internal/buildinfo.NativeSHA256=%s -X github.com/0x63616c/xenon/internal/buildinfo.SourceRevision=%s", p.SourceCommit, nativeSHA, sourceRevision)
 		buildEnv := append([]string{}, env...)
 		if runtime.GOOS == "darwin" {
-			buildEnv = setEnv(buildEnv, "CGO_LDFLAGS", "-L"+filepath.Dir(library)+" -Wl,-rpath,@loader_path")
+			flags += " -extldflags=-Wl,-rpath,@loader_path"
 		} else {
-			buildEnv = setEnv(buildEnv, "CGO_LDFLAGS", "-L"+filepath.Dir(library)+" -Wl,-rpath,$ORIGIN")
+			flags += " -extldflags=-Wl,-rpath,$ORIGIN"
 		}
 		if err = run(ctx, root, buildEnv, "go", "build", "-buildvcs=true", "-ldflags", flags, "-o", binary, "./cmd/xenon"); err != nil {
 			return err
