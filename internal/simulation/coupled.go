@@ -46,16 +46,17 @@ type CoupledInput struct {
 	Fault      string                  `json:"fault,omitempty"` // explicit delivery fault or named negative-control cut
 }
 type CoupledTrace struct {
-	Input            CoupledInput           `json:"input"`
-	ClusterEffects   []cluster.Effect       `json:"cluster_effects,omitempty"`
-	PartitionEffects []partitions.Effect    `json:"partition_effects,omitempty"`
-	Before           registry.Record        `json:"before"`
-	After            registry.Record        `json:"after"`
-	Expected         registry.Version       `json:"expected,omitempty"`
-	Accepted         bool                   `json:"accepted,omitempty"`
-	Result           string                 `json:"result,omitempty"`
-	Open             partitions.OpenRequest `json:"open"`
-	Epoch            uint64                 `json:"epoch,omitempty"`
+	UnresolvedPublication *cluster.Effect        `json:"unresolved_publication,omitempty"`
+	Input                 CoupledInput           `json:"input"`
+	ClusterEffects        []cluster.Effect       `json:"cluster_effects,omitempty"`
+	PartitionEffects      []partitions.Effect    `json:"partition_effects,omitempty"`
+	Before                registry.Record        `json:"before"`
+	After                 registry.Record        `json:"after"`
+	Expected              registry.Version       `json:"expected,omitempty"`
+	Accepted              bool                   `json:"accepted,omitempty"`
+	Result                string                 `json:"result,omitempty"`
+	Open                  partitions.OpenRequest `json:"open"`
+	Epoch                 uint64                 `json:"epoch,omitempty"`
 }
 type CoupledResult struct {
 	Trace []CoupledTrace  `json:"trace"`
@@ -355,6 +356,11 @@ func runCoupled(ctx context.Context, scenario CoupledScenario, negative string, 
 			}
 		default:
 			return fail(fmt.Errorf("unknown action"))
+		}
+		if machine.spec.Kind == "cluster" && machine.cluster.LastUnknown != nil {
+			effect := machine.cluster.LastUnknown.Effect
+			effect.Write.Body = append([]byte(nil), effect.Write.Body...)
+			entry.UnresolvedPublication = &effect
 		}
 		result.Trace = append(result.Trace, entry)
 		if observe != nil {
