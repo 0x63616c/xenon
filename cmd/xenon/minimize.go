@@ -56,13 +56,23 @@ func minimizeCommand(build func() buildinfo.Info, clock simulation.Clock) *cobra
 		if result.OriginalVerified {
 			best = filepath.Join(cfg.Directory, "best-scenario.json")
 		}
+		summary := struct {
+			Fingerprint      simulation.FailureFingerprint `json:"fingerprint"`
+			BestSize         simulation.ReductionSize      `json:"best_size"`
+			OriginalVerified bool                          `json:"original_verified"`
+			Attempts         int                           `json:"attempts"`
+			Proposals        uint64                        `json:"proposals"`
+			StopReason       string                        `json:"stop_reason"`
+			Complete         bool                          `json:"complete"`
+		}{result.Fingerprint, result.BestSize, result.OriginalVerified, len(result.Attempts), result.Proposals, result.StopReason, result.Complete}
 		outputErr := json.NewEncoder(c.OutOrStdout()).Encode(struct {
-			Schema        int                       `json:"schema"`
-			Mode          string                    `json:"mode"`
-			Qualification string                    `json:"qualification"`
-			Result        simulation.MinimizeResult `json:"result"`
-			BestArtifact  string                    `json:"best_artifact,omitempty"`
-		}{1, "coupled-component-minimization", qualification, result, best})
+			Schema        int    `json:"schema"`
+			Mode          string `json:"mode"`
+			Qualification string `json:"qualification"`
+			Result        any    `json:"result"`
+			BestArtifact  string `json:"best_artifact,omitempty"`
+			Receipt       string `json:"receipt"`
+		}{1, "coupled-component-minimization", qualification, summary, best, filepath.Join(cfg.Directory, "result.json")})
 		if outputErr != nil {
 			return errors.Join(err, outputErr)
 		}

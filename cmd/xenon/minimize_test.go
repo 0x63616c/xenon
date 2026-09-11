@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/0x63616c/xenon/internal/app"
-	"github.com/0x63616c/xenon/internal/simulation"
 )
 
 func TestMinimizeCLIActualCoupledFailure(t *testing.T) {
@@ -26,8 +25,12 @@ func TestMinimizeCLIActualCoupledFailure(t *testing.T) {
 	}
 	code = execute(t.Context(), []string{"minimize", artifact, "--development", "--max-attempts", "3"}, forbiddenInput{t}, &out, &stderr, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 	var receipt struct {
-		Result       simulation.MinimizeResult `json:"result"`
-		BestArtifact string                    `json:"best_artifact"`
+		Result struct {
+			StopReason       string `json:"stop_reason"`
+			OriginalVerified bool   `json:"original_verified"`
+			Complete         bool   `json:"complete"`
+		} `json:"result"`
+		BestArtifact string `json:"best_artifact"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &receipt); err != nil {
 		t.Fatalf("not one terminal JSON: %s %v", &out, err)
