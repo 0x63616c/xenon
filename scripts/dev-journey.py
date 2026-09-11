@@ -82,10 +82,14 @@ def main():
     p.add_argument('--discovery', action='store_true')
     p.add_argument('--search-bundle', type=Path, help='Opt-in generated three-case/four-root component')
     p.add_argument('--history-oracle', type=Path)
+    p.add_argument('--admission-proxy', type=Path, help='Optional built fixture relay for controlled root admission')
+    p.add_argument('--workflow-concurrency', type=int, choices=(1, 4), default=4)
     p.add_argument('--native-library', type=Path, help='Exact host dynamic library required outside discovery')
     args = p.parse_args()
     if bool(args.search_bundle) != bool(args.history_oracle):
         p.error('--search-bundle and --history-oracle must be supplied together')
+    if args.admission_proxy and not args.search_bundle:
+        p.error('--admission-proxy requires --search-bundle')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT))
     build = json.loads(args.build_receipt.read_text())
@@ -182,7 +186,7 @@ def main():
         if args.search_bundle:
             from workflow_journey import run_search
             report['workflow_helper_sha256'] = sha(ROOT / 'scripts/workflow_journey.py')
-            report['workflow_observations'] = run_search(cli, args.search_bundle, args.history_oracle, evidence, fixture, env, run)
+            report['workflow_observations'] = run_search(cli, args.search_bundle, args.history_oracle, evidence, fixture, env, run, args.admission_proxy, args.workflow_concurrency)
             report['assertions'].append('three-generated-cases-four-roots-history-observed')
         # Freeze only our three writers to obtain an identical authority version.
         for role in ('agent-1', 'agent-2', 'agent-3'):

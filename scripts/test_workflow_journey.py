@@ -44,4 +44,36 @@ class OverlapTest(unittest.TestCase):
             self.assertEqual(actual['totals']['initial_roots'], 12)
             self.assertEqual(actual['totals']['continued_runs'], 3)
 
+
+class AdmissionTest(unittest.TestCase):
+    def receipt(self, size):
+        roots = [dict(queue=f'omes-xenon-generated-{42:016x}-{case:016x}-{member:02d}',
+                      workflow_id=f'w-{case}-{member}', run_id=f'r-{case}-{member}', status='Running')
+                 for case in range(3) for member in range(4)]
+        return dict(schema=1, concurrency=size, windows=[dict(released=True, roots=roots[i:i+size]) for i in range(0, 12, size)]), roots
+
+    def check(self, receipt, roots, size):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'admission.json'
+            path.write_text(json.dumps(receipt))
+            return journey.admission_counts(path, size, roots)
+
+    def test_four_and_one(self):
+        for size in (1, 4):
+            receipt, roots = self.receipt(size)
+            self.assertEqual(self.check(receipt, roots, size)['observed_running_peak'], size)
+
+    def test_negative_controls(self):
+        for mutation in ('missing', 'fifth', 'duplicate', 'unreleased', 'not_running', 'wrong_history'):
+            with self.subTest(mutation=mutation):
+                receipt, roots = self.receipt(4)
+                histories = [dict(r) for r in roots]
+                if mutation == 'missing': receipt['windows'].pop()
+                if mutation == 'fifth': receipt['windows'][0]['roots'].append(dict(roots[-1]))
+                if mutation == 'duplicate': roots[1]['workflow_id'] = roots[0]['workflow_id']
+                if mutation == 'unreleased': receipt['windows'][0]['released'] = False
+                if mutation == 'not_running': roots[0]['status'] = 'Completed'
+                if mutation == 'wrong_history': histories[0]['run_id'] = 'unrelated'
+                with self.assertRaises(ValueError): self.check(receipt, histories, 4)
+
 if __name__ == '__main__': unittest.main()

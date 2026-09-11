@@ -62,7 +62,47 @@ running fixture is adopted.
 
 `workflow-observations.json` counts initial roots, child runs, continued runs and
 Nexus handler runs from the saved, checksum-verified histories and measures
-actual interval overlap. This is component evidence: it has no admission barrier,
-no concurrency-one comparison, and no independent complete expected execution
-graph census yet. It cannot satisfy full GEN-02/CLEAN-01 by itself. Search errors
+actual interval overlap. Without the optional admission relay below this is
+observational overlap only. The independent complete expected execution graph
+census and child/activity/Nexus fan-out limits remain unqualified. It cannot satisfy full GEN-02/CLEAN-01 by itself. Search errors
 stop immediately, retain all artifacts, and trigger owned fixture teardown.
+
+
+### Controlled root admission
+
+Build the fixture-only relay from the same candidate checkout:
+
+```sh
+go build -o /absolute/xenon-admission-proxy ./cmd/xenon-admission-proxy
+```
+
+Add `--admission-proxy /absolute/xenon-admission-proxy --workflow-concurrency 4`
+to the generated journey above. The relay forwards normal Temporal unary RPCs
+but holds generated root workflow-task polls. It admits exactly one start per
+member queue, queries all four exact run IDs through Temporal Describe, and
+persists their Running observations before releasing any workflow task. Before
+admitting another window it verifies each preceding root's latest run is terminal,
+so Continue-As-New cannot hide an unfinished chain. Ambiguous start results,
+duplicate starts, unknown terminal states, failed observations or failed receipt
+writes invalidate the fixture. This is a test tool, not Xenon request routing.
+It intentionally fails ambiguous RPC retries rather than claiming fault recovery.
+
+Repeat with `--workflow-concurrency 1` in a **fresh owned fixture and evidence
+directory** to compare the same generated inputs. Do not reuse the previous
+fixture's durable volume or namespace for this comparison: workflow run IDs are
+seed-derived. The existing dev journey refuses to adopt an initialized fixture.
+Each run checks twelve distinct admitted root/run IDs against the saved initial
+root history census, three cases of four member queues, complete released
+windows, and exact actual root execution interval peaks (four or one). The relay
+binary hash, launch command, admission observations and verified process cleanup
+are retained. A single invocation proves only its selected concurrency setting;
+retain both receipts for the comparison.
+
+This supplies controlled-admission tooling and focused seam tests. It does not
+claim a real controlled-admission run has passed, full expected graph/semantic
+oracle coverage, fan-out policy enforcement, or full GEN-02/#119 acceptance.
+
+```sh
+go test -race ./cmd/xenon-admission-proxy
+python3 -m unittest discover -s scripts -p 'test_*journey.py'
+```
