@@ -42,7 +42,8 @@ func TestCoupledRenewalUnknownAfterReplacement(t *testing.T) {
 
 }
 
-func TestCoupledAssignmentABARereservesWriter(t *testing.T) {
+func assignmentABAScenario(t *testing.T) CoupledScenario {
+	t.Helper()
 	c, _ := loadCoupled(t)
 	emit := func(action, actor string, at cluster.Tick, effect uint64, transition ids.TransitionID) {
 		c.Steps = append(c.Steps, CoupledInput{Action: action, Actor: actor, At: at, Effect: effect, Transition: transition})
@@ -81,6 +82,11 @@ func TestCoupledAssignmentABARereservesWriter(t *testing.T) {
 	emit("publish", "writer-current", 0, 18, "")
 	emit("deliver", "writer-current", 0, 18, "")
 	emit("commit", "writer-current", 0, 16, "")
+	return c
+}
+
+func TestCoupledAssignmentABARereservesWriter(t *testing.T) {
+	c := assignmentABAScenario(t)
 	r, err := RunCoupled(c, "")
 	if err != nil {
 		t.Fatal(err)
