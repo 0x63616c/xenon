@@ -32,6 +32,12 @@ func TestLifecycleHelperProcess(t *testing.T) {
 	if mode == "exit" {
 		os.Exit(7)
 	}
+	if mode == "exit-on-interrupt" {
+		interrupt := make(chan os.Signal, 1)
+		signal.Notify(interrupt, os.Interrupt)
+		<-interrupt
+		os.Exit(1)
+	}
 	for {
 		time.Sleep(time.Hour)
 	}
@@ -76,6 +82,10 @@ func TestProcessCleanupReportsUnexpectedExitAndTimeout(t *testing.T) {
 	p = testProcess(t, "wait")
 	if err := p.stop(true); err != nil {
 		t.Fatalf("intentional kill failed: %v", err)
+	}
+	p = testProcess(t, "exit-on-interrupt")
+	if err := p.stop(false); err != nil {
+		t.Fatalf("coordinated non-zero shutdown failed: %v", err)
 	}
 }
 

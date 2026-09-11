@@ -388,6 +388,13 @@ func (p *processLifecycle) terminate(kill bool, grace time.Duration) error {
 	}
 	select {
 	case <-p.done:
+		// Xenon deliberately returns ErrProcessExitRequired after a coordinated
+		// shutdown, which maps to a non-zero process status. The process was live
+		// when we requested SIGINT and exited within the grace period, so cleanup
+		// completed. Unexpected exits are rejected by the pre-signal check above.
+		if !kill && signalErr == nil {
+			return nil
+		}
 		var exit *exec.ExitError
 		if errors.As(p.waitErr, &exit) {
 			if status, ok := exit.Sys().(syscall.WaitStatus); ok && status.Signaled() && status.Signal() == signal {
