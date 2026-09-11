@@ -42,10 +42,10 @@ Run:
 
 ```sh
 GOTOOLCHAIN=go1.27.1 go test -count=1 -v ./internal/persistence ./internal/simulation
-python3 scripts/prove.py simulation
+go test -race -count=1 ./internal/simulation -run '^TestDefaultDSTCatalogRunsThousandSchedulesAcrossHundredSeeds$'
 ```
 
-The committed scenario at `test/scenarios/simulation/lost-response-crash-move.json` already drives production ownership join, topology, membership, routing, and replay decisions through a fixed schedule. It covers a durable mutation, lost response, crash, logical-time eviction, ownership movement, retry without reapplying, changed-input rejection, stale-owner rejection, independent assertions, and negative controls.
+The historical `python3 scripts/prove.py simulation` controller and its `experiments/simulation.json` manifest are superseded by the code-authored Go DST gate above. Their historical evidence and scenario fixtures remain for provenance. The committed scenario at `test/scenarios/simulation/lost-response-crash-move.json` drives production ownership join, topology, membership, routing, and replay decisions through a fixed schedule. It covers a durable mutation, lost response, crash, logical-time eviction, ownership movement, retry without reapplying, changed-input rejection, stale-owner rejection, independent assertions, and negative controls.
 
 It is a seam proof rather than a full deterministic simulator. Its declared gaps include production Manager fencing and native lifecycle, real directory timers, workload generation, schedule exploration/minimization, and native SlateDB durability-completion ordering.
 

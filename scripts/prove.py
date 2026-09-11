@@ -333,7 +333,7 @@ def command(spec):
     if set(spec) != {"runner", "filter", "exact", "expected_tests"}:
         raise ValueError("invalid command fields")
     runner = spec["runner"]
-    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-engine", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-simulation", "go-test-rpctrace", "go-test-recorder", "go-test-mixed-oracle", "go-test-observer", "go-test-observer-adapter", "go-test-nexus-config", "go-check-nexus-config", "go-test-sdk-readiness", "go-test-visibility-barrier", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-cas-loss", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut", "go-test-registry") or not isinstance(spec["exact"], bool):
+    if runner not in ("cargo-test", "cargo-test-node", "go-test-shard", "go-test-node", "go-test-engine", "go-test-visibility", "go-test-factory", "s3-crash", "s3-crash-cleanup", "go-test-routing", "go-test-rpctrace", "go-test-recorder", "go-test-mixed-oracle", "go-test-observer", "go-test-observer-adapter", "go-test-nexus-config", "go-check-nexus-config", "go-test-sdk-readiness", "go-test-visibility-barrier", "go-test-fanout", "go-test-trace-adapter", "go-test-outcomes", "go-shard-compat", "s3-directory", "s3-owner-manager", "s3-maintenance", "go-test-meter", "go-test-cas-loss", "go-test-meter-cli", "s3-meter", "python-measurements", "go-test-process-cut", "s3-process-cut", "go-test-registry") or not isinstance(spec["exact"], bool):
         raise ValueError("only registered structured test commands are allowed")
     if not isinstance(spec["filter"], str) or not re.fullmatch(r"[a-zA-Z0-9_:]+", spec["filter"]):
         raise ValueError("invalid test filter")
@@ -440,10 +440,6 @@ def command(spec):
         if not spec["exact"] or spec["filter"] not in ("TestForwardingReplayAndRefresh", "TestForwardingLoopsAndDeadline", "TestForwardingClosedAdmission"):
             raise ValueError("unregistered routing test")
         return ["go", "test", "-race", "-json", "-count=1", "./internal/routing", "-run", "^" + spec["filter"] + "$"]
-    if runner == "go-test-simulation":
-        if not spec["exact"] or spec["filter"] not in ("TestDeterministicCoordinationLostResponseCrashMove", "TestCheckerRejectsNonAtomicOutcome", "TestCheckerRejectsStaleOwnerAcknowledgement"):
-            raise ValueError("unregistered simulation test")
-        return ["go", "test", "-race", "-json", "-count=1", "./internal/simulation", "-run", "^" + spec["filter"] + "$"]
     if runner == "go-shard-compat":
         if spec["filter"] != "TestShardStoredCompatibility" or not spec["exact"]:
             raise ValueError("unregistered compatibility test")
@@ -545,7 +541,7 @@ def cleanup_crash(project, env, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "simulation", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut", *ACCEPTANCE_CRITERIA])
+    parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut", *ACCEPTANCE_CRITERIA])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
     if args.name in ACCEPTANCE_EXECUTABLES:
@@ -569,7 +565,7 @@ def main():
     commands = [(command(spec), spec.get("expected_tests", []), spec["runner"]) for spec in manifest["commands"]]
     if args.name == "shard" and (not commands or commands[0][2] != "cargo-build-node"):
         raise ValueError("shard proof must build the node before tests")
-    if args.name in ("simulation", "native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") and (not commands or commands[0][2] != "go-node-build"):
+    if args.name in ("native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") and (not commands or commands[0][2] != "go-node-build"):
         raise ValueError("Go shard proof must build native Go node first")
     if not commands:
         raise ValueError("empty experiment")
@@ -577,11 +573,11 @@ def main():
     env.update({"CARGO_TERM_COLOR": "never", "XENON_PROBE_BACKEND": "memory"})
     if args.name in ("shard", "go-shard-compat"):
         env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly", "GOTOOLCHAIN": "go1.27.1", "XENON_NODE_BINARY": str(ROOT / "target/debug/xenon-node")})
-    if args.name in ("forwarding", "simulation"):
+    if args.name == "forwarding":
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1"})
     if args.name == "crash":
         env["XENON_PROOF_PROJECT"] = "xenon-crash-" + uuid.uuid4().hex[:12]
-    if args.name in ("simulation", "native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
+    if args.name in ("native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
         target = ROOT / ".local/slatedb-native-target/debug"
         env.update({"GOENV":"off", "GOWORK":"off", "GOFLAGS":"-mod=readonly", "GOTOOLCHAIN":"go1.27.1", "CGO_ENABLED":"1", "CGO_LDFLAGS":"-L"+str(target), "LD_LIBRARY_PATH":str(target), "DYLD_LIBRARY_PATH":str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS":"2", "XENON_NODE_BINARY":str(ROOT / ".local/bin/xenon-go-node")})
     if args.name == "go-shard-compat":
@@ -638,7 +634,7 @@ def main():
                 raise ValueError("pinned compiler installation failed")
             env["PATH"] = str(ROOT / ".local/protoc/bin") + os.pathsep + env["PATH"]
             report["protoc_binary_sha256"] = digest(ROOT / ".local/protoc/bin/protoc")
-        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("simulation", "native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else []))):
+        for tool in ("git", "rustc", "cargo", "python", *(["go", "protoc"] if args.name in ("shard", "go-shard-compat") else (["go"] if args.name in ("native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "process-cut") else []))):
             argv = [sys.executable, "--version"] if tool == "python" else [tool, "version" if tool == "go" else ("-vV" if tool == "rustc" else "--version")]
             code, output, expired = run_process(argv, 30, env, ROOT)
             if code or expired:
@@ -715,8 +711,6 @@ def main():
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/rpctrace")
             elif runner == "go-test-routing":
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/routing")
-            elif runner == "go-test-simulation":
-                verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/simulation")
             elif runner in ("go-test-shard", "go-test-node", "go-test-visibility", "go-test-factory", "go-shard-compat"):
                 verify_go_tests(output, expected, "github.com/0x63616c/xenon/internal/node" if runner == "go-test-node" else ("github.com/0x63616c/xenon/internal/visibility" if runner == "go-test-visibility" else "github.com/0x63616c/xenon/internal/temporal/adapter"))
                 binary = ROOT / (".local/bin/xenon-go-node" if args.name in ("go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut") else "target/debug/xenon-node")
@@ -736,7 +730,7 @@ def main():
             raise ValueError("ambient Cargo config appeared during execution")
         if args.name in ("shard", "go-shard-compat") and digest(ROOT / ".local/protoc/bin/protoc") != report["protoc_binary_sha256"]:
             raise ValueError("compiler binary changed during experiment")
-        if args.name in ("simulation", "native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
+        if args.name in ("native-engine-contracts", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "owner-manager", "maintenance", "process-cut"):
             native_build = report["native_build"]
             source = ROOT / ".local/slatedb-native-source"
             for argv, expected in [(["git", "rev-parse", "HEAD"], native_build["source_commit"]), (["git", "status", "--porcelain=v1", "--untracked-files=all"], "")]:

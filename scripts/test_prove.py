@@ -211,6 +211,22 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             prove.command({'runner': 'cargo-test', 'filter': 'x;echo secret', 'exact': True, 'expected_tests': ['x']})
 
+    def test_retired_simulation_experiment_is_not_registered(self):
+        result = subprocess.run(
+            [sys.executable, str(prove.ROOT / "scripts/prove.py"), "simulation"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
+        with self.assertRaises(ValueError):
+            prove.command({
+                "runner": "go-test-simulation",
+                "filter": "TestDeterministicCoordinationLostResponseCrashMove",
+                "exact": True,
+                "expected_tests": ["TestDeterministicCoordinationLostResponseCrashMove"],
+            })
+
     def test_zero_skipped_or_different_tests_fail(self):
         for output in ['test result: ok. 0 passed; 0 failed; 0 ignored;',
                        'test wanted ... ignored\ntest result: ok. 0 passed; 0 failed; 1 ignored;',
