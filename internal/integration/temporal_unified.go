@@ -116,7 +116,7 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	defer func() {
 		for _, p := range processes {
 			if p != nil {
-				err = errors.Join(err, p.stop())
+				err = errors.Join(err, p.kill())
 			}
 		}
 	}()
@@ -233,7 +233,7 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	}
 	fmt.Fprintf(diagnostics, "Restarted %s with a fresh incarnation\n", owner)
 	for i, p := range processes {
-		if err = p.stop(); err != nil {
+		if err = p.kill(); err != nil {
 			return result, err
 		}
 		processes[i] = nil

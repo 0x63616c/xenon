@@ -100,7 +100,7 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	defer func() {
 		for _, process := range processes {
 			if process != nil {
-				err = errors.Join(err, process.stop())
+				err = errors.Join(err, process.kill())
 			}
 		}
 	}()
