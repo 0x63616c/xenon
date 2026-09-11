@@ -321,7 +321,7 @@ class AcceptanceRegistrationTests(unittest.TestCase):
             return receipt
 
     def test_registered_gates_fail_even_with_allow_dirty(self):
-        for name in prove.ACCEPTANCE_CRITERIA:
+        for name in set(prove.ACCEPTANCE_CRITERIA) - set(prove.ACCEPTANCE_COMPONENT_TESTS):
             with self.subTest(gate=name):
                 receipt = self.run_registration(name)
                 self.assertEqual(receipt["result"], "incomplete")
@@ -330,6 +330,58 @@ class AcceptanceRegistrationTests(unittest.TestCase):
                 self.assertTrue(receipt["config_sha256"])
                 for child in receipt["child_gates"]:
                     self.assertFalse(child["receipt_verified"])
+
+    def test_component_gates_execute_exact_top_level_tests_but_cannot_pass(self):
+        package = "github.com/0x63616c/xenon/cmd/xenon"
+        expected = prove.ACCEPTANCE_COMPONENT_TESTS["cli-contracts"]["expected_tests"]
+        events = []
+        for test in expected:
+            events.extend([{"Action": "pass", "Package": package, "Test": test + "/nested"},
+                           {"Action": "pass", "Package": package, "Test": test}])
+        events.append({"Action": "pass", "Package": package})
+        output = "\n".join(json.dumps(event) for event in events)
+        prove.verify_go_top_level_tests(output, expected, package)
+        with self.assertRaises(ValueError):
+            prove.verify_go_top_level_tests(output.replace('"Action": "pass"', '"Action": "skip"', 1), expected, package)
+        for bad in (
+                output + "\n" + json.dumps({"Action": "pass", "Package": package, "Test": "TestUnexpected"}),
+                output.replace('"Test": "' + expected[0] + '"', '"Test": "' + expected[1] + '"', 1),
+                output + "\nnot-json"):
+            with self.subTest(bad=bad[-80:]), self.assertRaises((ValueError, json.JSONDecodeError)):
+                prove.verify_go_top_level_tests(bad, expected, package)
+
+    def test_native_build_attestation_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            pins = {"source_commit": "a" * 40, "go_module": "slatedb.io/slatedb-go", "go_version": "v0.16.0"}
+            library = root / ".local/native/libslatedb_uniffi.dylib"
+            library.parent.mkdir(parents=True)
+            library.write_bytes(b"native")
+            (root / "tools").mkdir()
+            (root / "tools/slatedb-native.json").write_text(json.dumps(pins))
+            receipt = {"source_commit": pins["source_commit"], "source_clean": True,
+                       "binding_module": pins["go_module"], "binding_version": pins["go_version"],
+                       "shared_library": str(library.relative_to(root)),
+                       "shared_library_sha256": prove.digest(library)}
+            (root / ".local/go-node-build.json").write_text(json.dumps(receipt))
+            prove.validate_native_build(root)
+            for change in ({"source_clean": False}, {"shared_library_sha256": "0" * 64},
+                           {"shared_library": "../outside"}):
+                (root / ".local/go-node-build.json").write_text(json.dumps(receipt | change))
+                with self.subTest(change=change), self.assertRaises((ValueError, FileNotFoundError)):
+                    prove.validate_native_build(root)
+
+    def test_dirty_component_gate_refuses_before_build(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with patch.object(prove.subprocess, "check_output", side_effect=["a" * 40, " M scripts/prove.py"]), patch.object(
+                    prove, "run_process", side_effect=AssertionError("dirty gate started a build")):
+                self.assertEqual(prove.run_acceptance_component("cli-contracts", root), 1)
+            receipt = json.loads(next((root / ".local/evidence").glob("*/result.json")).read_text())
+            self.assertEqual(receipt["result"], "failed")
+            self.assertFalse(receipt["component_pass"])
+            self.assertEqual(receipt["executed_tests"], 0)
+            self.assertIn("dirty checkout", receipt["error"])
 
     def test_missing_child_manifest_and_claimed_pass_fail_aggregate(self):
         def claimed_pass(root):

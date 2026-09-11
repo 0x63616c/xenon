@@ -25,6 +25,75 @@ ACCEPTANCE_CRITERIA = {
     "issue-119-acceptance": ["cli-contracts", "workflow-search-dst", "workflow-search-real", "workflow-replay-minimize", "source-layout", "evidence-validation"],
 }
 
+# These suites are executable component evidence for acceptance gates whose
+# remaining obligations are still recorded in their registration manifests.
+# Passing one of these suites must never be promoted to an acceptance pass.
+ACCEPTANCE_COMPONENT_TESTS = {
+    "cli-contracts": {
+        "package": "./cmd/xenon",
+        "expected_tests": [
+            "TestLightweightCommandsNeverStartBackend",
+            "TestCommandErrorsUseOnlyStderrAndDoNotStart",
+            "TestStartReceivesValidatedConfigAndCallerCancellation",
+            "TestCanceledInvocationCannotStart",
+            "TestOutputFailureCannotStart",
+            "TestPackagedExamplePassesCLIValidation",
+            "TestDevCLIValidatesBeforeEffects",
+            "TestInspectCommandValidationAndDeadline",
+            "TestInspectUnavailableRemainsNonzeroJSON",
+            "TestCheckConfigJSONContract",
+            "TestEveryCommandHelpIsPassive",
+            "TestSimulationHelpDoesNotReadInputsOrStartBackend",
+            "TestResidentWorkflowHelpDoesNotStartBackend",
+            "TestRealProfileHelpNeverInitializesBackend",
+        ],
+    },
+    "workflow-search-dst": {
+        "package": "./internal/simulation",
+        "expected_tests": [
+            "TestFreshWorkflowSeedsAndImmutableBundle",
+            "TestGeneratedInputDiversityExcludesSeedMetadata",
+            "TestGeneratedWorkflowUsesSharedEnvelopeAndReplayWithoutTools",
+            "TestCoupledSeededInterleavingsReplay",
+            "TestCoupledVirtualDayTakeover",
+            "TestCoupledLostPublicationResponse",
+            "TestCoupledRenewalRestartsTakeoverSuspicion",
+            "TestCoupledUnsupportedFaultRejectedBeforeExecution",
+            "TestCoupledPendingOpenAssignmentABA",
+            "TestCoupledStorageReadFailureRecovers",
+            "TestCoupledRenewalUnknownAfterReplacement",
+            "TestCoupledAssignmentABARereservesWriter",
+            "TestCheckerRejectsNonAtomicOutcome",
+            "TestCheckerRejectsStaleOwnerAcknowledgement",
+            "TestCoupledCheckerRejectsUnauthorizedReservation",
+            "TestFirstFailureBeforeCleanupAndGenerationStops",
+            "TestSeparateRNGStreams",
+            "TestLogicalBudgetCancelsAndDrainsBeforeNextCase",
+            "TestWorkflowBatchStopsQueuedAdmissionOnFailure",
+            "TestCleanupCancellationCannotReplaceFirstFailureOutcome",
+            "TestInternalOperationContextErrorIsFirstFailure",
+            "TestInternalContextFailureOrderingAgainstActualStops",
+            "TestResidentUncertainCensusRefusesReuse",
+            "TestResidentCleanupAccountsForLateCreationBeforeCensus",
+            "TestResidentCleanupStagesShareOneLogicalDeadline",
+        ],
+    },
+    "workflow-replay-minimize": {
+        "package": "./internal/simulation",
+        "expected_tests": [
+            "TestReplayRejectsEnvelopeAndProvenanceChangesBeforeEffects",
+            "TestReplayLegacyAncestryCannotBecomeExactEvidence",
+            "TestMinimizeCoupledArtifactAndDependencyRepair",
+            "TestMinimizeCoupledRejectsOversizedEnvelope",
+            "TestMinimizeArtifactRejectsInvalidFailureReceipt",
+            "TestMinimizeRunnerPreservesSameFailureAndReplay",
+            "TestMinimizeRejectsIntermittentAndStopsPending",
+            "TestMinimizeInjectedDeadlineAndCancellationPreserveOriginal",
+            "TestMinimizeRunnerPredicateProductionCoupledFailure",
+        ],
+    },
+}
+
 SCENARIO_MANIFESTS = {
     name: "test/scenarios/ministack/manifests/" + name + ".json"
     for name in ("runtime-measurements", "nexus-http", "nexus-readiness", "corrected-fuzz-controls")
@@ -124,6 +193,106 @@ def run_acceptance_registration(name, root):
         report["error"] = "gate incomplete: no registered executable acceptance verifier; zero tests executed"
     except Exception as error:
         report.update(result="failed", error=str(error))
+    path = evidence / "result.json"
+    path.write_text(json.dumps(report, indent=2) + "\n")
+    print(f"{report['result'].upper()}: {path}", flush=True)
+    return 1
+
+
+def validate_native_build(root):
+    pins = json.loads((root / "tools/slatedb-native.json").read_text())
+    receipt_path = root / ".local/go-node-build.json"
+    receipt = json.loads(receipt_path.read_text())
+    library = (root / receipt["shared_library"]).resolve()
+    if (not library.is_relative_to((root / ".local").resolve()) or not library.is_file()
+            or receipt.get("source_commit") != pins["source_commit"]
+            or receipt.get("binding_module") != pins["go_module"]
+            or receipt.get("binding_version") != pins["go_version"]
+            or receipt.get("source_clean") is not True
+            or receipt.get("shared_library_sha256") != digest(library)):
+        raise ValueError("native build attestation mismatch")
+    return receipt_path, receipt, library
+
+
+def run_acceptance_component(name, root, allow_dirty=False):
+    """Execute registered component checks while refusing a full gate pass."""
+    plan = ACCEPTANCE_COMPONENT_TESTS[name]
+    expected = plan["expected_tests"]
+    pattern = "^(" + "|".join(re.escape(test) for test in expected) + ")$"
+    argv = ["go", "test", "-race", "-json", "-count=1", plan["package"], "-run", pattern]
+    report = {"schema": 2, "gate": name, "result": "failed", "component_pass": False,
+              "proof_pass": False, "acceptance_pass": False, "executed_tests": 0,
+              "criteria": {}, "child_gates": [], "config_sha256": {}, "commands": [],
+              "tool_versions": {}}
+    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + name + "-" + uuid.uuid4().hex[:8]
+    evidence = root / ".local/evidence" / run_id
+    evidence.mkdir(parents=True)
+    try:
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+        dirty = subprocess.check_output(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root, text=True).strip()
+        report.update(commit=sha, dirty_status=dirty, source_clean=not bool(dirty))
+        if dirty and not allow_dirty:
+            raise ValueError("dirty checkout cannot produce acceptance component evidence; use --allow-dirty for development")
+        if dirty:
+            patch = subprocess.check_output(["git", "diff", "--binary", "--no-ext-diff", "HEAD"], cwd=root)
+            report["tracked_patch_sha256"] = hashlib.sha256(patch).hexdigest()
+        inputs = {"scripts/prove.py", "scripts/build-go-node.py", "tools/slatedb-native.json", "go.mod", "go.sum"}
+        for gate in ACCEPTANCE_CRITERIA:
+            path = manifest_path(gate, root)
+            manifest = json.loads(path.read_text())
+            validate_acceptance_manifest(manifest, gate, root)
+            inputs.add(str(path.relative_to(root)))
+            inputs.update(manifest["inputs"])
+            if gate == name:
+                report["criteria"] = manifest["criteria"]
+        report["config_sha256"] = {p: digest(root / p) for p in sorted(inputs)}
+        env = os.environ.copy()
+        started = time.monotonic()
+        code, output, expired = run_process([sys.executable, "scripts/build-go-node.py"], 900, env, root)
+        build_log = evidence / "command-1.log"
+        build_log.write_text(output)
+        report["commands"].append({"argv": [sys.executable, "scripts/build-go-node.py"],
+                                   "exit_code": code, "timed_out": expired,
+                                   "elapsed_seconds": round(time.monotonic() - started, 3),
+                                   "output": build_log.name, "output_sha256": digest(build_log),
+                                   "expected_tests": []})
+        if code or expired:
+            raise ValueError(f"native build failed (exit={code}, timeout={expired})")
+        receipt_path, native, library = validate_native_build(root)
+        report["native_build"] = native
+        report["native_build_receipt_sha256"] = digest(receipt_path)
+        target = library.parent
+        env.update({"GOENV": "off", "GOWORK": "off", "GOFLAGS": "-mod=readonly",
+                    "GOTOOLCHAIN": "go1.27.1", "CGO_ENABLED": "1",
+                    "CGO_LDFLAGS": "-L" + str(target), "LD_LIBRARY_PATH": str(target),
+                    "DYLD_LIBRARY_PATH": str(target), "SLATEDB_UNIFFI_RUNTIME_THREADS": "2"})
+        code, version, expired = run_process(["go", "version"], 30, env, root)
+        if code or expired or not version_matches(version, "go version go1.27.1 "):
+            raise ValueError("pinned Go toolchain unavailable")
+        report["tool_versions"]["go"] = version.strip()
+        started = time.monotonic()
+        code, output, expired = run_process(argv, 300, env, root)
+        log = evidence / "command-2.log"
+        log.write_text(output)
+        report["commands"].append({"argv": argv, "exit_code": code, "timed_out": expired,
+                                   "elapsed_seconds": round(time.monotonic() - started, 3),
+                                   "output": log.name, "output_sha256": digest(log),
+                                   "expected_tests": expected})
+        if code or expired:
+            raise ValueError(f"component command failed (exit={code}, timeout={expired})")
+        verify_go_top_level_tests(output, expected, "github.com/0x63616c/xenon/" + plan["package"].removeprefix("./"))
+        for relative, expected_hash in report["config_sha256"].items():
+            if digest(root / relative) != expected_hash:
+                raise ValueError(f"input changed while component checks ran: {relative}")
+        if (subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip() != sha
+                or subprocess.check_output(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root, text=True).strip() != dirty):
+            raise ValueError("checkout changed while component checks ran")
+        report.update(result="incomplete" if not dirty else "development-incomplete",
+                      component_pass=not bool(dirty), development_checks_passed=True,
+                      executed_tests=len(expected),
+                      error="component checks passed; acceptance obligations remain unverified")
+    except Exception as error:
+        report["error"] = str(error)
     path = evidence / "result.json"
     path.write_text(json.dumps(report, indent=2) + "\n")
     print(f"{report['result'].upper()}: {path}", flush=True)
@@ -288,6 +457,20 @@ def verify_go_tests(output, expected, package="github.com/0x63616c/xenon/interna
         raise ValueError(f"Go test assertions mismatch: expected {expected}, observed {actual}")
 
 
+def verify_go_top_level_tests(output, expected, package):
+    """Count exact public tests while still failing on any nested skip/failure."""
+    if not expected or len(set(expected)) != len(expected):
+        raise ValueError("Go expected tests must be nonempty and unique")
+    events = [json.loads(line) for line in output.splitlines() if line.strip() and not line.startswith("go: downloading ")]
+    if any(event.get("Action") in ("skip", "fail") for event in events):
+        raise ValueError("Go test skipped or failed")
+    actual = [event["Test"] for event in events
+              if event.get("Action") == "pass" and "Test" in event and "/" not in event["Test"]]
+    packages = [event for event in events if event.get("Action") == "pass" and "Test" not in event]
+    if sorted(actual) != sorted(expected) or len(packages) != 1 or packages[0].get("Package") != package:
+        raise ValueError(f"Go top-level assertions mismatch: expected {expected}, observed {actual}")
+
+
 def verify_tests(output, expected):
     actual = re.findall(r"^test ([a-zA-Z0-9_:]+) \.\.\. ok$", output, re.MULTILINE)
     summaries = re.findall(r"test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;", output)
@@ -339,6 +522,8 @@ def main():
     parser.add_argument("name", choices=["native-engine-contracts", "corrected-fuzz-controls", "primitive", "ownership", "simulation", "shard", "crash", "go-bindings", "go-shard", "go-namespace", "go-cluster", "go-queue", "go-history", "go-nexus", "go-matching", "go-matching-userdata", "go-queuev2", "go-persistence", "go-runtime-stores", "go-history-routing", "go-outcomes", "go-visibility", "go-visibility-frozen", "go-fair", "go-execution", "go-historytasks", "go-executiontasks", "go-shard-compat", "forwarding", "rpc-measurement", "external-recorder", "mixed-oracle", "recorder-adapter", "recorder-lifecycle", "visibility-movement", "nexus-http", "nexus-readiness", "visibility-fanout", "registry-contracts", "directory", "owner-manager", "maintenance", "s3-meter", "cas-loss", "runtime-measurements", "process-cut", *ACCEPTANCE_CRITERIA])
     parser.add_argument("--allow-dirty", action="store_true", help="development only; evidence is marked non-reproducible")
     args = parser.parse_args()
+    if args.name in ACCEPTANCE_COMPONENT_TESTS:
+        return run_acceptance_component(args.name, ROOT, args.allow_dirty)
     if args.name in ACCEPTANCE_CRITERIA:
         return run_acceptance_registration(args.name, ROOT)
     if args.name == "go-bindings":
