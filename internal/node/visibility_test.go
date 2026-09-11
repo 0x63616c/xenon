@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -8,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	vmodel "github.com/0x63616c/xenon/internal/visibility"
 	enumspb "go.temporal.io/api/enums/v1"
 	"google.golang.org/grpc/codes"
@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"math"
 	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"strings"
 	"testing"
 	"time"
@@ -37,13 +36,13 @@ func TestGoOwnerVisibilityRecovery(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	objects := objects(t)
+	objects := memory.New()
 	partition, e := vmodel.Partition(fixture.Namespace, fixture.Run)
 	if e != nil {
 		t.Fatal(e)
 	}
 	open := func() *Owner {
-		o, e := NewOwner(engine(t, objects, "visibility-recovery", false), DefaultConfig(partition))
+		o, e := NewOwner(memoryWriter(t, objects, "visibility-recovery"), DefaultConfig(partition))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -128,7 +127,7 @@ func TestGoOwnerVisibilityRecovery(t *testing.T) {
 func TestGoOwnerVisibilityEmptyIdentity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	objects := objects(t)
+	objects := memory.New()
 	partition, _ := vmodel.Partition("", "")
 	zero := "00000000-0000-0000-0000-000000000000"
 	same, _ := vmodel.Partition(zero, zero)
@@ -136,7 +135,7 @@ func TestGoOwnerVisibilityEmptyIdentity(t *testing.T) {
 		t.Fatal("declared routing input differs")
 	}
 	open := func() *Owner {
-		o, e := NewOwner(engine(t, objects, "visibility-empty", false), DefaultConfig(partition))
+		o, e := NewOwner(memoryWriter(t, objects, "visibility-empty"), DefaultConfig(partition))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -203,9 +202,9 @@ func TestGoOwnerVisibilitySchemaBudget(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fixture.TimeoutSeconds)*time.Second)
 	defer cancel()
-	objects := objects(t)
+	objects := memory.New()
 	open := func() *Owner {
-		o, e := NewOwner(engine(t, objects, "visibility-schema-budget", false), DefaultConfig("global"))
+		o, e := NewOwner(memoryWriter(t, objects, "visibility-schema-budget"), DefaultConfig("global"))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -278,16 +277,16 @@ func TestGoOwnerVisibilitySchemaBudget(t *testing.T) {
 	if proto.Size(oversized) <= fixture.ResponseBudget {
 		t.Fatal("fixture does not exceed aggregate limit")
 	}
-	_, err = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, err = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
-		if e = putHistory(tx, "v1/visibility/schema", oversized); e != nil {
+		defer tx.Abort()
+		if e = putMessage(tx, "v1/visibility/schema", oversized); e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -303,12 +302,12 @@ func TestGoOwnerVisibilitySchemaBudget(t *testing.T) {
 	if got := call("schema-legacy-add", batch(0)); got.Error != wire.VisibilityResult_RESOURCE_EXHAUSTED {
 		t.Fatal("oversized persisted schema escaped ADD guard")
 	}
-	_, err = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, err = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		b, e := get(tx, "v1/visibility/schema")
 		if e != nil {
 			return nil, e

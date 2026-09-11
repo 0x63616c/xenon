@@ -1,13 +1,11 @@
-//go:build slatedb
-
 package node
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -20,8 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"net"
-	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"strings"
 	"testing"
 	"time"
@@ -29,36 +25,8 @@ import (
 
 func matchingStore(t *testing.T) *adapter.MatchingStore { return matchingStoreMode(t, false) }
 func matchingStoreMode(t *testing.T, fair bool) *adapter.MatchingStore {
-	b := native.NewDbBuilder(cfg(t).Prefix+"-userdata", objects(t))
-	defer b.Destroy()
-	settings := native.SettingsDefault()
-	defer settings.Destroy()
-	// Upstream's 30s test deadline includes1024 one-row durable RPC reads.
-	// A declared1ms WAL flush keeps those real durability barriers inside its budget.
-	raw, err := os.ReadFile("../../proof/go-matching/userdata.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixture struct {
-		Schema int
-		Flush  string `json:"flush_interval"`
-	}
-	if err = json.Unmarshal(raw, &fixture); err != nil || fixture.Schema != 1 || fixture.Flush != "1ms" {
-		t.Fatal("invalid user-data fixture", err)
-	}
-	value, _ := json.Marshal(fixture.Flush)
-	if e := settings.Set("flush_interval", string(value)); e != nil {
-		t.Fatal(e)
-	}
-	if e := b.WithSettings(settings); e != nil {
-		t.Fatal(e)
-	}
-	db, e := b.Build()
-	if e != nil {
-		t.Fatal(e)
-	}
-	o := owner(t, db)
-	t.Cleanup(func() { closeOwner(t, o) })
+	o := memoryOwner(t, memory.New(), "memory-userdata", "p")
+	t.Cleanup(func() { closeMemoryOwner(t, o) })
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -151,9 +119,9 @@ func TestGoOwnerMatchingUpstreamTasks(t *testing.T) {
 func TestGoOwnerMatchingUserDataRecovery(t *testing.T) {
 	f := matchingCase(t)
 	id := uuid.MustParse(f.Namespace)
-	objects := objects(t)
-	path := cfg(t).Prefix + "-userdata-recovery"
-	o := owner(t, engine(t, objects, path, false))
+	engine := memory.New()
+	path := "memory-userdata-recovery"
+	o := memoryOwner(t, engine, path, "p")
 	s := &MatchingServer{Owner: o}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -171,9 +139,9 @@ func TestGoOwnerMatchingUserDataRecovery(t *testing.T) {
 	if r, e := s.Execute(ctx, matchingReq("userdata-update", later)); e != nil || !r.Applied {
 		t.Fatal(r, e)
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, engine, path, "p")
+	defer closeMemoryOwner(t, o)
 	s = &MatchingServer{Owner: o}
 	replay, e := s.Execute(ctx, q)
 	if e != nil || !proto.Equal(replay, original) {

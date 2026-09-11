@@ -1,11 +1,10 @@
-//go:build slatedb
-
 package node
 
 import (
 	"bytes"
 	"context"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 	"go.temporal.io/server/common/log"
@@ -24,9 +23,9 @@ func TestGoOwnerFairUpstreamQueues(t *testing.T) {
 	suite.Run(t, suites.NewTaskQueueSuite(t, matchingStoreMode(t, true), log.NewNoopLogger()))
 }
 func TestGoOwnerFairRecovery(t *testing.T) {
-	objects := objects(t)
-	path := cfg(t).Prefix + "-fair"
-	o := owner(t, engine(t, objects, path, false))
+	objects := memory.New()
+	path := "memory" + "-fair"
+	o := memoryOwner(t, objects, path, "p")
 	s := &MatchingServer{Owner: o}
 	ctx := context.Background()
 	ns := bytes.Repeat([]byte{1}, 16)
@@ -89,9 +88,9 @@ func TestGoOwnerFairRecovery(t *testing.T) {
 	if deleted.Completed != 1 {
 		t.Fatal(deleted)
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, o)
 	s.Owner = o
 	replay, e := s.Execute(ctx, q)
 	if e != nil || !proto.Equal(first, replay) {
@@ -101,8 +100,8 @@ func TestGoOwnerFairRecovery(t *testing.T) {
 	if len(r.Tasks) != 3 || r.Tasks[0].Pass != 2 || r.Tasks[0].Id != 7 {
 		t.Fatal("delete leaked acrosspass", r)
 	}
-	rival := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, rival)
+	rival := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, rival)
 	if _, e = s.Execute(ctx, q); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced fair replay", e)
 	}

@@ -1,14 +1,13 @@
-//go:build slatedb
-
 package node
 
 import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"google.golang.org/protobuf/proto"
 	"math"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
@@ -19,15 +18,15 @@ func historyTasksRequest(id string, c *wire.HistoryTasksCommand) *wire.HistoryTa
 }
 func TestGoOwnerHistoryTasksRecovery(t *testing.T) {
 	ctx := context.Background()
-	store := objects(t)
-	o := owner(t, engine(t, store, "historytasks-recovery", false))
+	store := memory.New()
+	o := memoryOwner(t, store, "historytasks-recovery", "p")
 	s := &HistoryTasksServer{Owner: o}
-	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		for _, task := range []*wire.ExecutionTask{
 			{CategoryId: 42, CategoryType: 2, TaskId: 1, FireSeconds: -1, FireNanos: 999999999, Blob: &wire.HistoryBlob{Data: []byte("first"), Encoding: 2}},
 			{CategoryId: 42, CategoryType: 2, TaskId: math.MaxInt64, FireSeconds: -1, FireNanos: 999999999, Blob: &wire.HistoryBlob{Data: []byte("max"), Encoding: 2}},
@@ -38,7 +37,7 @@ func TestGoOwnerHistoryTasksRecovery(t *testing.T) {
 				return nil, e
 			}
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -77,7 +76,7 @@ func TestGoOwnerHistoryTasksRecovery(t *testing.T) {
 	if e = o.Close(ctx); e != nil {
 		t.Fatal(e)
 	}
-	o = owner(t, engine(t, store, "historytasks-recovery", false))
+	o = memoryOwner(t, store, "historytasks-recovery", "p")
 	s.Owner = o
 	if !proto.Equal(call("read-first", c), first) {
 		t.Fatal("durable read replay changed")
@@ -104,21 +103,21 @@ func TestGoOwnerHistoryTasksRecovery(t *testing.T) {
 
 func TestGoOwnerHistoryTasksBytePages(t *testing.T) {
 	ctx := context.Background()
-	store := objects(t)
-	o := owner(t, engine(t, store, "historytasks-byte-pages", false))
+	store := memory.New()
+	o := memoryOwner(t, store, "historytasks-byte-pages", "p")
 	s := &HistoryTasksServer{Owner: o}
-	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		for id := int64(1); id <= 3; id++ {
 			if e = stageExecutionTasks(tx, 7, []*wire.ExecutionTask{{CategoryId: 1, CategoryType: 1, TaskId: id, Blob: &wire.HistoryBlob{Data: make([]byte, 1024*1024), Encoding: 2}}}); e != nil {
 				return nil, e
 			}
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -134,7 +133,7 @@ func TestGoOwnerHistoryTasksBytePages(t *testing.T) {
 		t.Fatal(r, e)
 	}
 	// The successor owner fences every path, including replay of acknowledged reads.
-	replacement := owner(t, engine(t, store, "historytasks-byte-pages", false))
+	replacement := memoryOwner(t, store, "historytasks-byte-pages", "p")
 	_ = replacement
 	if _, e = s.Execute(ctx, historyTasksRequest("large-second", c)); e == nil {
 		t.Fatal("fenced read replay succeeded")

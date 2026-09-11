@@ -1,17 +1,16 @@
-//go:build slatedb
-
 package node
 
 import (
 	"context"
 	"crypto/sha256"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	enumspb "go.temporal.io/api/enums/v1"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
@@ -22,9 +21,9 @@ func executionTasksRequest(id string, c *wire.ExecutionTasksCommand) *wire.Execu
 }
 func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 	ctx := context.Background()
-	objects := objects(t)
+	objects := memory.New()
 	path := "executiontasks-recovery"
-	o := owner(t, engine(t, objects, path, false))
+	o := memoryOwner(t, objects, path, "p")
 	s := &ExecutionTasksServer{Owner: o}
 	call := func(id string, c *wire.ExecutionTasksCommand) *wire.ExecutionTasksResult {
 		t.Helper()
@@ -34,16 +33,16 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 		}
 		return r
 	}
-	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		if e = putHistory(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: 31}); e != nil {
+		defer tx.Abort()
+		if e = putMessage(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: 31}); e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -70,12 +69,12 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 	if r := call("atomic-duplicate", duplicate); r.Error != wire.ExecutionTasksResult_UNAVAILABLE || o.Quarantined() {
 		t.Fatal(r, o.Quarantined())
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		b, e := get(tx, executionTaskKey(7, fresh))
 		if e != nil || b != nil {
 			t.Fatal("partial AddHistoryTasks", e)
@@ -95,7 +94,7 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 	if e = o.Close(ctx); e != nil {
 		t.Fatal(e)
 	}
-	o = owner(t, engine(t, objects, path, false))
+	o = memoryOwner(t, objects, path, "p")
 	s.Owner = o
 	if !proto.Equal(call("put", put), first) {
 		t.Fatal("changed put replay")
@@ -107,7 +106,7 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 	if r := call("atomic-duplicate", duplicate); r.Error != wire.ExecutionTasksResult_UNAVAILABLE {
 		t.Fatal(r)
 	}
-	contender := owner(t, engine(t, objects, path, false))
+	contender := memoryOwner(t, objects, path, "p")
 	_ = contender
 	if _, e = s.Execute(ctx, executionTasksRequest("put", put)); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced DLQ replay", e, o.Quarantined())
@@ -115,7 +114,7 @@ func TestGoOwnerExecutionTasksRecovery(t *testing.T) {
 }
 func TestGoOwnerExecutionTasksBytePages(t *testing.T) {
 	ctx := context.Background()
-	o := owner(t, engine(t, objects(t), "executiontasks-pages", false))
+	o := memoryOwner(t, memory.New(), "executiontasks-pages", "p")
 	s := &ExecutionTasksServer{Owner: o}
 	for id := int64(1); id <= 3; id++ {
 		info, _ := proto.Marshal(&persistencespb.ReplicationTaskInfo{TaskId: id, WorkflowId: string(make([]byte, 1024*1024))})

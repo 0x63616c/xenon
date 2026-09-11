@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -9,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	upstream "go.temporal.io/server/common/persistence/tests"
@@ -19,7 +19,6 @@ import (
 	"math"
 	"net"
 	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"sync/atomic"
 	"testing"
 )
@@ -46,8 +45,8 @@ func queueV2Case(t *testing.T) queueV2Fixture {
 	return f
 }
 func TestGoOwnerQueueV2Upstream(t *testing.T) {
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-queuev2-upstream", false))
-	t.Cleanup(func() { closeOwner(t, o) })
+	o := memoryOwner(t, memory.New(), "memory"+"-queuev2-upstream", "p")
+	t.Cleanup(func() { closeMemoryOwner(t, o) })
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -82,9 +81,9 @@ func queueV2Request(id string, c *wire.QueueV2Command) *wire.QueueV2Request {
 }
 func TestGoOwnerQueueV2Recovery(t *testing.T) {
 	f := queueV2Case(t)
-	obj := objects(t)
-	path := cfg(t).Prefix + "-queuev2-recovery"
-	o := owner(t, engine(t, obj, path, false))
+	obj := memory.New()
+	path := "memory" + "-queuev2-recovery"
+	o := memoryOwner(t, obj, path, "p")
 	s := &QueueV2Server{Owner: o}
 	ctx := context.Background()
 	counter := 0
@@ -135,9 +134,9 @@ func TestGoOwnerQueueV2Recovery(t *testing.T) {
 	if len(stale.Messages) != 0 {
 		t.Fatal("stale token resurrected retained sentinel")
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, obj, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, obj, path, "p")
+	defer closeMemoryOwner(t, o)
 	s.Owner = o
 	replay, e := s.Execute(ctx, saved)
 	if e != nil || !proto.Equal(initial, replay) {
@@ -161,8 +160,8 @@ func TestGoOwnerQueueV2Recovery(t *testing.T) {
 		t.Fatal("terminal token overflow")
 	}
 	// A callback failure after staging range metadata and deletes cannot publish either.
-	_, e = o.Run(ctx, func(*native.Db) ([]byte, error) {
-		_, e := o.journal("abort-delete", []byte("digest"), queuev2Family, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	_, e = o.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		_, e := o.journal("abort-delete", []byte("digest"), queuev2Family, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			_, e := applyQueueV2(tx, &wire.QueueV2Command{Kind: wire.QueueV2Command_DELETE_RANGE, QueueType: f.QueueType, QueueName: f.QueueName, InclusiveMaxId: 3})
 			if e != nil {
 				return nil, e
@@ -178,8 +177,8 @@ func TestGoOwnerQueueV2Recovery(t *testing.T) {
 	if len(current.Messages) != 1 {
 		t.Fatal("aborted logical deletion escaped")
 	}
-	competitor := owner(t, engine(t, obj, path, false))
-	defer closeOwner(t, competitor)
+	competitor := memoryOwner(t, obj, path, "p")
+	defer closeMemoryOwner(t, competitor)
 	if _, e = s.Execute(ctx, saved); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced replay", e)
 	}
@@ -187,25 +186,25 @@ func TestGoOwnerQueueV2Recovery(t *testing.T) {
 
 func TestGoOwnerQueueV2Terminal(t *testing.T) {
 	f := queueV2Case(t)
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-queuev2-terminal", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-queuev2-terminal", "p")
+	defer closeMemoryOwner(t, o)
 	s := &QueueV2Server{Owner: o}
 	ctx := context.Background()
-	_, err := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, err := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		e = saveCluster(tx, qv2StateKey(f.QueueType, f.QueueName), &wire.QueueV2State{Name: f.QueueName, MinId: math.MaxInt64 - 1, LastId: math.MaxInt64 - 1})
+		defer tx.Abort()
+		e = putMessage(tx, qv2StateKey(f.QueueType, f.QueueName), &wire.QueueV2State{Name: f.QueueName, MinId: math.MaxInt64 - 1, LastId: math.MaxInt64 - 1})
 		if e != nil {
 			return nil, e
 		}
-		e = saveCluster(tx, qv2MessageKey(f.QueueType, f.QueueName, math.MaxInt64-1), &wire.QueueV2Entry{Id: math.MaxInt64 - 1, Encoding: 2})
+		e = putMessage(tx, qv2MessageKey(f.QueueType, f.QueueName, math.MaxInt64-1), &wire.QueueV2Entry{Id: math.MaxInt64 - 1, Encoding: 2})
 		if e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if err != nil {
 		t.Fatal(err)

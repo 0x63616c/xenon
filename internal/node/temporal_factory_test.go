@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -9,6 +7,7 @@ import (
 	"time"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -19,13 +18,13 @@ import (
 )
 
 func TestGoOwnerTemporalFactory(t *testing.T) {
-	objects := objects(t)
+	objects := memory.New()
 	makeOwner := func(name string) *Owner {
-		o, e := NewOwner(engine(t, objects, cfg(t).Prefix+"-factory-"+name, false), DefaultConfig(name))
+		o, e := NewOwner(memoryWriter(t, objects, "memory-factory-"+name), DefaultConfig(name))
 		if e != nil {
 			t.Fatal(e)
 		}
-		t.Cleanup(func() { closeOwner(t, o) })
+		t.Cleanup(func() { closeMemoryOwner(t, o) })
 		return o
 	}
 	history, matching, global := makeOwner("history"), makeOwner("matching"), makeOwner("global")

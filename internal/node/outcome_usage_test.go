@@ -1,21 +1,20 @@
-//go:build slatedb
-
 package node
 
 import (
 	"context"
 	"encoding/binary"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/google/uuid"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
-func capacityOwner(t *testing.T, db *native.Db, limit uint64) *Owner {
+func capacityOwner(t *testing.T, db partitions.Writer, limit uint64) *Owner {
 	t.Helper()
 	c := DefaultConfig("p")
 	c.MaxOutcomes = limit
@@ -23,13 +22,13 @@ func capacityOwner(t *testing.T, db *native.Db, limit uint64) *Owner {
 	if e != nil {
 		t.Fatal(e)
 	}
-	t.Cleanup(func() { closeOwner(t, o) })
+	t.Cleanup(func() { closeMemoryOwner(t, o) })
 	return o
 }
 func TestGoOwnerOutcomeCapacity(t *testing.T) {
 	ctx := context.Background()
-	store := objects(t)
-	o := capacityOwner(t, engine(t, store, "capacity", false), 2)
+	store := memory.New()
+	o := capacityOwner(t, memoryWriter(t, store, "capacity"), 2)
 	read := request("read", &wire.ShardCommand{Kind: wire.ShardCommand_GET, ShardId: 7})
 	first, e := o.Execute(ctx, read)
 	if e != nil {
@@ -49,14 +48,14 @@ func TestGoOwnerOutcomeCapacity(t *testing.T) {
 	if e != nil || usage.Entries != 2 || usage.Remaining != 0 || !usage.AccountingComplete || usage.Families["shard_result"].Entries != 2 {
 		t.Fatal(usage, e)
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		var total uint64
-		e = historyScan(tx, "v1/outcome/", false, func(_, v []byte) (bool, error) { total += uint64(len(v)); return false, nil })
+		e = scanPrefix(tx, "v1/outcome/", false, func(_, v []byte) (bool, error) { total += uint64(len(v)); return false, nil })
 		if total != usage.EncodedOutcomeBytes {
 			t.Fatal("encoded byte accounting mismatch", total, usage)
 		}
@@ -68,7 +67,7 @@ func TestGoOwnerOutcomeCapacity(t *testing.T) {
 	if e = o.Close(ctx); e != nil {
 		t.Fatal(e)
 	}
-	o = capacityOwner(t, engine(t, store, "capacity", false), 2)
+	o = capacityOwner(t, memoryWriter(t, store, "capacity"), 2)
 	after, e := o.OutcomeUsage(ctx)
 	if e != nil || after.Entries != usage.Entries || after.EncodedOutcomeBytes != usage.EncodedOutcomeBytes {
 		t.Fatal(after, e)
@@ -82,22 +81,22 @@ func TestGoOwnerOutcomeCapacity(t *testing.T) {
 }
 func TestGoOwnerOutcomeLegacy(t *testing.T) {
 	ctx := context.Background()
-	o := capacityOwner(t, engine(t, objects(t), "legacy-accounting", false), 5)
-	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	o := capacityOwner(t, memoryWriter(t, memory.New(), "legacy-accounting"), 5)
+	_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		count := make([]byte, 8)
 		binary.BigEndian.PutUint64(count, 1)
 		if e = put(tx, "v1/outcome_count", count); e != nil {
 			return nil, e
 		}
-		if e = putHistory(tx, "v1/outcome/old", &wire.StoredOutcome{Result: &wire.StoredOutcome_ShardResult{ShardResult: &wire.ShardResult{}}}); e != nil {
+		if e = putMessage(tx, "v1/outcome/old", &wire.StoredOutcome{Result: &wire.StoredOutcome_ShardResult{ShardResult: &wire.ShardResult{}}}); e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -112,18 +111,18 @@ func TestGoOwnerOutcomeLegacy(t *testing.T) {
 }
 func TestGoOwnerOutcomePrewriteCapacity(t *testing.T) {
 	ctx := context.Background()
-	store := objects(t)
-	o := capacityOwner(t, engine(t, store, "prewrite-capacity", false), 1)
-	_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	store := memory.New()
+	o := capacityOwner(t, memoryWriter(t, store, "prewrite-capacity"), 1)
+	_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, e
 		}
-		defer tx.Destroy()
-		if e = putHistory(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: 9}); e != nil {
+		defer tx.Abort()
+		if e = putMessage(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: 9}); e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -143,7 +142,7 @@ func TestGoOwnerOutcomePrewriteCapacity(t *testing.T) {
 	if e = o.Close(ctx); e != nil {
 		t.Fatal(e)
 	}
-	o = capacityOwner(t, engine(t, store, "prewrite-capacity", false), 2)
+	o = capacityOwner(t, memoryWriter(t, store, "prewrite-capacity"), 2)
 	result, e := (&ExecutionServer{Owner: o}).Execute(ctx, q)
 	if e != nil || result.Error != wire.ExecutionResult_NONE {
 		t.Fatal(result, e)

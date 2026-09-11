@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -7,11 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
@@ -32,9 +31,9 @@ func TestGoOwnerQueueRecovery(t *testing.T) {
 	if e = json.Unmarshal(raw, &fixture); e != nil || fixture.Schema != 1 {
 		t.Fatal(e)
 	}
-	objects := objects(t)
+	objects := memory.New()
 	path := fixture.Prefix + "-recovery"
-	o := owner(t, engine(t, objects, path, false))
+	o := memoryOwner(t, objects, path, "p")
 	server := &QueueServer{Owner: o}
 	ctx := context.Background()
 	call := func(id string, c *wire.QueueCommand) *wire.QueueResult {
@@ -52,9 +51,9 @@ func TestGoOwnerQueueRecovery(t *testing.T) {
 		t.Fatal(initial, e)
 	}
 	call("delete", &wire.QueueCommand{Kind: wire.QueueCommand_DELETE_DLQ, QueueType: 1, LastId: 0})
-	closeOwner(t, o)
-	o = owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, o)
 	server = &QueueServer{Owner: o}
 	replay, e := server.Execute(ctx, enqueue)
 	if e != nil || !proto.Equal(initial, replay) {
@@ -70,8 +69,8 @@ func TestGoOwnerQueueRecovery(t *testing.T) {
 	}
 	// Abort after staging a delete inside the exact shared journal; no delete or
 	// journal outcome can escape the failed transaction.
-	_, e = o.Run(ctx, func(*native.Db) ([]byte, error) {
-		_, e := o.journal("abort-delete", []byte("digest"), queueFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	_, e = o.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		_, e := o.journal("abort-delete", []byte("digest"), queueFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			if e := tx.Delete([]byte(queueEntryKey(-1, 1))); e != nil {
 				return nil, backend(e)
 			}
@@ -86,12 +85,12 @@ func TestGoOwnerQueueRecovery(t *testing.T) {
 	if len(rows.Messages) != 1 || rows.Messages[0].Id != 1 {
 		t.Fatal("aborted delete escaped", rows)
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		saved, e := get(tx, "v1/outcome/abort-delete")
 		if e == nil && saved != nil {
 			t.Error("aborted outcome journaled")
@@ -101,8 +100,8 @@ func TestGoOwnerQueueRecovery(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	competitor := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, competitor)
+	competitor := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, competitor)
 	if _, e = server.Execute(ctx, enqueue); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced replay succeeded", e)
 	}

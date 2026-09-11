@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -8,6 +6,7 @@ import (
 	"testing"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -20,9 +19,9 @@ func metadataRequest(id string, c *wire.MetadataCommand) *wire.MetadataRequest {
 }
 
 func TestGoOwnerNamespaceRecovery(t *testing.T) {
-	objects := objects(t)
-	path := cfg(t).Prefix + "-namespace-recovery"
-	first := owner(t, engine(t, objects, path, false))
+	objects := memory.New()
+	path := "memory" + "-namespace-recovery"
+	first := memoryOwner(t, objects, path, "p")
 	server := &MetadataServer{Owner: first}
 	ctx := context.Background()
 	id := make([]byte, 16)
@@ -36,9 +35,9 @@ func TestGoOwnerNamespaceRecovery(t *testing.T) {
 	if err != nil || renamed.Error != wire.MetadataResult_NONE {
 		t.Fatal(renamed, err)
 	}
-	closeOwner(t, first)
-	reopened := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, reopened)
+	closeMemoryOwner(t, first)
+	reopened := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, reopened)
 	server = &MetadataServer{Owner: reopened}
 	replay, err := server.Execute(ctx, create)
 	if err != nil || !proto.Equal(initial, replay) {
@@ -60,8 +59,8 @@ func TestGoOwnerNamespaceRecovery(t *testing.T) {
 		t.Fatal("cross-family ID reuse", err)
 	}
 	// A new writer fences replay too, even when the original result is journaled.
-	competitor := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, competitor)
+	competitor := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, competitor)
 	if _, err = server.Execute(ctx, create); status.Code(err) != codes.Unavailable {
 		t.Fatal("stale owner published replay", err)
 	}

@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -8,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
@@ -28,9 +27,9 @@ func nexusRequest(id string, c *wire.NexusCommand) *wire.NexusRequest {
 	return &wire.NexusRequest{ProtocolVersion: 1, Partition: "p", OperationId: id, CommandSha256: h[:], Command: c}
 }
 func TestGoOwnerNexusRecovery(t *testing.T) {
-	obj := objects(t)
-	path := cfg(t).Prefix + "-nexus"
-	o := owner(t, engine(t, obj, path, false))
+	obj := memory.New()
+	path := "memory" + "-nexus"
+	o := memoryOwner(t, obj, path, "p")
 	s := &NexusServer{Owner: o}
 	ctx := context.Background()
 	call := func(c *wire.NexusCommand) *wire.NexusResult {
@@ -74,9 +73,9 @@ func TestGoOwnerNexusRecovery(t *testing.T) {
 	if missing.Error != wire.NexusResult_NOT_FOUND {
 		t.Fatal(missing)
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, obj, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, obj, path, "p")
+	defer closeMemoryOwner(t, o)
 	s.Owner = o
 	replay, e := s.Execute(ctx, q)
 	if e != nil || !proto.Equal(first, replay) {
@@ -94,15 +93,15 @@ func TestGoOwnerNexusRecovery(t *testing.T) {
 	if _, e = s.Execute(ctx, changed); status.Code(e) != codes.InvalidArgument {
 		t.Fatal("changed replay", e)
 	}
-	rival := owner(t, engine(t, obj, path, false))
-	defer closeOwner(t, rival)
+	rival := memoryOwner(t, obj, path, "p")
+	defer closeMemoryOwner(t, rival)
 	if _, e = s.Execute(ctx, q); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced replay", e)
 	}
 }
 func TestGoOwnerNexusPages(t *testing.T) {
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-nexus-pages", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-nexus-pages", "p")
+	defer closeMemoryOwner(t, o)
 	s := &NexusServer{Owner: o}
 	call := func(c *wire.NexusCommand) *wire.NexusResult {
 		t.Helper()
@@ -153,8 +152,8 @@ func TestGoOwnerNexusPages(t *testing.T) {
 }
 
 func TestGoOwnerNexusRPC(t *testing.T) {
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-nexus-rpc", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-nexus-rpc", "p")
+	defer closeMemoryOwner(t, o)
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)

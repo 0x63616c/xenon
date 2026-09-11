@@ -1,11 +1,9 @@
-//go:build slatedb
-
 package node
 
 import (
 	"context"
 	"errors"
-	native "slatedb.io/slatedb-go/uniffi"
+	"github.com/0x63616c/xenon/internal/partitions"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,7 +19,7 @@ func TestCanceledAdmissionDoesNotRetireOwner(t *testing.T) {
 		o := &Owner{config: config, gate: make(chan struct{}, 1), admitted: make(chan struct{}, 64)}
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := o.Run(ctx, func(*native.Db) ([]byte, error) { entered.Store(true); return nil, nil })
+		_, err := o.Run(ctx, func(partitions.Writer) ([]byte, error) { entered.Store(true); return nil, nil })
 		deadline := time.Now().Add(time.Second)
 		for o.ActiveNativeOperations() != 0 && time.Now().Before(deadline) {
 			time.Sleep(time.Millisecond)

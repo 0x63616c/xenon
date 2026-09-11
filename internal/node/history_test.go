@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -7,12 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
@@ -37,16 +36,16 @@ func TestGoOwnerHistoryRecovery(t *testing.T) {
 	}
 	tree := uuid.MustParse(c.Tree)
 	branch := uuid.MustParse(c.Branch)
-	objects := objects(t)
+	objects := memory.New()
 	path := c.Prefix + "-recovery"
-	o := owner(t, engine(t, objects, path, false))
+	o := memoryOwner(t, objects, path, "p")
 	server := &HistoryServer{Owner: o}
 	ctx := context.Background()
 	appendCommand := &wire.HistoryCommand{Kind: wire.HistoryCommand_APPEND, ShardId: 7, TreeId: tree[:], BranchId: branch[:], IsNewBranch: true, TreeInfo: &wire.HistoryBlob{Data: []byte{0, 255}, Encoding: 2}, Node: &wire.HistoryNodeRecord{NodeId: 1, TransactionId: 9991, Events: &wire.HistoryBlob{Data: []byte{255, 0}, Encoding: 1}}}
 	// The exact apply function stages both tree and node, then the shared journal
 	// callback aborts before publishing either state or outcome.
-	_, e = o.Run(ctx, func(*native.Db) ([]byte, error) {
-		_, e := o.journal("aborted-new-branch", []byte("abort"), historyFamily, func(tx *native.DbTransaction) (*wire.StoredOutcome, error) {
+	_, e = o.Run(ctx, func(partitions.Writer) ([]byte, error) {
+		_, e := o.journal("aborted-new-branch", []byte("abort"), historyFamily, func(tx partitions.Transaction) (*wire.StoredOutcome, error) {
 			if _, e := applyHistory(tx, appendCommand); e != nil {
 				return nil, e
 			}
@@ -57,13 +56,13 @@ func TestGoOwnerHistoryRecovery(t *testing.T) {
 	if status.Code(e) != codes.ResourceExhausted || o.Quarantined() {
 		t.Fatal(e)
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		for _, k := range []string{historyTreeKey(7, tree[:], branch[:]), historyNodeKey(7, tree[:], branch[:], appendCommand.Node), "v1/outcome/aborted-new-branch"} {
+		defer tx.Abort()
+		for _, k := range []string{historyTreeKey(7, tree[:], branch[:]), testHistoryNodeKey(7, tree[:], branch[:], appendCommand.Node), "v1/outcome/aborted-new-branch"} {
 			v, e := get(tx, k)
 			if e != nil {
 				return nil, e
@@ -88,9 +87,9 @@ func TestGoOwnerHistoryRecovery(t *testing.T) {
 	if _, e = server.Execute(ctx, historyRequest("upsert", later)); e != nil {
 		t.Fatal(e)
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, o)
 	server = &HistoryServer{Owner: o}
 	replay, e := server.Execute(ctx, request)
 	if e != nil || !proto.Equal(replay, initial) {
@@ -104,8 +103,8 @@ func TestGoOwnerHistoryRecovery(t *testing.T) {
 	if e != nil || len(trees.Trees) != 1 || trees.Trees[0].Info.Data[0] != 8 {
 		t.Fatal(trees, e)
 	}
-	competitor := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, competitor)
+	competitor := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, competitor)
 	if _, e = server.Execute(ctx, request); status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced history replay", e)
 	}

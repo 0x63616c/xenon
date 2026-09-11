@@ -1,10 +1,9 @@
-//go:build slatedb
-
 package node
 
 import (
 	"context"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -12,18 +11,18 @@ import (
 )
 
 func TestGoOwnerOperationIDMigrationReplay(t *testing.T) {
-	objects := objects(t)
+	objects := memory.New()
 	path := "operation-id-compat"
-	first := owner(t, engine(t, objects, path, false))
+	first := memoryOwner(t, objects, path, "p")
 	old := request("723ef4ba-ea7b-4c25-8b7a-bf19074691f4", &wire.ShardCommand{Kind: wire.ShardCommand_CREATE_OR_GET, ShardId: 7, RangeId: 11, Data: []byte("legacy")})
 	original, err := first.Execute(context.Background(), old)
 	if err != nil {
-		closeOwner(t, first)
+		closeMemoryOwner(t, first)
 		t.Fatal(err)
 	}
-	closeOwner(t, first)
-	recovered := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, recovered)
+	closeMemoryOwner(t, first)
+	recovered := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, recovered)
 	replay, err := recovered.Execute(context.Background(), old)
 	if err != nil || !proto.Equal(original, replay) {
 		t.Fatal("legacy replay changed", replay, err)

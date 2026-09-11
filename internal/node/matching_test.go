@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -10,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/0x63616c/xenon/internal/temporal/adapter"
 	"github.com/google/uuid"
 	commonpb "go.temporal.io/api/common/v1"
@@ -57,8 +56,8 @@ func matchingReq(id string, c *wire.MatchingCommand) *wire.MatchingRequest {
 }
 func TestGoOwnerMatchingRPC(t *testing.T) {
 	f := matchingCase(t)
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-matching", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-matching", "p")
+	defer closeMemoryOwner(t, o)
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -183,9 +182,9 @@ func TestGoOwnerMatchingRPC(t *testing.T) {
 }
 func TestGoOwnerMatchingRecovery(t *testing.T) {
 	f := matchingCase(t)
-	objects := objects(t)
-	path := cfg(t).Prefix + "-matching-recovery"
-	o := owner(t, engine(t, objects, path, false))
+	objects := memory.New()
+	path := "memory" + "-matching-recovery"
+	o := memoryOwner(t, objects, path, "p")
 	s := &MatchingServer{Owner: o}
 	id := uuid.MustParse(f.Namespace)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -204,9 +203,9 @@ func TestGoOwnerMatchingRecovery(t *testing.T) {
 	if e != nil || taskResult.Error != 0 {
 		t.Fatal(taskResult, e)
 	}
-	closeOwner(t, o)
-	o = owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, o)
+	closeMemoryOwner(t, o)
+	o = memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, o)
 	s = &MatchingServer{Owner: o}
 	again, e := s.Execute(ctx, req)
 	if e != nil || !proto.Equal(first, again) {
@@ -236,8 +235,8 @@ func TestGoOwnerMatchingRecovery(t *testing.T) {
 		t.Fatal("changed identity", e)
 	}
 
-	competitor := owner(t, engine(t, objects, path, false))
-	defer closeOwner(t, competitor)
+	competitor := memoryOwner(t, objects, path, "p")
+	defer closeMemoryOwner(t, competitor)
 	deleteCommand := proto.Clone(req.Command).(*wire.MatchingCommand)
 	deleteCommand.Kind = wire.MatchingCommand_DELETE_QUEUE
 	if _, e = s.Execute(ctx, matchingReq("matching-fenced-delete", deleteCommand)); status.Code(e) != codes.Unavailable || !o.Quarantined() {
@@ -247,8 +246,8 @@ func TestGoOwnerMatchingRecovery(t *testing.T) {
 
 func TestGoOwnerMatchingBytePages(t *testing.T) {
 	f := matchingCase(t)
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-matching-bytes", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-matching-bytes", "p")
+	defer closeMemoryOwner(t, o)
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)

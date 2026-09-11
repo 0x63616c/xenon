@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -7,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"github.com/google/uuid"
 	enumspb "go.temporal.io/api/enums/v1"
 	enumsspb "go.temporal.io/server/api/enums/v1"
@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"os"
-	native "slatedb.io/slatedb-go/uniffi"
 	"testing"
 )
 
@@ -41,20 +40,20 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 		t.Fatal(e)
 	}
 	ctx := context.Background()
-	store := objects(t)
+	store := memory.New()
 	path := fixture.Prefix + "-recovery"
-	o := owner(t, engine(t, store, path, false))
+	o := memoryOwner(t, store, path, "p")
 	s := &ExecutionServer{Owner: o}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		if e = putHistory(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: fixture.Range}); e != nil {
+		defer tx.Abort()
+		if e = putMessage(tx, "v1/shard/0000000007", &wire.StoredShard{RangeId: fixture.Range}); e != nil {
 			return nil, e
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -93,17 +92,18 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r)
 	}
-	if value, err := o.db.Get([]byte("v1/ownership/read-barrier")); err != nil || value != nil {
+	barrier, err := o.writer.ReadDurable(ctx, partitions.ReadRequest{Keys: [][]byte{[]byte("v1/ownership/read-barrier")}})
+	if err != nil || len(barrier.Entries) != 1 || barrier.Entries[0].Value != nil {
 		t.Fatal("execution added a redundant post-root barrier", err)
 	}
 	// Both scheduled IDs persist separately; PostgreSQL microsecond truncation
 	// also applies for negative Unix seconds rather than rounding toward epoch.
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		for _, task := range first.Tasks {
 			b, e := get(tx, executionTaskKey(fixture.Shard, task))
 			if e != nil {
@@ -199,17 +199,17 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if r = call("task-rollback", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_SET, Snapshot: collision}); r.Error != wire.ExecutionResult_UNAVAILABLE || o.Quarantined() {
 		t.Fatal(r, o.Quarantined())
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
+		defer tx.Abort()
 		b, e := get(tx, executionTaskKey(fixture.Shard, fresh))
 		if e != nil || b != nil {
 			t.Fatal("partial task commit", b, e)
 		}
-		b, e = get(tx, historyNodeKey(fixture.Shard, tree[:], branch[:], failed.HistoryPrewrites[0].Node))
+		b, e = get(tx, testHistoryNodeKey(fixture.Shard, tree[:], branch[:], failed.HistoryPrewrites[0].Node))
 		if e != nil || b == nil {
 			t.Fatal("lost history prewrite", e)
 		}
@@ -223,16 +223,16 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if r = call("delete", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_DELETE, NamespaceId: first.NamespaceId, WorkflowId: first.WorkflowId, RunId: first.RunId}); r.Error != wire.ExecutionResult_NONE {
 		t.Fatal(r)
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		if e = tx.Delete([]byte(historyNodeKey(fixture.Shard, tree[:], branch[:], history.Node))); e != nil {
+		defer tx.Abort()
+		if e = tx.Delete([]byte(testHistoryNodeKey(fixture.Shard, tree[:], branch[:], history.Node))); e != nil {
 			return nil, backend(e)
 		}
-		return nil, commit(tx)
+		return nil, commitTest(db, tx)
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -240,7 +240,7 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if e = o.Close(ctx); e != nil {
 		t.Fatal(e)
 	}
-	o = owner(t, engine(t, store, path, false))
+	o = memoryOwner(t, store, path, "p")
 	o.config.Authority = func(context.Context) error { return nil }
 	s = &ExecutionServer{Owner: o}
 	if r = call("create", create); r.Error != wire.ExecutionResult_NONE {
@@ -252,17 +252,17 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if r = call("get-deleted", &wire.ExecutionCommand{Kind: wire.ExecutionCommand_GET, NamespaceId: first.NamespaceId, WorkflowId: first.WorkflowId, RunId: first.RunId}); r.Error != wire.ExecutionResult_NOT_FOUND {
 		t.Fatal(r)
 	}
-	_, e = o.Run(ctx, func(db *native.Db) ([]byte, error) {
-		tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+	_, e = o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+		tx, e := db.Begin(context.Background())
 		if e != nil {
 			return nil, backend(e)
 		}
-		defer tx.Destroy()
-		b, e := get(tx, historyNodeKey(fixture.Shard, tree[:], branch[:], history.Node))
+		defer tx.Abort()
+		b, e := get(tx, testHistoryNodeKey(fixture.Shard, tree[:], branch[:], history.Node))
 		if e != nil || b != nil {
 			t.Fatal("replayed prewrite resurrected", e)
 		}
-		b, e = get(tx, historyNodeKey(fixture.Shard, tree[:], branch[:], failed.HistoryPrewrites[0].Node))
+		b, e = get(tx, testHistoryNodeKey(fixture.Shard, tree[:], branch[:], failed.HistoryPrewrites[0].Node))
 		if e != nil || b == nil {
 			t.Fatal("failed-state history missing after reopen", e)
 		}
@@ -271,8 +271,8 @@ func TestGoOwnerExecutionRecovery(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	competitor := engine(t, store, path, false)
-	defer competitor.Destroy()
+	competitor := memoryWriter(t, store, path)
+	defer competitor.Close(context.Background())
 	_, e = s.Execute(ctx, executionRequest("create", create))
 	if status.Code(e) != codes.Unavailable || !o.Quarantined() {
 		t.Fatal("fenced replay", e, o.Quarantined())

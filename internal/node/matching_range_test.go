@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -7,13 +5,14 @@ import (
 	"context"
 	"encoding/binary"
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"math"
 	"testing"
 )
 
 func TestGoOwnerMatchingRangeSeek(t *testing.T) {
-	o := owner(t, engine(t, objects(t), cfg(t).Prefix+"-matching-seek", false))
-	defer closeOwner(t, o)
+	o := memoryOwner(t, memory.New(), "memory"+"-matching-seek", "p")
+	defer closeMemoryOwner(t, o)
 	s := &MatchingServer{Owner: o}
 	ctx := context.Background()
 	execute := func(id string, c *wire.MatchingCommand) *wire.MatchingResult {

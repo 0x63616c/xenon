@@ -1,5 +1,3 @@
-//go:build slatedb
-
 package node
 
 import (
@@ -11,12 +9,13 @@ import (
 	"testing"
 
 	wire "github.com/0x63616c/xenon/api/xenon/v1"
+	"github.com/0x63616c/xenon/internal/partitions"
+	"github.com/0x63616c/xenon/internal/partitions/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	native "slatedb.io/slatedb-go/uniffi"
 )
 
 // Both valid commands serialize to 08 01 10 01. A digest alone cannot identify
@@ -44,9 +43,9 @@ func TestGoOwnerCrossFamilyCollision(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			objects := objects(t)
-			path := cfg(t).Prefix + "-family-collision-" + name
-			o := owner(t, engine(t, objects, path, false))
+			objects := memory.New()
+			path := "memory" + "-family-collision-" + name
+			o := memoryOwner(t, objects, path, "p")
 			start := func(o *Owner) (wire.ShardPersistenceClient, wire.QueuePersistenceClient, func()) {
 				l, e := net.Listen("tcp", "127.0.0.1:0")
 				if e != nil {
@@ -98,12 +97,12 @@ func TestGoOwnerCrossFamilyCollision(t *testing.T) {
 			}
 			inspect := func(wantCount uint64, wantQueue bool) {
 				t.Helper()
-				_, e := o.Run(ctx, func(db *native.Db) ([]byte, error) {
-					tx, e := db.Begin(native.IsolationLevelSerializableSnapshot)
+				_, e := o.Run(ctx, func(db partitions.Writer) ([]byte, error) {
+					tx, e := db.Begin(context.Background())
 					if e != nil {
 						return nil, backend(e)
 					}
-					defer tx.Destroy()
+					defer tx.Abort()
 					b, e := get(tx, "v1/outcome_count")
 					if e != nil {
 						return nil, e
@@ -134,9 +133,9 @@ func TestGoOwnerCrossFamilyCollision(t *testing.T) {
 			}
 			inspect(1, queueFirst)
 			stop()
-			closeOwner(t, o)
-			o = owner(t, engine(t, objects, path, false))
-			defer closeOwner(t, o)
+			closeMemoryOwner(t, o)
+			o = memoryOwner(t, objects, path, "p")
+			defer closeMemoryOwner(t, o)
 			shards, queues, stop = start(o)
 			defer stop()
 			if e := second("same-id"); status.Code(e) != codes.InvalidArgument {
