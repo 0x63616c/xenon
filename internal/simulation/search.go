@@ -466,6 +466,7 @@ func (r *Runner) runCase(ctx context.Context, cfg SearchConfig, s Scenario, dir 
 	}
 	for _, done := range []<-chan error{pending, cleanupPending} {
 		if done != nil && joinPending(r.Clock, done, cleanupEnd.Sub(r.Clock.Now())) != nil {
+			detail.Cleaned = false
 			detail.Secondary = append(detail.Secondary, ErrPending.Error())
 			primary = errors.Join(primary, ErrPending)
 		}

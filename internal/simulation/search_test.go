@@ -639,3 +639,118 @@ func TestSettleReportingPreservesFailureAndRejectsRunCallback(t *testing.T) {
 		t.Fatalf("wrong receipt: %+v", detail)
 	}
 }
+
+// Observe timer installation so the test advances logical time only once drain
+// is actually waiting. The wall timeout below is solely a harness watchdog.
+type observedTimers struct {
+	*manualClock
+	created chan struct{}
+}
+
+func (c *observedTimers) NewTimer(d time.Duration) Timer {
+	timer := c.manualClock.NewTimer(d)
+	c.created <- struct{}{}
+	return timer
+}
+
+func TestSuccessfulCleanupCannotCertifyPendingRun(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	entered, release, exited := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	started := false
+	defer func() {
+		close(release)
+		if !started {
+			return
+		}
+		select {
+		case <-exited:
+		case <-time.After(3 * time.Second):
+			t.Error("released operation did not exit")
+		}
+	}()
+	clock := &observedTimers{manualClock: &manualClock{}, created: make(chan struct{}, 8)}
+	d := testDriver{run: func(context.Context, Scenario, func(json.RawMessage) error) error {
+		close(entered)
+		<-release // An admitted operation ignores cancellation and stays owned.
+		close(exited)
+		return nil
+	}, cleanup: func(context.Context) error { return nil }}
+	r := testRunner(t, d)
+	r.Clock = clock
+	gen := &testGenerator{}
+	done := make(chan error, 1)
+	go func() {
+		result, err := Search(ctx, searchConfig(), gen, r)
+		if result.Completed != 0 {
+			err = errors.New("pending operation counted as completed")
+		}
+		done <- err
+	}()
+	watchdog := time.NewTimer(3 * time.Second)
+	defer watchdog.Stop()
+	select {
+	case <-entered:
+		started = true
+	case err := <-done:
+		t.Fatalf("run never started: %v", err)
+	case <-watchdog.C:
+		t.Fatal("run admission timed out")
+	}
+	cancel()
+	// Generation, run, cleanup, then the pending run's drain timer.
+	for i := 0; i < 4; i++ {
+		select {
+		case <-clock.created:
+		case <-watchdog.C:
+			t.Fatal("drain timer not installed")
+		}
+	}
+	clock.advance(time.Second)
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrPending) || !errors.Is(err, context.Canceled) || gen.calls != 1 {
+			t.Fatal(err, gen.calls)
+		}
+	case <-watchdog.C:
+		t.Fatal("pending operation exceeded logical drain budget")
+	}
+	raw, err := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", "result.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result caseResult
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Cleaned || len(result.Secondary) == 0 {
+		t.Fatalf("pending operation falsely certified clean: %s", raw)
+	}
+}
+
+func TestCleanupCancellationCannotReplaceFirstFailureOutcome(t *testing.T) {
+	for _, secondary := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(secondary.Error(), func(t *testing.T) {
+			primary := errors.New("original workload failure")
+			r := testRunner(t, testDriver{
+				run:     func(context.Context, Scenario, func(json.RawMessage) error) error { return primary },
+				cleanup: func(context.Context) error { return secondary },
+			})
+			result, err := Search(context.Background(), searchConfig(), &testGenerator{}, r)
+			if !errors.Is(err, primary) || result.StopReason != "first_failure" || result.Completed != 0 {
+				t.Fatalf("cleanup replaced primary outcome: %+v %v", result, err)
+			}
+			raw, readErr := os.ReadFile(filepath.Join(r.Directory, "case-00000000000000000000", "result.json"))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			var detail caseResult
+			if decodeErr := json.Unmarshal(raw, &detail); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			if detail.FirstFailure != primary.Error() || len(detail.Secondary) != 1 || detail.Secondary[0] != secondary.Error() || detail.Cleaned {
+				t.Fatalf("lost primary/secondary distinction: %s", raw)
+			}
+		})
+	}
+}
