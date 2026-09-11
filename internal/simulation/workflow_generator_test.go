@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,7 +22,7 @@ func workflowTestBundle(t *testing.T) string {
 	tools := map[string][]byte{
 		"config": config, "worker": []byte("test-compatible-worker"),
 		"generator": []byte("#!/bin/sh\nprintf '%s' \"$3\"\n"),
-		"normalize": []byte("#!/bin/sh\ncat \"$1\" > \"$2\"\nprintf '{\"operations\":1,\"depth\":1}'\n"),
+		"normalize": []byte("#!/bin/sh\ncp \"$1\" \"$2\"\nif command -v sha256sum >/dev/null 2>&1; then digest=$(sha256sum \"$1\" | cut -d ' ' -f 1); else digest=$(shasum -a 256 \"$1\" | cut -d ' ' -f 1); fi\nprintf '{\"operations\":1,\"depth\":1,\"intent\":{\"schema\":1,\"input_sha256\":\"%s\",\"expanded_input\":{},\"nodes\":[{\"id\":\"root\",\"kind\":\"root\",\"input_sha256\":\"%s\",\"activities\":0,\"nexus_operations\":0}],\"counts\":{\"roots\":1,\"children\":0,\"continuations\":0,\"activities\":0,\"nexus_operations\":0,\"nexus_handlers\":0},\"max_fanout\":{\"children\":0,\"activities\":0,\"nexus\":0},\"limits\":{\"children\":2048,\"activities\":2048,\"nexus\":2048}}}' \"$digest\" \"$digest\"\n"),
 	}
 	bundle := WorkflowGeneratorBundle{Version: 1, OmesCommit: omesGeneratorCommit, APICommit: "d96bd55e87799e9f6a33a1c40a56cfa932566bdf", GeneratorSourceSHA256: "c6333d94427a7bc2b55731cfa9b4f9ff9b7145017ef816a1ae5c4a9ba5c220ca", CargoLockSHA256: "3924e08587393d264993a5dade6e894b620ff44619f15a8d6d2f46d9ee61809a", NormalizerSourceSHA256: "529a56005dafde138773d420cec66a631bb4caadef50427ba575d388f87f7a32", InspectorSourceSHA256: hash(workflowInspectorSource), CompatibilityOverlaySHA256: "cdb70939ac3a6f0449534421dd13579984c69fcb1c5b737c72d744a63b47bc09", WorkerSDK: "v1.48.0", WorkerSHA256: hash(tools["worker"]), Tools: map[string]WorkflowTool{}}
 	for name, raw := range tools {
@@ -86,6 +87,34 @@ func TestWorkflowGeneratorRejectsUnsupportedBeforeLaunch(t *testing.T) {
 	request.Limits.MaxDepth = 2
 	if _, err = generator.Next(context.Background(), request); err == nil {
 		t.Fatal("unsupported depth accepted")
+	}
+}
+
+func TestGeneratedWorkflowIntentRejectsTamperingAndLimitBypass(t *testing.T) {
+	raw := []byte("bound input")
+	valid, _ := testWorkflowIntent(raw)
+	for name, mutate := range map[string]func(*GeneratedWorkflowIntent){
+		"input binding":  func(v *GeneratedWorkflowIntent) { v.InputSHA256 = strings.Repeat("0", 64) },
+		"expanded input": func(v *GeneratedWorkflowIntent) { v.ExpandedInput = json.RawMessage(`{`) },
+		"effect count":   func(v *GeneratedWorkflowIntent) { v.Counts.Activities = 1 },
+		"effect limit":   func(v *GeneratedWorkflowIntent) { v.Counts.Children = v.Limits.Children + 1 },
+		"fanout limit":   func(v *GeneratedWorkflowIntent) { v.MaxFanout.Nexus = v.Limits.Nexus + 1 },
+		"missing edge":   func(v *GeneratedWorkflowIntent) { v.Nodes[0].Children = []string{"missing"} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			encoded, err := json.Marshal(valid)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var changed GeneratedWorkflowIntent
+			if err = json.Unmarshal(encoded, &changed); err != nil {
+				t.Fatal(err)
+			}
+			mutate(&changed)
+			if err = validateGeneratedIntent(changed, raw); err == nil {
+				t.Fatal("changed generated intent accepted")
+			}
+		})
 	}
 }
 func TestActualPreparedWorkflowGenerator(t *testing.T) {

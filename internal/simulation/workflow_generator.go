@@ -42,11 +42,60 @@ type WorkflowGeneratorBundle struct {
 	Tools                      map[string]WorkflowTool `json:"tools"`
 }
 type GeneratedWorkflow struct {
-	Input        []byte `json:"input"`
-	SHA256       string `json:"sha256"`
-	Operations   int    `json:"operations"`
-	Depth        int    `json:"depth"`
-	WorkloadSeed uint64 `json:"workload_seed"`
+	Input        []byte                  `json:"input"`
+	SHA256       string                  `json:"sha256"`
+	Operations   int                     `json:"operations"`
+	Depth        int                     `json:"depth"`
+	WorkloadSeed uint64                  `json:"workload_seed"`
+	Intent       GeneratedWorkflowIntent `json:"intent"`
+	IntentSHA256 string                  `json:"intent_sha256"`
+}
+
+// WorkflowEffectCounts keeps execution kinds separate. In particular, an async
+// Nexus operation contributes both an operation and a handler workflow.
+type WorkflowEffectCounts struct {
+	Roots           int `json:"roots"`
+	Children        int `json:"children"`
+	Continuations   int `json:"continuations"`
+	Activities      int `json:"activities"`
+	NexusOperations int `json:"nexus_operations"`
+	NexusHandlers   int `json:"nexus_handlers"`
+}
+
+type WorkflowFanout struct {
+	Children   int `json:"children"`
+	Activities int `json:"activities"`
+	Nexus      int `json:"nexus"`
+}
+
+// GeneratedWorkflowNode is a logical, pre-dispatch execution node. Runtime run
+// IDs are deliberately absent and are bound only by the independent history
+// checker. Empty Omes child workflow IDs therefore remain unambiguous.
+type GeneratedWorkflowNode struct {
+	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
+	Parent          string   `json:"parent,omitempty"`
+	Previous        string   `json:"previous,omitempty"`
+	InputSHA256     string   `json:"input_sha256"`
+	Children        []string `json:"children,omitempty"`
+	Next            string   `json:"next,omitempty"`
+	Activities      int      `json:"activities"`
+	NexusOperations int      `json:"nexus_operations"`
+	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
+}
+
+// GeneratedWorkflowIntent is emitted by the pinned generator-side inspector
+// from the exact normalized protobuf. ExpandedInput preserves the complete
+// action tree for the independent real-history oracle; Nodes is its execution
+// inventory and Counts/Limits make the three fan-out classes explicit.
+type GeneratedWorkflowIntent struct {
+	Schema        int                     `json:"schema"`
+	InputSHA256   string                  `json:"input_sha256"`
+	ExpandedInput json.RawMessage         `json:"expanded_input"`
+	Nodes         []GeneratedWorkflowNode `json:"nodes"`
+	Counts        WorkflowEffectCounts    `json:"counts"`
+	MaxFanout     WorkflowFanout          `json:"max_fanout"`
+	Limits        WorkflowFanout          `json:"limits"`
 }
 
 // WorkflowGenerator prepares fresh inputs only. It invokes pinned leaf generator
@@ -144,6 +193,95 @@ func workflowBounds(l WorkloadLimits) error {
 	}
 	return nil
 }
+
+var generatedWorkflowFanoutLimits = WorkflowFanout{Children: 2048, Activities: 2048, Nexus: 2048}
+
+func validateGeneratedIntent(intent GeneratedWorkflowIntent, input []byte) error {
+	if intent.Schema != 1 || intent.InputSHA256 != hash(input) || !json.Valid(intent.ExpandedInput) || intent.Limits != generatedWorkflowFanoutLimits {
+		return errors.New("invalid generated workflow intent binding")
+	}
+	if intent.Counts.Roots != 1 || intent.Counts.Children < 0 || intent.Counts.Continuations < 0 || intent.Counts.Activities < 0 || intent.Counts.NexusOperations < 0 || intent.Counts.NexusHandlers < 0 || intent.Counts.NexusHandlers > intent.Counts.NexusOperations ||
+		intent.Counts.Children > intent.Limits.Children || intent.Counts.Activities > intent.Limits.Activities || intent.Counts.NexusOperations > intent.Limits.Nexus ||
+		intent.MaxFanout.Children < 0 || intent.MaxFanout.Activities < 0 || intent.MaxFanout.Nexus < 0 || intent.MaxFanout.Children > intent.Counts.Children || intent.MaxFanout.Activities > intent.Counts.Activities || intent.MaxFanout.Nexus > intent.Counts.NexusOperations ||
+		intent.MaxFanout.Children > intent.Limits.Children || intent.MaxFanout.Activities > intent.Limits.Activities || intent.MaxFanout.Nexus > intent.Limits.Nexus {
+		return errors.New("generated workflow intent exceeds explicit limits")
+	}
+	if len(intent.Nodes) != intent.Counts.Roots+intent.Counts.Children+intent.Counts.Continuations+intent.Counts.NexusHandlers || len(intent.Nodes) > 1+3*2048 {
+		return errors.New("generated workflow intent inventory mismatch")
+	}
+	byID := make(map[string]GeneratedWorkflowNode, len(intent.Nodes))
+	observed := WorkflowEffectCounts{}
+	for _, node := range intent.Nodes {
+		if node.ID == "" || byID[node.ID].ID != "" || !digestPattern.MatchString(node.InputSHA256) || node.Activities < 0 || node.NexusOperations < 0 {
+			return errors.New("invalid generated workflow intent node")
+		}
+		byID[node.ID] = node
+		observed.Activities += node.Activities
+		observed.NexusOperations += node.NexusOperations
+		observed.NexusHandlers += len(node.NexusHandlers)
+		switch node.Kind {
+		case "root":
+			observed.Roots++
+		case "child":
+			observed.Children++
+		case "continuation":
+			observed.Continuations++
+		case "nexus-handler":
+		default:
+			return errors.New("invalid generated workflow intent node kind")
+		}
+	}
+	if observed != intent.Counts {
+		return errors.New("generated workflow intent counts mismatch")
+	}
+	for _, node := range intent.Nodes {
+		if node.Kind == "root" {
+			if node.Parent != "" || node.Previous != "" {
+				return errors.New("invalid generated workflow root")
+			}
+		} else if node.Kind == "continuation" {
+			previous, ok := byID[node.Previous]
+			if !ok || previous.Next != node.ID || node.Parent != previous.Parent {
+				return errors.New("invalid generated workflow continuation edge")
+			}
+		} else {
+			if _, ok := byID[node.Parent]; !ok {
+				return errors.New("invalid generated workflow parent edge")
+			}
+		}
+		for _, child := range append(append([]string(nil), node.Children...), node.NexusHandlers...) {
+			if target, ok := byID[child]; !ok || target.Parent != node.ID {
+				return errors.New("invalid generated workflow child edge")
+			}
+		}
+		if node.Next != "" {
+			if next, ok := byID[node.Next]; !ok || next.Previous != node.ID {
+				return errors.New("invalid generated workflow next edge")
+			}
+		}
+	}
+	seen := map[string]bool{}
+	var walk func(string) error
+	walk = func(id string) error {
+		if seen[id] {
+			return errors.New("cyclic generated workflow intent")
+		}
+		seen[id] = true
+		node := byID[id]
+		for _, next := range append(append(append([]string(nil), node.Children...), node.NexusHandlers...), node.Next) {
+			if next != "" {
+				if err := walk(next); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk("root"); err != nil || len(seen) != len(intent.Nodes) {
+		return errors.New("generated workflow intent is not one connected graph")
+	}
+	return nil
+}
 func (g *WorkflowGenerator) Next(ctx context.Context, r GenerateRequest) (Scenario, error) {
 	if err := workflowBounds(r.Limits); err != nil {
 		return Scenario{}, err
@@ -173,8 +311,9 @@ func (g *WorkflowGenerator) Next(ctx context.Context, r GenerateRequest) (Scenar
 		return Scenario{}, err
 	}
 	var measured struct {
-		Operations int `json:"operations"`
-		Depth      int `json:"depth"`
+		Operations int                     `json:"operations"`
+		Depth      int                     `json:"depth"`
+		Intent     GeneratedWorkflowIntent `json:"intent"`
 	}
 	if err = strictJSON(stats, &measured); err != nil {
 		return Scenario{}, err
@@ -186,10 +325,14 @@ func (g *WorkflowGenerator) Next(ctx context.Context, r GenerateRequest) (Scenar
 	if len(raw) == 0 || len(raw) > r.Limits.MaxPayloadBytes || measured.Operations < 1 || measured.Operations > r.Limits.MaxOperations || measured.Depth < 1 || measured.Depth > r.Limits.MaxDepth {
 		return Scenario{}, errors.New("generated input exceeds declared bounds")
 	}
+	if err = validateGeneratedIntent(measured.Intent, raw); err != nil {
+		return Scenario{}, err
+	}
 	if err = g.verify(); err != nil {
 		return Scenario{}, err
 	}
-	workload, _ := json.Marshal(GeneratedWorkflow{raw, hash(raw), measured.Operations, measured.Depth, r.WorkloadSeed})
+	intentRaw, _ := json.Marshal(measured.Intent)
+	workload, _ := json.Marshal(GeneratedWorkflow{Input: raw, SHA256: hash(raw), Operations: measured.Operations, Depth: measured.Depth, WorkloadSeed: r.WorkloadSeed, Intent: measured.Intent, IntentSHA256: hash(intentRaw)})
 	// The fault stream identity is retained separately, but this generator does
 	// not claim to generate/inject faults. A real schedule driver remains required.
 	faults, _ := json.Marshal(struct {
@@ -248,10 +391,11 @@ func (d *WorkflowPreparationDriver) Validate(s Scenario, l WorkloadLimits) error
 	if err := strictJSON(s.Workload, &input); err != nil {
 		return err
 	}
-	if len(input.Input) == 0 || len(input.Input) > l.MaxPayloadBytes || hash(input.Input) != input.SHA256 || input.Operations < 1 || input.Operations > l.MaxOperations || input.Depth < 1 || input.Depth > l.MaxDepth {
+	intentRaw, _ := json.Marshal(input.Intent)
+	if len(input.Input) == 0 || len(input.Input) > l.MaxPayloadBytes || hash(input.Input) != input.SHA256 || input.Operations < 1 || input.Operations > l.MaxOperations || input.Depth < 1 || input.Depth > l.MaxDepth || hash(intentRaw) != input.IntentSHA256 {
 		return errors.New("invalid saved workflow input bounds/hash")
 	}
-	return nil
+	return validateGeneratedIntent(input.Intent, input.Input)
 }
 func (d *WorkflowPreparationDriver) Run(ctx context.Context, s Scenario, emit func(json.RawMessage) error) error {
 	d.prepared = false

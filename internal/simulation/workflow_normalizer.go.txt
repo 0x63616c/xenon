@@ -3,35 +3,298 @@
 package main
 
 import (
- "encoding/json"
- "fmt"
- "os"
- pb "github.com/temporalio/omes/loadgen/kitchensink"
- common "go.temporal.io/api/common/v1"
- "google.golang.org/protobuf/proto"
- "google.golang.org/protobuf/reflect/protoreflect"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	pb "github.com/temporalio/omes/loadgen/kitchensink"
+	common "go.temporal.io/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"os"
 )
-func main(){
- normalizeMain()
- raw,err:=os.ReadFile(os.Args[2]);if err!=nil{panic(err)}
- if len(raw)==0||len(raw)>1<<20{panic("generated payload bound")}
- input:=new(pb.TestInput);if err=proto.Unmarshal(raw,input);err!=nil{panic(err)}
- operations,depth:=0,0
- var walk func(protoreflect.Message,int)error
- walk=func(m protoreflect.Message,d int)error{
-  if d>64{return fmt.Errorf("generated depth bound")};if d>depth{depth=d}
-  switch x:=m.Interface().(type){
-  case *pb.Action,*pb.ClientAction,*pb.WithStartClientAction:
-   operations++;if operations>2048{return fmt.Errorf("generated operation bound")}
-  case *common.Payload:
-   if string(x.Metadata["encoding"])=="binary/protobuf"&&string(x.Metadata["messageType"])=="temporal.omes.kitchen_sink.WorkflowInput"{
-    child:=new(pb.WorkflowInput);if err:=proto.Unmarshal(x.Data,child);err!=nil{return err}
-    return walk(child.ProtoReflect(),d+1)
-   }
-  }
-  return children(m,func(child protoreflect.Message)error{return walk(child,d+1)})
- }
- if err=walk(input.ProtoReflect(),1);err!=nil{panic(err)}
- if operations<1{panic("generated no operations")}
- if err=json.NewEncoder(os.Stdout).Encode(struct{Operations int `json:"operations"`;Depth int `json:"depth"`}{operations,depth});err!=nil{panic(err)}
+
+type intentCounts struct {
+	Roots           int `json:"roots"`
+	Children        int `json:"children"`
+	Continuations   int `json:"continuations"`
+	Activities      int `json:"activities"`
+	NexusOperations int `json:"nexus_operations"`
+	NexusHandlers   int `json:"nexus_handlers"`
+}
+type intentFanout struct {
+	Children   int `json:"children"`
+	Activities int `json:"activities"`
+	Nexus      int `json:"nexus"`
+}
+type intentNode struct {
+	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
+	Parent          string   `json:"parent,omitempty"`
+	Previous        string   `json:"previous,omitempty"`
+	InputSHA256     string   `json:"input_sha256"`
+	Children        []string `json:"children,omitempty"`
+	Next            string   `json:"next,omitempty"`
+	Activities      int      `json:"activities"`
+	NexusOperations int      `json:"nexus_operations"`
+	NexusHandlers   []string `json:"nexus_handlers,omitempty"`
+}
+type generatedIntent struct {
+	Schema        int             `json:"schema"`
+	InputSHA256   string          `json:"input_sha256"`
+	ExpandedInput json.RawMessage `json:"expanded_input"`
+	Nodes         []*intentNode   `json:"nodes"`
+	Counts        intentCounts    `json:"counts"`
+	MaxFanout     intentFanout    `json:"max_fanout"`
+	Limits        intentFanout    `json:"limits"`
+}
+
+func digestIntent(raw []byte) string { return fmt.Sprintf("%x", sha256.Sum256(raw)) }
+func marshalIntentMessage(m proto.Message) ([]byte, error) {
+	return proto.MarshalOptions{Deterministic: true}.Marshal(m)
+}
+
+type intentBuilder struct {
+	intent generatedIntent
+	serial int
+}
+
+func (b *intentBuilder) next(kind string) string {
+	b.serial++
+	return fmt.Sprintf("%s-%04d", kind, b.serial)
+}
+func (b *intentBuilder) addWorkflow(input *pb.WorkflowInput, id, kind, parent, previous string) (*intentNode, error) {
+	raw, e := marshalIntentMessage(input)
+	if e != nil {
+		return nil, e
+	}
+	n := &intentNode{ID: id, Kind: kind, Parent: parent, Previous: previous, InputSHA256: digestIntent(raw)}
+	b.intent.Nodes = append(b.intent.Nodes, n)
+	switch kind {
+	case "root":
+		b.intent.Counts.Roots++
+	case "child":
+		b.intent.Counts.Children++
+	case "continuation":
+		b.intent.Counts.Continuations++
+	}
+	for _, set := range input.InitialActions {
+		if e = b.actions(n, set); e != nil {
+			return nil, e
+		}
+	}
+	return n, nil
+}
+func maxIntent(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+func (b *intentBuilder) actions(n *intentNode, set *pb.ActionSet) error {
+	local := intentFanout{}
+	for _, action := range set.Actions {
+		before := intentCounts{Children: b.intent.Counts.Children, Activities: b.intent.Counts.Activities, NexusOperations: b.intent.Counts.NexusOperations}
+		if e := b.action(n, action); e != nil {
+			return e
+		}
+		local.Children += b.intent.Counts.Children - before.Children
+		local.Activities += b.intent.Counts.Activities - before.Activities
+		local.Nexus += b.intent.Counts.NexusOperations - before.NexusOperations
+	}
+	b.intent.MaxFanout.Children = maxIntent(b.intent.MaxFanout.Children, local.Children)
+	b.intent.MaxFanout.Activities = maxIntent(b.intent.MaxFanout.Activities, local.Activities)
+	b.intent.MaxFanout.Nexus = maxIntent(b.intent.MaxFanout.Nexus, local.Nexus)
+	return nil
+}
+func workflowIntentPayload(p *common.Payload) (*pb.WorkflowInput, error) {
+	if p == nil || string(p.Metadata["encoding"]) != "binary/protobuf" || string(p.Metadata["messageType"]) != "temporal.omes.kitchen_sink.WorkflowInput" {
+		return nil, fmt.Errorf("generated intent workflow payload")
+	}
+	w := new(pb.WorkflowInput)
+	if e := proto.Unmarshal(p.Data, w); e != nil {
+		return nil, e
+	}
+	return w, nil
+}
+func (b *intentBuilder) action(n *intentNode, a *pb.Action) error {
+	if a == nil || a.Variant == nil {
+		return fmt.Errorf("generated intent empty action")
+	}
+	switch x := a.Variant.(type) {
+	case *pb.Action_ExecActivity:
+		n.Activities++
+		b.intent.Counts.Activities++
+		if client := x.ExecActivity.GetClient(); client != nil && client.ClientSequence != nil {
+			return b.messageActions(n, client.ClientSequence.ProtoReflect())
+		}
+	case *pb.Action_ExecChildWorkflow:
+		if len(x.ExecChildWorkflow.Input) != 1 {
+			return fmt.Errorf("generated intent child input")
+		}
+		input, e := workflowIntentPayload(x.ExecChildWorkflow.Input[0])
+		if e != nil {
+			return e
+		}
+		id := b.next("child")
+		n.Children = append(n.Children, id)
+		_, e = b.addWorkflow(input, id, "child", n.ID, "")
+		return e
+	case *pb.Action_ContinueAsNew:
+		if len(x.ContinueAsNew.Arguments) != 1 || n.Next != "" {
+			return fmt.Errorf("generated intent continuation")
+		}
+		input, e := workflowIntentPayload(x.ContinueAsNew.Arguments[0])
+		if e != nil {
+			return e
+		}
+		id := b.next("continuation")
+		n.Next = id
+		_, e = b.addWorkflow(input, id, "continuation", n.Parent, n.ID)
+		return e
+	case *pb.Action_NestedActionSet:
+		return b.actions(n, x.NestedActionSet)
+	case *pb.Action_SetPatchMarker:
+		if x.SetPatchMarker.InnerAction == nil {
+			return fmt.Errorf("generated intent patch action")
+		}
+		return b.action(n, x.SetPatchMarker.InnerAction)
+	case *pb.Action_NexusOperation:
+		n.NexusOperations++
+		b.intent.Counts.NexusOperations++
+		if x.NexusOperation.Operation == "echo-async" {
+			id := b.next("nexus-handler")
+			n.NexusHandlers = append(n.NexusHandlers, id)
+			raw, e := marshalIntentMessage(x.NexusOperation)
+			if e != nil {
+				return e
+			}
+			h := &intentNode{ID: id, Kind: "nexus-handler", Parent: n.ID, InputSHA256: digestIntent(raw)}
+			b.intent.Nodes = append(b.intent.Nodes, h)
+			b.intent.Counts.NexusHandlers++
+			for _, set := range x.NexusOperation.BeforeActions {
+				if e = b.actions(h, set); e != nil {
+					return e
+				}
+			}
+		} else if x.NexusOperation.Operation != "echo-sync" {
+			return fmt.Errorf("generated intent nexus operation")
+		}
+	}
+	return nil
+}
+func (b *intentBuilder) messageActions(n *intentNode, m protoreflect.Message) error {
+	if !m.IsValid() {
+		return nil
+	}
+	switch x := m.Interface().(type) {
+	case *pb.ActionSet:
+		return b.actions(n, x)
+	case *common.Payload:
+		return nil
+	}
+	return children(m, func(child protoreflect.Message) error { return b.messageActions(n, child) })
+}
+func deriveGeneratedIntent(x *pb.TestInput, raw []byte) (generatedIntent, error) {
+	expanded, e := protojson.MarshalOptions{UseProtoNames: true}.Marshal(x)
+	if e != nil {
+		return generatedIntent{}, e
+	}
+	b := &intentBuilder{intent: generatedIntent{Schema: 1, InputSHA256: digestIntent(raw), ExpandedInput: expanded, Limits: intentFanout{2048, 2048, 2048}}}
+	root, e := b.addWorkflow(x.WorkflowInput, "root", "root", "", "")
+	if e != nil {
+		return generatedIntent{}, e
+	}
+	if x.WithStartAction != nil {
+		if e = b.messageActions(root, x.WithStartAction.ProtoReflect()); e != nil {
+			return generatedIntent{}, e
+		}
+	}
+	current := root
+	for _, set := range x.GetClientSequence().GetActionSets() {
+		_, can, boundaryError := boundary(set)
+		if boundaryError != nil {
+			return generatedIntent{}, boundaryError
+		}
+		if can != nil {
+			a := &pb.Action{Variant: &pb.Action_ContinueAsNew{ContinueAsNew: can}}
+			if e = b.action(current, a); e != nil {
+				return generatedIntent{}, e
+			}
+			nextID := current.Next
+			var next *intentNode
+			for _, candidate := range b.intent.Nodes {
+				if candidate.ID == nextID {
+					next = candidate
+					break
+				}
+			}
+			if next == nil || next.Kind != "continuation" {
+				return generatedIntent{}, fmt.Errorf("generated intent continuation binding")
+			}
+			current = next
+			continue
+		}
+		if e = b.messageActions(current, set.ProtoReflect()); e != nil {
+			return generatedIntent{}, e
+		}
+	}
+	return b.intent, nil
+}
+func main() {
+	normalizeMain()
+	raw, err := os.ReadFile(os.Args[2])
+	if err != nil {
+		panic(err)
+	}
+	if len(raw) == 0 || len(raw) > 1<<20 {
+		panic("generated payload bound")
+	}
+	input := new(pb.TestInput)
+	if err = proto.Unmarshal(raw, input); err != nil {
+		panic(err)
+	}
+	operations, depth := 0, 0
+	var walk func(protoreflect.Message, int) error
+	walk = func(m protoreflect.Message, d int) error {
+		if d > 64 {
+			return fmt.Errorf("generated depth bound")
+		}
+		if d > depth {
+			depth = d
+		}
+		switch x := m.Interface().(type) {
+		case *pb.Action, *pb.ClientAction, *pb.WithStartClientAction:
+			operations++
+			if operations > 2048 {
+				return fmt.Errorf("generated operation bound")
+			}
+		case *common.Payload:
+			if string(x.Metadata["encoding"]) == "binary/protobuf" && string(x.Metadata["messageType"]) == "temporal.omes.kitchen_sink.WorkflowInput" {
+				child := new(pb.WorkflowInput)
+				if err := proto.Unmarshal(x.Data, child); err != nil {
+					return err
+				}
+				return walk(child.ProtoReflect(), d+1)
+			}
+		}
+		return children(m, func(child protoreflect.Message) error { return walk(child, d+1) })
+	}
+	if err = walk(input.ProtoReflect(), 1); err != nil {
+		panic(err)
+	}
+	if operations < 1 {
+		panic("generated no operations")
+	}
+	intent, err := deriveGeneratedIntent(input, raw)
+	if err != nil {
+		panic(err)
+	}
+	if err = json.NewEncoder(os.Stdout).Encode(struct {
+		Operations int             `json:"operations"`
+		Depth      int             `json:"depth"`
+		Intent     generatedIntent `json:"intent"`
+	}{operations, depth, intent}); err != nil {
+		panic(err)
+	}
 }

@@ -30,6 +30,9 @@ func (r *residentControl) Execute(_ context.Context, _ ResidentTopology, input, 
 	if _, e = os.Stat(filepath.Join(path, "binding.json")); e != nil {
 		return e
 	}
+	if _, e = os.Stat(filepath.Join(path, "intent.json")); e != nil {
+		return e
+	}
 	r.inputs = append(r.inputs, raw)
 	return nil
 }
@@ -47,9 +50,15 @@ type residentInputControl struct{}
 func (residentInputControl) Info() GeneratorInfo {
 	return GeneratorInfo{"test-only", strings.Repeat("a", 64), []string{WorkflowInputKind}}
 }
+func testWorkflowIntent(raw []byte) (GeneratedWorkflowIntent, string) {
+	intent := GeneratedWorkflowIntent{Schema: 1, InputSHA256: hash(raw), ExpandedInput: json.RawMessage(`{}`), Nodes: []GeneratedWorkflowNode{{ID: "root", Kind: "root", InputSHA256: hash(raw)}}, Counts: WorkflowEffectCounts{Roots: 1}, Limits: generatedWorkflowFanoutLimits}
+	encoded, _ := json.Marshal(intent)
+	return intent, hash(encoded)
+}
 func (residentInputControl) Next(_ context.Context, r GenerateRequest) (Scenario, error) {
 	raw := []byte("test control, not upstream protobuf")
-	input, _ := json.Marshal(GeneratedWorkflow{Input: raw, SHA256: hash(raw), Operations: 1, Depth: 1, WorkloadSeed: r.WorkloadSeed})
+	intent, intentHash := testWorkflowIntent(raw)
+	input, _ := json.Marshal(GeneratedWorkflow{Input: raw, SHA256: hash(raw), Operations: 1, Depth: 1, WorkloadSeed: r.WorkloadSeed, Intent: intent, IntentSHA256: intentHash})
 	return Scenario{Version: 1, Kind: WorkflowInputKind, Workload: input, Faults: []byte(`{"seed":1,"mode":"none; fault exploration not implemented"}`)}, nil
 }
 func residentTestConfig() SearchConfig {

@@ -173,9 +173,16 @@ func (d *ResidentWorkflowDriver) Run(ctx context.Context, s Scenario, emit func(
 	if e := strictJSON(s.Workload, &input); e != nil {
 		return e
 	}
+	intentRaw, _ := json.Marshal(input.Intent)
+	if hash(intentRaw) != input.IntentSHA256 {
+		return errors.New("generated workflow intent changed before dispatch")
+	}
 	// The shared envelope is already fsynced by Runner. Save the exact executable
-	// protobuf and binding before any tool or network action too.
+	// protobuf, derived intent and binding before any tool or network action too.
 	if e := save(filepath.Join(path, "binding.json"), t); e != nil {
+		return e
+	}
+	if e := save(filepath.Join(path, "intent.json"), map[string]any{"schema": 1, "input_sha256": input.SHA256, "intent_sha256": input.IntentSHA256, "intent": input.Intent}); e != nil {
 		return e
 	}
 	f, e := os.OpenFile(filepath.Join(path, "input.proto"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
