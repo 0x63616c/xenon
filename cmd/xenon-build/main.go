@@ -114,7 +114,7 @@ func build(ctx context.Context, root string) error {
 	if err != nil {
 		return err
 	}
-	binaryFingerprint, err := sourceFingerprint(root, nativeSHA)
+	binaryFingerprint, err := sourceFingerprint(ctx, root, env, nativeSHA)
 	if err != nil {
 		return err
 	}
@@ -298,23 +298,48 @@ func nativeLibraryName() string {
 	}
 	return "libslatedb_uniffi.unsupported"
 }
-func sourceFingerprint(root, nativeSHA string) (string, error) {
-	var paths []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(root, path)
-		if d.IsDir() && (rel == ".git" || rel == ".local" || strings.HasPrefix(rel, "website/node_modules")) {
-			return filepath.SkipDir
-		}
-		if !d.IsDir() && ((strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")) || rel == "go.mod" || rel == "go.sum" || rel == "tools/slatedb-native.json") {
-			paths = append(paths, rel)
-		}
-		return nil
-	})
+func sourceFingerprint(ctx context.Context, root string, env []string, nativeSHA string) (string, error) {
+	root, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", err
+	}
+	// Let Go resolve build constraints and embed patterns (including directories,
+	// globs and all:), using the same production tag and environment as the build.
+	raw, err := output(ctx, root, env, "go", "list", "-deps", "-tags=slatedb", "-json=Dir,GoFiles,CgoFiles,CFiles,CXXFiles,MFiles,HFiles,FFiles,SFiles,SwigFiles,SwigCXXFiles,SysoFiles,EmbedFiles", "./cmd/xenon")
+	if err != nil {
+		return "", err
+	}
+	inputs := map[string]bool{"go.mod": true, "go.sum": true, "tools/slatedb-native.json": true}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	for {
+		var pkg struct {
+			Dir string
+
+			GoFiles, CgoFiles, CFiles, CXXFiles, MFiles, HFiles, FFiles, SFiles, SwigFiles, SwigCXXFiles, SysoFiles, EmbedFiles []string
+		}
+		if err := decoder.Decode(&pkg); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return "", err
+		}
+		rel, err := filepath.Rel(root, pkg.Dir)
+		if err != nil {
+			return "", err
+		}
+		// Dependency modules are immutable and bound by go.mod/go.sum. Hash
+		// working-tree inputs, including files embedded from local packages.
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		for _, files := range [][]string{pkg.GoFiles, pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.MFiles, pkg.HFiles, pkg.FFiles, pkg.SFiles, pkg.SwigFiles, pkg.SwigCXXFiles, pkg.SysoFiles, pkg.EmbedFiles} {
+			for _, name := range files {
+				inputs[filepath.Join(rel, name)] = true
+			}
+		}
+	}
+	paths := make([]string, 0, len(inputs))
+	for path := range inputs {
+		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 	return hashFiles([]byte(nativeSHA), root, paths)

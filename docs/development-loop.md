@@ -28,6 +28,27 @@ Race detection is a separate check:
 go test -race ./...
 ```
 
+DST JSON receipts include elapsed wall time, seed/case count, OS/architecture,
+Go version, CPU count, GOMAXPROCS and source provenance. Wall time is observational;
+virtual time still controls the simulation. To retain a receipt, redirect stdout.
+
+The separate performance gate compiles the CLI without race instrumentation,
+warms each profile once, then checks the median of three complete command runs:
+strictly under 10 seconds for the default run and 30 seconds for 1,000 cases.
+Compilation is excluded. Ordinary correctness tests have no speed assertions.
+
+```sh
+GOMAXPROCS=2 XENON_DST_PERFORMANCE=1 \
+  XENON_DST_PERFORMANCE_RECEIPT="$PWD/.local/evidence/dst-performance.json" \
+  go test ./cmd/xenon -run '^TestDSTPerformance$' -count=1 -v -timeout=8m
+```
+
+CI runs this as the dedicated `dst-performance` job on Ubuntu 24.04 with Go
+1.27.1 and GOMAXPROCS=2. The report retains all measured samples, command arguments,
+limits, environment/source receipts and the compiled binary hash, including when
+a timing limit fails. The development reference is an Apple M2 Pro running
+macOS/arm64, Go 1.27.1 and GOMAXPROCS=2; each receipt records actual runtime values.
+
 ## Choose the smallest test
 
 Use ordinary Go tests for local invariants. Use DST for ownership, routing,

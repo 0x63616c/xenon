@@ -90,3 +90,44 @@ func TestCargoConfigPreflightFindsAncestor(t *testing.T) {
 		t.Fatalf("ancestor config not found: %v", found)
 	}
 }
+
+func TestSourceFingerprintIncludesResolvedEmbeddedInputs(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"go.mod":                    "module example.test/fixture\n\ngo 1.26.4\n",
+		"go.sum":                    "",
+		"tools/slatedb-native.json": "{}",
+		"cmd/xenon/main.go": `package main
+import _ "embed"
+//go:embed assets
+var data string
+func main() { println(data) }
+`,
+		"cmd/xenon/assets/workflow_normalizer.go.txt": "original embedded executable",
+	}
+	for name, data := range files {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fingerprint := func() string {
+		t.Helper()
+		value, err := sourceFingerprint(t.Context(), root, os.Environ(), "native")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	before := fingerprint()
+	path := filepath.Join(root, "cmd/xenon/assets/workflow_normalizer.go.txt")
+	if err := os.WriteFile(path, []byte("changed embedded executable"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint() == before {
+		t.Fatal("embedded non-Go input did not invalidate the binary cache")
+	}
+}

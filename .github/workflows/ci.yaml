@@ -9,6 +9,30 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  dst-performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Check compiled DST command performance
+        run: go test ./cmd/xenon -run '^TestDSTPerformance$' -count=1 -v -timeout=8m
+        env:
+          GOMAXPROCS: '2'
+          XENON_DST_PERFORMANCE: '1'
+          XENON_DST_PERFORMANCE_RECEIPT: ${{ github.workspace }}/.local/evidence/dst-performance.json
+      - name: Retain DST timing and environment receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dst-performance-evidence
+          path: .local/evidence/dst-performance.json
+          include-hidden-files: true
+          if-no-files-found: error
+
   unified-agent:
     runs-on: ubuntu-24.04
     timeout-minutes: 25

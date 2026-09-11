@@ -107,9 +107,10 @@ type SearchConfig struct {
 	Limits        WorkloadLimits `json:"limits"`
 }
 type RunResult struct {
-	Completed    uint64 `json:"completed"`
-	StopReason   string `json:"stop_reason"`
-	EvidencePath string `json:"evidence_path"`
+	Measurement  *DSTMeasurement `json:"measurement,omitempty"`
+	Completed    uint64          `json:"completed"`
+	StopReason   string          `json:"stop_reason"`
+	EvidencePath string          `json:"evidence_path"`
 }
 type artifact struct {
 	Version          int             `json:"version"`

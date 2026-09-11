@@ -3,13 +3,20 @@ package simulation
 import (
 	"context"
 	"errors"
+	"runtime"
 	"time"
 )
 
 // RunDST explores code-authored schedules in memory. Disk is touched only when
 // retaining the first reproducible failure, keeping the ordinary loop fast.
-func RunDST(ctx context.Context, seed, cases uint64, evidence string, provenance Provenance, clock Clock) (RunResult, error) {
-	result := RunResult{StopReason: "completed"}
+func RunDST(ctx context.Context, seed, cases uint64, evidence string, provenance Provenance, clock Clock) (result RunResult, resultErr error) {
+	started := time.Now()
+	measurement := &DSTMeasurement{Seed: seed, Cases: cases, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Go: runtime.Version(), CPUs: runtime.NumCPU(), GOMAXPROCS: runtime.GOMAXPROCS(0), Provenance: provenance}
+	defer func() {
+		measurement.ElapsedNS = time.Since(started).Nanoseconds()
+		result.Measurement = measurement
+	}()
+	result.StopReason = "completed"
 	if ctx == nil || cases == 0 || evidence == "" || clock == nil {
 		return result, errors.New("invalid DST run")
 	}
@@ -55,4 +62,19 @@ type fixedDSTGenerator struct {
 func (g *fixedDSTGenerator) Info() GeneratorInfo { return g.info }
 func (g *fixedDSTGenerator) Next(context.Context, GenerateRequest) (Scenario, error) {
 	return cloneScenario(g.scenario), nil
+}
+
+// DSTMeasurement reports wall time separately from virtual simulation time.
+// Correctness never depends on this measurement; the dedicated performance
+// check applies aggregate timing limits outside the simulation.
+type DSTMeasurement struct {
+	ElapsedNS  int64      `json:"elapsed_ns"`
+	Seed       uint64     `json:"seed"`
+	Cases      uint64     `json:"cases"`
+	GOOS       string     `json:"goos"`
+	GOARCH     string     `json:"goarch"`
+	Go         string     `json:"go"`
+	CPUs       int        `json:"cpus"`
+	GOMAXPROCS int        `json:"gomaxprocs"`
+	Provenance Provenance `json:"provenance"`
 }

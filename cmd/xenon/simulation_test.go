@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -217,6 +218,10 @@ func TestDSTCommandUsesCodeScenarioAndCleansPassingEvidence(t *testing.T) {
 	code, out, diagnostics := runSimulationCLI(t, t.Context(), "test", "dst", "--seed", "42", "--cases", "3")
 	if code != 0 || diagnostics != "" || out.Mode != "go-dst" || out.Result.Completed != 3 || out.Result.StopReason != "completed" {
 		t.Fatalf("dst: code=%d output=%+v diagnostics=%q", code, out, diagnostics)
+	}
+	m := out.Result.Measurement
+	if m == nil || m.ElapsedNS <= 0 || m.Seed != 42 || m.Cases != 3 || m.GOOS != runtime.GOOS || m.GOARCH != runtime.GOARCH || m.Go != runtime.Version() || m.CPUs < 1 || m.GOMAXPROCS < 1 || m.Provenance.Source == "" {
+		t.Fatalf("missing DST measurement: %+v", m)
 	}
 	if out.Result.EvidencePath != "" {
 		t.Fatalf("passing temporary evidence leaked through CLI: %q", out.Result.EvidencePath)
