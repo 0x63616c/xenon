@@ -13,7 +13,6 @@ import (
 
 	"github.com/0x63616c/xenon/internal/app"
 	"github.com/0x63616c/xenon/internal/buildinfo"
-	"github.com/spf13/cobra"
 )
 
 type forbiddenInput struct{ t *testing.T }
@@ -77,36 +76,6 @@ func TestLightweightCommandsNeverStartBackend(t *testing.T) {
 			}
 			if len(args) > 0 && args[0] == "check-config" && out.String() != "XENON_CONFIG_VALID\n" {
 				t.Fatal(&out)
-			}
-		})
-	}
-}
-
-func TestEveryCommandHelpPathIsSideEffectFree(t *testing.T) {
-	root := newCommand(forbiddenInput{t}, io.Discard, io.Discard,
-		func(context.Context, app.Config) error { t.Fatal("help started backend"); return nil })
-	var paths [][]string
-	var walk func(*cobra.Command, []string)
-	walk = func(command *cobra.Command, parent []string) {
-		for _, child := range command.Commands() {
-			path := append(append([]string(nil), parent...), child.Name())
-			paths = append(paths, path)
-			walk(child, path)
-		}
-	}
-	walk(root, nil)
-	if len(paths) == 0 {
-		t.Fatal("no command help paths discovered")
-	}
-	for _, path := range paths {
-		path := path
-		t.Run(strings.Join(path, " "), func(t *testing.T) {
-			var out, diagnostics bytes.Buffer
-			args := append(append([]string(nil), path...), "--help")
-			code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics,
-				func(context.Context, app.Config) error { t.Fatal("help started backend"); return nil })
-			if code != 0 || out.Len() == 0 || diagnostics.Len() != 0 {
-				t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
 			}
 		})
 	}

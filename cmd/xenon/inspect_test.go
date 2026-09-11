@@ -111,12 +111,15 @@ func TestEveryCommandHelpIsPassive(t *testing.T) {
 		}
 	}
 	walk(root, nil)
+	if len(paths) < 2 {
+		t.Fatal("command tree was not initialized")
+	}
 	for _, args := range paths {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			var out, diagnostics bytes.Buffer
 			code := execute(context.Background(), args, forbiddenInput{t}, &out, &diagnostics, func(context.Context, app.Config) error { t.Fatal("backend started"); return nil })
 			if code != 0 || out.Len() == 0 || diagnostics.Len() != 0 {
-				t.Fatal(code, &out, &diagnostics)
+				t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &diagnostics)
 			}
 		})
 	}
