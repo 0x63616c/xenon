@@ -130,7 +130,6 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	trafficDone := make(chan struct{})
 	var trafficErr error
 	var movedWrite bool
-	defer func() { stopTraffic(); <-trafficDone }()
 	go func() {
 		defer close(trafficDone)
 		// Retry an uncertain write with the identical identity and digest. Bound
