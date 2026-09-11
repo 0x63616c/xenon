@@ -30,7 +30,7 @@ func TestMultiNodeOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Assertions) != 6 {
+	if len(result.Assertions) != 8 {
 		t.Fatalf("incomplete assertion census: %+v", result)
 	}
 	t.Logf("%s passed in %s: %v", result.Name, result.Duration, result.Assertions)

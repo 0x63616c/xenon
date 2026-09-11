@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -26,11 +25,15 @@ import (
 	"github.com/0x63616c/xenon/internal/identity"
 	"github.com/0x63616c/xenon/internal/registry"
 	registrys3 "github.com/0x63616c/xenon/internal/registry/s3"
+	"github.com/0x63616c/xenon/internal/routing"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -119,17 +122,36 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	if err != nil {
 		return result, err
 	}
-	if err = clusterList(ctx, configs[0].Address(8), 1); err != nil {
-		return result, fmt.Errorf("initial operation: %w", err)
+	acknowledged := []*wire.QueueRequest{queueWrite(1)}
+	if err = enqueueRecord(ctx, configs[0].Address(8), acknowledged[0]); err != nil {
+		return result, fmt.Errorf("initial write: %w", err)
 	}
 	traffic, stopTraffic := context.WithCancel(ctx)
-	var progress atomic.Uint64
 	trafficDone := make(chan struct{})
+	var trafficErr error
+	var movedWrite bool
+	defer func() { stopTraffic(); <-trafficDone }()
 	go func() {
 		defer close(trafficDone)
-		for ordinal := 100; traffic.Err() == nil; ordinal++ {
-			if clusterList(traffic, configs[0].Address(8), ordinal) == nil {
-				progress.Add(1)
+		// Retry an uncertain write with the identical identity and digest. Bound
+		// the corpus so final reads remain a small correspondence check.
+		for ordinal := 100; traffic.Err() == nil && ordinal < 108; {
+			// Observe the production assignment before sending so an acknowledgement
+			// from the initial single-node phase alone cannot satisfy movement.
+			revision := uint64(0)
+			if record, readErr := store.Read(traffic, "cluster/control"); readErr == nil {
+				if snapshot, decodeErr := cluster.DecodeControl("cluster/control", record, 1<<20); decodeErr == nil {
+					revision = snapshot.Control().AssignmentRevision
+				}
+			}
+			request := queueWrite(ordinal)
+			if writeErr := enqueueRecord(traffic, configs[0].Address(8), request); writeErr == nil {
+				acknowledged = append(acknowledged, request)
+				movedWrite = movedWrite || revision > initial.AssignmentRevision
+				ordinal++
+			} else if traffic.Err() == nil && status.Code(writeErr) != codes.Unavailable && status.Code(writeErr) != codes.DeadlineExceeded {
+				trafficErr = writeErr
+				return
 			}
 			select {
 			case <-traffic.Done():
@@ -188,61 +210,111 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	if err != nil {
 		return result, fmt.Errorf("ownership movement: %w", err)
 	}
-	if progress.Load() == 0 {
-		return result, errors.New("no operation completed while nodes joined and ownership moved")
+	if trafficErr != nil {
+		return result, fmt.Errorf("write traffic failed: %w", trafficErr)
 	}
-	// Node 1 is deliberately stale ingress after movement. A successful operation
-	// and observed forward prove bounded refresh/forwarding through production gRPC.
-	if err = clusterList(ctx, configs[0].Address(8), 2); err != nil {
-		return result, fmt.Errorf("forward after movement: %w", err)
+	if len(acknowledged) <= 1 || !movedWrite {
+		return result, errors.New("no write acknowledged while nodes joined and ownership moved")
 	}
-	if err = waitMetric(ctx, configs[0].DiagnosticsAddress, `kind="forward"`); err != nil {
+	// Exercise every ingress with a durable write after the final placement.
+	for i := range configs {
+		request := queueWrite(10 + i)
+		if err = enqueueRecord(ctx, configs[i].Address(8), request); err != nil {
+			return result, fmt.Errorf("write through node %d: %w", i+1, err)
+		}
+		acknowledged = append(acknowledged, request)
+	}
+	physical, _ := moved.Layout.Resolve("global")
+	old := moved.Partitions[physical.ID]
+	ownerIndex, ingressIndex := -1, 0
+	for i := range configs {
+		if configs[i].ServiceStorage.NodeID == old.Desired.Node {
+			ownerIndex = i
+		}
+	}
+	if ownerIndex < 0 || old.Desired.Node == initial.Partitions[physical.ID].Desired.Node {
+		return result, errors.New("global write partition did not move to a known node")
+	}
+	if ownerIndex == ingressIndex {
+		ingressIndex = 1
+	}
+	ingress := configs[ingressIndex].Address(8)
+	if err = waitMetric(ctx, configs[ingressIndex].DiagnosticsAddress, `kind="forward"`); err != nil {
 		return result, err
 	}
-
-	oldIncarnation := moved.Partitions[moved.Layout.Partitions[0].ID].Desired.Incarnation
-	if err = processes[1].kill(); err != nil {
+	if err = processes[ownerIndex].kill(); err != nil {
 		return result, err
 	}
-	processes[1] = nil
-	// Before suspicion can publish takeover, ingress still resolves the killed
-	// owner. The failed request must exercise the bounded refresh attempt; it is
-	// not itself allowed to wait indefinitely for a topology change.
+	processes[ownerIndex] = nil
+	// The failed in-flight attempt has an uncertain outcome. Keep its exact
+	// envelope for reconciliation once takeover has completed.
+	pending := queueWrite(20)
 	staleCall, stopStaleCall := context.WithTimeout(ctx, 2*time.Second)
-	_ = clusterList(staleCall, configs[0].Address(8), 3)
+	pendingErr := enqueueRecord(staleCall, ingress, pending)
 	stopStaleCall()
-	if err = waitMetric(ctx, configs[0].DiagnosticsAddress, `kind="resolve",attempt="1"`); err != nil {
+	if pendingErr == nil {
+		acknowledged = append(acknowledged, pending)
+	} else if code := status.Code(pendingErr); code != codes.Unavailable && code != codes.DeadlineExceeded && !errors.Is(pendingErr, context.DeadlineExceeded) {
+		return result, fmt.Errorf("unexpected failed-owner write result: %w", pendingErr)
+	}
+	if err = waitMetric(ctx, configs[ingressIndex].DiagnosticsAddress, `kind="resolve",attempt="1"`); err != nil {
 		return result, fmt.Errorf("stale-route refresh was not observed: %w", err)
 	}
 	taken, err := waitControl(ctx, store, func(c cluster.Control) bool {
 		owner := readyOwner(c, "global")
-		return owner != "" && owner != configs[1].ServiceStorage.NodeID
+		return owner != "" && owner != old.Desired.Node
 	})
 	if err != nil {
 		return result, fmt.Errorf("owner takeover: %w", err)
 	}
-	if err = clusterList(ctx, configs[0].Address(8), 4); err != nil {
-		return result, fmt.Errorf("progress after kill: %w", err)
+	if err = enqueueRecord(ctx, ingress, pending); err != nil {
+		return result, fmt.Errorf("reconcile failed-owner write: %w", err)
 	}
-	configs[1].Bootstrap, configs[1].ServiceStorage.FreshNamespace = false, false
-	if err = start(1); err != nil {
+	if pendingErr != nil {
+		acknowledged = append(acknowledged, pending)
+	}
+	if err = verifyQueueRecords(ctx, ingress, acknowledged, 1000); err != nil {
+		return result, fmt.Errorf("acknowledged data after takeover: %w", err)
+	}
+	configs[ownerIndex].Bootstrap, configs[ownerIndex].ServiceStorage.FreshNamespace = false, false
+	if err = start(ownerIndex); err != nil {
 		return result, fmt.Errorf("same-address replacement: %w", err)
 	}
 	replaced, err := waitControl(ctx, store, func(c cluster.Control) bool {
-		id := c.Layout.Partitions[0].ID
-		part := c.Partitions[id]
-		return part.Ready && part.Desired.Node == configs[1].ServiceStorage.NodeID && part.Desired.Incarnation != oldIncarnation && c.AssignmentRevision > taken.AssignmentRevision
+		part := c.Partitions[physical.ID]
+		return part.Ready && part.Desired.Node == old.Desired.Node && part.Desired.Incarnation != old.Desired.Incarnation && c.AssignmentRevision > taken.AssignmentRevision
 	})
 	if err != nil {
 		return result, fmt.Errorf("replacement recovery: %w", err)
 	}
-	if replaced.Partitions[replaced.Layout.Partitions[0].ID].Desired.Address != configs[1].Address(8) {
+	if replaced.Partitions[physical.ID].Desired.Address != old.Desired.Address {
 		return result, errors.New("replacement did not retain same address")
 	}
-	if err = clusterList(ctx, configs[0].Address(8), 5); err != nil {
-		return result, fmt.Errorf("progress through replacement: %w", err)
+	// A frozen pre-crash route sends deliberately stale work to the same socket.
+	// The production router encodes the full authority tuple and bounded hops.
+	stale := queueWrite(30)
+	if err = rejectStaleQueueWrite(ctx, moved, stale); err != nil {
+		return result, err
 	}
-	result.Assertions = []string{"three nodes joined", "ownership moved while operations progressed", "stale ingress forwarded and refreshed within bounded routing", "killed owner was taken over", "same-address process acquired a new incarnation", "new progress succeeded"}
+	missing, err := queueExecute(ctx, ingress, queueRequest(300, &wire.QueueCommand{Kind: wire.QueueCommand_READ, QueueType: stale.Command.QueueType, FirstId: -1, PageSize: 2}))
+	if err != nil || missing.GetError() != wire.QueueResult_NONE || len(missing.GetMessages()) != 0 {
+		return result, fmt.Errorf("stale mutation was not absent: result=%v error=%v", missing, err)
+	}
+	fresh := queueWrite(40)
+	if err = enqueueRecord(ctx, ingress, fresh); err != nil {
+		return result, fmt.Errorf("new write through replacement: %w", err)
+	}
+	acknowledged = append(acknowledged, fresh)
+	// Replay a pre-crash acknowledged enqueue. The journal must return message
+	// zero; executing it again would append message one.
+	if err = enqueueRecord(ctx, ingress, acknowledged[0]); err != nil {
+		return result, fmt.Errorf("acknowledged replay after restart: %w", err)
+	}
+	if err = verifyQueueRecords(ctx, ingress, acknowledged, 2000); err != nil {
+		return result, fmt.Errorf("acknowledged data after restart: %w", err)
+	}
+	fmt.Fprintf(diagnostics, "multi-node: verified %d acknowledged records after takeover and restart\n", len(acknowledged))
+	result.Assertions = []string{"three nodes accepted durable writes", "ownership moved while writes were acknowledged", "failed-owner write reconciled with its original identity and digest", "killed current owner was taken over with acknowledged data intact", "same-address process acquired a new incarnation", "stale incarnation write rejected with typed STALE_OWNER and absent from storage", "acknowledged write replayed after restart without applying twice", "new durable write and all acknowledged data verified after restart"}
 	return result, nil
 }
 
@@ -488,6 +560,103 @@ func readyOwner(control cluster.Control, logical string) identity.NodeID {
 	}
 	return part.Desired.Node
 }
+func queueRequest(ordinal int, command *wire.QueueCommand) *wire.QueueRequest {
+	raw, _ := proto.MarshalOptions{Deterministic: true}.Marshal(command)
+	digest := sha256.Sum256(raw)
+	return &wire.QueueRequest{ProtocolVersion: 1, Partition: "global", OperationId: fmt.Sprintf("op_%022d", ordinal), CommandSha256: digest[:], Command: command}
+}
+
+func queueWrite(ordinal int) *wire.QueueRequest {
+	// Private queue types are unused by the embedded Temporal runtime.
+	return queueRequest(ordinal, &wire.QueueCommand{Kind: wire.QueueCommand_ENQUEUE, QueueType: int32(1000 + ordinal), Data: []byte(fmt.Sprintf("acknowledged-payload-%d", ordinal)), Encoding: 1})
+}
+
+func queueExecute(ctx context.Context, address string, request *wire.QueueRequest) (*wire.QueueResult, error) {
+	connection, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Close()
+	call, stop := context.WithTimeout(ctx, 10*time.Second)
+	defer stop()
+	return wire.NewQueuePersistenceClient(connection).Execute(call, request)
+}
+
+func enqueueRecord(ctx context.Context, address string, request *wire.QueueRequest) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	result, err := queueExecute(ctx, address, request)
+	if err != nil {
+		return err
+	}
+	if result.Error != wire.QueueResult_NONE || result.MessageId != 0 {
+		return fmt.Errorf("write %s was not applied: %v", request.OperationId, result)
+	}
+	return nil
+}
+
+func verifyQueueRecords(ctx context.Context, address string, acknowledged []*wire.QueueRequest, readBase int) error {
+	// Reads also have replay identities: use a fresh range at each checkpoint
+	// so restart verification cannot return a journaled pre-restart read.
+	for i, request := range acknowledged {
+		result, err := queueExecute(ctx, address, queueRequest(readBase+i, &wire.QueueCommand{Kind: wire.QueueCommand_READ, QueueType: request.Command.QueueType, FirstId: -1, PageSize: 2}))
+		if err != nil {
+			return err
+		}
+		if err = checkQueueRecord(result, request.Command); err != nil {
+			return fmt.Errorf("queue %d: %w", request.Command.QueueType, err)
+		}
+	}
+	return nil
+}
+
+func checkQueueRecord(result *wire.QueueResult, command *wire.QueueCommand) error {
+	if result.GetError() != wire.QueueResult_NONE || len(result.GetMessages()) != 1 {
+		return fmt.Errorf("expected exactly one queued message, got %v", result)
+	}
+	message := result.Messages[0]
+	if message.GetId() != 0 || message.GetQueueType() != command.QueueType || !bytes.Equal(message.GetData(), command.Data) || message.GetEncoding() != "Proto3" {
+		return fmt.Errorf("expected exact payload, queue type, encoding and message ID 0, got %v", result)
+	}
+	return nil
+}
+
+// frozenRoute is fault input, not another routing implementation.
+type frozenRoute struct{ routing.Route }
+
+func (r frozenRoute) Resolve(context.Context, string, bool) (routing.Route, error) {
+	return r.Route, nil
+}
+
+func rejectStaleQueueWrite(ctx context.Context, control cluster.Control, request *wire.QueueRequest) error {
+	physical, _ := control.Layout.Resolve("global")
+	part := control.Partitions[physical.ID]
+	digest, err := control.Layout.Digest()
+	if err != nil {
+		return err
+	}
+	hint := &routing.ExpectedOwner{Cluster: control.Cluster, LayoutDigest: digest, Partition: physical.ID, Node: part.Desired.Node, Incarnation: part.Desired.Incarnation, AssignmentRevision: part.AssignmentRevision, Reservation: part.Reservation, Generation: part.Generation}
+	router := &routing.Router{RequireAuthority: true, Node: "journey-stale-ingress", Directory: frozenRoute{routing.Route{Node: string(part.Desired.Node), Address: part.Desired.Address, Expected: hint}}, Local: func(context.Context, string, proto.Message) (proto.Message, error) {
+		return nil, errors.New("unexpected local stale dispatch")
+	}}
+	defer router.Close()
+	call, stop := context.WithTimeout(ctx, 2*time.Second)
+	defer stop()
+	_, err = router.Interceptor(func(string) proto.Message { return new(wire.QueueResult) })(call, request, &grpc.UnaryServerInfo{FullMethod: wire.QueuePersistence_Execute_FullMethodName}, nil)
+	return checkStaleOwnerRejection(err)
+}
+
+func checkStaleOwnerRejection(err error) error {
+	if status.Code(err) == codes.Unavailable {
+		for _, detail := range status.Convert(err).Details() {
+			if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Domain == "xenon.routing.v1" && info.Reason == "STALE_OWNER" {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("stale incarnation write did not return typed STALE_OWNER: %v", err)
+}
+
 func clusterList(ctx context.Context, address string, ordinal int) error {
 	connection, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
