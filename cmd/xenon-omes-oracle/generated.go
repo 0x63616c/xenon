@@ -348,8 +348,8 @@ func peakGenerated(h *historypb.History, scheduled enums.EventType) (int, error)
 }
 
 func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories map[string]*historypb.History, namespace string) (generatedAudit, error) {
-	audit := generatedAudit{Contract: generatedIntentContract, InputSHA256: file.InputSHA256, IntentSHA256: file.IntentSHA256, Expected: file.Intent.Counts, ExpectedMaxFanout: file.Intent.MaxFanout, Limits: file.Intent.Limits, CountSemantics: "execution kinds are exact; activity and Nexus counts are input-derived upper bounds because cancel and abandon races may stop later sequential handler actions"}
-	if len(runs) != len(file.Intent.Nodes) {
+	audit := generatedAudit{Contract: generatedIntentContract, InputSHA256: file.InputSHA256, IntentSHA256: file.IntentSHA256, Expected: file.Intent.Counts, ExpectedMaxFanout: file.Intent.MaxFanout, Limits: file.Intent.Limits, CountSemantics: "input-derived counts are upper bounds; observed executions and effects must map to declared nodes, while cancel, abandon and parent-close races may prevent declared actions from starting"}
+	if len(runs) > len(file.Intent.Nodes) {
 		return audit, fmt.Errorf("generated_graph/execution_inventory")
 	}
 	byRun, byWorkflow, nodes := map[string]runAudit{}, map[string]runAudit{}, map[string]generatedNode{}
@@ -410,6 +410,7 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 		}
 		activities, nexus := 0, 0
 		childStarts := []*historypb.HistoryEvent{}
+		childInitiated := map[int64]*historypb.HistoryEvent{}
 		nexusSchedules := map[int64]*historypb.HistoryEvent{}
 		nexusStarts := map[int64]*historypb.HistoryEvent{}
 		for _, event := range h.Events {
@@ -425,6 +426,9 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 			}
 			if event.GetChildWorkflowExecutionStartedEventAttributes() != nil {
 				childStarts = append(childStarts, event)
+			}
+			if event.GetStartChildWorkflowExecutionInitiatedEventAttributes() != nil {
+				childInitiated[event.EventId] = event
 			}
 		}
 		if activities > node.Activities || nexus > node.NexusOperations {
@@ -452,18 +456,13 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 			audit.ObservedMaxFanout.Children = cPeak
 		}
 		sort.Slice(childStarts, func(i, j int) bool { return childStarts[i].EventId < childStarts[j].EventId })
-		if len(childStarts) != len(node.Children) {
+		if len(childInitiated) > len(node.Children) || len(childStarts) > len(childInitiated) {
 			return fmt.Errorf("generated_graph/child_inventory")
 		}
 		remainingChildren := append([]string(nil), node.Children...)
-		for _, event := range childStarts {
-			a := event.GetChildWorkflowExecutionStartedEventAttributes()
-			child := byRun[a.GetWorkflowExecution().GetRunId()]
-			if a.InitiatedEventId < 1 || a.InitiatedEventId > int64(len(h.Events)) || h.Events[a.InitiatedEventId-1].EventId != a.InitiatedEventId {
-				return fmt.Errorf("generated_graph/child_initiated_reference")
-			}
-			initiated := h.Events[a.InitiatedEventId-1].GetStartChildWorkflowExecutionInitiatedEventAttributes()
-			digest := generatedWorkflowDigest(initiated.GetInput())
+		initiatedNodes := map[int64]string{}
+		for eventID, event := range childInitiated {
+			digest := generatedWorkflowDigest(event.GetStartChildWorkflowExecutionInitiatedEventAttributes().GetInput())
 			matched := -1
 			for i, childID := range remainingChildren {
 				if childNode, ok := nodes[childID]; ok && childNode.InputSHA256 == digest {
@@ -471,11 +470,22 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 					break
 				}
 			}
-			if initiated == nil || matched < 0 {
+			if matched < 0 {
 				return fmt.Errorf("generated_graph/child_input")
 			}
-			childID := remainingChildren[matched]
+			initiatedNodes[eventID] = remainingChildren[matched]
 			remainingChildren = append(remainingChildren[:matched], remainingChildren[matched+1:]...)
+		}
+		for _, event := range childStarts {
+			a := event.GetChildWorkflowExecutionStartedEventAttributes()
+			child := byRun[a.GetWorkflowExecution().GetRunId()]
+			if a.InitiatedEventId < 1 || a.InitiatedEventId > int64(len(h.Events)) || h.Events[a.InitiatedEventId-1].EventId != a.InitiatedEventId {
+				return fmt.Errorf("generated_graph/child_initiated_reference")
+			}
+			childID := initiatedNodes[a.InitiatedEventId]
+			if childID == "" {
+				return fmt.Errorf("generated_graph/child_input")
+			}
 			if e = bind(childID, child); e != nil {
 				return e
 			}
@@ -549,7 +559,7 @@ func checkGeneratedIntent(file *generatedIntentFile, runs []runAudit, histories 
 		audit.Observed.Activities += run.Events[enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED.String()]
 		audit.Observed.NexusOperations += run.Events[enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED.String()]
 	}
-	if audit.Observed.Roots != audit.Expected.Roots || audit.Observed.Children != audit.Expected.Children || audit.Observed.Continuations != audit.Expected.Continuations || audit.Observed.NexusHandlers != audit.Expected.NexusHandlers || audit.Observed.Activities > audit.Expected.Activities || audit.Observed.NexusOperations > audit.Expected.NexusOperations {
+	if audit.Observed.Roots != audit.Expected.Roots || audit.Observed.Children > audit.Expected.Children || audit.Observed.Continuations > audit.Expected.Continuations || audit.Observed.NexusHandlers > audit.Expected.NexusHandlers || audit.Observed.Activities > audit.Expected.Activities || audit.Observed.NexusOperations > audit.Expected.NexusOperations {
 		return audit, fmt.Errorf("generated_graph/typed_counts")
 	}
 	if audit.ObservedMaxFanout.Children > audit.Limits.Children || audit.ObservedMaxFanout.Activities > audit.Limits.Activities || audit.ObservedMaxFanout.Nexus > audit.Limits.Nexus {

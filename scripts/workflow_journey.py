@@ -86,7 +86,7 @@ def history_counts(directory):
         cases.setdefault(case, []).append(interval)
     if len(cases) != 3 or any(len(items) != 4 for items in cases.values()) or totals['initial_roots'] != 12:
         raise ValueError('expected three cases each containing four initial roots')
-    if limits is None or any(observed[key] > expected[key] for key in ('activities', 'nexus_operations')) or any(observed[key] != expected[key] for key in ('roots', 'children', 'continuations', 'nexus_handlers')):
+    if limits is None or any(observed[key] > expected[key] for key in ('children', 'continuations', 'activities', 'nexus_operations', 'nexus_handlers')) or observed['roots'] != expected['roots']:
         raise ValueError('generated intent census missing')
     actual = dict(roots=totals['initial_roots'], children=totals['child_runs'], continuations=totals['continued_runs'], activities=totals['activity_scheduled'], nexus_operations=totals['nexus_operation_scheduled'], nexus_handlers=totals['nexus_handler_runs'])
     if actual != observed:
