@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -115,27 +116,18 @@ func (r *lateCreationRuntime) Cleanup(ctx context.Context, _ ResidentTopology, _
 func TestResidentCleanupAccountsForLateCreationBeforeCensus(t *testing.T) {
 	runtime := &lateCreationRuntime{entered: make(chan struct{}), release: make(chan struct{}), created: make(chan struct{})}
 	driver := &ResidentWorkflowDriver{Runtime: runtime, Directory: filepath.Join(t.TempDir(), "runtime")}
-	t.Cleanup(func() {
-		driver.mu.Lock()
-		cancel := driver.runCancel
-		driver.mu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
-		select {
-		case <-runtime.release:
-		default:
-			close(runtime.release)
-		}
-	})
 	scenario, err := (ResidentGenerator{residentInputControl{}, residentTestTopology()}).Next(context.Background(), GenerateRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	runDone := make(chan error, 1)
-	go func() { runDone <- driver.Run(parent, scenario, func(json.RawMessage) error { return nil }) }()
+	runDone := make(chan struct{})
+	go func() {
+		defer close(runDone)
+		_ = driver.Run(parent, scenario, func(json.RawMessage) error { return nil })
+	}()
+	t.Cleanup(func() { drainResidentCleanupTest(t, cancel, runtime.release, runDone) })
 	waitResidentCleanupControl(t, runtime.entered)
 	cancel()
 	// An expired cleanup budget must retain ownership and must not call the
@@ -149,7 +141,7 @@ func TestResidentCleanupAccountsForLateCreationBeforeCensus(t *testing.T) {
 		t.Fatal("pending producer reused")
 	}
 	close(runtime.release)
-	<-runDone
+	waitResidentCleanupControl(t, runDone)
 	if err := driver.Cleanup(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -167,27 +159,21 @@ func TestResidentCleanupAccountsForLateCreationBeforeCensus(t *testing.T) {
 func TestResidentCleanupStagesShareOneLogicalDeadline(t *testing.T) {
 	runtime := &lateCreationRuntime{entered: make(chan struct{}), release: make(chan struct{}), created: make(chan struct{}), cleanupEntered: make(chan struct{})}
 	driver := &ResidentWorkflowDriver{Runtime: runtime, Directory: filepath.Join(t.TempDir(), "runtime")}
-	t.Cleanup(func() {
-		driver.mu.Lock()
-		cancel := driver.runCancel
-		driver.mu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
-		select {
-		case <-runtime.release:
-		default:
-			close(runtime.release)
-		}
-	})
 	scenario, err := (ResidentGenerator{residentInputControl{}, residentTestTopology()}).Next(context.Background(), GenerateRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	runDone := make(chan error, 1)
+	parent, cancel := context.WithCancel(context.Background())
+	runDone := make(chan struct{})
+	var cleanupWorkerDone, supervisorDone chan struct{}
+	cleanupCancel := func() {}
 	go func() {
-		runDone <- driver.Run(context.Background(), scenario, func(json.RawMessage) error { return nil })
+		defer close(runDone)
+		_ = driver.Run(parent, scenario, func(json.RawMessage) error { return nil })
 	}()
+	t.Cleanup(func() {
+		drainResidentCleanupTest(t, func() { cancel(); cleanupCancel() }, runtime.release, runDone, cleanupWorkerDone, supervisorDone)
+	})
 	waitResidentCleanupControl(t, runtime.entered)
 	clock := &observedTimers{manualClock: &manualClock{}, created: make(chan struct{}, 8)}
 	type outcome struct {
@@ -195,14 +181,24 @@ func TestResidentCleanupStagesShareOneLogicalDeadline(t *testing.T) {
 		pending <-chan error
 	}
 	finished := make(chan outcome, 1)
+	cleanupWorkerDone = make(chan struct{})
+	supervisorDone = make(chan struct{})
+	cleanupContext, stopCleanup := context.WithCancel(context.Background())
+	cleanupCancel = stopCleanup
+	var workerClosed sync.Once
+	closeWorker := func() { workerClosed.Do(func() { close(cleanupWorkerDone) }) }
 	go func() {
-		err, pending := bounded(context.Background(), clock, time.Second, driver.Cleanup)
+		defer close(supervisorDone)
+		err, pending := bounded(cleanupContext, clock, time.Second, func(ctx context.Context) error { defer closeWorker(); return driver.Cleanup(ctx) })
+		if pending == nil {
+			closeWorker()
+		}
 		finished <- outcome{err, pending}
 	}()
 	waitResidentCleanupControl(t, clock.created)
 	clock.advance(500 * time.Millisecond)
 	close(runtime.release)
-	<-runDone
+	waitResidentCleanupControl(t, runDone)
 	waitResidentCleanupControl(t, runtime.cleanupEntered)
 	// Census begins halfway through the same deadline; it does not get a fresh
 	// second after producer-drain consumed the first half.
@@ -243,5 +239,28 @@ func waitResidentCleanupControl(t *testing.T, ch <-chan struct{}) {
 	case <-ch:
 	case <-time.After(3 * time.Second):
 		t.Fatal("cleanup test control did not become observable")
+	}
+}
+
+// Test teardown cancels both owners and drains their goroutines even when a
+// watchdog assertion aborts before logical-time advancement. Closed completion
+// channels permit both the assertion and teardown to observe termination.
+func drainResidentCleanupTest(t *testing.T, cancel func(), release chan struct{}, done ...<-chan struct{}) {
+	t.Helper()
+	cancel()
+	select {
+	case <-release:
+	default:
+		close(release)
+	}
+	for _, ch := range done {
+		if ch == nil {
+			continue
+		}
+		select {
+		case <-ch:
+		case <-time.After(3 * time.Second):
+			t.Error("cleanup test goroutine failed to drain during teardown")
+		}
 	}
 }
