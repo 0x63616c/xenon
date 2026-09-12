@@ -38,6 +38,14 @@ func TestAcknowledgedQueueRecordOracle(t *testing.T) {
 	}
 }
 
+func TestIntegrationNodeConfigUsesRequestedOutcomeCapacity(t *testing.T) {
+	const requested = uint64(200000)
+	config := integrationNodeConfig("bucket", "prefix", 1, 18233, true, requested)
+	if got := config.ServiceStorage.MaxOutcomes; got != requested {
+		t.Fatalf("MaxOutcomes = %d, want %d", got, requested)
+	}
+}
+
 func TestQueueWriteRetryPreservesEnvelope(t *testing.T) {
 	first, retry := queueWrite(100), queueWrite(100)
 	if !proto.Equal(first, retry) {

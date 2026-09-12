@@ -40,7 +40,7 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	if err = decodeFile(filepath.Join(root, "test/scenarios/ministack/case.json"), &fixture); err != nil {
 		return result, err
 	}
-	if fixture.Schema != 1 || fixture.HistoryShards != 4 || len(fixture.Partitions) != 10 {
+	if fixture.Schema != 1 || fixture.HistoryShards != 4 || len(fixture.Partitions) != 10 || fixture.MaxOutcomes <= 0 {
 		return result, errors.New("unsupported ministack fixture")
 	}
 	if options.XenonBinary == "" {
@@ -104,7 +104,8 @@ func RunTemporalCompatibility(ctx context.Context, diagnostics io.Writer, option
 	if err != nil {
 		return result, err
 	}
-	configs := []app.Config{integrationNodeConfig(bucket, prefix, 1, 18233, true), integrationNodeConfig(bucket, prefix, 2, 19233, false)}
+	maxOutcomes := uint64(fixture.MaxOutcomes)
+	configs := []app.Config{integrationNodeConfig(bucket, prefix, 1, 18233, true, maxOutcomes), integrationNodeConfig(bucket, prefix, 2, 19233, false, maxOutcomes)}
 	for i := range configs {
 		configs[i].PublicAddress = "127.0.0.1:17233"
 		configs[i].PublicHTTPAddress = "127.0.0.1:17243"

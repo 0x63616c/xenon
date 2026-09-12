@@ -87,7 +87,7 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	}
 	configs := make([]app.Config, 3)
 	for i := range configs {
-		configs[i] = integrationNodeConfig(bucket, prefix, i+1, bases[i], i == 0)
+		configs[i] = integrationNodeConfig(bucket, prefix, i+1, bases[i], i == 0, 1000)
 	}
 	for i := range configs {
 		configs[i].PublicAddress = fmt.Sprintf("127.0.0.1:%d", bases[0])
@@ -317,13 +317,13 @@ func RunMultiNodeOwnership(ctx context.Context, diagnostics io.Writer, options M
 	return result, nil
 }
 
-func integrationNodeConfig(bucket, prefix string, ordinal, base int, bootstrap bool) app.Config {
+func integrationNodeConfig(bucket, prefix string, ordinal, base int, bootstrap bool, maxOutcomes uint64) app.Config {
 	names := []string{"global", "matching", "history-0", "history-1", "history-2", "history-3", "vis-v1-0", "vis-v1-1", "vis-v1-2", "vis-v1-3"}
 	parts := make([]cluster.PhysicalPartition, len(names))
 	for i, name := range names {
 		parts[i] = cluster.PhysicalPartition{LogicalName: name, ID: identity.PartitionID(fmt.Sprintf("prt_%022d", i+1)), Path: prefix + "/data/" + name}
 	}
-	return app.Config{Cluster: "integration", Node: fmt.Sprintf("node-%d", ordinal), Bucket: bucket, Prefix: prefix, BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: base, PublicAddress: fmt.Sprintf("127.0.0.1:%d", base), PublicHTTPAddress: fmt.Sprintf("127.0.0.1:%d", base+9), DiagnosticsAddress: fmt.Sprintf("127.0.0.1:%d", base+10), HistoryShards: 4, Bootstrap: bootstrap, ServiceStorage: &app.ServiceStorageConfig{Format: 2, ClusterID: "clu_0000000000000000000001", NodeID: identity.NodeID(fmt.Sprintf("nod_%022d", ordinal)), Layout: cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: parts}, FreshNamespace: bootstrap, PollInterval: "50ms", HeartbeatInterval: "100ms", DiscoveryInterval: "50ms", RegistryTimeout: "5s", RenewalInterval: "250ms", SuspectAfter: "1s", MembershipFailureAfter: "500ms", MaxControlBytes: 1 << 20, MaxMembershipBytes: 1 << 20, MaxMembershipEntries: 16, MembershipReadBatch: 4, MaxOutcomes: 1000}}
+	return app.Config{Cluster: "integration", Node: fmt.Sprintf("node-%d", ordinal), Bucket: bucket, Prefix: prefix, BindIP: "127.0.0.1", AdvertiseIP: "127.0.0.1", BasePort: base, PublicAddress: fmt.Sprintf("127.0.0.1:%d", base), PublicHTTPAddress: fmt.Sprintf("127.0.0.1:%d", base+9), DiagnosticsAddress: fmt.Sprintf("127.0.0.1:%d", base+10), HistoryShards: 4, Bootstrap: bootstrap, ServiceStorage: &app.ServiceStorageConfig{Format: 2, ClusterID: "clu_0000000000000000000001", NodeID: identity.NodeID(fmt.Sprintf("nod_%022d", ordinal)), Layout: cluster.Layout{Version: 1, Placement: cluster.DefaultPlacementConfig(), Partitions: parts}, FreshNamespace: bootstrap, PollInterval: "50ms", HeartbeatInterval: "100ms", DiscoveryInterval: "50ms", RegistryTimeout: "5s", RenewalInterval: "250ms", SuspectAfter: "1s", MembershipFailureAfter: "500ms", MaxControlBytes: 1 << 20, MaxMembershipBytes: 1 << 20, MaxMembershipEntries: 16, MembershipReadBatch: 4, MaxOutcomes: maxOutcomes}}
 }
 
 const diagnosticLimit = 1 << 20
