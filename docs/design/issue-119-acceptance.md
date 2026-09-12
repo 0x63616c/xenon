@@ -130,23 +130,23 @@ and DST do not claim to prove AWS behavior.
 
 ## Definition of done
 
-- [ ] `just xenon` runs Xenon from the current working-tree source. A relevant
+- [x] `just xenon` runs Xenon from the current working-tree source. A relevant
   source edit invalidates and rebuilds the executable; a second unchanged run
   verifies and reuses the cached executable and native library.
-- [ ] `go test ./...` has a fast default path that does not require Python,
+- [x] `go test ./...` has a fast default path that does not require Python,
   Make, Docker, MinIO or Temporal. Native/integration tests are explicitly
   selected when needed.
-- [ ] `xenon test dst` is implemented in Go, code-driven, virtual-time and uses
+- [x] `xenon test dst` is implemented in Go, code-driven, virtual-time and uses
   production decision functions.
-- [ ] The required DST fault families execute across at least 1,000 schedules
+- [x] The required DST fault families execute across at least 1,000 schedules
   and 100 seeds inside the measured budget.
-- [ ] A failing seed can be replayed and minimized through the Go CLI with the
+- [x] A failing seed can be replayed and minimized through the Go CLI with the
   same stable fingerprint.
-- [ ] The five independent negative controls fail for their named invariant.
-- [ ] `xenon test integration` owns and runs the three bounded journeys above.
-- [ ] User-facing build, test and run documentation uses Go and `xenon`; Python
+- [x] The five independent negative controls fail for their named invariant.
+- [x] `xenon test integration` owns and runs the three bounded journeys above.
+- [x] User-facing build, test and run documentation uses Go and `xenon`; Python
   and Make are not required entry points.
-- [ ] One batched independent review finds no duplicate production algorithm in
+- [x] One batched independent review finds no duplicate production algorithm in
   the simulator and no integration-only claim represented as DST coverage.
 
 ## Migration
