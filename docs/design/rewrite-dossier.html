@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Xenon — replacement dossier</title>
+  <style>
+    :root{--bg:#080b10;--panel:#10151d;--panel2:#151c26;--line:#263140;--text:#edf2f7;--muted:#91a0b5;--blue:#77a7ff;--cyan:#62d7c8;--amber:#f2bd63;--red:#ff7f89;--green:#7ce2a3;--r:16px;--shadow:0 24px 70px #0008}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 65% -10%,#18253d 0,transparent 34%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}a{color:var(--blue)}code{font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#d6e5ff}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.side{position:sticky;top:0;height:100vh;padding:28px 22px;border-right:1px solid var(--line);background:#090d13e8;backdrop-filter:blur(16px);overflow:auto}.brand{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--cyan);font-weight:800}.side h1{font-size:20px;line-height:1.2;margin:8px 0 4px}.ref{font:11px ui-monospace;color:var(--muted);word-break:break-all}.nav{display:grid;gap:4px;margin:28px 0}.nav a{padding:8px 10px;border-radius:8px;color:var(--muted);text-decoration:none}.nav a:hover,.nav a.active{background:#172030;color:#fff}.progress{height:4px;background:#1b2430;border-radius:3px;overflow:hidden}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--blue))}.content{max-width:1280px;padding:48px clamp(24px,5vw,74px) 100px}.hero{min-height:68vh;display:grid;align-content:center;max-width:1000px}.eyebrow{color:var(--amber);font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:750}.hero h2{font-size:clamp(42px,7vw,86px);line-height:.98;letter-spacing:-.055em;margin:16px 0 24px;max-width:930px}.hero p{font-size:clamp(18px,2vw,23px);color:#b8c5d6;max-width:790px}.callout{display:flex;gap:12px;align-items:center;margin-top:26px;padding:15px 18px;border:1px solid #604d28;background:#211b10;border-radius:12px;color:#f3cf86;max-width:max-content}.dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 15px currentColor}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:28px 0 70px}.metric{background:linear-gradient(145deg,#141b25,#0e131b);border:1px solid var(--line);border-radius:12px;padding:18px}.metric strong{display:block;font-size:27px;letter-spacing:-.04em}.metric span{color:var(--muted);font-size:12px}section{padding:65px 0;border-top:1px solid var(--line)}section h2{font-size:36px;letter-spacing:-.035em;margin:0 0 12px}.lead{color:#b0bfd1;font-size:18px;max-width:760px;margin:0 0 30px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.card{background:linear-gradient(145deg,#121923,#0d1219);border:1px solid var(--line);border-radius:var(--r);padding:22px;box-shadow:0 8px 30px #0002}.card h3{margin:0 0 8px;font-size:17px}.card p{margin:0;color:#a5b3c5}.tag{display:inline-flex;padding:4px 8px;margin-bottom:12px;border:1px solid currentColor;border-radius:999px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}.good{color:var(--green)}.warn{color:var(--amber)}.risk{color:var(--red)}.blue{color:var(--blue)}.diagram{display:grid;gap:8px;padding:26px;background:#080c12;border:1px solid var(--line);border-radius:var(--r);overflow:auto}.node{padding:13px 16px;border:1px solid #344359;background:#141d29;border-radius:9px;text-align:center;min-width:170px}.row{display:flex;gap:10px;justify-content:center;align-items:stretch}.arrow{text-align:center;color:#63748a;font-size:20px}.toggle{display:flex;width:max-content;padding:4px;margin:20px 0;background:#090d13;border:1px solid var(--line);border-radius:11px}.toggle button{border:0;background:none;color:var(--muted);padding:8px 15px;border-radius:7px;cursor:pointer}.toggle button.on{background:#253248;color:#fff}.arch[data-view]{display:none}.arch[data-view].on{display:grid}.contract{position:relative;padding-left:46px}.contract .num{position:absolute;left:0;top:0;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#1d2a3b;color:var(--blue);font-weight:800}.api{margin-top:14px;padding:15px;background:#080c12;border:1px solid #253044;border-radius:10px;overflow:auto;white-space:pre}.pyramid{display:grid;grid-template-columns:1fr;gap:8px;max-width:850px}.layer{margin:auto;padding:16px 22px;border:1px solid;border-radius:10px;text-align:center}.layer b{display:block}.layer span{font-size:12px;color:#b3bfd0}.l1{width:38%;border-color:var(--amber);background:#2a2112}.l2{width:55%;border-color:var(--cyan);background:#102421}.l3{width:75%;border-color:var(--blue);background:#101c31}.l4{width:94%;border-color:#60738e;background:#141b25}.table{width:100%;border-collapse:collapse;background:#0d1219;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:table}.table th,.table td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top}.table th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}.table tr:last-child td{border-bottom:0}.filter{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}.filter button{cursor:pointer;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#111824;color:var(--muted)}.filter button.on{border-color:var(--blue);color:#fff}.timeline{position:relative;display:grid;gap:12px;margin-left:13px}.timeline:before{content:"";position:absolute;left:10px;top:12px;bottom:12px;width:2px;background:var(--line)}.phase{position:relative;margin-left:38px;padding:18px 20px;background:#111822;border:1px solid var(--line);border-radius:12px}.phase:before{content:"";position:absolute;left:-34px;top:24px;width:12px;height:12px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 5px var(--bg)}.phase h3{margin:0}.phase p{margin:5px 0 0;color:var(--muted)}.checks{display:grid;gap:9px}.check{display:flex;gap:12px;align-items:flex-start;padding:13px 15px;border:1px solid var(--line);border-radius:10px;background:#0e141c;cursor:pointer}.check input{margin-top:5px;accent-color:var(--green)}.check:has(input:checked){border-color:#27563e;color:#a1afaa}.decision{counter-increment:decisions}.decision h3:before{content:counter(decisions) ". ";color:var(--blue)}.decisions{counter-reset:decisions}.recommend{border-left:3px solid var(--cyan);padding-left:13px;margin-top:12px;color:#bfeae4}.foot{padding-top:60px;color:var(--muted)}@media(max-width:900px){.shell{display:block}.side{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}.nav{display:flex;overflow:auto}.nav a{white-space:nowrap}.metrics{grid-template-columns:repeat(2,1fr)}.grid,.grid.three{grid-template-columns:1fr}.content{padding-top:24px}.hero{min-height:auto;padding:65px 0}.row{min-width:700px}.table{display:block;overflow:auto}.l1{width:65%}.l2{width:76%}.l3{width:87%}.l4{width:100%}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">Xenon</div><h1>Replacement dossier</h1>
+    <div class="ref">reference 2c9e4d2</div>
+    <nav class="nav">
+      <a href="#overview">Recommendation</a><a href="#today">Today</a><a href="#contracts">Contracts</a><a href="#architecture">Architecture</a><a href="#interfaces">Interfaces</a><a href="#testing">Testing</a><a href="#disposition">Disposition</a><a href="#migration">Migration</a><a href="#gates">Gates</a><a href="#decisions">Decisions</a>
+    </nav>
+    <div class="progress"><i></i></div>
+  </aside>
+  <main class="content">
+    <header class="hero" id="overview">
+      <div class="eyebrow">Architecture decision · proposed</div>
+      <h2>Keep the correctness.<br>Rebuild the shape.</h2>
+      <p>Recompose Xenon around six deep Go modules in a clean worktree. Port the proven coordination, durability, routing and Temporal behavior mechanically. Keep today’s system as an executable reference; independent invariants remain the oracle.</p>
+      <div class="callout"><span class="dot"></span>No replacement implementation begins before approval.</div>
+    </header>
+    <div class="metrics">
+      <div class="metric"><strong>1,111</strong><span>tracked files</span></div><div class="metric"><strong>76.6k</strong><span>Go lines</span></div><div class="metric"><strong>27</strong><span>local packages reachable from cmd/xenon</span></div><div class="metric"><strong>184 MB</strong><span>default binary</span></div><div class="metric"><strong>3</strong><span>real integration journeys</span></div>
+    </div>
+
+    <section id="today"><div class="eyebrow">01 · Executable reference</div><h2>What exists today</h2><p class="lead">The core works and contains hard-won distributed-systems behavior. The problem is composition: production, compatibility code, proof machinery and developer tooling are too tightly connected.</p>
+      <div class="diagram"><div class="node">Temporal SDK / UI</div><div class="arrow">↓</div><div class="node">cmd/xenon → app.Run</div><div class="arrow">↓</div><div class="row"><div class="node">Embedded Temporal<br><small>adapter → persistence RPC</small></div><div class="node">ServiceRuntime<br><small>registry · control · partitions</small></div></div><div class="arrow">↓</div><div class="row"><div class="node">One-hop router</div><div class="node">SlateDB engine</div><div class="node">S3 authority + data</div></div></div>
+      <div class="grid three" style="margin-top:16px">
+        <div class="card"><span class="tag good">Preserve</span><h3>Credible correctness core</h3><p>Typed identities, conditional publication, pure transition kernels, writer fencing, replay, Temporal semantics, Go DST and real journeys.</p></div>
+        <div class="card"><span class="tag risk">High</span><h3>Two runtime generations</h3><p>The supported runtime and a complete legacy runtime compile beside each other and register the same twelve persistence services.</p></div>
+        <div class="card"><span class="tag risk">High</span><h3>N × P control work</h3><p>Every node creates and polls a partition service for every configured physical partition.</p></div>
+        <div class="card"><span class="tag risk">High</span><h3>Repeated S3 authority reads</h3><p>A local request reads control state during route resolution and again during admission. Forwarded work reads at least three times.</p></div>
+        <div class="card"><span class="tag warn">Medium</span><h3>Runtime time is not virtual</h3><p>Pure Steps exist, but orchestration directly calls wall-clock timers and bypasses the deterministic time seam.</p></div>
+        <div class="card"><span class="tag warn">Medium</span><h3>Product imports the lab</h3><p>The shipping CLI transitively includes simulation, integration, proof code and Python-backed profiles.</p></div>
+      </div>
+    </section>
+
+    <section id="contracts"><div class="eyebrow">02 · Non-negotiable behavior</div><h2>The hidden contracts</h2><p class="lead">These are the details a visually cleaner rewrite could accidentally destroy. Each becomes an explicit compatibility test.</p>
+      <div class="grid">
+        <div class="card contract"><span class="num">1</span><h3>Product</h3><p>One Go binary and endpoint; every ready node accepts full operations; owners execute locally and other nodes forward once; direct S3 durability; disposable disks.</p></div>
+        <div class="card contract"><span class="num">2</span><h3>Registry</h3><p>Opaque key-scoped CAS versions prevent ABA. Preserve canonical envelopes, transition validation and unknown-outcome behavior after dispatch.</p></div>
+        <div class="card contract"><span class="num">3</span><h3>Layout and authority</h3><p>Populated layout is immutable. Slot order and digest are durable. Assignment is intent; generation, reservation and readiness establish authority.</p></div>
+        <div class="card contract"><span class="num">4</span><h3>Durability</h3><p>SlateDB Commit submits work; AwaitDurable acknowledges it. Cancellation does not roll back. Whole operations pass admission or fail together.</p></div>
+        <div class="card contract"><span class="num">5</span><h3>Replay</h3><p>Stable operation ID plus digest; persisted outcomes/count/usage/barriers; an exact replay returns the same durable result; a mismatched digest is rejected.</p></div>
+        <div class="card contract"><span class="num">6</span><h3>Routing</h3><p>Resolve the full owner tuple, bound hops and owner attempts, preserve request identity and deadline, refresh stale routes, and let unknown result dominate.</p></div>
+        <div class="card contract"><span class="num">7</span><h3>Temporal</h3><p>Keep protobuf field numbers, oneofs, typed errors, mutable outputs, pagination semantics, visibility behavior and history prewrite ordering.</p></div>
+        <div class="card contract"><span class="num">8</span><h3>Proof</h3><p>DST checkers remain independent. Triangulate normative invariants, a deliberately broken mutant, and old or upstream behavior.</p></div>
+      </div>
+    </section>
+
+    <section id="architecture"><div class="eyebrow">03 · Proposed shape</div><h2>Six deep modules</h2><p class="lead">Few public seams, substantial private implementation, no generic “services” bucket, and no second runtime hiding behind compatibility code.</p>
+      <div class="toggle"><button class="on" data-show="current">Current</button><button data-show="ideal">Ideal</button></div>
+      <div class="diagram arch on" data-view="current"><div class="row"><div class="node">cmd/xenon</div><div class="node">app</div><div class="node">integration + simulation + proof</div></div><div class="arrow">↓</div><div class="row"><div class="node">cluster</div><div class="node">partitions</div><div class="node">routing</div><div class="node">persistence</div></div><div class="arrow">+ legacy parallel composition</div><div class="row"><div class="node">directory</div><div class="node">ownership</div><div class="node">node</div></div></div>
+      <div class="diagram arch" data-view="ideal"><div class="node">cmd/xenon — assembly only</div><div class="arrow">↓</div><div class="row"><div class="node">xenon<br><small>lifecycle + readiness</small></div><div class="node">control<br><small>membership + ownership</small></div><div class="node">storage<br><small>operations + SlateDB</small></div></div><div class="row"><div class="node">transport<br><small>one-hop routing</small></div><div class="node">temporal<br><small>server + family codecs</small></div><div class="node">sim<br><small>virtual world</small></div></div><div class="arrow">supporting: telemetry · compat · api/xenon/v1</div></div>
+      <div class="grid three" style="margin-top:16px"><div class="card"><h3>xenon</h3><p>Owns process configuration, component lifecycle and the single readiness answer.</p></div><div class="card"><h3>control</h3><p>Turns membership and time into placement intent and fenced ownership authority.</p></div><div class="card"><h3>storage</h3><p>Executes idempotent partition operations and defines durable acknowledgement.</p></div><div class="card"><h3>transport</h3><p>Resolves an owner, executes locally or forwards once, and returns typed outcomes.</p></div><div class="card"><h3>temporal</h3><p>Embeds Temporal and translates its persistence families onto storage operations.</p></div><div class="card"><h3>sim</h3><p>Runs the real control reactor against deterministic time, faults and fake storage.</p></div></div>
+    </section>
+
+    <section id="interfaces"><div class="eyebrow">04 · Exact Go seams</div><h2>Small APIs, deep implementations</h2><p class="lead">The seams represent domain decisions. Infrastructure details remain private inside adapters.</p>
+      <div class="grid">
+        <div class="card"><h3>Process</h3><div class="api">func LoadConfig(path string) (Config, error)
+func Run(ctx context.Context, cfg Config) error</div></div>
+        <div class="card"><h3>Control reactor</h3><div class="api">func New(Config) (Machine, error)
+func (m Machine) Step(Event) (Machine, []Effect, error)
+func (m Machine) View() View
+
+// Private driver owns CASStore and PartitionHost.</div></div>
+        <div class="card"><h3>Typed storage ports</h3><div class="api">type Command[T any] struct {
+  ID identity.OperationID
+  Partition identity.PartitionID
+  Digest [32]byte
+  Input T
+  Expected control.OwnerToken
+}
+type Store interface {
+  ShardStore; MetadataStore; ClusterStore
+  QueueV2Store; MatchingStore; NexusStore
+  HistoryStore; QueueStore; ExecutionStore
+  HistoryTasksStore; ExecutionTasksStore
+  VisibilityStore
+}</div></div>
+        <div class="card"><h3>Transport</h3><div class="api">type Resolver interface {
+  Owner(context.Context, identity.PartitionID, Refresh) (Route, error)
+}
+type Client interface {
+  Invoke(context.Context, Route, *Envelope) (*Envelope, error)
+  Close() error
+}
+func NewRouter(Resolver, LocalRegistry, Client) Handler</div></div>
+        <div class="card"><h3>Temporal</h3><div class="api">type Server interface {
+  Run(context.Context) error
+  Ready(context.Context) error
+  Close(context.Context) error
+}
+func New(Config, storage.Store) (Server, error)</div></div>
+        <div class="card"><h3>Simulation</h3><div class="api">type Scenario func(*T)
+func Run(seed uint64, cases int, scenario Scenario) Result
+func (t *T) Advance(time.Duration)
+func (t *T) Crash(NodeID)
+func (t *T) LoseResponse(Matcher)
+func (t *T) Heal(Link)
+func (t *T) Check(Invariant)</div></div>
+      </div>
+    </section>
+
+    <section id="testing"><div class="eyebrow">05 · Go-first proof</div><h2>Fast at the bottom, real at the top</h2><p class="lead">Authored scenarios are Go code. JSON is only a generated, stable replay artifact. MinIO and full processes are reserved for the few boundaries that need them.</p>
+      <div class="pyramid"><div class="layer l1"><b>Release qualification</b><span>real S3 · Omes · soak · capacity</span></div><div class="layer l2"><b>3 integration journeys</b><span>SlateDB + MinIO · three-node movement · embedded Temporal</span></div><div class="layer l3"><b>Native contracts</b><span>registry CAS · durable formats · compatibility corpus</span></div><div class="layer l4"><b>Ordinary Go tests + DST</b><span>thousands of virtual schedules and faults in seconds</span></div></div>
+      <div class="grid" style="margin-top:22px"><div class="card"><span class="tag blue">DST loop</span><h3>Search → replay → minimize</h3><p>A seed generates a deterministic execution. Failure writes a stable artifact. Replay reproduces its fingerprint. Minimize removes irrelevant operations while preserving the same failure.</p></div><div class="card"><span class="tag good">Bail early</span><h3>Failure is the output</h3><p>Stop a run on the first invariant violation, retain the seed, trace, source revision and config hash, and make the smallest reproducer a normal Go regression test.</p></div></div>
+    </section>
+
+    <section id="disposition"><div class="eyebrow">06 · What moves</div><h2>Reuse, rewrite, archive</h2><p class="lead">Filter the table. “Rewrite” applies to composition and operations; it does not discard proven protocols.</p>
+      <div class="filter"><button class="on" data-filter="all">All</button><button data-filter="reuse">Reuse</button><button data-filter="port">Port</button><button data-filter="rewrite">Rewrite</button><button data-filter="compat">Compatibility</button><button data-filter="archive">Archive/delete</button></div>
+      <table class="table"><thead><tr><th>Decision</th><th>Material</th><th>Rule</th></tr></thead><tbody>
+        <tr data-kind="reuse"><td><span class="tag good">Reuse closely</span></td><td>identity, registry envelope, protobuf numbers</td><td>Preserve semantics and golden bytes.</td></tr>
+        <tr data-kind="port"><td><span class="tag blue">Port kernels</span></td><td>control Steps, codecs, owner authority tuple</td><td>Move with existing tests; simplify their host.</td></tr>
+        <tr data-kind="port"><td><span class="tag blue">Port behavior</span></td><td>persistence families and Temporal conversions</td><td>Pass old compatibility and upstream suites.</td></tr>
+        <tr data-kind="reuse"><td><span class="tag good">Reuse adapter</span></td><td>SlateDB fence, lifecycle and durability</td><td>Extract behind a private storage boundary.</td></tr>
+        <tr data-kind="reuse"><td><span class="tag good">Reuse testing</span></td><td>Go scheduler, artifacts, replay and minimizer</td><td>Remove authored manifests and real-process concerns.</td></tr>
+        <tr data-kind="rewrite"><td><span class="tag warn">Rewrite</span></td><td>process lifecycle, config, active partitions, telemetry</td><td>Implement directly against the new seams.</td></tr>
+        <tr data-kind="compat"><td><span class="tag warn">Compatibility</span></td><td>old formats, config and populated prefixes</td><td>Offline read/migration support; never a second runtime.</td></tr>
+        <tr data-kind="archive"><td><span class="tag risk">Archive/delete</span></td><td>proof bulk, Python, Make, obsolete commands, legacy runtime</td><td>After gates pass, preserve an immutable indexed evidence archive and repair links.</td></tr>
+      </tbody></table>
+    </section>
+
+    <section id="migration"><div class="eyebrow">07 · Safe replacement</div><h2>Migration sequence</h2><p class="lead">Each phase leaves a runnable vertical system and has a gate. The old runtime stays available as the executable reference until cutover.</p>
+      <div class="timeline"><div class="phase"><h3>0 · Freeze the reference</h3><p>Tag exact source; capture golden wire, durable and behavioral corpus.</p></div><div class="phase"><h3>1 · Clean vertical slice</h3><p>One node owns the existing full layout: CLI, process, transport, SlateDB/MinIO, embedded Temporal and a compact workflow.</p></div><div class="phase"><h3>2 · Deterministic control</h3><p>The same pure reactor runs with real and virtual drivers; DST proves election, movement, crash and ABA cases.</p></div><div class="phase"><h3>3 · Horizontal operation</h3><p>Three nodes, one-hop forwarding, versioned authority snapshots, fencing and unknown-result replay.</p></div><div class="phase"><h3>4 · Temporal compatibility</h3><p>Port every typed persistence family and pass the exhaustive manifest plus upstream behavior.</p></div><div class="phase"><h3>5 · Operations and replacement proof</h3><p>Readiness, logs, metrics, packaging and three clean-checkout journeys establish replacement-ready.</p></div><div class="phase"><h3>6 · Cutover</h3><p>Offline migration to a protected destination prefix; revoke the old identity; crash-resume; then replace main. Real AWS remains a separate release-ready gate.</p></div></div>
+    </section>
+
+    <section id="gates"><div class="eyebrow">08 · Machine-checkable exit</div><h2>Replacement gates</h2><p class="lead">These boxes are a reading aid and persist only in this browser. The authoritative gates belong in committed tests and CI.</p>
+      <div class="checks">
+        <label class="check"><input type="checkbox"><span><b>Frozen reference:</b> the exact clean, pushed reference tag exists.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Single composition:</b> static check proves no legacy runtime is linked into the production binary.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Exhaustive manifest:</b> descriptors, generated code, every method across all 12 families, oneofs, durable codecs, keys and tokens match the checked-in inventory; an omitted-method mutant fails.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Wire compatibility:</b> golden registry/control/layout/manifest/durable-key/token vectors pass old-write/new-read and new-write/new-read.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Control correctness:</b> production decisions survive at least 1,000 schedules and 100 seeds across delayed writes, ABA, partitions, crashes, movement and stale coordinators.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Authority freshness:</b> every admission performs exactly one authoritative read; A→B→A and lost snapshot updates cannot acknowledge stale work.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Negative controls:</b> independent mutants fail with their intended stable fingerprints.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Replay/minimize:</b> saved failures replay exactly and minimize without changing the fingerprint.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Acknowledgement:</b> no acknowledged write is lost across injected crashes and lost responses.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Routing:</b> every ready node accepts complete operations with a bounded single forward and typed error preservation.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Temporal:</b> all persistence families pass retained and upstream compatibility behavior.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Three real journeys:</b> MinIO engine, three-node movement and embedded Temporal pass from a clean checkout.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Reproducibility:</b> evidence records source, config/input hashes, versions and stable replay command.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Developer path:</b> <code>just xenon</code> builds incrementally and launches current source without Python or Make.</span></label>
+        <label class="check"><input type="checkbox"><span><b>100-node bound:</b> at 512 partitions, one observer per node, actors at most owned + moving, and at most 32 pooled peer connections.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Production closure:</b> <code>go list -deps ./cmd/xenon</code> excludes simulation, integration, proof and migration packages.</span></label>
+        <label class="check"><input type="checkbox"><span><b>One CLI:</b> <code>xenon test</code> execs a separately cached <code>xenon-lab</code> sibling; the production image contains only <code>xenon</code>.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Resource census:</b> forced failures leave zero child processes/containers and return native handles to baseline.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Cutover:</b> populated-prefix migration, crash/resume and empty disks pass; MinIO policy plus declarative IAM evaluation deny the old identity every destination mutation.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Release-ready:</b> real AWS qualification passes separately; MinIO cannot substitute for it.</span></label>
+        <label class="check"><input type="checkbox"><span><b>Review:</b> independent spec and standards reviews have no unresolved high or medium findings.</span></label>
+      </div>
+      <p class="lead" style="margin-top:18px"><b>Replacement-ready</b> means every gate except live AWS release qualification is green. <b>Release-ready</b> additionally requires the live AWS evidence.</p>
+      <div class="card" style="margin-top:18px;border-color:#57343a"><span class="tag risk">Stop and reassess</span><p>If the first slice invents a new durable format, weakens typed errors, needs a second authority, duplicates production predicates, imports most of the old runtime through shims, or is not materially easier to understand.</p></div>
+    </section>
+
+    <section id="decisions"><div class="eyebrow">09 · Approval boundary</div><h2>Five decisions</h2><p class="lead">Approval means we can create the isolated implementation worktree and execute this sequence. It does not declare the replacement correct before its gates pass.</p>
+      <p class="card" style="margin-bottom:14px">This pause follows Calum’s latest explicit request to inspect and approve the plan before implementation. It narrows the standing autonomous delegation for this decision.</p><div class="grid decisions">
+        <div class="card decision"><h3>Rewrite boundary</h3><p>Rebuild process composition while preserving proven protocol and storage kernels.</p><div class="recommend">Recommendation: approve.</div></div>
+        <div class="card decision"><h3>Module model</h3><p>Use xenon, control, storage, transport, temporal and sim as the six deep modules.</p><div class="recommend">Recommendation: approve.</div></div>
+        <div class="card decision"><h3>Working model</h3><p>Build in an isolated worktree in this repository; keep current main as the executable reference.</p><div class="recommend">Recommendation: approve.</div></div>
+        <div class="card decision"><h3>Migration order</h3><p>Vertical slice, deterministic control, horizontal operation, Temporal breadth, release proof, cutover.</p><div class="recommend">Recommendation: approve.</div></div>
+        <div class="card decision"><h3>Deletion rule</h3><p>Archive or delete old machinery only after the matching replacement gate is proven.</p><div class="recommend">Recommendation: approve.</div></div>
+      </div>
+    </section>
+    <footer class="foot">Full evidence: <a href="rewrite-dossier.md">written dossier</a> · <a href="../../.codebase-audits/2026-09-12-0548.md">codebase audit</a><br>Prepared against Xenon <code>2c9e4d209ae462ca9913c7ceea34d606c909173f</code>.</footer>
+  </main>
+</div>
+<script>
+const links=[...document.querySelectorAll('.nav a')], sections=links.map(a=>document.querySelector(a.hash));
+addEventListener('scroll',()=>{const max=document.documentElement.scrollHeight-innerHeight;document.querySelector('.progress i').style.width=(scrollY/max*100)+'%';let active=sections[0];for(const s of sections)if(s&&s.getBoundingClientRect().top<innerHeight*.35)active=s;links.forEach(a=>a.classList.toggle('active',a.hash==='#'+active.id));},{passive:true});
+document.querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-show]').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x.dataset.view===b.dataset.show))});
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('tbody tr').forEach(r=>r.hidden=b.dataset.filter!=='all'&&r.dataset.kind!==b.dataset.filter)});
+const boxes=[...document.querySelectorAll('.check input')];boxes.forEach((b,i)=>{b.checked=localStorage.getItem('xenon-gate-'+i)==='1';b.onchange=()=>localStorage.setItem('xenon-gate-'+i,b.checked?'1':'0')});
+</script>
+</body></html>
